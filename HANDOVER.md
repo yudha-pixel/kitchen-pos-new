@@ -1,12 +1,12 @@
 # Kitchen POS - Handover Document
 
 ## Project Overview
-Kitchen POS is a modern Point of Sale system built with Next.js, TypeScript, and Supabase. It features offline-first capabilities, split bill functionality, table merging, and dynamic product modifiers based on categories.
+Kitchen POS is a modern Point of Sale system built with Next.js, TypeScript, Express, Prisma, and a local PostgreSQL database. It features offline-first capabilities, split bill functionality, table merging, dynamic product modifiers, and local JWT authentication.
 
 ## Tech Stack
 - **Frontend**: Next.js 15, React, TypeScript
 - **Styling**: TailwindCSS
-- **Backend**: Supabase (PostgreSQL)
+- **Backend**: Express + Prisma + PostgreSQL
 - **State Management**: Zustand
 - **Offline Storage**: IndexedDB (Dexie.js)
 - **Icons**: Lucide React
@@ -42,10 +42,10 @@ kitchen-pos-new/
 │   │   ├── useSyncManager.ts    # Offline sync management
 │   │   └── useOrders.ts         # Order management
 │   ├── lib/
-│   │   ├── supabaseClient.ts    # Supabase client & API functions
+│   │   ├── api.ts               # Local REST API client
 │   │   ├── db.ts                # IndexedDB setup
-│   │   ├── database.sql         # Database schema
-│   │   └── seedData.ts          # Dummy data seeding
+│   │   ├── database.sql         # Legacy reference schema
+│   │   └── seedData.ts          # Dummy IndexedDB seeding
 │   ├── store/
 │   │   └── useCartStore.ts      # Cart state management
 │   └── types/
@@ -86,7 +86,7 @@ kitchen-pos-new/
 ### 5. Offline-First Architecture
 - **IndexedDB**: Caches products, categories, modifiers
 - **Sync Manager**: Queues changes when offline, syncs when online
-- **Cache-First**: Loads from cache, updates from Supabase when online
+- **Cache-First**: Loads from cache, updates from local API when online
 
 ### 6. Receipt Printing
 - **Location**: `src/components/pos/Receipt.tsx`
@@ -100,15 +100,29 @@ kitchen-pos-new/
 ## Environment Setup
 
 ### Required Environment Variables
-Create `.env.local` file:
+Create `.env` in the project root (used by Prisma and the Express API):
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/kitchen_pos?schema=public"
+JWT_SECRET="change-this-in-production"
+PORT=3001
+API_HOST=0.0.0.0
 ```
+
+Create `.env.local` in the project root (used by the Next.js frontend):
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+Use the API host's LAN IP when accessing from other devices.
 
 ### Installation
 ```bash
 npm install
+```
+
+### Database Setup
+```bash
+npm run db:migrate
+npm run db:seed
 ```
 
 ### Development
@@ -153,11 +167,11 @@ npm run build
 
 ## Important Functions
 
-### updateProduct (supabaseClient.ts)
+### updateProduct (src/lib/api.ts)
 ```typescript
-updateProduct(productId, { name, description, price, image_url })
+await api.updateProduct(productId, { name, price, stock_quantity, image_url, category_id })
 ```
-Updates product in Supabase with auto-timestamp.
+Updates product in local PostgreSQL via the Express API.
 
 ### getModifiersByCategory (modifiers.ts)
 ```typescript
@@ -171,16 +185,15 @@ Handles payment processing with rounding support.
 ## Known Issues & TODOs
 
 ### TODOs
-1. **Authentication**: Implement proper user authentication (currently hardcoded role)
-2. **Image Upload**: Integrate with Supabase Storage for real image uploads
+1. ~~**Authentication**: Implement proper user authentication~~ ✅ Done (local JWT)
+2. **Image Upload**: Add local image upload/storage for products
 3. **Modifier Persistence**: Save modifier changes to database (currently UI only)
 4. **Error Handling**: Improve error messages and user feedback
 5. **Testing**: Add unit and E2E tests
 
 ### Known Issues
 - CSS lint warning: Unknown at rule @theme (Tailwind CSS v4)
-- Modifier type inference warning in useProducts.ts (line 282)
-- Role toggle is in Dev Tools (should be in proper auth system)
+- Role toggle has been replaced with a login page; the dev-only role switch is removed
 
 ## Development Notes
 
@@ -242,8 +255,8 @@ npm start
 8. ✅ Added role toggle in Dev Tools for testing
 
 ## Next Steps
-1. Implement proper authentication system
-2. Integrate Supabase Storage for image uploads
+1. Add local image upload/storage for product photos
+2. Persist modifier changes to the database
 3. Add comprehensive error handling
 4. Write unit and E2E tests
 5. Optimize offline sync performance

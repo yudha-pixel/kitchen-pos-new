@@ -5,7 +5,7 @@ import { Image as ImageIcon, Edit } from 'lucide-react';
 import { ModifierModal, ModifierOption, UIModifierGroup } from './ModifierModal';
 import { EditProductModal } from './EditProductModal';
 import { Product } from '@/src/types/database.types';
-import { updateProduct } from '@/src/lib/supabaseClient';
+import * as api from '@/src/lib/api';
 
 interface ProductCardProps {
   product: Product;
@@ -36,16 +36,17 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
   const handleSaveProduct = async (updatedData: Partial<Product>) => {
     const dataToUpdate = {
       name: updatedData.name,
-      description: updatedData.description,
       price: updatedData.price,
-      image_url: updatedData.image_url || undefined,
+      stock_quantity: product.stock_quantity,
+      image_url: updatedData.image_url || null,
+      category_id: product.category_id,
     };
-    const result = await updateProduct(product.id, dataToUpdate);
-    if (result.success) {
+    try {
+      await api.updateProduct(product.id, dataToUpdate);
       alert('Produk berhasil diupdate');
       onProductUpdate?.();
-    } else {
-      alert(result.message);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Gagal mengupdate produk');
     }
   };
 

@@ -1,6 +1,6 @@
 import Dexie, { Table as DexieTable } from 'dexie';
 
-// Database interfaces matching new UUID-based Supabase schema
+// Database interfaces matching the local PostgreSQL schema
 export interface Product {
   id?: string; // UUID
   category_id: string | null; // UUID

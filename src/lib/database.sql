@@ -1,4 +1,4 @@
--- Kitchen POS Database Schema for Supabase
+-- Kitchen POS Database Schema for local PostgreSQL (legacy reference)
 -- UUID-based schema for improved scalability and offline-first support
 
 -- 1. Setup Extension

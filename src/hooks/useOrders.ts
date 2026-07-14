@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/src/lib/supabaseClient';
+import * as api from '@/src/lib/api';
+import { NetworkError } from '@/src/lib/api';
 import { db, Order as DBOrder, OrderItem as DBOrderItem } from '@/src/lib/db';
 import { Order, OrderItem, OrderInsert, OrderItemInsert } from '@/src/types/database.types';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
@@ -12,8 +13,6 @@ import { useOfflineStore } from '@/src/store/useOfflineStore';
  * 2. Creates orders locally and queues for sync when offline
  * 3. Updates order status with offline queue
  * 4. Handles order items with proper relationships
- * 
- * New UUID-based schema: simplified without tables, order numbers, etc.
  */
 export const useOrders = (cashierId?: string | null) => {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -59,20 +58,9 @@ export const useOrders = (cashierId?: string | null) => {
         console.warn('Failed to load orders from cache:', cacheError);
       }
 
-      // STEP 2: If online, fetch fresh data from Supabase
+      // STEP 2: If online, fetch fresh data from the local API
       if (isOnline) {
-        let query = supabase
-          .from('orders')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        if (cashierId) {
-          query = query.eq('cashier_id', cashierId);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
+        const data = (await api.fetchOrders(cashierId)) as unknown as Order[];
 
         if (data && data.length > 0) {
           // Update IndexedDB cache
@@ -93,7 +81,7 @@ export const useOrders = (cashierId?: string | null) => {
               }
             }
 
-            await db.orders.bulkPut(data as DBOrder[]);
+            await db.orders.bulkPut(data as unknown as DBOrder[]);
             console.log('Updated orders cache with fresh data:', data.length);
           } catch (cacheError) {
             console.warn('Failed to update orders cache:', cacheError);
@@ -133,51 +121,39 @@ export const useOrders = (cashierId?: string | null) => {
         status: orderData.status ?? 'pending',
         table_number: orderData.table_number ?? null,
         discount_amount: orderData.discount_amount ?? 0,
+        rounding_amount: orderData.rounding_amount ?? 0,
         notes: orderData.notes ?? null,
         created_at: new Date().toISOString(),
       };
 
       // Create order items with temporary IDs
-      const newOrderItems: OrderItem[] = orderItems.map((item, index) => ({
+      const newOrderItems: OrderItem[] = orderItems.map((item) => ({
         ...item,
         id: crypto.randomUUID(),
         order_id: tempId,
         discount_item: item.discount_item ?? 0,
         modifiers_applied: item.modifiers_applied ?? [],
+        split_group_id: item.split_group_id ?? null,
       }));
 
-      // If online, create in Supabase immediately
+      // If online, create in the local API immediately
       if (isOnline) {
-        const { data: orderResult, error: orderError } = await supabase
-          .from('orders')
-          .insert(orderData)
-          .select()
-          .single();
-
-        if (orderError) throw orderError;
-
-        // Create order items
-        const itemsWithOrderId = orderItems.map(item => ({
-          ...item,
-          order_id: orderResult.id,
-        }));
-
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(itemsWithOrderId);
-
-        if (itemsError) throw itemsError;
+        const orderResult = await api.createOrder(orderData, orderItems) as unknown as Order;
 
         // Update local state with server response
         setOrders(prev => [orderResult, ...prev]);
         
         // Update IndexedDB cache
-        await db.orders.put(orderResult as DBOrder);
+        await db.orders.put(orderResult as unknown as DBOrder);
+        const itemsWithOrderId = orderItems.map(item => ({
+          ...item,
+          order_id: orderResult.id,
+        }));
         for (const item of itemsWithOrderId) {
           await db.order_items.put(item as DBOrderItem);
         }
 
-        console.log('Order created in Supabase:', orderResult.id);
+        console.log('Order created in local API:', orderResult.id);
         return orderResult;
       } else {
         // If offline, queue for sync and create locally
@@ -219,13 +195,8 @@ export const useOrders = (cashierId?: string | null) => {
       await db.orders.update(orderId, { status });
 
       if (isOnline) {
-        const { error } = await supabase
-          .from('orders')
-          .update({ status })
-          .eq('id', orderId);
-
-        if (error) throw error;
-        console.log('Order status synced to Supabase');
+        await api.updateOrderStatus(orderId, status);
+        console.log('Order status synced to local API');
       } else {
         await addTransaction('update', 'orders', { id: orderId, status });
         console.log('Order status queued for offline sync');
@@ -267,7 +238,7 @@ export const useOrderItems = (orderId: string) => {
     }
   }, [orderId]);
 
-  const fetchOrderItems = async () => {
+  async function fetchOrderItems() {
     try {
       setLoading(true);
       setError(null);
@@ -289,14 +260,9 @@ export const useOrderItems = (orderId: string) => {
         console.warn('Failed to load order items from cache:', cacheError);
       }
 
-      // STEP 2: If online, fetch fresh data from Supabase
+      // STEP 2: If online, fetch fresh data from the local API
       if (isOnline) {
-        const { data, error } = await supabase
-          .from('order_items')
-          .select('*')
-          .eq('order_id', orderId);
-
-        if (error) throw error;
+        const data = (await api.fetchOrderItems(orderId)) as unknown as OrderItem[];
 
         if (data && data.length > 0) {
           // Update IndexedDB cache
@@ -305,7 +271,7 @@ export const useOrderItems = (orderId: string) => {
               .where('order_id')
               .equals(orderId)
               .delete();
-            await db.order_items.bulkPut(data as DBOrderItem[]);
+            await db.order_items.bulkPut(data as unknown as DBOrderItem[]);
             console.log('Updated order items cache with fresh data:', data.length);
           } catch (cacheError) {
             console.warn('Failed to update order items cache:', cacheError);

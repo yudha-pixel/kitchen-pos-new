@@ -1,23 +1,42 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
 import { CartPanel } from '@/src/features/pos/components/CartPanel';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
-import { useProducts, useCategories, useModifiers } from '@/src/hooks/useProducts';
+import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
+import { useAuth } from '@/src/context/AuthContext';
 import { seedDummyData, clearDummyData } from '@/src/lib/seedData';
 import { ShoppingCart, Search, Wifi, WifiOff, RefreshCw, AlertCircle, Database } from 'lucide-react';
 
 export default function POSPage() {
+  const router = useRouter();
+  const { user, isLoading: authLoading, logout } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [searchQuery, setSearchQuery] = useState('');
-  const [userRole, setUserRole] = useState<'admin' | 'cashier'>('cashier'); // TODO: Get from auth
 
-  // Fetch data from Supabase with offline support
+  // Keep the cart store aware of the logged-in cashier
+  useEffect(() => {
+    if (user) {
+      useCartStore.getState().setCashierId(user.id);
+    }
+  }, [user]);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login');
+    }
+  }, [authLoading, user, router]);
+
+  const userRole = user?.role ?? 'cashier';
+
+  // Fetch data from the local API with offline support
   const { products, loading: productsLoading, error: productsError, isFromCache: productsFromCache } = useProducts();
   const { categories, loading: categoriesLoading, isFromCache: categoriesFromCache } = useCategories();
   
@@ -96,7 +115,7 @@ export default function POSPage() {
   });
 
   // Loading state
-  if (productsLoading) {
+  if (authLoading || productsLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-gray-100">
         <div className="text-center">
@@ -206,14 +225,16 @@ export default function POSPage() {
             Clear Data
           </button>
           <div className="flex items-center gap-2 ml-4">
-            <span className="text-sm font-medium text-gray-600">Role:</span>
+            <span className="text-sm font-medium text-gray-600">User:</span>
+            <span className="text-sm text-gray-800">{user?.username} ({userRole})</span>
             <button
-              onClick={() => setUserRole(userRole === 'admin' ? 'cashier' : 'admin')}
-              className={`px-3 py-1 text-sm rounded ${
-                userRole === 'admin' ? 'bg-purple-500 text-white' : 'bg-gray-300 text-gray-700'
-              }`}
+              onClick={() => {
+                logout();
+                router.replace('/login');
+              }}
+              className="px-3 py-1 text-sm rounded bg-gray-300 text-gray-700 hover:bg-gray-400"
             >
-              {userRole === 'admin' ? 'Admin' : 'Cashier'}
+              Logout
             </button>
           </div>
         </div>

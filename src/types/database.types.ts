@@ -1,10 +1,10 @@
 /**
  * Database Types
- * 
- * This file contains TypeScript interfaces that match the Supabase database schema.
+ *
+ * TypeScript interfaces that match the local PostgreSQL database schema.
  * These types are used throughout the application to ensure type safety.
- * 
- * Schema Reference: src/lib/database.sql
+ *
+ * Schema Reference: prisma/schema.prisma
  * UUID-based schema for improved scalability and offline-first support
  */
 

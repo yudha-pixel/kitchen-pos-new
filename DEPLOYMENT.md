@@ -1,204 +1,136 @@
-# Deployment Guide - Kitchen POS to Vercel
+# Local Deployment Guide - Kitchen POS
+
+This guide covers running Kitchen POS locally on a single machine or a small LAN, using your own PostgreSQL instance.
 
 ## Prerequisites
 
-- GitHub account with the project pushed to a repository
-- Vercel account (free tier is sufficient)
-- Supabase project with database configured
+- Windows / macOS / Linux machine with Node.js 18+
+- PostgreSQL 14+ installed and running locally
+- npm or yarn
 
-## Step 1: Push to GitHub
+## Step 1: Install dependencies
 
-1. Initialize git repository (if not already done):
 ```bash
-git init
-git add .
-git commit -m "Initial commit - Kitchen POS"
+npm install
 ```
 
-2. Create repository on GitHub and push:
-```bash
-git remote add origin https://github.com/your-username/kitchen-pos.git
-git branch -M main
-git push -u origin main
+## Step 2: Configure environment variables
+
+Create a `.env` file in the project root for the API and Prisma:
+
+```env
+DATABASE_URL="postgresql://postgres:your_password@localhost:5432/kitchen_pos?schema=public"
+JWT_SECRET="change-this-to-a-long-random-string"
+PORT=3001
+API_HOST=0.0.0.0
 ```
 
-## Step 2: Deploy to Vercel
+Create a `.env.local` file in the project root for the Next.js frontend:
 
-### Option A: Via Vercel Dashboard
-
-1. Go to [vercel.com](https://vercel.com) and sign in
-2. Click "Add New Project"
-3. Import your GitHub repository
-4. Configure project settings:
-   - **Framework Preset**: Next.js
-   - **Root Directory**: `./` (default)
-   - **Build Command**: `npm run build` (auto-detected)
-   - **Output Directory**: `.next` (auto-detected)
-5. Click "Deploy"
-
-### Option B: Via Vercel CLI
-
-1. Install Vercel CLI:
-```bash
-npm install -g vercel
+```env
+NEXT_PUBLIC_API_URL=http://localhost:3001
 ```
 
-2. Login to Vercel:
-```bash
-vercel login
+**For LAN access**, replace `localhost` with the IP address of the machine running the API, e.g.:
+
+```env
+NEXT_PUBLIC_API_URL=http://192.168.1.10:3001
 ```
 
-3. Deploy:
-```bash
-vercel
-```
+The API must also bind to `0.0.0.0` (already the default via `API_HOST`) so other devices can reach it.
 
-4. Follow the prompts to configure your project
+## Step 3: Create the PostgreSQL database
 
-## Step 3: Configure Environment Variables
-
-### In Vercel Dashboard:
-
-1. Go to your project in Vercel
-2. Navigate to **Settings** → **Environment Variables**
-3. Add the following variables:
-
-#### Required for Supabase Sync:
-```
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key-here
-```
-
-#### Optional - Store Configuration:
-```
-NEXT_PUBLIC_STORE_NAME=Kitchen POS
-NEXT_PUBLIC_STORE_ADDRESS=Your Store Address
-NEXT_PUBLIC_STORE_PHONE=Your Phone Number
-```
-
-#### Optional - Odoo Integration:
-```
-NEXT_PUBLIC_ODOO_URL=https://your-odoo-instance.com
-ODOO_DATABASE=your_odoo_database
-```
-
-4. Click "Save"
-5. **Important**: Redeploy your project after adding environment variables:
-   - Go to **Deployments** tab
-   - Click the three dots (...) next to latest deployment
-   - Select "Redeploy"
-
-### Getting Supabase Credentials:
-
-1. Go to your Supabase project dashboard
-2. Navigate to **Settings** → **API**
-3. Copy:
-   - **Project URL** → `NEXT_PUBLIC_SUPABASE_URL`
-   - **anon public** key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-## Step 4: Database Setup
-
-### Run SQL Schema in Supabase:
-
-1. Go to your Supabase project
-2. Navigate to **SQL Editor**
-3. Run the schema from `src/lib/database.sql`:
-   - Categories table
-   - Products table
-   - Modifiers table
-   - Orders table
-   - Order items table
-   - Order void logs table
-
-### Enable Row Level Security (RLS):
+Connect to your local PostgreSQL server as a superuser and create the database:
 
 ```sql
--- Enable RLS
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_items ENABLE ROW LEVEL SECURITY;
-ALTER TABLE order_void_logs ENABLE ROW LEVEL SECURITY;
-
--- Create policies (adjust based on your auth setup)
-ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public read access" ON orders FOR SELECT USING (true);
-CREATE POLICY "Public insert access" ON orders FOR INSERT WITH CHECK (true);
+CREATE DATABASE kitchen_pos;
+CREATE USER kitchen_user WITH PASSWORD 'your_password';
+GRANT ALL PRIVILEGES ON DATABASE kitchen_pos TO kitchen_user;
 ```
 
-## Step 5: Verify Deployment
+## Step 4: Apply the schema and seed data
 
-1. Check your Vercel deployment URL
-2. Open the POS application
-3. Test:
-   - Product loading from Supabase
-   - Adding items to cart
-   - Payment processing
-   - Receipt printing
-   - Offline mode (by disconnecting internet)
-
-## .gitignore Configuration
-
-Your `.gitignore` already includes:
-```
-.env*
+```bash
+npm run db:migrate
+npm run db:seed
 ```
 
-This ensures:
-- `.env.local` (development) is NOT committed
-- `.env.production` (production) is NOT committed
-- Only `.env.example` should be committed (as template)
+`db:seed` creates a default admin user:
 
-**Important**: Never commit actual environment variables with sensitive data to Git!
+- **Username:** `admin`
+- **Password:** `admin`
+
+Change this password after the first login by registering a new admin user or updating the database directly.
+
+## Step 5: Start the application
+
+```bash
+npm run dev
+```
+
+This starts:
+
+- Express API on `http://0.0.0.0:3001`
+- Next.js frontend on `http://localhost:3000`
+
+Open `http://localhost:3000` and log in with the default admin account.
+
+## Step 6: Access from other devices (optional)
+
+1. Make sure both devices are on the same network.
+2. Find the API host's LAN IP (e.g. `192.168.1.10`).
+3. Set `NEXT_PUBLIC_API_URL=http://192.168.1.10:3001` in `.env.local`.
+4. Start the Next.js frontend bound to the LAN IP:
+
+```bash
+npx next dev --hostname 192.168.1.10
+```
+
+5. On the client device, open `http://192.168.1.10:3000`.
+
+## Production Deployment Notes
+
+Kitchen POS is designed to run on a local network. If you need to expose it over the internet, place the API and frontend behind a reverse proxy (e.g. Nginx or Caddy) and:
+
+- Use HTTPS.
+- Set a strong `JWT_SECRET`.
+- Restrict PostgreSQL access to the API host only.
+- Do not commit `.env` or `.env.local` to Git.
+
+## Verification Checklist
+
+- [ ] PostgreSQL is running and `kitchen_pos` database exists
+- [ ] `.env` and `.env.local` are configured
+- [ ] `npm run db:migrate` succeeds
+- [ ] `npm run db:seed` succeeds
+- [ ] `GET http://localhost:3001/health` returns `{"status":"ok"}`
+- [ ] Login with `admin/admin` works
+- [ ] Products load from the API
+- [ ] Creating an order writes to PostgreSQL
+- [ ] Offline mode falls back to IndexedDB and syncs when the API is back
 
 ## Troubleshooting
 
-### Environment Variables Not Loading:
-- Ensure variables start with `NEXT_PUBLIC_` for client-side access
-- Redeploy after adding variables
-- Check Vercel build logs for errors
+### API cannot connect to PostgreSQL
 
-### Supabase Connection Issues:
-- Verify Supabase URL and Anon Key are correct
-- Check Supabase project is active
-- Ensure RLS policies allow access
+- Verify the `DATABASE_URL` username, password, host, port, and database name.
+- Ensure PostgreSQL is listening on `localhost:5432` (or update the URL).
+- On Windows, check that the PostgreSQL service is running.
 
-### Build Errors:
-- Check Vercel build logs
-- Ensure all dependencies are in `package.json`
-- Verify Node.js version compatibility
+### Frontend cannot reach the API
 
-### Offline Mode Not Working:
-- IndexedDB requires HTTPS in production (Vercel provides this)
-- Check browser console for IndexedDB errors
-- Verify service worker is registered (if using PWA)
+- Confirm `NEXT_PUBLIC_API_URL` matches the API host and port.
+- Check the browser console for CORS errors; the API allows all origins by default in development.
+- If accessing from another device, ensure the API binds to `0.0.0.0` and the firewall allows port `3001`.
 
-## Production Checklist
+### Build errors
 
-- [ ] Environment variables configured in Vercel
-- [ ] Supabase database schema applied
-- [ ] RLS policies configured in Supabase
-- [ ] Store information updated (name, address, phone)
-- [ ] Test payment flow in production
-- [ ] Test receipt printing
-- [ ] Test offline mode
-- [ ] Verify sync to Supabase works
-- [ ] Check mobile responsiveness
-
-## Post-Deployment
-
-1. **Monitor**: Use Vercel Analytics to monitor performance
-2. **Logs**: Check Vercel function logs for errors
-3. **Database**: Monitor Supabase dashboard for database usage
-4. **Updates**: Deploy updates by pushing to GitHub and Vercel auto-deploys
-
-## Custom Domain (Optional)
-
-1. In Vercel project → **Settings** → **Domains**
-2. Add your custom domain
-3. Update DNS records as instructed by Vercel
-4. SSL certificate is automatically provisioned
+- Run `npm install` again to ensure Prisma Client is generated.
+- If `@prisma/client` seems missing, run `npx prisma generate`.
 
 ## Support
 
-- Vercel Documentation: https://vercel.com/docs
-- Supabase Documentation: https://supabase.com/docs
 - Next.js Documentation: https://nextjs.org/docs
+- Prisma Documentation: https://prisma.io/docs
+- PostgreSQL Documentation: https://www.postgresql.org/docs/

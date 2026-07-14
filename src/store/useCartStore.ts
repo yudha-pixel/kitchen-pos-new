@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { supabase } from '@/src/lib/supabaseClient';
+import * as api from '@/src/lib/api';
+import { NetworkError } from '@/src/lib/api';
 import { db } from '@/src/lib/db';
 
 export interface ModifierOption {
@@ -25,6 +26,8 @@ interface CartState {
   tableNumber: string;
   notes: string;
   paymentMethod: 'CASH' | 'QRIS' | 'DEBIT';
+  cashierId: string | null;
+  setCashierId: (id: string | null) => void;
   setTableNumber: (tableNumber: string) => void;
   setNotes: (notes: string) => void;
   setPaymentMethod: (method: 'CASH' | 'QRIS' | 'DEBIT') => void;
@@ -33,7 +36,7 @@ interface CartState {
   updateQuantity: (id: string, quantity: number) => void;
   updateModifiers: (id: string, modifiers: ModifierOption[]) => void;
   clearCart: () => void;
-  processPayment: (roundTo?: number) => Promise<{ success: boolean; message: string; orderId?: string; receiptData?: any }>;
+  processPayment: (roundTo?: number) => Promise<{ success: boolean; message: string; orderId?: string; receiptData?: unknown }>;
   voidItem: (itemId: string, reason: string) => Promise<{ success: boolean; message: string }>;
   voidOrderItem: (orderId: string, orderItemId: string, productId: string, quantity: number, reason: string) => Promise<{ success: boolean; message: string }>;
   calculateTotal: () => number;
@@ -56,7 +59,9 @@ export const useCartStore = create<CartState>()(
       tableNumber: '',
       notes: '',
       paymentMethod: 'CASH',
+      cashierId: null,
 
+      setCashierId: (id) => set({ cashierId: id }),
       setTableNumber: (tableNumber) => set({ tableNumber }),
       setNotes: (notes) => set({ notes }),
       setPaymentMethod: (method) => set({ paymentMethod: method }),
@@ -139,7 +144,7 @@ export const useCartStore = create<CartState>()(
         // Create order data
         const orderData = {
           id: orderId,
-          cashier_id: null, // TODO: Get from auth
+          cashier_id: state.cashierId,
           total_amount: finalTotal,
           payment_method: paymentMethod.toLowerCase() as 'cash' | 'card' | 'qr' | 'transfer',
           status: 'completed' as const,
@@ -162,68 +167,13 @@ export const useCartStore = create<CartState>()(
           split_group_id: null,
         }));
 
-        // Check connection and Supabase configuration
+        // Check connection and local API availability
         const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-        const { isSupabaseConfigured } = await import('@/src/lib/supabaseClient');
 
-        if (isOnline && isSupabaseConfigured) {
-          // Online: Send directly to Supabase
-          console.log('🌐 Online mode: Sending payment directly to Supabase...');
-          try {
-            console.log(`📤 Inserting order ${orderId} to Supabase...`);
-            // Insert order
-            const { error: orderError } = await supabase.from('orders').insert(orderData);
-            if (orderError) throw orderError;
-            console.log(`✅ Order ${orderId} inserted to Supabase successfully`);
-
-            console.log(`📤 Inserting ${orderItems.length} order items to Supabase...`);
-            // Insert order items
-            const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
-            if (itemsError) throw itemsError;
-            console.log(`✅ Order items inserted to Supabase successfully`);
-
-            // Prepare receipt data BEFORE clearing cart
-            const receiptData = {
-              orderId,
-              tableNumber: state.tableNumber,
-              items: state.items.map(item => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                modifiers: item.modifiers.map(m => m.name),
-              })),
-              subtotal: state.getSubtotal(),
-              tax: state.getTax(),
-              discount: 0,
-              roundingAmount,
-              total: finalTotal,
-              paymentMethod,
-              notes: state.notes,
-            };
-
-            // Clear cart after successful payment
-            set({ items: [], tableNumber: '', notes: '' });
-            console.log('🧹 Cart cleared after successful payment');
-
-            return { 
-              success: true, 
-              message: 'Pembayaran berhasil!', 
-              orderId,
-              receiptData,
-            };
-          } catch (error) {
-            console.error('❌ Payment failed:', error);
-            return { 
-              success: false, 
-              message: `Pembayaran gagal: ${error instanceof Error ? error.message : 'Unknown error'}` 
-            };
-          }
-        } else {
-          // Offline or Supabase not configured: Save to Dexie with status 'pending'
-          const mode = !isOnline ? 'Offline' : 'Supabase not configured';
+        const saveOffline = async (mode: string) => {
           console.log(`📴 ${mode} mode: Saving payment to IndexedDB...`);
           try {
-            console.log(`📥 Saving order ${orderId} to IndexedDB with status 'pending'...`);
+            console.log(`� Saving order ${orderId} to IndexedDB with status 'pending'...`);
             // Save order to IndexedDB
             await db.orders.add({
               ...orderData,
@@ -272,7 +222,61 @@ export const useCartStore = create<CartState>()(
               message: `Gagal menyimpan transaksi lokal: ${error instanceof Error ? error.message : 'Unknown error'}` 
             };
           }
+        };
+
+        if (isOnline) {
+          // Online: Send directly to the local API
+          console.log('🌐 Online mode: Sending payment directly to local API...');
+          try {
+            console.log(`� Inserting order ${orderId} to local API...`);
+            await api.createOrder(orderData, orderItems);
+            console.log(`✅ Order ${orderId} inserted to local API successfully`);
+
+            console.log(`✅ Order items inserted to local API successfully`);
+
+            // Prepare receipt data BEFORE clearing cart
+            const receiptData = {
+              orderId,
+              tableNumber: state.tableNumber,
+              items: state.items.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                modifiers: item.modifiers.map(m => m.name),
+              })),
+              subtotal: state.getSubtotal(),
+              tax: state.getTax(),
+              discount: 0,
+              roundingAmount,
+              total: finalTotal,
+              paymentMethod,
+              notes: state.notes,
+            };
+
+            // Clear cart after successful payment
+            set({ items: [], tableNumber: '', notes: '' });
+            console.log('🧹 Cart cleared after successful payment');
+
+            return { 
+              success: true, 
+              message: 'Pembayaran berhasil!', 
+              orderId,
+              receiptData,
+            };
+          } catch (error) {
+            if (error instanceof NetworkError) {
+              console.warn('📴 Local API unreachable, falling back to IndexedDB...');
+            } else {
+              console.error('❌ Payment failed:', error);
+              return { 
+                success: false, 
+                message: `Pembayaran gagal: ${error instanceof Error ? error.message : 'Unknown error'}` 
+              };
+            }
+          }
         }
+
+        return await saveOffline(!isOnline ? 'Offline' : 'API fallback');
       },
 
       voidItem: async (itemId, reason) => {
@@ -301,6 +305,7 @@ export const useCartStore = create<CartState>()(
 
       voidOrderItem: async (orderId, orderItemId, productId, quantity, reason) => {
         try {
+          const state = get();
           const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
           
           const voidLog = {
@@ -309,14 +314,22 @@ export const useCartStore = create<CartState>()(
             product_id: productId,
             quantity,
             reason,
-            cashier_id: null, // TODO: Get from auth
+            cashier_id: state.cashierId,
             created_at: new Date().toISOString(),
           };
 
           if (isOnline) {
-            // Online: Send directly to Supabase
-            const { error } = await supabase.from('order_void_logs').insert(voidLog);
-            if (error) throw error;
+            // Online: Send directly to the local API
+            try {
+              await api.createVoidLogs([voidLog]);
+            } catch (error) {
+              if (error instanceof NetworkError) {
+                console.warn('📴 Local API unreachable, saving void log to IndexedDB');
+                await db.order_void_logs.add(voidLog);
+              } else {
+                throw error;
+              }
+            }
           } else {
             // Offline: Save to IndexedDB
             await db.order_void_logs.add(voidLog);
@@ -435,42 +448,10 @@ export const useCartStore = create<CartState>()(
         }
 
         try {
-          // In a real implementation, this would:
-          // 1. Fetch orders from source table
-          // 2. Move items to target table
-          // 3. Update orders in Supabase
-          // 4. Delete source table orders
-
-          // For now, we'll simulate the merge
           const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-          const isSupabaseConfigured = !!process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-          if (isOnline && isSupabaseConfigured) {
-            // Fetch orders from source table
-            const { data: sourceOrders, error: fetchError } = await supabase
-              .from('orders')
-              .select('*')
-              .eq('table_number', sourceTable)
-              .eq('status', 'pending');
-
-            if (fetchError) {
-              return { success: false, message: 'Gagal mengambil data meja asal' };
-            }
-
-            if (!sourceOrders || sourceOrders.length === 0) {
-              return { success: false, message: 'Meja asal tidak memiliki pesanan aktif' };
-            }
-
-            // Update orders to target table
-            const { error: updateError } = await supabase
-              .from('orders')
-              .update({ table_number: targetTable })
-              .eq('table_number', sourceTable)
-              .eq('status', 'pending');
-
-            if (updateError) {
-              return { success: false, message: 'Gagal menggabungkan meja' };
-            }
+          if (isOnline) {
+            await api.mergeTable(sourceTable, targetTable);
           }
 
           return {
@@ -478,6 +459,9 @@ export const useCartStore = create<CartState>()(
             message: `Berhasil menggabungkan meja ${sourceTable} ke ${targetTable}`
           };
         } catch (error) {
+          if (error instanceof NetworkError) {
+            return { success: false, message: 'Gagal terhubung ke server lokal' };
+          }
           return { success: false, message: 'Terjadi kesalahan saat menggabungkan meja' };
         }
       },

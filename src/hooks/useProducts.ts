@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '@/src/lib/supabaseClient';
+import * as api from '@/src/lib/api';
+import { NetworkError } from '@/src/lib/api';
 import { db, Product as DBProduct, Category as DBCategory, Modifier as DBModifier } from '@/src/lib/db';
-import { Product, Category, Modifier, UIModifierGroup, ModifierOption } from '@/src/types/database.types';
+import { Product, Category, UIModifierGroup } from '@/src/types/database.types';
 
 /**
  * useProducts Hook with Offline-First Support
- * 
- * This hook implements a cache-first strategy:
- * 1. First, try to load data from IndexedDB (fast, works offline)
- * 2. If online, fetch fresh data from Supabase and update IndexedDB cache
- * 3. If offline and no cached data, show appropriate error state
- * 
- * This ensures the app remains functional even without internet connection
+ *
+ * Cache-first strategy:
+ * 1. Load from IndexedDB (fast, works offline)
+ * 2. If online, fetch fresh data from the local API and update IndexedDB
+ * 3. If offline and no cache, show an error
  */
 export const useProducts = (categoryId?: string | null) => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -23,7 +22,7 @@ export const useProducts = (categoryId?: string | null) => {
     fetchProducts();
   }, [categoryId]);
 
-  const fetchProducts = async () => {
+  async function fetchProducts() {
     try {
       setLoading(true);
       setError(null);
@@ -31,89 +30,62 @@ export const useProducts = (categoryId?: string | null) => {
 
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-      // STEP 1: Try to load from IndexedDB cache first (fast, works offline)
+      // STEP 1: Load from IndexedDB cache
       try {
         let cachedProducts: DBProduct[] = [];
-        
         if (categoryId) {
           cachedProducts = await db.products
             .where('category_id')
             .equals(categoryId)
-            .toArray();
+            .sortBy('name');
         } else {
-          cachedProducts = await db.products.toArray();
+          cachedProducts = await db.products.orderBy('name').toArray();
         }
 
         if (cachedProducts.length > 0) {
-          // Sort by name
           cachedProducts.sort((a, b) => a.name.localeCompare(b.name));
           setProducts(cachedProducts as Product[]);
           setIsFromCache(true);
           console.log('Loaded products from IndexedDB cache:', cachedProducts.length);
         }
       } catch (cacheError) {
-        console.warn('Failed to load from cache:', cacheError);
-        // Continue to fetch from Supabase
+        console.warn('Failed to load products from cache:', cacheError);
       }
 
-      // STEP 2: If online, fetch fresh data from Supabase and update cache
+      // STEP 2: If online, fetch fresh data from the local API and update cache
       if (isOnline) {
-        let query = supabase
-          .from('products')
-          .select('*, categories(name)')
-          .order('name', { ascending: true });
+        try {
+          const data = await api.fetchProducts(categoryId);
 
-        if (categoryId) {
-          query = query.eq('category_id', categoryId);
-        }
-
-        const { data, error } = await query;
-
-        if (error) throw error;
-
-        if (data && data.length > 0) {
-          // Transform data to include category_name
-          const productsWithCategory = data.map((product: any) => ({
-            ...product,
-            category_name: product.categories?.name || null
-          }));
-
-          // Update IndexedDB cache with fresh data
-          try {
-            // Clear old products for this category (or all if no category filter)
-            if (categoryId) {
-              const toDelete = await db.products
-                .where('category_id')
-                .equals(categoryId)
-                .primaryKeys();
-              if (toDelete.length > 0) {
-                await db.products.bulkDelete(toDelete as string[]);
-              }
-            } else {
+          if (Array.isArray(data) && data.length > 0) {
+            // Update IndexedDB cache with fresh data
+            try {
               await db.products.clear();
+              await db.products.bulkPut(data as unknown as DBProduct[]);
+              console.log('Updated products cache with fresh data:', data.length);
+            } catch (cacheError) {
+              console.warn('Failed to update products cache:', cacheError);
             }
 
-            // Add fresh data to cache
-            await db.products.bulkPut(productsWithCategory as DBProduct[]);
-            console.log('Updated IndexedDB cache with fresh data:', productsWithCategory.length);
-          } catch (cacheError) {
-            console.warn('Failed to update cache:', cacheError);
-            // Don't fail the whole operation if cache update fails
+            setProducts(data as unknown as Product[]);
+            setIsFromCache(false);
+          } else if (data && !Array.isArray(data)) {
+            console.warn('Unexpected products response format:', data);
           }
-
-          setProducts(productsWithCategory);
-          setIsFromCache(false);
+        } catch (err) {
+          if (err instanceof NetworkError) {
+            console.warn('API unreachable, using cached products');
+            setIsFromCache(true);
+          } else {
+            throw err;
+          }
         }
       }
     } catch (err) {
-      // If we have cached data, don't show error - just mark as from cache
       if (products.length === 0) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
-        console.error('Error fetching products:', err);
-      } else {
-        console.warn('Using cached data due to fetch error:', err);
-        setIsFromCache(true);
       }
+      console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
     }
@@ -124,8 +96,6 @@ export const useProducts = (categoryId?: string | null) => {
 
 /**
  * useCategories Hook with Offline-First Support
- * 
- * Similar cache-first strategy for categories
  */
 export const useCategories = () => {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -137,7 +107,7 @@ export const useCategories = () => {
     fetchCategories();
   }, []);
 
-  const fetchCategories = async () => {
+  async function fetchCategories() {
     try {
       setLoading(true);
       setError(null);
@@ -145,12 +115,10 @@ export const useCategories = () => {
 
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-      // STEP 1: Try to load from IndexedDB cache
+      // STEP 1: Load from cache
       try {
         const cachedCategories = await db.categories.toArray();
-        
         if (cachedCategories.length > 0) {
-          // Sort by name
           cachedCategories.sort((a, b) => a.name.localeCompare(b.name));
           setCategories(cachedCategories as Category[]);
           setIsFromCache(true);
@@ -160,37 +128,37 @@ export const useCategories = () => {
         console.warn('Failed to load categories from cache:', cacheError);
       }
 
-      // STEP 2: If online, fetch fresh data from Supabase
+      // STEP 2: Fetch from local API
       if (isOnline) {
-        const { data, error } = await supabase
-          .from('categories')
-          .select('*')
-          .order('name', { ascending: true });
+        try {
+          const data = await api.fetchCategories();
 
-        if (error) throw error;
+          if (Array.isArray(data) && data.length > 0) {
+            try {
+              await db.categories.clear();
+              await db.categories.bulkPut(data as unknown as DBCategory[]);
+              console.log('Updated categories cache with fresh data:', data.length);
+            } catch (cacheError) {
+              console.warn('Failed to update categories cache:', cacheError);
+            }
 
-        if (data && data.length > 0) {
-          // Update IndexedDB cache
-          try {
-            await db.categories.clear();
-            await db.categories.bulkPut(data as DBCategory[]);
-            console.log('Updated categories cache with fresh data:', data.length);
-          } catch (cacheError) {
-            console.warn('Failed to update categories cache:', cacheError);
+            setCategories(data);
+            setIsFromCache(false);
           }
-
-          setCategories(data);
-          setIsFromCache(false);
+        } catch (err) {
+          if (err instanceof NetworkError) {
+            console.warn('API unreachable, using cached categories');
+            setIsFromCache(true);
+          } else {
+            throw err;
+          }
         }
       }
     } catch (err) {
       if (categories.length === 0) {
         setError(err instanceof Error ? err.message : 'Failed to fetch categories');
-        console.error('Error fetching categories:', err);
-      } else {
-        console.warn('Using cached categories due to fetch error:', err);
-        setIsFromCache(true);
       }
+      console.error('Error fetching categories:', err);
     } finally {
       setLoading(false);
     }
@@ -201,9 +169,6 @@ export const useCategories = () => {
 
 /**
  * useModifiers Hook with Offline-First Support
- * 
- * Fetches modifiers for a specific product with caching
- * New schema: modifiers are directly linked to products (no modifier groups)
  */
 export const useModifiers = (productId: string) => {
   const [modifiers, setModifiers] = useState<UIModifierGroup[]>([]);
@@ -217,7 +182,7 @@ export const useModifiers = (productId: string) => {
     }
   }, [productId]);
 
-  const fetchModifiers = async () => {
+  async function fetchModifiers() {
     try {
       setLoading(true);
       setError(null);
@@ -225,7 +190,7 @@ export const useModifiers = (productId: string) => {
 
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-      // STEP 1: Try to load from IndexedDB cache
+      // STEP 1: Load from cache
       try {
         const cachedModifiers = await db.modifiers
           .where('product_id')
@@ -233,11 +198,10 @@ export const useModifiers = (productId: string) => {
           .toArray();
 
         if (cachedModifiers.length > 0) {
-          // Convert to UI format - group all modifiers under a single group
           const uiGroup: UIModifierGroup = {
             id: productId,
             name: 'Modifiers',
-            options: cachedModifiers.map(mod => ({
+            options: cachedModifiers.map((mod) => ({
               id: mod.id!,
               name: mod.name,
               price: mod.price_extra,
@@ -252,55 +216,55 @@ export const useModifiers = (productId: string) => {
         console.warn('Failed to load modifiers from cache:', cacheError);
       }
 
-      // STEP 2: If online, fetch fresh data from Supabase
+      // STEP 2: Fetch from local API
       if (isOnline) {
-        const { data, error } = await supabase
-          .from('modifiers')
-          .select('*')
-          .eq('product_id', productId)
-          .order('name', { ascending: true });
+        try {
+          const data = await api.fetchModifiers(productId);
 
-        if (error) throw error;
+          if (Array.isArray(data)) {
+            // Update IndexedDB cache
+            try {
+              await db.modifiers.where('product_id').equals(productId).delete();
+              if (data.length > 0) {
+                await db.modifiers.bulkPut(data as unknown as DBModifier[]);
+              }
+              console.log('Updated modifiers cache with fresh data');
+            } catch (cacheError) {
+              console.warn('Failed to update modifiers cache:', cacheError);
+            }
 
-        if (data && data.length > 0) {
-          // Update IndexedDB cache
-          try {
-            await db.modifiers
-              .where('product_id')
-              .equals(productId)
-              .delete();
-            await db.modifiers.bulkPut(data as DBModifier[]);
-            console.log('Updated modifiers cache with fresh data');
-          } catch (cacheError) {
-            console.warn('Failed to update modifiers cache:', cacheError);
+            if (data.length > 0) {
+              const typedData = data as unknown as Array<{ id: string; name: string; price_extra: number }>;
+              const uiGroup: UIModifierGroup = {
+                id: productId,
+                name: 'Modifiers',
+                options: typedData.map((mod) => ({
+                  id: mod.id,
+                  name: mod.name,
+                  price: mod.price_extra,
+                  selected: false,
+                })),
+              };
+              setModifiers([uiGroup]);
+            } else {
+              setModifiers([]);
+            }
+            setIsFromCache(false);
           }
-
-          // Convert to UI format
-          const uiGroup: UIModifierGroup = {
-            id: productId,
-            name: 'Modifiers',
-            options: data.map(mod => ({
-              id: mod.id,
-              name: mod.name,
-              price: mod.price_extra,
-              selected: false,
-            })),
-          };
-
-          setModifiers([uiGroup]);
-          setIsFromCache(false);
-        } else {
-          setModifiers([]);
+        } catch (err) {
+          if (err instanceof NetworkError) {
+            console.warn('API unreachable, using cached modifiers');
+            setIsFromCache(true);
+          } else {
+            throw err;
+          }
         }
       }
     } catch (err) {
       if (modifiers.length === 0) {
         setError(err instanceof Error ? err.message : 'Failed to fetch modifiers');
-        console.error('Error fetching modifiers:', err);
-      } else {
-        console.warn('Using cached modifiers due to fetch error:', err);
-        setIsFromCache(true);
       }
+      console.error('Error fetching modifiers:', err);
     } finally {
       setLoading(false);
     }
