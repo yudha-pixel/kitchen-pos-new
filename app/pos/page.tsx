@@ -6,19 +6,21 @@ import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
 import { CartPanel } from '@/src/features/pos/components/CartPanel';
+import { AddProductModal } from '@/src/features/pos/components/AddProductModal';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
-import { seedDummyData, clearDummyData } from '@/src/lib/seedData';
-import { ShoppingCart, Search, Wifi, WifiOff, RefreshCw, AlertCircle, Database } from 'lucide-react';
+// import { seedDummyData, clearDummyData } from '@/src/lib/seedData';
+import { ShoppingCart, Search, Wifi, WifiOff, RefreshCw, AlertCircle, Database, Plus } from 'lucide-react';
 
 export default function POSPage() {
   const router = useRouter();
   const { user, isLoading: authLoading, logout } = useAuth();
-  const [selectedCategory, setSelectedCategory] = useState('Semua');
+  const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -50,32 +52,33 @@ export default function POSPage() {
     triggerManualSync 
   } = useSyncManager();
   
-  // Mock modifier data - replace with useModifiers when productId is available
-  const modifiers: UIModifierGroup[] = [
-    {
-      id: crypto.randomUUID(),
-      name: 'Level Pedas',
-      required: false,
-      multiSelect: false,
-      options: [
-        { id: crypto.randomUUID(), name: 'Tidak Pedas', price: 0, selected: false },
-        { id: crypto.randomUUID(), name: 'Sedang', price: 0, selected: false },
-        { id: crypto.randomUUID(), name: 'Pedas', price: 2000, selected: false },
-        { id: crypto.randomUUID(), name: 'Sangat Pedas', price: 3000, selected: false },
-      ],
-    },
-    {
-      id: crypto.randomUUID(),
-      name: 'Tambahan',
-      required: false,
-      multiSelect: true,
-      options: [
-        { id: crypto.randomUUID(), name: 'Extra Keju', price: 5000, selected: false },
-        { id: crypto.randomUUID(), name: 'Extra Telur', price: 3000, selected: false },
-        { id: crypto.randomUUID(), name: 'Extra Nasi', price: 5000, selected: false },
-      ],
-    },
-  ];
+  // Transform API modifier groups to UI format
+  const getProductModifiers = (product: any): UIModifierGroup[] => {
+    console.log('🔍 Getting modifiers for product:', product.name, product);
+    
+    if (!product.modifier_groups || product.modifier_groups.length === 0) {
+      console.log('❌ No modifier groups found for product:', product.name);
+      return [];
+    }
+
+    console.log('✅ Found modifier groups:', product.modifier_groups);
+    
+    const transformed = product.modifier_groups.map((group: any) => ({
+      id: group.id,
+      name: group.name,
+      required: group.is_required,
+      multiSelect: group.max_selections > 1,
+      options: group.modifiers.map((mod: any) => ({
+        id: mod.id,
+        name: mod.name,
+        price: mod.price_extra,
+        selected: false,
+      })),
+    }));
+    
+    console.log('🔄 Transformed modifiers:', transformed);
+    return transformed;
+  };
 
   const handleAddToCart = (productId: string, name: string, price: number, modifiers: ModifierOption[]) => {
     console.log('🛒 Adding to cart:', { productId, name, price, modifiers });
@@ -94,20 +97,29 @@ export default function POSPage() {
     window.location.reload();
   };
 
-  const handleSeedData = async () => {
-    console.log('🌱 Starting seed data process...');
-    await seedDummyData();
-    // Force refetch products after seeding
+  const handleProductAdded = () => {
+    // Refetch products after adding
     window.location.reload();
+  };
+
+  const handleClearCache = async () => {
+    console.log('🧹 Clearing IndexedDB cache...');
+    try {
+      const { db } = await import('@/src/lib/db');
+      await db.products.clear();
+      await db.categories.clear();
+      await db.modifiers.clear();
+      console.log('✅ Cache cleared');
+      window.location.reload();
+    } catch (error) {
+      console.error('Failed to clear cache:', error);
+    }
   };
 
   // Filter products based on category and search
   const filteredProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === 'Semua' || 
-      product.category_id === selectedCategory ||
-      (selectedCategory === 'Makanan' && ['Nasi Goreng Spesial', 'Mie Goreng Jawa', 'Ayam Bakar Madu', 'Sate Ayam', 'Bakso Urat'].includes(product.name)) ||
-      (selectedCategory === 'Minuman' && ['Kopi Susu Gula Aren', 'Es Teh Manis', 'Es Jeruk'].includes(product.name)) ||
-      (selectedCategory === 'Snack' && !['Nasi Goreng Spesial', 'Mie Goreng Jawa', 'Ayam Bakar Madu', 'Sate Ayam', 'Bakso Urat', 'Kopi Susu Gula Aren', 'Es Teh Manis', 'Es Jeruk'].includes(product.name));
+      product.category_id === selectedCategory;
     
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -211,32 +223,12 @@ export default function POSPage() {
         <div className="flex items-center gap-4">
           <span className="text-sm font-medium text-gray-600">Dev Tools:</span>
           <button
-            onClick={handleSeedData}
-            className="flex items-center gap-2 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+            onClick={handleClearCache}
+            className="flex items-center gap-2 px-3 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
           >
-            <Database className="w-4 h-4" />
-            Seed Dummy Data
+            <RefreshCw className="w-4 h-4" />
+            Clear Cache & Reload
           </button>
-          <button
-            onClick={() => clearDummyData()}
-            className="flex items-center gap-2 px-3 py-1 bg-red-500 text-white text-sm rounded hover:bg-red-600"
-          >
-            <Database className="w-4 h-4" />
-            Clear Data
-          </button>
-          <div className="flex items-center gap-2 ml-4">
-            <span className="text-sm font-medium text-gray-600">User:</span>
-            <span className="text-sm text-gray-800">{user?.username} ({userRole})</span>
-            <button
-              onClick={() => {
-                logout();
-                router.replace('/login');
-              }}
-              className="px-3 py-1 text-sm rounded bg-gray-300 text-gray-700 hover:bg-gray-400"
-            >
-              Logout
-            </button>
-          </div>
         </div>
         <span className="text-xs text-gray-500">Check console for detailed logs</span>
       </div>
@@ -245,15 +237,27 @@ export default function POSPage() {
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar - Categories */}
         <Sidebar
+          categories={categories}
           selectedCategory={selectedCategory}
           onCategorySelect={setSelectedCategory}
         />
 
         {/* Product Grid */}
         <div className="flex-1 p-6 overflow-y-auto">
-          <div className="mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">{selectedCategory}</h2>
-            <p className="text-gray-600">Menampilkan {filteredProducts.length} produk</p>
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-800">{selectedCategory}</h2>
+              <p className="text-gray-600">Menampilkan {filteredProducts.length} produk</p>
+            </div>
+            {userRole === 'admin' && (
+              <button
+                onClick={() => setIsAddModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Tambah Produk</span>
+              </button>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -262,7 +266,7 @@ export default function POSPage() {
                 key={product.id}
                 product={product}
                 onAddToCart={handleAddToCart}
-                modifiers={modifiers}
+                modifiers={getProductModifiers(product)}
                 userRole={userRole}
                 onProductUpdate={handleProductUpdate}
               />
@@ -290,6 +294,14 @@ export default function POSPage() {
           <ShoppingCart className="w-6 h-6" />
         </button>
       </div>
+
+      {/* Add Product Modal */}
+      <AddProductModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onProductAdded={handleProductAdded}
+        userRole={userRole}
+      />
     </div>
   );
 }

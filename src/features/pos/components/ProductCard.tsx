@@ -18,6 +18,7 @@ interface ProductCardProps {
 export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = 'cashier', onProductUpdate }: ProductCardProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [imageError, setImageError] = useState(false);
 
   const handleAddToCart = () => {
     console.log('🛒 Product clicked:', product);
@@ -55,11 +56,16 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
       <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow cursor-pointer overflow-hidden group">
         {/* Product Image */}
         <div className="aspect-square bg-gray-100 relative overflow-hidden">
-          {product.image_url ? (
+          {product.image_url && product.image_url.length > 0 && !imageError ? (
             <img
               src={product.image_url}
               alt={product.name}
               className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onLoad={() => console.log('✅ Image loaded:', product.image_url)}
+              onError={() => {
+                console.error('❌ Image error:', product.image_url);
+                setImageError(true);
+              }}
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100">
@@ -68,7 +74,7 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
           )}
           
           {/* Add Button Overlay */}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
+          <div className="absolute inset-0 bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-300 flex items-center justify-center">
             <button
               onClick={handleAddToCart}
               className="opacity-0 group-hover:opacity-100 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700"
@@ -116,7 +122,7 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
         onConfirm={handleConfirmModifiers}
         productName={product.name}
         basePrice={product.price}
-        category={product.category_name || 'makanan'}
+        productId={product.id}
       />
 
       {/* Edit Product Modal */}

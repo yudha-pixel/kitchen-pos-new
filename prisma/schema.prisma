@@ -8,45 +8,73 @@ datasource db {
 }
 
 model Profile {
-  id            String    @id @default(uuid()) @db.Uuid
-  username      String    @unique
-  role          String    @default("cashier")
+  id            String         @id @default(uuid()) @db.Uuid
+  username      String         @unique
+  role          String         @default("cashier")
   password_hash String
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-
-  orders    Order[]
-  void_logs OrderVoidLog[]
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  void_logs     OrderVoidLog[]
+  orders        Order[]
 
   @@map("profiles")
 }
 
 model Category {
-  id         String   @id @default(uuid()) @db.Uuid
-  name       String
-  created_at DateTime @default(now())
-  updated_at DateTime @updatedAt
-
-  products Product[]
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+  color             String?
+  products          Product[]
+  categoryPrinters  CategoryPrinter[]
 
   @@map("categories")
 }
 
-model Product {
-  id             String    @id @default(uuid()) @db.Uuid
-  category_id    String?   @db.Uuid
-  name           String
-  price          Float
-  stock_quantity Int       @default(0)
-  image_url      String?
-  sku            String?   @unique
-  created_at     DateTime  @default(now())
-  updated_at     DateTime  @updatedAt
+model ModifierGroup {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  name                  String
+  is_required           Boolean                @default(false)
+  max_selections        Int                    @default(1)
+  created_at            DateTime               @default(now())
+  updated_at            DateTime               @updatedAt
+  modifiers             Modifier[]
+  productModifierGroups ProductModifierGroup[]
 
-  category    Category?   @relation(fields: [category_id], references: [id])
-  modifiers   Modifier[]
-  order_items OrderItem[]
-  void_logs   OrderVoidLog[]
+  @@map("modifier_groups")
+}
+
+model ProductModifierGroup {
+  id                String        @id @default(uuid()) @db.Uuid
+  product_id        String        @db.Uuid
+  modifier_group_id String        @db.Uuid
+  created_at        DateTime      @default(now())
+  modifierGroup     ModifierGroup @relation(fields: [modifier_group_id], references: [id], onDelete: Cascade)
+  product           Product       @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@unique([product_id, modifier_group_id])
+  @@index([product_id])
+  @@index([modifier_group_id])
+  @@map("product_modifier_groups")
+}
+
+model Product {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  category_id           String?                @db.Uuid
+  name                  String
+  price                 Float
+  stock_quantity        Int                    @default(0)
+  image_url             String?
+  sku                   String?                @unique
+  is_active             Boolean                @default(true)
+  created_at            DateTime               @default(now())
+  updated_at            DateTime               @updatedAt
+  description           String?
+  order_items           OrderItem[]
+  void_logs             OrderVoidLog[]
+  productModifierGroups ProductModifierGroup[]
+  category              Category?              @relation(fields: [category_id], references: [id])
 
   @@index([category_id])
   @@index([name])
@@ -55,34 +83,32 @@ model Product {
 }
 
 model Modifier {
-  id          String  @id @default(uuid()) @db.Uuid
-  product_id  String  @db.Uuid
-  name        String
-  price_extra Float   @default(0)
-  created_at  DateTime @default(now())
-  updated_at  DateTime @updatedAt
+  id                String        @id @default(uuid()) @db.Uuid
+  name              String
+  price_extra       Float         @default(0)
+  created_at        DateTime      @default(now())
+  updated_at        DateTime      @updatedAt
+  modifier_group_id String        @db.Uuid
+  modifierGroup     ModifierGroup @relation(fields: [modifier_group_id], references: [id], onDelete: Cascade)
 
-  product Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
-
-  @@index([product_id])
+  @@index([modifier_group_id])
   @@map("modifiers")
 }
 
 model Order {
-  id              String    @id @default(uuid()) @db.Uuid
-  cashier_id      String?   @db.Uuid
+  id              String         @id @default(uuid()) @db.Uuid
+  cashier_id      String?        @db.Uuid
   total_amount    Float
   payment_method  String
-  status          String    @default("completed")
-  created_at      DateTime  @default(now()) @db.Timestamptz(6)
+  status          String         @default("pending")
+  created_at      DateTime       @default(now()) @db.Timestamptz(6)
   table_number    String?
-  discount_amount Float     @default(0)
-  rounding_amount Float     @default(0)
+  discount_amount Float          @default(0)
+  rounding_amount Float          @default(0)
   notes           String?
-
-  cashier   Profile?      @relation(fields: [cashier_id], references: [id])
-  items     OrderItem[]
-  void_logs OrderVoidLog[]
+  items           OrderItem[]
+  void_logs       OrderVoidLog[]
+  cashier         Profile?       @relation(fields: [cashier_id], references: [id])
 
   @@index([cashier_id])
   @@index([status])
@@ -92,18 +118,17 @@ model Order {
 }
 
 model OrderItem {
-  id                String  @id @default(uuid()) @db.Uuid
-  order_id          String  @db.Uuid
-  product_id        String? @db.Uuid
+  id                String   @id @default(uuid()) @db.Uuid
+  order_id          String   @db.Uuid
+  product_id        String?  @db.Uuid
   quantity          Int
   price_at_time     Float
-  modifiers_applied Json?   @db.JsonB
-  discount_item     Float   @default(0)
+  modifiers_applied Json?
+  discount_item     Float    @default(0)
   split_group_id    String?
   created_at        DateTime @default(now())
-
-  order   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [product_id], references: [id])
+  order             Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product           Product? @relation(fields: [product_id], references: [id])
 
   @@index([order_id])
   @@index([product_id])
@@ -112,17 +137,16 @@ model OrderItem {
 }
 
 model OrderVoidLog {
-  id         String  @id @default(uuid()) @db.Uuid
-  order_id   String  @db.Uuid
-  product_id String? @db.Uuid
+  id         String   @id @default(uuid()) @db.Uuid
+  order_id   String   @db.Uuid
+  product_id String?  @db.Uuid
   quantity   Int
   reason     String
-  cashier_id String? @db.Uuid
+  cashier_id String?  @db.Uuid
   created_at DateTime @default(now()) @db.Timestamptz(6)
-
-  order   Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  product Product? @relation(fields: [product_id], references: [id])
-  cashier Profile? @relation(fields: [cashier_id], references: [id])
+  cashier    Profile? @relation(fields: [cashier_id], references: [id])
+  order      Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product    Product? @relation(fields: [product_id], references: [id])
 
   @@index([order_id])
   @@index([cashier_id])
@@ -130,19 +154,30 @@ model OrderVoidLog {
   @@map("order_void_logs")
 }
 
-model SyncQueue {
-  id             String   @id @default(uuid()) @db.Uuid
-  operation      String
-  table_name     String
-  data           Json     @db.JsonB
-  status         String   @default("pending")
-  error_message  String?
-  retry_count    Int      @default(0)
-  created_at     DateTime @default(now()) @db.Timestamptz(6)
-  synced_at      DateTime? @db.Timestamptz(6)
+model Printer {
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String
+  type              String           // 'kitchen', 'bar', 'receipt'
+  ip_address        String?
+  port              Int?
+  is_active         Boolean          @default(true)
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+  categoryPrinters  CategoryPrinter[]
 
-  @@index([status])
-  @@index([table_name])
-  @@index([created_at])
-  @@map("sync_queue")
+  @@map("printers")
+}
+
+model CategoryPrinter {
+  id         String   @id @default(uuid()) @db.Uuid
+  category_id String  @db.Uuid
+  printer_id String  @db.Uuid
+  created_at DateTime @default(now())
+  category   Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  printer    Printer  @relation(fields: [printer_id], references: [id], onDelete: Cascade)
+
+  @@unique([category_id, printer_id])
+  @@index([category_id])
+  @@index([printer_id])
+  @@map("category_printers")
 }

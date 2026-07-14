@@ -106,8 +106,83 @@ export async function fetchModifiers(productId?: string) {
   return request<unknown>('GET', `/modifiers${query}`);
 }
 
+export async function addProduct(data: {
+  name: string;
+  price: number;
+  stock_quantity?: number;
+  image_url?: string;
+  category_id: string;
+  sku?: string;
+  description?: string;
+  modifier_group_ids?: string[];
+}) {
+  return request<unknown>('POST', '/products', data);
+}
+
 export async function updateProduct(id: string, data: unknown) {
   return request<unknown>('PATCH', `/products/${id}`, data);
+}
+
+// Soft delete: the product is deactivated, not removed.
+export async function deleteProduct(id: string) {
+  return request<{ success: boolean }>('DELETE', `/products/${id}`);
+}
+
+// Categories
+export async function createCategory(data: { name: string; color?: string | null }) {
+  return request<unknown>('POST', '/categories', data);
+}
+
+export async function updateCategory(id: string, data: { name?: string; color?: string | null }) {
+  return request<unknown>('PATCH', `/categories/${id}`, data);
+}
+
+export async function deleteCategory(id: string) {
+  return request<{ success: boolean }>('DELETE', `/categories/${id}`);
+}
+
+// Modifier groups
+export async function fetchModifierGroups() {
+  return request<unknown>('GET', '/modifier-groups');
+}
+
+export async function createModifierGroup(data: {
+  name: string;
+  is_required?: boolean;
+  max_selections?: number;
+}) {
+  return request<unknown>('POST', '/modifier-groups', data);
+}
+
+export async function updateModifierGroup(
+  id: string,
+  data: { name?: string; is_required?: boolean; max_selections?: number }
+) {
+  return request<unknown>('PATCH', `/modifier-groups/${id}`, data);
+}
+
+export async function deleteModifierGroup(id: string) {
+  return request<{ success: boolean }>('DELETE', `/modifier-groups/${id}`);
+}
+
+// Modifiers CRUD
+export async function createModifier(data: {
+  name: string;
+  price_extra?: number;
+  modifier_group_id: string;
+}) {
+  return request<unknown>('POST', '/modifiers', data);
+}
+
+export async function updateModifier(
+  id: string,
+  data: { name?: string; price_extra?: number; modifier_group_id?: string }
+) {
+  return request<unknown>('PATCH', `/modifiers/${id}`, data);
+}
+
+export async function deleteModifier(id: string) {
+  return request<{ success: boolean }>('DELETE', `/modifiers/${id}`);
 }
 
 // Orders
@@ -121,6 +196,12 @@ export async function fetchOrders(cashierId?: string | null, status?: string | n
 
 export async function fetchOrderItems(orderId: string) {
   return request<unknown>('GET', `/orders/${orderId}/items`);
+}
+
+// Active (pending/preparing) orders with items + product + category in one call,
+// used by the Kitchen Display.
+export async function fetchActiveOrders() {
+  return request<unknown>('GET', '/orders/active');
 }
 
 export async function createOrder(order: unknown, items: unknown[]) {
@@ -145,4 +226,48 @@ export async function mergeTable(sourceTable: string, targetTable: string) {
 
 export async function healthCheck() {
   return request<{ status: string }>('GET', '/health');
+}
+
+// Printers
+export async function fetchPrinters() {
+  return request<unknown>('GET', '/printers');
+}
+
+export async function fetchPrintersForCategory(categoryId: string) {
+  return request<unknown>('GET', `/printers/category/${categoryId}`);
+}
+
+export async function createPrinter(data: {
+  name: string;
+  type: 'kitchen' | 'bar' | 'receipt';
+  ip_address?: string;
+  port?: number;
+}) {
+  return request<unknown>('POST', '/printers', data);
+}
+
+export async function updatePrinter(id: string, data: {
+  name?: string;
+  type?: 'kitchen' | 'bar' | 'receipt';
+  ip_address?: string;
+  port?: number;
+  is_active?: boolean;
+}) {
+  return request<unknown>('PATCH', `/printers/${id}`, data);
+}
+
+export async function deletePrinter(id: string) {
+  return request<unknown>('DELETE', `/printers/${id}`);
+}
+
+export async function routeCategoryToPrinter(categoryId: string, printerId: string) {
+  return request<unknown>('POST', '/printers/route', { category_id: categoryId, printer_id: printerId });
+}
+
+export async function removeCategoryFromPrinter(routeId: string) {
+  return request<unknown>('DELETE', `/printers/route/${routeId}`);
+}
+
+export async function getPrintJobsForOrder(orderId: string) {
+  return request<unknown>('GET', `/printers/orders/${orderId}/jobs`);
 }

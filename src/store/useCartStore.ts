@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import * as api from '@/src/lib/api';
 import { NetworkError } from '@/src/lib/api';
 import { db } from '@/src/lib/db';
+import { useOfflineStore } from '@/src/store/useOfflineStore';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -147,7 +148,9 @@ export const useCartStore = create<CartState>()(
           cashier_id: state.cashierId,
           total_amount: finalTotal,
           payment_method: paymentMethod.toLowerCase() as 'cash' | 'card' | 'qr' | 'transfer',
-          status: 'completed' as const,
+          // Paid up front, but the kitchen still has to prepare it: the order
+          // enters the lifecycle at 'pending' so it shows up on the KDS.
+          status: 'pending' as const,
           table_number: state.tableNumber,
           discount_amount: 0,
           rounding_amount: roundingAmount,
@@ -173,11 +176,11 @@ export const useCartStore = create<CartState>()(
         const saveOffline = async (mode: string) => {
           console.log(`📴 ${mode} mode: Saving payment to IndexedDB...`);
           try {
-            console.log(`� Saving order ${orderId} to IndexedDB with status 'pending'...`);
-            // Save order to IndexedDB
+            console.log(`Saving order ${orderId} to IndexedDB awaiting sync...`);
+            // Save order to IndexedDB, flagged for sync once the API is reachable
             await db.orders.add({
               ...orderData,
-              status: 'pending',
+              sync_status: 'pending',
             });
             console.log(`✅ Order ${orderId} saved to IndexedDB successfully`);
 
@@ -231,6 +234,19 @@ export const useCartStore = create<CartState>()(
             console.log(`� Inserting order ${orderId} to local API...`);
             await api.createOrder(orderData, orderItems);
             console.log(`✅ Order ${orderId} inserted to local API successfully`);
+
+            // Get print jobs for kitchen/bar routing
+            try {
+              console.log('🖨️ Getting print jobs for order...');
+              const printJobs = await api.getPrintJobsForOrder(orderId);
+              console.log('🖨️ Print jobs:', printJobs);
+              
+              // TODO: Open kitchen receipt modals for each printer
+              // This will be handled by the UI component that calls processPayment
+            } catch (printError) {
+              console.warn('⚠️ Failed to get print jobs:', printError);
+              // Don't fail the payment if print routing fails
+            }
 
             console.log(`✅ Order items inserted to local API successfully`);
 
@@ -318,21 +334,27 @@ export const useCartStore = create<CartState>()(
             created_at: new Date().toISOString(),
           };
 
+          const queueVoidLog = async () => {
+            await db.order_void_logs.add(voidLog);
+            // Queue so the sync manager replays it when the API is reachable
+            await useOfflineStore.getState().addTransaction('create', 'order_void_logs', voidLog);
+          };
+
           if (isOnline) {
             // Online: Send directly to the local API
             try {
               await api.createVoidLogs([voidLog]);
             } catch (error) {
               if (error instanceof NetworkError) {
-                console.warn('📴 Local API unreachable, saving void log to IndexedDB');
-                await db.order_void_logs.add(voidLog);
+                console.warn('📴 Local API unreachable, queueing void log for sync');
+                await queueVoidLog();
               } else {
                 throw error;
               }
             }
           } else {
-            // Offline: Save to IndexedDB
-            await db.order_void_logs.add(voidLog);
+            // Offline: queue for sync
+            await queueVoidLog();
           }
 
           return { success: true, message: 'Item berhasil dibatalkan' };

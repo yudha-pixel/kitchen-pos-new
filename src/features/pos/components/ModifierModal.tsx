@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getModifiersByCategory, convertToUIModifiers } from '@/src/data/modifiers';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -28,7 +27,7 @@ interface ModifierModalProps {
   onConfirm: (selectedModifiers: ModifierOption[]) => void;
   productName?: string;
   basePrice?: number;
-  category?: string;
+  productId?: string;
 }
 
 export const ModifierModal = ({
@@ -38,15 +37,55 @@ export const ModifierModal = ({
   onConfirm,
   productName = 'Produk',
   basePrice = 0,
-  category
+  productId
 }: ModifierModalProps) => {
   const [selectedModifiers, setSelectedModifiers] = useState<ModifierOption[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
+  const [effectiveModifiers, setEffectiveModifiers] = useState<ModifierGroup[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Get modifiers based on category or use provided modifiers
-  const effectiveModifiers = category
-    ? convertToUIModifiers(getModifiersByCategory(category))
-    : modifiers || [];
+  // Fetch modifier groups from database when productId changes
+  useEffect(() => {
+    const fetchModifiers = async () => {
+      if (!productId) {
+        setEffectiveModifiers(modifiers || []);
+        return;
+      }
+
+      setLoading(true);
+      try {
+        const response = await fetch(`/modifiers?productId=${productId}`);
+        if (!response.ok) throw new Error('Failed to fetch modifiers');
+        
+        const data = await response.json();
+        
+        // Convert API response to UI format
+        const groups = data.map((group: any) => ({
+          id: group.id,
+          name: group.name,
+          required: group.is_required,
+          multiSelect: group.max_selections > 1,
+          options: group.modifiers.map((mod: any) => ({
+            id: mod.id,
+            name: mod.name,
+            price: mod.price_extra,
+            selected: false
+          }))
+        }));
+        
+        setEffectiveModifiers(groups);
+      } catch (error) {
+        console.error('Error fetching modifiers:', error);
+        setEffectiveModifiers(modifiers || []);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (isOpen) {
+      fetchModifiers();
+    }
+  }, [productId, modifiers, isOpen]);
 
   // Escape key shortcut
   useEffect(() => {
@@ -137,7 +176,9 @@ export const ModifierModal = ({
 
         {/* Modifier Groups */}
         <div className="flex-1 overflow-y-auto p-6">
-          {effectiveModifiers.length === 0 ? (
+          {loading ? (
+            <p className="text-black text-center py-8">Memuat modifier...</p>
+          ) : effectiveModifiers.length === 0 ? (
             <p className="text-black text-center py-8">Tidak ada modifier tersedia</p>
           ) : (
             <div className="space-y-6">

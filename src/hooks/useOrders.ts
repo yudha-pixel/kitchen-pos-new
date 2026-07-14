@@ -66,22 +66,32 @@ export const useOrders = (cashierId?: string | null) => {
           // Update IndexedDB cache
           try {
             if (cashierId) {
-              const toDelete = await db.orders
+              // Never evict orders that still need to be pushed to the API
+              const staleOrders = await db.orders
                 .where('cashier_id')
                 .equals(cashierId)
+                .filter((order) => order.sync_status !== 'pending')
                 .primaryKeys();
-              if (toDelete.length > 0) {
-                await db.orders.bulkDelete(toDelete as string[]);
+              if (staleOrders.length > 0) {
+                await db.orders.bulkDelete(staleOrders as string[]);
               }
             } else {
-              // Only cache recent orders (last 100)
-              const allOrders = await db.orders.toArray();
-              if (allOrders.length > 100) {
-                await db.orders.clear();
+              // Only cache recent orders (last 100); keep unsynced ones
+              const orderCount = await db.orders.count();
+              if (orderCount > 100) {
+                const staleOrders = await db.orders
+                  .filter((order) => order.sync_status !== 'pending')
+                  .primaryKeys();
+                await db.orders.bulkDelete(staleOrders as string[]);
               }
             }
 
-            await db.orders.bulkPut(data as unknown as DBOrder[]);
+            await db.orders.bulkPut(
+              (data as unknown as DBOrder[]).map((order) => ({
+                ...order,
+                sync_status: 'synced' as const,
+              }))
+            );
             console.log('Updated orders cache with fresh data:', data.length);
           } catch (cacheError) {
             console.warn('Failed to update orders cache:', cacheError);
@@ -142,9 +152,9 @@ export const useOrders = (cashierId?: string | null) => {
 
         // Update local state with server response
         setOrders(prev => [orderResult, ...prev]);
-        
+
         // Update IndexedDB cache
-        await db.orders.put(orderResult as unknown as DBOrder);
+        await db.orders.put({ ...(orderResult as unknown as DBOrder), sync_status: 'synced' });
         const itemsWithOrderId = orderItems.map(item => ({
           ...item,
           order_id: orderResult.id,
@@ -159,8 +169,8 @@ export const useOrders = (cashierId?: string | null) => {
         // If offline, queue for sync and create locally
         await addTransaction('create', 'orders', { ...newOrder, orderItems: newOrderItems });
         
-        // Create in IndexedDB for offline use
-        await db.orders.put(newOrder as DBOrder);
+        // Create in IndexedDB for offline use, flagged for sync
+        await db.orders.put({ ...(newOrder as DBOrder), sync_status: 'pending' });
         for (const item of newOrderItems) {
           await db.order_items.put(item as DBOrderItem);
         }

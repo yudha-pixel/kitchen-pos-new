@@ -2,18 +2,13 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware, requireRole, getJwtSecret } from '../middleware/auth';
+import { loginSchema, registerSchema } from '../lib/validation';
 
 const router = Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'change-me';
 
 router.post('/login', async (req: Request, res: Response) => {
-  const { username, password } = req.body;
-
-  if (!username || !password) {
-    res.status(400).json({ error: 'Username and password are required' });
-    return;
-  }
+  const { username, password } = loginSchema.parse(req.body);
 
   const user = await prisma.profile.findUnique({ where: { username } });
   if (!user) {
@@ -29,7 +24,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const token = jwt.sign(
     { id: user.id, username: user.username, role: user.role },
-    JWT_SECRET,
+    getJwtSecret(),
     { expiresIn: '7d' }
   );
 
@@ -44,12 +39,7 @@ router.post(
   authMiddleware,
   requireRole('admin'),
   async (req: Request, res: Response) => {
-    const { username, password, role = 'cashier' } = req.body;
-
-    if (!username || !password) {
-      res.status(400).json({ error: 'Username and password are required' });
-      return;
-    }
+    const { username, password, role = 'cashier' } = registerSchema.parse(req.body);
 
     const existing = await prisma.profile.findUnique({ where: { username } });
     if (existing) {

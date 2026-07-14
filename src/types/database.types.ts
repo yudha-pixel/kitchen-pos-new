@@ -37,6 +37,7 @@ export interface ProfileUpdate {
 export interface Category {
   id: string; // UUID
   name: string;
+  color?: string | null;
 }
 
 export interface CategoryInsert {
@@ -57,12 +58,14 @@ export interface Product {
   id: string; // UUID
   category_id: string | null; // UUID
   category_name?: string; // Category name for easier access
+  category_color?: string | null; // Category color
   name: string;
   description?: string; // Product description
   sku: string | null;
   price: number;
   stock_quantity: number;
   image_url: string | null;
+  modifier_groups?: ModifierGroup[];
 }
 
 export interface ProductInsert {
@@ -89,9 +92,17 @@ export interface ProductUpdate {
 // Modifier Types
 // ============================================================================
 
+export interface ModifierGroup {
+  id: string; // UUID
+  name: string;
+  is_required: boolean;
+  max_selections: number;
+  modifiers: Modifier[];
+}
+
 export interface Modifier {
   id: string; // UUID
-  product_id: string; // UUID
+  modifier_group_id: string; // UUID
   name: string;
   price_extra: number;
 }
@@ -114,7 +125,7 @@ export interface ModifierUpdate {
 // Order Types
 // ============================================================================
 
-export type OrderStatus = 'pending' | 'completed' | 'cancelled';
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
 export type PaymentMethod = 'cash' | 'card' | 'qr' | 'transfer';
 
 export interface Order {
@@ -326,5 +337,7 @@ export interface ModifierOption {
 export interface UIModifierGroup {
   id: string; // UUID
   name: string;
+  required: boolean;
+  multiSelect: boolean;
   options: ModifierOption[];
 }

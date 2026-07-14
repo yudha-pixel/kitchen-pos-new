@@ -28,7 +28,10 @@ export interface Order {
   cashier_id: string | null; // UUID
   total_amount: number;
   payment_method: 'cash' | 'card' | 'qr' | 'transfer';
-  status: 'pending' | 'completed' | 'cancelled' | 'synced';
+  status: 'pending' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
+  // Local-only flag: 'pending' = created offline, not yet pushed to the API.
+  // Kept separate from `status`, which is the order lifecycle shared with the server.
+  sync_status?: 'pending' | 'synced';
   table_number: string | null;
   discount_amount: number;
   rounding_amount: number;
@@ -93,6 +96,31 @@ export class KitchenPOSDB extends Dexie {
       order_void_logs: 'id, order_id, cashier_id, created_at',
       sync_queue: 'id, status, table_name, created_at',
     });
+
+    // v2: sync state moves out of `status` into a dedicated `sync_status` field,
+    // so the order lifecycle (pending/preparing/...) no longer collides with
+    // "needs to be pushed to the API".
+    this.version(2)
+      .stores({
+        orders: 'id, cashier_id, status, sync_status, created_at',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('orders')
+          .toCollection()
+          .modify((order) => {
+            if (order.status === 'synced') {
+              // v1 marker for "pushed to server"; the real status was completed.
+              order.status = 'completed';
+              order.sync_status = 'synced';
+            } else if (order.status === 'pending' && !order.sync_status) {
+              // v1 offline orders awaiting sync.
+              order.sync_status = 'pending';
+            } else if (!order.sync_status) {
+              order.sync_status = 'synced';
+            }
+          });
+      });
   }
 }
 

@@ -141,9 +141,9 @@ export const CartPanel = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-white border-l">
+    <div className="flex flex-col h-full bg-white border-l-2">
       {/* Header */}
-      <div className="p-4 border-b">
+      <div className="p-4 border-b-2">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xl font-bold text-gray-800">Keranjang</h2>
           <div className="flex gap-2">
@@ -216,7 +216,7 @@ export const CartPanel = () => {
               return (
                 <div
                   key={item.id}
-                  className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                  className="bg-gray-50 rounded-lg p-3 border-2 border-gray-300"
                 >
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex items-center gap-2 flex-1">
@@ -296,7 +296,7 @@ export const CartPanel = () => {
       </div>
 
       {/* Footer - Total and Payment */}
-      <div className="p-4 border-t bg-gray-50">
+      <div className="p-4 border-t-2 bg-gray-50">
         <div className="space-y-2 mb-4">
           <div className="flex justify-between text-sm text-black">
             <span>Subtotal</span>
@@ -316,7 +316,7 @@ export const CartPanel = () => {
             <span>Pembulatan ({roundTo})</span>
             <span>Rp {calculateRoundedTotal(roundTo).roundingAmount.toLocaleString()}</span>
           </div>
-          <div className="flex justify-between text-lg font-bold text-black pt-2 border-t">
+          <div className="flex justify-between text-lg font-bold text-black pt-2 border-t-2">
             <span>Total (dibulatkan)</span>
             <span>Rp {calculateRoundedTotal(roundTo).total.toLocaleString()}</span>
           </div>

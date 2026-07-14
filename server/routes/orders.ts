@@ -1,54 +1,96 @@
 import { Router, Request, Response } from 'express';
+import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import {
+  createOrderSchema,
+  createOrderItemsSchema,
+  createVoidLogsSchema,
+  updateOrderStatusSchema,
+  mergeTableSchema,
+  paginationSchema,
+  OPEN_STATUSES,
+  STATUS_RANK,
+} from '../lib/validation';
 
 const router = Router();
 
-router.get('/orders', async (req: Request, res: Response) => {
+router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
   const { cashierId, status } = req.query;
-  const where: any = {};
+  const { limit, offset } = paginationSchema.parse(req.query);
+
+  const where: Record<string, string> = {};
   if (cashierId) where.cashier_id = cashierId as string;
   if (status) where.status = status as string;
 
   const orders = await prisma.order.findMany({
     where,
     orderBy: { created_at: 'desc' },
+    take: limit ?? 100,
+    skip: offset ?? 0,
   });
 
   res.json(orders);
 });
 
-router.get('/orders/:id/items', async (req: Request, res: Response) => {
+// Active orders for the Kitchen Display: one call returns orders still being
+// worked on, with items joined to product + category for station filtering.
+router.get('/orders/active', authMiddleware, async (_req: Request, res: Response) => {
+  const orders = await prisma.order.findMany({
+    where: { status: { in: ['pending', 'preparing'] } },
+    include: {
+      items: {
+        include: {
+          product: {
+            include: { category: true },
+          },
+        },
+      },
+    },
+    orderBy: { created_at: 'asc' },
+  });
+
+  res.json(orders);
+});
+
+router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   const items = await prisma.orderItem.findMany({
     where: { order_id: id },
+    include: {
+      product: {
+        include: { category: true },
+      },
+    },
   });
 
   res.json(items);
 });
 
 router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
-  const { order, items } = req.body as {
-    order: any;
-    items: any[];
-  };
-
-  if (!order || !Array.isArray(items)) {
-    res.status(400).json({ error: 'Order and items are required' });
-    return;
-  }
+  const { order, items } = createOrderSchema.parse(req.body);
+  const orderId = order.id ?? randomUUID();
 
   const created = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.upsert({
-      where: { id: order.id },
-      update: {},
+      where: { id: orderId },
+      // Re-sync of an offline order must be able to correct amounts/details,
+      // but must not clobber status progress already made by the kitchen.
+      update: {
+        total_amount: order.total_amount,
+        payment_method: order.payment_method,
+        table_number: order.table_number ?? null,
+        discount_amount: order.discount_amount ?? 0,
+        rounding_amount: order.rounding_amount ?? 0,
+        notes: order.notes ?? null,
+      },
       create: {
-        id: order.id,
+        id: orderId,
         cashier_id: req.user?.id ?? order.cashier_id ?? null,
         total_amount: order.total_amount,
         payment_method: order.payment_method,
-        status: order.status || 'completed',
+        status: order.status ?? 'pending',
         table_number: order.table_number ?? null,
         discount_amount: order.discount_amount ?? 0,
         rounding_amount: order.rounding_amount ?? 0,
@@ -59,7 +101,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
 
     await tx.orderItem.createMany({
       data: items.map((item) => ({
-        id: item.id,
+        id: item.id ?? randomUUID(),
         order_id: newOrder.id,
         product_id: item.product_id ?? null,
         quantity: item.quantity,
@@ -80,7 +122,33 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
 
 router.patch('/orders/:id/status', authMiddleware, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
-  const { status } = req.body;
+  const { status } = updateOrderStatusSchema.parse(req.body);
+
+  const existing = await prisma.order.findUnique({ where: { id } });
+  if (!existing) {
+    res.status(404).json({ error: 'Order not found' });
+    return;
+  }
+
+  if (existing.status === status) {
+    res.json(existing);
+    return;
+  }
+
+  const isOpen = (OPEN_STATUSES as string[]).includes(existing.status);
+  const movesForward =
+    STATUS_RANK[status] !== undefined &&
+    STATUS_RANK[existing.status] !== undefined &&
+    STATUS_RANK[status] > STATUS_RANK[existing.status];
+
+  // Open orders may move forward in the lifecycle or be cancelled; closed
+  // orders (completed/cancelled) are terminal.
+  if (!isOpen || (status !== 'cancelled' && !movesForward)) {
+    res.status(409).json({
+      error: `Cannot change order status from '${existing.status}' to '${status}'`,
+    });
+    return;
+  }
 
   const updated = await prisma.order.update({
     where: { id },
@@ -91,15 +159,11 @@ router.patch('/orders/:id/status', authMiddleware, async (req: Request, res: Res
 });
 
 router.post('/order-items', authMiddleware, async (req: Request, res: Response) => {
-  const { items } = req.body as { items: any[] };
-  if (!Array.isArray(items)) {
-    res.status(400).json({ error: 'Items array is required' });
-    return;
-  }
+  const { items } = createOrderItemsSchema.parse(req.body);
 
   await prisma.orderItem.createMany({
     data: items.map((item) => ({
-      id: item.id,
+      id: item.id ?? randomUUID(),
       order_id: item.order_id,
       product_id: item.product_id ?? null,
       quantity: item.quantity,
@@ -116,15 +180,11 @@ router.post('/order-items', authMiddleware, async (req: Request, res: Response) 
 });
 
 router.post('/void-logs', authMiddleware, async (req: Request, res: Response) => {
-  const { voidLogs } = req.body as { voidLogs: any[] };
-  if (!Array.isArray(voidLogs)) {
-    res.status(400).json({ error: 'voidLogs array is required' });
-    return;
-  }
+  const { voidLogs } = createVoidLogsSchema.parse(req.body);
 
   await prisma.orderVoidLog.createMany({
     data: voidLogs.map((log) => ({
-      id: log.id,
+      id: log.id ?? randomUUID(),
       order_id: log.order_id,
       product_id: log.product_id ?? null,
       quantity: log.quantity,
@@ -139,21 +199,17 @@ router.post('/void-logs', authMiddleware, async (req: Request, res: Response) =>
 });
 
 router.post('/orders/merge-table', authMiddleware, async (req: Request, res: Response) => {
-  const { sourceTable, targetTable } = req.body;
-  if (!sourceTable || !targetTable) {
-    res.status(400).json({ error: 'sourceTable and targetTable are required' });
-    return;
-  }
+  const { sourceTable, targetTable } = mergeTableSchema.parse(req.body);
 
-  await prisma.order.updateMany({
+  const result = await prisma.order.updateMany({
     where: {
       table_number: sourceTable,
-      status: 'pending',
+      status: { in: OPEN_STATUSES },
     },
     data: { table_number: targetTable },
   });
 
-  res.json({ success: true });
+  res.json({ success: true, mergedOrders: result.count });
 });
 
 export default router;
