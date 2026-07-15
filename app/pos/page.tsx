@@ -12,15 +12,21 @@ import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/M
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
-// import { seedDummyData, clearDummyData } from '@/src/lib/seedData';
-import { ShoppingCart, Search, Wifi, WifiOff, RefreshCw, AlertCircle, Database, Plus } from 'lucide-react';
+import { useToast } from '@/src/components/ui/Toast';
+import { Button } from '@/src/components/ui/Button';
+import { Badge } from '@/src/components/ui/Badge';
+import { EmptyState } from '@/src/components/ui/EmptyState';
+import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
+import { ShoppingCart, Search, Wifi, WifiOff, RefreshCw, AlertCircle, Plus, X } from 'lucide-react';
 
 export default function POSPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading, logout } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -37,33 +43,34 @@ export default function POSPage() {
   }, [authLoading, user, router]);
 
   const userRole = user?.role ?? 'cashier';
+  const cartItemCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
 
   // Fetch data from the local API with offline support
-  const { products, loading: productsLoading, error: productsError, isFromCache: productsFromCache } = useProducts();
-  const { categories, loading: categoriesLoading, isFromCache: categoriesFromCache } = useCategories();
-  
+  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts, isFromCache: productsFromCache } = useProducts();
+  const { categories } = useCategories();
+
   // Sync manager for offline-first functionality
-  const { 
-    isOnline, 
-    pendingTransactions, 
-    syncInProgress, 
-    syncError, 
+  const {
+    isOnline,
+    pendingTransactions,
+    syncInProgress,
+    syncError,
     lastSyncTime,
-    triggerManualSync 
+    triggerManualSync,
   } = useSyncManager();
-  
+
+  // Surface sync errors as a toast instead of a persistent second banner
+  useEffect(() => {
+    if (syncError) toast('error', syncError);
+  }, [syncError, toast]);
+
   // Transform API modifier groups to UI format
   const getProductModifiers = (product: any): UIModifierGroup[] => {
-    console.log('🔍 Getting modifiers for product:', product.name, product);
-    
     if (!product.modifier_groups || product.modifier_groups.length === 0) {
-      console.log('❌ No modifier groups found for product:', product.name);
       return [];
     }
 
-    console.log('✅ Found modifier groups:', product.modifier_groups);
-    
-    const transformed = product.modifier_groups.map((group: any) => ({
+    return product.modifier_groups.map((group: any) => ({
       id: group.id,
       name: group.name,
       required: group.is_required,
@@ -75,13 +82,9 @@ export default function POSPage() {
         selected: false,
       })),
     }));
-    
-    console.log('🔄 Transformed modifiers:', transformed);
-    return transformed;
   };
 
   const handleAddToCart = (productId: string, name: string, price: number, modifiers: ModifierOption[]) => {
-    console.log('🛒 Adding to cart:', { productId, name, price, modifiers });
     useCartStore.getState().addToCart({
       productId,
       name,
@@ -89,27 +92,14 @@ export default function POSPage() {
       quantity: 1,
       modifiers,
     });
-    console.log('✅ Item added to cart');
-  };
-
-  const handleProductUpdate = () => {
-    // Refetch products after update
-    window.location.reload();
-  };
-
-  const handleProductAdded = () => {
-    // Refetch products after adding
-    window.location.reload();
   };
 
   const handleClearCache = async () => {
-    console.log('🧹 Clearing IndexedDB cache...');
     try {
       const { db } = await import('@/src/lib/db');
       await db.products.clear();
       await db.categories.clear();
       await db.modifiers.clear();
-      console.log('✅ Cache cleared');
       window.location.reload();
     } catch (error) {
       console.error('Failed to clear cache:', error);
@@ -118,120 +108,69 @@ export default function POSPage() {
 
   // Filter products based on category and search
   const filteredProducts = products.filter((product) => {
-    const matchesCategory = selectedCategory === 'Semua' || 
-      product.category_id === selectedCategory;
-    
+    const matchesCategory = selectedCategory === 'Semua' || product.category_id === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
     return matchesCategory && matchesSearch;
   });
 
-  // Loading state
-  if (authLoading || productsLoading) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Memuat produk...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
-  if (productsError) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-gray-100">
-        <div className="text-center">
-          <Search className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <p className="text-red-600 font-medium">Gagal memuat produk</p>
-          <p className="text-gray-600 text-sm">{productsError}</p>
-        </div>
-      </div>
-    );
-  }
+  const selectedCategoryName =
+    selectedCategory === 'Semua'
+      ? 'Semua'
+      : categories.find((c) => c.id === selectedCategory)?.name ?? 'Kategori';
 
   return (
-    <div className="flex flex-col h-screen bg-gray-100">
+    <div className="flex h-dvh flex-col bg-background">
       {/* Header */}
-      <Header
-        title="Kitchen POS"
-        onSearch={setSearchQuery}
-      />
+      <Header title="Kitchen POS" onSearch={setSearchQuery} />
 
-      {/* Sync Status Bar */}
-      <div className={`flex items-center justify-between px-4 py-2 text-sm ${
-        isOnline ? 'bg-green-50 text-green-800' : 'bg-yellow-50 text-yellow-800'
-      }`}>
+      {/* Sync Status Strip */}
+      <div
+        className={`flex items-center justify-between gap-2 border-b border-line px-4 py-1.5 text-sm ${
+          isOnline ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
+        }`}
+      >
         <div className="flex items-center gap-2">
-          {isOnline ? (
-            <Wifi className="w-4 h-4" />
-          ) : (
-            <WifiOff className="w-4 h-4" />
-          )}
-          <span className="font-medium">
-            {isOnline ? 'Online' : 'Offline Mode'}
-          </span>
-          {productsFromCache && (
-            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded">
-              Data dari cache
-            </span>
+          {isOnline ? <Wifi className="h-4 w-4" aria-hidden="true" /> : <WifiOff className="h-4 w-4" aria-hidden="true" />}
+          <span className="font-medium">{isOnline ? 'Online' : 'Offline Mode'}</span>
+          {productsFromCache && <Badge tone="info">Data dari cache</Badge>}
+          {pendingTransactions > 0 && (
+            <Badge tone="warning">
+              <AlertCircle className="h-3 w-3" /> {pendingTransactions} transaksi pending
+            </Badge>
           )}
         </div>
-        
-        <div className="flex items-center gap-4">
-          {pendingTransactions > 0 && (
-            <div className="flex items-center gap-1 text-yellow-700">
-              <AlertCircle className="w-4 h-4" />
-              <span>{pendingTransactions} transaksi pending</span>
-            </div>
-          )}
-          
+
+        <div className="flex items-center gap-3">
           {lastSyncTime && (
-            <span className="text-xs opacity-75">
-              Terakhir sync: {new Date(lastSyncTime).toLocaleTimeString()}
+            <span className="tnum hidden text-xs opacity-75 sm:inline">
+              Terakhir sync: {new Date(lastSyncTime).toLocaleTimeString('id-ID')}
             </span>
           )}
-          
           <button
             onClick={triggerManualSync}
             disabled={syncInProgress || !isOnline}
-            className={`flex items-center gap-1 px-3 py-1 rounded ${
-              syncInProgress 
-                ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                : 'bg-white text-gray-700 hover:bg-gray-50'
-            }`}
+            aria-label="Sinkronkan data"
+            className="flex min-h-9 items-center gap-1 rounded-lg bg-surface px-3 text-ink-secondary transition-colors hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <RefreshCw className={`w-4 h-4 ${syncInProgress ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${syncInProgress ? 'animate-spin' : ''}`} />
             <span>Sync</span>
           </button>
         </div>
       </div>
 
-      {/* Sync Error Alert */}
-      {syncError && (
-        <div className="bg-red-50 border-b border-red-200 px-4 py-2 text-sm text-red-800">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            <span>{syncError}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Dev Tools - Seed Data */}
-      <div className="bg-gray-100 border-b px-6 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <span className="text-sm font-medium text-gray-600">Dev Tools:</span>
+      {/* Dev Tools (development only) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="flex items-center gap-4 border-b border-line bg-surface-alt px-6 py-1.5">
+          <span className="text-xs font-medium text-ink-muted">Dev Tools:</span>
           <button
             onClick={handleClearCache}
-            className="flex items-center gap-2 px-3 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
+            className="flex items-center gap-1 rounded bg-warning-soft px-2 py-1 text-xs font-medium text-warning hover:opacity-80"
           >
-            <RefreshCw className="w-4 h-4" />
+            <RefreshCw className="h-3 w-3" />
             Clear Cache & Reload
           </button>
         </div>
-        <span className="text-xs text-gray-500">Check console for detailed logs</span>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
@@ -243,63 +182,108 @@ export default function POSPage() {
         />
 
         {/* Product Grid */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          <div className="mb-6 flex items-center justify-between">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+          <div className="mb-6 flex items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">{selectedCategory}</h2>
-              <p className="text-gray-600">Menampilkan {filteredProducts.length} produk</p>
+              <h2 className="text-2xl font-bold text-ink">{selectedCategoryName}</h2>
+              <p className="text-sm text-ink-muted">Menampilkan {filteredProducts.length} produk</p>
             </div>
             {userRole === 'admin' && (
-              <button
-                onClick={() => setIsAddModalOpen(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Tambah Produk</span>
-              </button>
+              <Button onClick={() => setIsAddModalOpen(true)}>
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Tambah Produk</span>
+              </Button>
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToCart={handleAddToCart}
-                modifiers={getProductModifiers(product)}
-                userRole={userRole}
-                onProductUpdate={handleProductUpdate}
-              />
-            ))}
-          </div>
-
-          {filteredProducts.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-              <Search className="w-16 h-16 mb-4" />
-              <p className="text-lg font-medium">Tidak ada produk ditemukan</p>
-              <p className="text-sm">Coba kata kunci atau kategori lain</p>
+          {authLoading || productsLoading ? (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <ProductCardSkeleton key={i} />
+              ))}
+            </div>
+          ) : productsError ? (
+            <EmptyState
+              icon={AlertCircle}
+              title="Gagal memuat produk"
+              message={productsError}
+              action={
+                <Button variant="secondary" onClick={refetchProducts}>
+                  <RefreshCw className="h-4 w-4" /> Coba lagi
+                </Button>
+              }
+            />
+          ) : filteredProducts.length === 0 ? (
+            <EmptyState icon={Search} title="Tidak ada produk ditemukan" message="Coba kata kunci atau kategori lain" />
+          ) : (
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToCart={handleAddToCart}
+                  modifiers={getProductModifiers(product)}
+                  userRole={userRole}
+                  onProductUpdate={refetchProducts}
+                />
+              ))}
             </div>
           )}
-        </div>
+        </main>
 
-        {/* Cart Panel */}
-        <div className="w-96 hidden lg:block">
+        {/* Cart Panel (desktop) */}
+        <aside className="hidden w-96 lg:block" aria-label="Keranjang">
           <CartPanel />
-        </div>
+        </aside>
       </div>
 
       {/* Mobile Cart Button */}
-      <div className="lg:hidden fixed bottom-4 right-4 z-40">
-        <button className="bg-blue-600 text-white p-4 rounded-full shadow-lg">
-          <ShoppingCart className="w-6 h-6" />
+      <div className="fixed bottom-4 right-4 z-40 lg:hidden">
+        <button
+          onClick={() => setMobileCartOpen(true)}
+          aria-label={`Buka keranjang, ${cartItemCount} item`}
+          className="relative flex min-h-14 min-w-14 items-center justify-center rounded-full bg-primary text-on-primary shadow-lg transition-transform active:scale-95"
+        >
+          <ShoppingCart className="h-6 w-6" />
+          {cartItemCount > 0 && (
+            <span className="tnum absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full bg-danger px-1.5 text-xs font-bold text-white">
+              {cartItemCount}
+            </span>
+          )}
         </button>
       </div>
+
+      {/* Mobile Cart Bottom Sheet */}
+      {mobileCartOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end bg-black/50 lg:hidden"
+          onClick={() => setMobileCartOpen(false)}
+          role="presentation"
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Keranjang"
+            onClick={(e) => e.stopPropagation()}
+            className="sheet-up relative h-[90dvh] w-full overflow-hidden rounded-t-2xl bg-surface"
+          >
+            <button
+              onClick={() => setMobileCartOpen(false)}
+              aria-label="Tutup keranjang"
+              className="absolute right-3 top-3 z-10 flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-surface-alt text-ink-secondary"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <CartPanel />
+          </div>
+        </div>
+      )}
 
       {/* Add Product Modal */}
       <AddProductModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
-        onProductAdded={handleProductAdded}
+        onProductAdded={refetchProducts}
         userRole={userRole}
       />
     </div>

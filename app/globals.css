@@ -1,28 +1,167 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+
+  /* Brand */
+  --primary: #1d4ed8;
+  --primary-hover: #1e40af;
+  --primary-soft: #dbeafe;
+  --on-primary: #ffffff;
+
+  /* Surfaces */
+  --surface: #ffffff;
+  --surface-alt: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-strong: #cbd5e1;
+
+  /* Text */
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+
+  /* Semantic states */
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  --warning: #a16207;
+  --warning-soft: #fef9c3;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --info: #0369a1;
+  --info-soft: #e0f2fe;
+
+  /* KDS (dark kitchen display) */
+  --kds-bg: #0f172a;
+  --kds-surface: #1e293b;
+  --kds-surface-alt: #334155;
+  --kds-border: #334155;
+  --kds-text: #f8fafc;
+  --kds-text-secondary: #cbd5e1;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+
+  --color-surface: var(--surface);
+  --color-surface-alt: var(--surface-alt);
+  --color-line: var(--border-color);
+  --color-line-strong: var(--border-strong);
+
+  --color-ink: var(--text-primary);
+  --color-ink-secondary: var(--text-secondary);
+  --color-ink-muted: var(--text-muted);
+
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-kds-bg: var(--kds-bg);
+  --color-kds-surface: var(--kds-surface);
+  --color-kds-surface-alt: var(--kds-surface-alt);
+  --color-kds-border: var(--kds-border);
+  --color-kds-text: var(--kds-text);
+  --color-kds-text-secondary: var(--kds-text-secondary);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Dark scope for the Kitchen Display route */
+[data-theme="kds"] {
+  --background: var(--kds-bg);
+  --foreground: var(--kds-text);
+  --surface: var(--kds-surface);
+  --surface-alt: var(--kds-surface-alt);
+  --border-color: var(--kds-border);
+  --border-strong: #475569;
+  --text-primary: var(--kds-text);
+  --text-secondary: var(--kds-text-secondary);
+  --text-muted: #94a3b8;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Touch behavior: kill 300ms tap delay, keep pinch-zoom available on the page */
+button,
+a,
+[role="button"] {
+  touch-action: manipulation;
+}
+
+button:not(:disabled),
+a,
+[role="button"] {
+  cursor: pointer;
+}
+
+/* Visible keyboard focus without affecting mouse/touch */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+[data-theme="kds"] :focus-visible {
+  outline-color: #7dd3fc;
+}
+
+/* Tabular figures for prices and timers */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Modal / sheet entrance */
+@keyframes modal-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+
+.modal-pop {
+  animation: modal-pop 200ms ease-out;
+}
+
+.sheet-up {
+  animation: sheet-up 250ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Print Styles for Receipt */
@@ -80,39 +219,4 @@ body {
   #receipt-container {
     font-family: 'Courier New', Courier, monospace !important;
   }
-}
-
-/* Force black text for all inputs and labels in POS */
-input[type="text"],
-input[type="number"],
-input[type="email"],
-input[type="password"],
-textarea,
-select {
-  color: #000000 !important;
-}
-
-input::placeholder,
-textarea::placeholder {
-  color: #666666 !important;
-}
-
-label {
-  color: #000000 !important;
-}
-
-/* Force black text for better contrast across the application */
-h1, h2, h3, h4, h5, h6,
-p, span, div, button, a, li, td, th {
-  color: #000000 !important;
-}
-
-/* Ensure inputs have black borders for better visibility */
-input, select, textarea {
-  border: 1px solid #000000 !important;
-}
-
-/* Keep buttons with their intended colors but ensure text is black */
-button {
-  color: #000000 !important;
 }

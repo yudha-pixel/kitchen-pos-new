@@ -4,7 +4,18 @@
 
 **Previous session**: Completed migration from Supabase to local PostgreSQL + Express + Prisma backend, added local JWT authentication, verified database and API, and created knowledge base for full restaurant POS roadmap.
 
-**Current session (2026-07-15, Phase 0 backend hardening)**:
+**Current session (2026-07-15, UI design system overhaul)**:
+- New token-driven design system in `app/globals.css` (Tailwind v4 `@theme`): semantic colors (primary/surface/ink/success/warning/danger/info + soft variants), removed the global `!important` force-black-text block that was fighting the dark KDS screen, body now uses Geist instead of Arial, `touch-action: manipulation`, `:focus-visible` rings, `prefers-reduced-motion` guard, `.tnum` tabular-numbers utility; `[data-theme="kds"]` scope remaps tokens for the dark kitchen display
+- New UI kit in `src/components/ui/`: `Button` (variants + 44px touch targets + loading), `Badge`, `Modal` (focus trap, Escape, scrim), `ConfirmDialog`, `PromptDialog`, `Toast`/`ToastProvider` (aria-live, auto-dismiss, mounted in `app/layout.tsx`), `Skeleton`/`ProductCardSkeleton`, `EmptyState`, `Spinner`; shared formatters in `src/lib/format.ts` (`formatRupiah` id-ID, `formatTime`, `formatElapsed`)
+- All `alert()`/`confirm()`/`prompt()` replaced with toasts and dialogs across CartPanel, modals, BackButton (grep returns zero matches in `src/` + `app/`)
+- Header: light surface theme, removed dead hardcoded "Meja 1–8" chip row, aria-labels on icon buttons; Sidebar: light theme, `aria-current` active states, real icons in collapsed mode, proper toggle `<button>`
+- POS page: dev-tools bar now development-only, compact sync strip (success/warning tones, pending badge, sync errors as toast), skeleton grid while loading, retry button on error, product refetch instead of `window.location.reload()`, mobile cart FAB now opens a working bottom sheet with item-count badge, debug console.log spam removed
+- KDS (`app/kitchen/page.tsx`): `data-theme="kds"` dark tokens, urgency timers per knowledge/02 (green <10 min, amber 10–20, red >20; constants `URGENCY_WARN_MIN`/`URGENCY_LATE_MIN`), 30s re-render tick, larger item text for distance reading, per-order loading state on Proses/Selesai, toast on fetch/update failure, "Diperbarui HH:MM" indicator
+- Tables page: knowledge-based 4-status model (Tersedia/Terisi/Reservasi/Kotor) with icon+label (not color-only), status changed via picker modal instead of blind click-cycling (still mock data — API wiring is future backend work)
+- Login: labeled inputs with autocomplete, password show/hide toggle, inline error near field, loading button
+- Verified: `tsc --noEmit` clean, `next build` passes; `npm run lint` still has pre-existing errors (mostly `no-explicit-any` in db.ts/stores/types and `<img>` warnings) that predate this session
+
+**Previous session (2026-07-15, Phase 0 backend hardening)**:
 - Order lifecycle formalized: `pending → preparing → ready → served → completed` (+`cancelled`), default status now `pending`, forward-only transitions validated in `PATCH /orders/:id/status`; POS creates paid orders as `pending` so they appear on the KDS
 - New `GET /orders/active` endpoint (pending+preparing orders with items+product+category in one query); kitchen page rewritten to use it (no more N+1, no more "Unknown" items)
 - Zod validation on all write endpoints (`server/lib/validation.ts`), central error middleware mapping Zod→400 and Prisma P2025→404/P2002→409, JWT_SECRET fail-fast, configurable CORS (`CORS_ORIGIN` env), `requireRole('admin')` on printer writes, auth on order reads

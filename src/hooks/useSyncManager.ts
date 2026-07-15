@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback, useState, useSyncExternalStore } from 'react';
 import * as api from '@/src/lib/api';
 import { db, SyncQueueItem } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
@@ -12,8 +12,23 @@ const MAX_RETRIES = 5;
  * 1. Orders created offline (db.orders with sync_status 'pending')
  * 2. Queued operations in db.sync_queue (status updates, void logs, legacy order creates)
  */
+const subscribeToOnlineStatus = (callback: () => void) => {
+  window.addEventListener('online', callback);
+  window.addEventListener('offline', callback);
+  return () => {
+    window.removeEventListener('online', callback);
+    window.removeEventListener('offline', callback);
+  };
+};
+
 export const useSyncManager = () => {
-  const [isOnline, setIsOnline] = useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+  // Hydration-safe online status: server (and first client render) assume online,
+  // then the real navigator.onLine value takes over after hydration
+  const isOnline = useSyncExternalStore(
+    subscribeToOnlineStatus,
+    () => navigator.onLine,
+    () => true
+  );
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
   const {
     pendingTransactions,
@@ -132,27 +147,12 @@ export const useSyncManager = () => {
     await syncOfflineOrders();
   }, [isOnline, syncOfflineOrders, setSyncError]);
 
-  // Listen for online/offline events
+  // Clear stale sync errors when connectivity returns
   useEffect(() => {
-    const handleOnline = () => {
-      console.log('🌐 Device is online');
-      setIsOnline(true);
+    if (isOnline) {
       setSyncError(null);
-    };
-
-    const handleOffline = () => {
-      console.log('📴 Device is offline');
-      setIsOnline(false);
-    };
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, [setSyncError]);
+    }
+  }, [isOnline, setSyncError]);
 
   // Auto-sync when coming back online with pending work
   useEffect(() => {

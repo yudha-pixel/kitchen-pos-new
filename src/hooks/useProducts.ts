@@ -34,15 +34,10 @@ export const useProducts = (categoryId?: string | null) => {
       if (isOnline) {
         try {
           const data = await api.fetchProducts(categoryId);
-          console.log('📡 API Response - Products:', data);
-          console.log('📡 First product sample:', Array.isArray(data) && data.length > 0 ? data[0] : 'No data');
 
           if (Array.isArray(data) && data.length > 0) {
             setProducts(data as unknown as Product[]);
             setIsFromCache(false);
-            console.log('✅ Products loaded from API:', data.length);
-            console.log('✅ First product image_url:', (data[0] as any).image_url);
-            console.log('✅ First product full object:', JSON.stringify(data[0], null, 2));
           } else if (data && !Array.isArray(data)) {
             console.warn('Unexpected products response format:', data);
           }
@@ -95,12 +90,10 @@ export const useCategories = () => {
       if (isOnline) {
         try {
           const data = await api.fetchCategories();
-          console.log('📡 API Response - Categories:', data);
 
           if (Array.isArray(data) && data.length > 0) {
             setCategories(data);
             setIsFromCache(false);
-            console.log('✅ Categories loaded from API:', data.length);
           }
         } catch (err) {
           if (err instanceof NetworkError) {

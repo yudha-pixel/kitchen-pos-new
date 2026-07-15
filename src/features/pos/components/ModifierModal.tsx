@@ -1,6 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { Modal } from '@/src/components/ui/Modal';
+import { Button } from '@/src/components/ui/Button';
+import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
+import { useToast } from '@/src/components/ui/Toast';
+import { formatRupiah } from '@/src/lib/format';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -27,7 +32,6 @@ interface ModifierModalProps {
   onConfirm: (selectedModifiers: ModifierOption[]) => void;
   productName?: string;
   basePrice?: number;
-  productId?: string;
 }
 
 export const ModifierModal = ({
@@ -37,70 +41,15 @@ export const ModifierModal = ({
   onConfirm,
   productName = 'Produk',
   basePrice = 0,
-  productId
 }: ModifierModalProps) => {
   const [selectedModifiers, setSelectedModifiers] = useState<ModifierOption[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
-  const [effectiveModifiers, setEffectiveModifiers] = useState<ModifierGroup[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const { toast } = useToast();
 
-  // Fetch modifier groups from database when productId changes
-  useEffect(() => {
-    const fetchModifiers = async () => {
-      if (!productId) {
-        setEffectiveModifiers(modifiers || []);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const response = await fetch(`/modifiers?productId=${productId}`);
-        if (!response.ok) throw new Error('Failed to fetch modifiers');
-        
-        const data = await response.json();
-        
-        // Convert API response to UI format
-        const groups = data.map((group: any) => ({
-          id: group.id,
-          name: group.name,
-          required: group.is_required,
-          multiSelect: group.max_selections > 1,
-          options: group.modifiers.map((mod: any) => ({
-            id: mod.id,
-            name: mod.name,
-            price: mod.price_extra,
-            selected: false
-          }))
-        }));
-        
-        setEffectiveModifiers(groups);
-      } catch (error) {
-        console.error('Error fetching modifiers:', error);
-        setEffectiveModifiers(modifiers || []);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (isOpen) {
-      fetchModifiers();
-    }
-  }, [productId, modifiers, isOpen]);
-
-  // Escape key shortcut
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isOpen) {
-        handleCancel();
-      }
-    };
-
-    if (isOpen) {
-      window.addEventListener('keydown', handleEscape);
-    }
-
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [isOpen, hasChanges]);
+  // Modifier groups arrive fully transformed via props (from the products payload);
+  // no extra fetch is needed here
+  const effectiveModifiers = modifiers ?? [];
 
   const toggleModifier = (group: ModifierGroup, option: ModifierOption) => {
     setHasChanges(true);
@@ -126,10 +75,7 @@ export const ModifierModal = ({
     }
   };
 
-  const calculateTotal = () => {
-    const modifierTotal = selectedModifiers.reduce((sum, mod) => sum + mod.price, 0);
-    return basePrice + modifierTotal;
-  };
+  const modifierTotal = selectedModifiers.reduce((sum, mod) => sum + mod.price, 0);
 
   const handleConfirm = () => {
     // Check if all required groups have selections
@@ -142,126 +88,119 @@ export const ModifierModal = ({
     });
 
     if (missingRequired.length > 0) {
-      alert(`Mohon pilih modifier wajib: ${missingRequired.map(g => g.name).join(', ')}`);
+      toast('warning', `Mohon pilih modifier wajib: ${missingRequired.map(g => g.name).join(', ')}`);
       return;
     }
 
     onConfirm(selectedModifiers);
+    resetAndClose();
+  };
+
+  const resetAndClose = () => {
     setSelectedModifiers([]);
+    setHasChanges(false);
+    setConfirmDiscard(false);
     onClose();
   };
 
   const handleCancel = () => {
     if (hasChanges) {
-      const confirmed = window.confirm('Batalkan perubahan modifier?');
-      if (!confirmed) {
-        return;
-      }
+      setConfirmDiscard(true);
+      return;
     }
-    setSelectedModifiers([]);
-    setHasChanges(false);
-    onClose();
+    resetAndClose();
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b">
-          <h2 className="text-2xl font-bold text-black">{productName}</h2>
-          <p className="text-black mt-1">Pilih modifier tambahan</p>
-        </div>
-
-        {/* Modifier Groups */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {loading ? (
-            <p className="text-black text-center py-8">Memuat modifier...</p>
-          ) : effectiveModifiers.length === 0 ? (
-            <p className="text-black text-center py-8">Tidak ada modifier tersedia</p>
-          ) : (
-            <div className="space-y-6">
-              {effectiveModifiers.map(group => (
-                <div key={group.id} className="border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-black">
-                      {group.name}
-                      {group.required && <span className="text-red-500 ml-2">*</span>}
-                    </h3>
-                    <span className="text-xs text-black">
-                      {group.multiSelect ? 'Pilih banyak' : 'Pilih satu'}
-                    </span>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    {group.options.map((option: ModifierOption) => {
-                      const isSelected = selectedModifiers.some(m => m.id === option.id);
-                      return (
-                        <label
-                          key={option.id}
-                          className={`flex items-center justify-between p-3 rounded-lg border-2 cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'border-blue-500 bg-blue-50'
-                              : 'border-gray-200 hover:border-gray-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-3">
-                            <input
-                              type={group.multiSelect ? 'checkbox' : 'radio'}
-                              name={`group-${group.id}`}
-                              checked={isSelected}
-                              onChange={() => toggleModifier(group, option)}
-                              className="w-5 h-5 text-blue-600"
-                            />
-                            <span className="font-medium text-black">{option.name}</span>
-                          </div>
-                          <span className="text-black">
-                            {option.price > 0 ? `+Rp ${option.price.toLocaleString()}` : 'Gratis'}
-                          </span>
-                        </label>
-                      );
-                    })}
-                  </div>
+    <>
+      <Modal
+        isOpen={isOpen}
+        onClose={handleCancel}
+        title={productName}
+        size="lg"
+        footer={
+          <div className="w-full">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="text-sm text-ink-secondary">
+                <p className="tnum">Harga dasar: {formatRupiah(basePrice)}</p>
+                <p className="tnum">Modifier: {formatRupiah(modifierTotal)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-ink-muted">Total</p>
+                <p className="tnum text-2xl font-bold text-ink">{formatRupiah(basePrice + modifierTotal)}</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Button variant="ghost" size="lg" className="flex-1 text-danger hover:bg-danger-soft" onClick={handleCancel}>
+                Batal
+              </Button>
+              <Button size="lg" className="flex-1" onClick={handleConfirm}>
+                Konfirmasi
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        {effectiveModifiers.length === 0 ? (
+          <p className="py-8 text-center text-ink-muted">Tidak ada modifier tersedia</p>
+        ) : (
+          <div className="space-y-6">
+            {effectiveModifiers.map(group => (
+              <fieldset key={group.id} className="rounded-lg border border-line p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <legend className="float-left font-semibold text-ink">
+                    {group.name}
+                    {group.required && (
+                      <span aria-label="wajib" className="ml-2 text-danger">
+                        *
+                      </span>
+                    )}
+                  </legend>
+                  <span className="text-xs text-ink-muted">{group.multiSelect ? 'Pilih banyak' : 'Pilih satu'}</span>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t bg-gray-50">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <p className="text-sm text-black">Harga dasar: Rp {basePrice.toLocaleString()}</p>
-              <p className="text-sm text-black">
-                Modifier: Rp {selectedModifiers.reduce((sum, m) => sum + m.price, 0).toLocaleString()}
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-black">Total</p>
-              <p className="text-2xl font-bold text-black">
-                Rp {calculateTotal().toLocaleString()}
-              </p>
-            </div>
+                <div className="space-y-2">
+                  {group.options.map((option: ModifierOption) => {
+                    const isSelected = selectedModifiers.some(m => m.id === option.id);
+                    return (
+                      <label
+                        key={option.id}
+                        className={`flex min-h-12 cursor-pointer items-center justify-between rounded-lg border p-3 transition-colors ${
+                          isSelected ? 'border-primary bg-primary-soft' : 'border-line hover:border-line-strong'
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <input
+                            type={group.multiSelect ? 'checkbox' : 'radio'}
+                            name={`group-${group.id}`}
+                            checked={isSelected}
+                            onChange={() => toggleModifier(group, option)}
+                            className="h-5 w-5 accent-[var(--primary)]"
+                          />
+                          <span className="font-medium text-ink">{option.name}</span>
+                        </div>
+                        <span className="tnum text-ink-secondary">
+                          {option.price > 0 ? `+${formatRupiah(option.price)}` : 'Gratis'}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            ))}
           </div>
-          
-          <div className="flex gap-3">
-            <button
-              onClick={handleCancel}
-              className="flex-1 px-6 py-3 bg-red-100 text-red-600 rounded-lg font-bold hover:bg-red-200 transition-colors"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleConfirm}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors"
-            >
-              Konfirmasi
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+        )}
+      </Modal>
+
+      <ConfirmDialog
+        isOpen={confirmDiscard}
+        title="Batalkan perubahan?"
+        message="Modifier yang sudah dipilih akan dibuang."
+        confirmLabel="Ya, batalkan"
+        danger
+        onConfirm={resetAndClose}
+        onCancel={() => setConfirmDiscard(false)}
+      />
+    </>
   );
 };

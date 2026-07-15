@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 import { useCartStore } from '@/src/store/useCartStore';
-import { X } from 'lucide-react';
+import { Modal } from '@/src/components/ui/Modal';
+import { Button } from '@/src/components/ui/Button';
+import { useToast } from '@/src/components/ui/Toast';
+import { formatRupiah } from '@/src/lib/format';
 
 interface SplitBillModalProps {
   isOpen: boolean;
@@ -13,6 +16,7 @@ interface SplitBillModalProps {
 export const SplitBillModal = ({ isOpen, onClose, onSplitComplete }: SplitBillModalProps) => {
   const { items, splitBill } = useCartStore();
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const { toast } = useToast();
 
   const handleToggleItem = (itemId: string) => {
     setSelectedItemIds(prev =>
@@ -32,7 +36,7 @@ export const SplitBillModal = ({ isOpen, onClose, onSplitComplete }: SplitBillMo
 
   const handleConfirmSplit = () => {
     if (selectedItemIds.length === 0) {
-      alert('Pilih minimal satu item untuk split bill');
+      toast('warning', 'Pilih minimal satu item untuk split bill');
       return;
     }
 
@@ -43,7 +47,7 @@ export const SplitBillModal = ({ isOpen, onClose, onSplitComplete }: SplitBillMo
       setSelectedItemIds([]);
       onClose();
     } else {
-      alert(result.message);
+      toast('error', result.message);
     }
   };
 
@@ -58,109 +62,83 @@ export const SplitBillModal = ({ isOpen, onClose, onSplitComplete }: SplitBillMo
       .reduce((sum, item) => sum + calculateItemTotal(item), 0);
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
-        {/* Header */}
-        <div className="p-6 border-b flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-black">Split Bill</h2>
-            <p className="text-black mt-1">Pilih item yang ingin dipisah</p>
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Split Bill"
+      size="lg"
+      footer={
+        <div className="w-full">
+          <div className="mb-4 flex items-center justify-between">
+            <span className="text-lg font-bold text-ink">Total yang Dipilih:</span>
+            <span className="tnum text-2xl font-bold text-ink">{formatRupiah(calculateSelectedTotal())}</span>
           </div>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <X className="w-6 h-6" />
-          </button>
+          <div className="flex gap-3">
+            <Button variant="ghost" size="lg" className="flex-1 text-danger hover:bg-danger-soft" onClick={onClose}>
+              Batal
+            </Button>
+            <Button size="lg" className="flex-1" disabled={selectedItemIds.length === 0} onClick={handleConfirmSplit}>
+              Konfirmasi Split
+            </Button>
+          </div>
         </div>
+      }
+    >
+      {items.length === 0 ? (
+        <p className="py-8 text-center text-ink-muted">Tidak ada item di keranjang</p>
+      ) : (
+        <div className="space-y-3">
+          <label className="mb-4 flex min-h-11 cursor-pointer items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selectedItemIds.length === items.length}
+              onChange={handleSelectAll}
+              className="h-5 w-5 rounded accent-[var(--primary)]"
+            />
+            <span className="font-medium text-ink">Pilih Semua</span>
+          </label>
 
-        {/* Items List */}
-        <div className="flex-1 overflow-y-auto p-6">
-          {items.length === 0 ? (
-            <p className="text-black text-center py-8">Tidak ada item di keranjang</p>
-          ) : (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2 mb-4">
+          {items.map((item) => {
+            const itemTotal = calculateItemTotal(item);
+            const isSelected = selectedItemIds.includes(item.id);
+
+            return (
+              <label
+                key={item.id}
+                className={`flex cursor-pointer items-center gap-3 rounded-lg border p-4 transition-colors ${
+                  isSelected ? 'border-primary bg-primary-soft' : 'border-line hover:border-line-strong'
+                }`}
+              >
                 <input
                   type="checkbox"
-                  checked={selectedItemIds.length === items.length}
-                  onChange={handleSelectAll}
-                  className="w-5 h-5 text-blue-600 rounded"
+                  checked={isSelected}
+                  onChange={() => handleToggleItem(item.id)}
+                  className="h-5 w-5 rounded accent-[var(--primary)]"
                 />
-                <span className="font-medium text-black">Pilih Semua</span>
-              </div>
-
-              {items.map((item) => {
-                const itemTotal = calculateItemTotal(item);
-                const isSelected = selectedItemIds.includes(item.id);
-
-                return (
-                  <label
-                    key={item.id}
-                    className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-colors ${
-                      isSelected
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => handleToggleItem(item.id)}
-                      className="w-5 h-5 text-blue-600 rounded"
-                    />
-                    <div className="flex-1">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-medium text-black">{item.name}</h4>
-                          <p className="text-sm text-black">{item.quantity} x Rp {item.price.toLocaleString()}</p>
-                          {item.modifiers.length > 0 && (
-                            <div className="text-xs text-black mt-1">
-                              {item.modifiers.map((mod: any) => (
-                                <span key={mod.id} className="mr-2">+ {mod.name}</span>
-                              ))}
-                            </div>
-                          )}
+                <div className="flex-1">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h4 className="font-medium text-ink">{item.name}</h4>
+                      <p className="tnum text-sm text-ink-secondary">
+                        {item.quantity} x {formatRupiah(item.price)}
+                      </p>
+                      {item.modifiers.length > 0 && (
+                        <div className="mt-1 text-xs text-ink-muted">
+                          {item.modifiers.map((mod: any) => (
+                            <span key={mod.id} className="mr-2">+ {mod.name}</span>
+                          ))}
                         </div>
-                        <span className="font-bold text-black">Rp {itemTotal.toLocaleString()}</span>
-                      </div>
+                      )}
                     </div>
-                  </label>
-                );
-              })}
-            </div>
-          )}
+                    <span className="tnum font-bold text-ink">{formatRupiah(itemTotal)}</span>
+                  </div>
+                </div>
+              </label>
+            );
+          })}
         </div>
-
-        {/* Footer */}
-        <div className="p-6 border-t bg-gray-50">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-lg font-bold text-black">Total yang Dipilih:</span>
-            <span className="text-2xl font-bold text-black">
-              Rp {calculateSelectedTotal().toLocaleString()}
-            </span>
-          </div>
-
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              className="flex-1 px-6 py-3 bg-red-100 text-red-600 rounded-lg font-bold hover:bg-red-200 transition-colors"
-            >
-              Batal
-            </button>
-            <button
-              onClick={handleConfirmSplit}
-              disabled={selectedItemIds.length === 0}
-              className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-bold hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
-            >
-              Konfirmasi Split
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 };

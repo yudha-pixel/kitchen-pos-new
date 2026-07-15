@@ -9,27 +9,24 @@ import { useAuth } from '@/src/context/AuthContext';
 interface HeaderProps {
   title?: string;
   onSearch?: (query: string) => void;
-  onTableSelect?: (tableId: number) => void;
 }
 
-export const Header = ({ 
-  title = 'Kitchen POS',
-  onSearch,
-  onTableSelect 
-}: HeaderProps) => {
+export const Header = ({ title = 'Kitchen POS', onSearch }: HeaderProps) => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTable, setSelectedTable] = useState<number | null>(null);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showTableMergeModal, setShowTableMergeModal] = useState(false);
   const { user, logout } = useAuth();
 
-  // Update time every minute
+  // Set on mount + update every minute (avoids SSR/client clock mismatch)
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 60000);
-    return () => clearInterval(timer);
+    const update = () => setCurrentTime(new Date());
+    const initial = setTimeout(update, 0);
+    const timer = setInterval(update, 60000);
+    return () => {
+      clearTimeout(initial);
+      clearInterval(timer);
+    };
   }, []);
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -38,112 +35,85 @@ export const Header = ({
     onSearch?.(query);
   };
 
-  const handleTableSelect = (tableId: number) => {
-    setSelectedTable(tableId);
-    onTableSelect?.(tableId);
-  };
-
   const handleLogout = () => {
     logout();
     router.push('/login');
   };
 
-  const tables = [1, 2, 3, 4, 5, 6, 7, 8];
-
   return (
-    <header className="bg-blue-600 border-b-2 border-blue-400 px-6 py-4 relative z-50">
-      <div className="flex items-center justify-between">
+    <header className="relative z-50 border-b border-line bg-surface px-4 py-2 sm:px-6">
+      <div className="flex items-center justify-between gap-4">
         {/* Left: Back Button, Title and Search */}
-        <div className="flex items-center gap-6 flex-1">
+        <div className="flex flex-1 items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
-            title="Kembali"
+            aria-label="Kembali"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
           >
-            <ArrowLeft className="w-6 h-6 text-white" />
+            <ArrowLeft className="h-5 w-5" />
           </button>
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
-          
-          <div className="relative flex-1 max-w-md">
-            <input
-              type="text"
-              placeholder="Cari produk..."
-              value={searchQuery}
-              onChange={handleSearch}
-              className="w-full pl-10 pr-4 py-2 border border-blue-400 bg-blue-500 text-white placeholder-blue-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-white"
-            />
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-blue-200" />
-          </div>
-        </div>
+          <h1 className="hidden text-xl font-bold text-ink sm:block">{title}</h1>
 
-        {/* Center: Table Selection */}
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-white">Meja:</span>
-          <div className="flex gap-1">
-            {tables.map((table) => (
-              <button
-                key={table}
-                onClick={() => handleTableSelect(table)}
-                className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                  selectedTable === table
-                    ? 'bg-white text-blue-600'
-                    : 'bg-blue-500 text-white hover:bg-blue-400'
-                }`}
-              >
-                {table}
-              </button>
-            ))}
-          </div>
+          {onSearch && (
+            <div className="relative max-w-md flex-1">
+              <input
+                type="search"
+                placeholder="Cari produk..."
+                aria-label="Cari produk"
+                value={searchQuery}
+                onChange={handleSearch}
+                className="min-h-11 w-full rounded-lg border border-line-strong bg-surface pl-10 pr-4 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+              />
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted" />
+            </div>
+          )}
         </div>
 
         {/* Right: Time and User Actions */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Current Time */}
-          <div className="text-right">
-            <p className="text-sm font-medium text-white">
-              {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-            </p>
-            <p className="text-xs text-blue-200">
-              {currentTime.toLocaleDateString('id-ID', { 
-                weekday: 'short', 
-                day: 'numeric', 
-                month: 'short' 
-              })}
-            </p>
-          </div>
+          {currentTime && (
+            <div className="hidden text-right md:block">
+              <p className="tnum text-sm font-semibold text-ink">
+                {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+              </p>
+              <p className="text-xs text-ink-muted">
+                {currentTime.toLocaleDateString('id-ID', {
+                  weekday: 'short',
+                  day: 'numeric',
+                  month: 'short',
+                })}
+              </p>
+            </div>
+          )}
 
           {/* User Actions */}
-          <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowTableMergeModal(true)}
+            aria-label="Gabung meja"
+            title="Gabung Meja"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
+          >
+            <Users className="h-5 w-5" />
+          </button>
+          <div className="flex items-center gap-1 border-l border-line pl-2 sm:pl-3">
+            <span className="flex items-center gap-2 px-1 text-sm font-medium text-ink-secondary">
+              <User className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">{user?.username}</span>
+            </span>
             <button
-              onClick={() => setShowTableMergeModal(true)}
-              className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
-              title="Gabung Meja"
+              onClick={handleLogout}
+              aria-label="Keluar"
+              title="Logout"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-danger-soft hover:text-danger"
             >
-              <Users className="w-6 h-6 text-white" />
+              <LogOut className="h-5 w-5" />
             </button>
-            <div className="flex items-center gap-2 ml-4">
-              <User className="w-5 h-5 text-white" />
-              <span className="text-sm text-white">
-                {user?.username}
-              </span>
-              <button
-                onClick={handleLogout}
-                className="p-2 hover:bg-blue-500 rounded-lg transition-colors"
-                title="Logout"
-              >
-                <LogOut className="w-5 h-5 text-white" />
-              </button>
-            </div>
           </div>
         </div>
       </div>
 
-      {/* Table Merge Modal */}
-      <TableMergeModal
-        isOpen={showTableMergeModal}
-        onClose={() => setShowTableMergeModal(false)}
-      />
-
+      <TableMergeModal isOpen={showTableMergeModal} onClose={() => setShowTableMergeModal(false)} />
     </header>
   );
 };
