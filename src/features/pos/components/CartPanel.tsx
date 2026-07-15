@@ -24,6 +24,7 @@ export const CartPanel = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
+  const [mounted, setMounted] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
   const [currentSplitGroup, setCurrentSplitGroup] = useState<string | null>(null);
   const [roundTo, setRoundTo] = useState<number>(1000);
@@ -32,6 +33,11 @@ export const CartPanel = () => {
   const [cashReceived, setCashReceived] = useState<string>('');
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [paying, setPaying] = useState(false);
+
+  // Prevent hydration mismatch by only rendering after mount
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Dialog state
   const [confirmClear, setConfirmClear] = useState(false);
@@ -128,6 +134,19 @@ export const CartPanel = () => {
   };
 
   const rounded = calculateRoundedTotal(roundTo);
+
+  if (!mounted) {
+    return (
+      <div className="flex h-full flex-col border-l border-line bg-surface">
+        <div className="border-b border-line p-4">
+          <h2 className="text-xl font-bold text-ink">Keranjang</h2>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-4">
+          <p className="text-ink-muted">Memuat...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col border-l border-line bg-surface">
