@@ -93,7 +93,87 @@ export const ReceiptModal = ({
   };
 
   const handlePrint = () => {
-    generatePDF();
+    // 1. Cari elemen struk belanja Anda
+    const receiptElement = receiptRef.current || document.querySelector('.receipt-template');
+
+    if (!receiptElement) {
+      console.error("Elemen struk tidak ditemukan!");
+      return;
+    }
+
+    // 2. Hapus iframe cetak lama jika masih ada di halaman
+    const oldIframe = document.getElementById('receipt-print-iframe');
+    if (oldIframe) document.body.removeChild(oldIframe);
+
+    // 3. Buat iframe baru yang benar-benar tersembunyi
+    const iframe = document.createElement('iframe');
+    iframe.id = 'receipt-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    // 4. Ambil semua style aktif halaman utama agar Tailwind struk tetap jalan
+    let stylesHtml = '';
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
+      stylesHtml += node.outerHTML;
+    });
+
+    // 5. Tulis konten struk secara MURNI ke dalam iframe (Dashboard dijamin tidak akan ikut!)
+    const iframeWindow = iframe.contentWindow;
+    if (!iframeWindow) return;
+
+    const iframeDoc = iframeWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(`
+      <html>
+        <head>
+          <title>Print Receipt</title>
+          ${stylesHtml}
+          <style>
+            @page {
+              margin: 0 !important;
+              size: auto !important;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 10px !important;
+              height: auto !important;
+              overflow: hidden !important;
+              background-color: #ffffff !important;
+            }
+            body {
+              font-family: sans-serif;
+              display: flex;
+              justify-content: center;
+            }
+            /* Hilangkan tombol dari kertas cetak */
+            button, .btn, [class*="CetakStruk"] {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div style="width: 100%; max-width: 400px;">
+            ${(receiptElement as HTMLElement).innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    // 6. Eksekusi cetak langsung dari dalam iframe
+    setTimeout(() => {
+      iframeWindow.focus();
+      iframeWindow.print();
+      // Hapus kembali iframe setelah dialog print selesai
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
   };
 
   const handleDownloadPDF = () => {

@@ -367,6 +367,21 @@ npm run db:seed
 - Click-to-change status functionality (Available → Occupied → Reserved)
 - Responsive grid layout with visual status indicators
 
+### Receipt Printing Updates (Latest Session)
+- **ReceiptModal.tsx**: Changed from `window.open` method to iframe isolation method for printing
+  - Creates hidden iframe to isolate receipt content from dashboard
+  - Injects all stylesheets from main document
+  - Forces single-page print with specific CSS rules
+  - Cleans up iframe after printing
+
+- **Receipt.tsx**: Updated with iframe isolation method and navigation improvements
+  - Added `useRouter` import from `next/navigation`
+  - Changed `handlePrint` from DOM manipulation to iframe isolation method
+  - Changed button layout from horizontal to vertical (`flex flex-col gap-2`)
+  - Added "Kembali ke Dashboard" button with `router.back()` for state-preserving navigation
+  - Removed conditional "Tutup" button
+  - Button layout now full-width with `max-w-[400px] mx-auto`
+
 ### Known Issues
 - **CRITICAL**: Sidebar back button and toggle button not responding to clicks
   - Multiple troubleshooting attempts made without success

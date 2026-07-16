@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { Receipt as ReceiptIcon } from 'lucide-react';
 
 interface ReceiptItem {
@@ -44,8 +45,88 @@ export const Receipt = ({
   storePhone = process.env.NEXT_PUBLIC_STORE_PHONE || '(021) 123-4567',
   onClose,
 }: ReceiptProps) => {
+  const router = useRouter();
+
   const handlePrint = () => {
-    window.print();
+    // 1. Cari elemen pembungkus struk belanja di Receipt.tsx
+    const receiptElement = document.getElementById('receipt-container') || document.querySelector('.receipt-container-class') || document.getElementById('temporary-print-root');
+
+    if (!receiptElement) {
+      console.error("Elemen struk tidak ditemukan di Receipt.tsx!");
+      return;
+    }
+
+    // 2. Hapus iframe cetak lama jika masih tertinggal
+    const oldIframe = document.getElementById('receipt-print-iframe');
+    if (oldIframe) document.body.removeChild(oldIframe);
+
+    // 3. Buat iframe baru yang tersembunyi
+    const iframe = document.createElement('iframe');
+    iframe.id = 'receipt-print-iframe';
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = 'none';
+    document.body.appendChild(iframe);
+
+    // 4. Ambil semua style aktif halaman utama agar Tailwind CSS tetap terbawa sempurna
+    let stylesHtml = '';
+    document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
+      stylesHtml += node.outerHTML;
+    });
+
+    // 5. Tulis konten struk secara MURNI ke dalam iframe (Dashboard otomatis terisolasi/hilang!)
+    const iframeWindow = iframe.contentWindow;
+    if (!iframeWindow) return;
+
+    const iframeDoc = iframeWindow.document;
+    iframeDoc.open();
+    iframeDoc.write(`
+      <html>
+        <head>
+          <title>Print Receipt</title>
+          ${stylesHtml}
+          <style>
+            @page {
+              margin: 0 !important;
+              size: auto !important;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 10px !important;
+              height: auto !important;
+              overflow: hidden !important;
+              background-color: #ffffff !important;
+            }
+            body {
+              font-family: sans-serif;
+              display: flex;
+              justify-content: center;
+            }
+            button, .btn, [class*="CetakStruk"], button[onClick*="Print"] {
+              display: none !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div style="width: 100%; max-width: 400px; margin: 0 auto;">
+            ${receiptElement.innerHTML}
+          </div>
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    // 6. Eksekusi cetak langsung dari dalam iframe
+    setTimeout(() => {
+      iframeWindow.focus();
+      iframeWindow.print();
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 500);
   };
 
   const formatDate = () => {
@@ -218,22 +299,19 @@ export const Receipt = ({
         </div>
 
         {/* Action Buttons (Hidden when printing) */}
-        <div className="flex gap-2 print-hidden">
+        <div className="mt-4 flex flex-col gap-2 w-full max-w-[400px] mx-auto print-hidden">
           <button
             onClick={handlePrint}
-            className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+            className="w-full bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 transition"
           >
-            <ReceiptIcon className="w-4 h-4" />
             Cetak Struk
           </button>
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 transition-colors"
-            >
-              Tutup
-            </button>
-          )}
+          <button
+            onClick={() => router.back()}
+            className="w-full mt-2 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition print:hidden"
+          >
+            Kembali ke Dashboard
+          </button>
         </div>
       </div>
     </div>

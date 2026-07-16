@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 async function main() {
   console.log('🌱 Seeding local PostgreSQL database...');
@@ -30,7 +31,7 @@ async function main() {
   // Step 2: Create Categories with colors
   const coffeeCategory = await prisma.category.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Coffee',
       color: 'brown',
     },
@@ -38,7 +39,7 @@ async function main() {
 
   const nonCoffeeCategory = await prisma.category.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Non-Coffee',
       color: 'green',
     },
@@ -46,7 +47,7 @@ async function main() {
 
   const foodCategory = await prisma.category.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Food',
       color: 'orange',
     },
@@ -54,7 +55,7 @@ async function main() {
 
   const bakeryCategory = await prisma.category.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Bakery',
       color: 'yellow',
     },
@@ -65,7 +66,7 @@ async function main() {
   // Step 3: Create 3 Coffee Modifier Groups
   const temperatureGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Suhu Minuman',
       is_required: true,
       max_selections: 1,
@@ -74,7 +75,7 @@ async function main() {
 
   const sugarGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Tingkat Gula',
       is_required: true,
       max_selections: 1,
@@ -83,7 +84,7 @@ async function main() {
 
   const addonGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Tambahan Kopi',
       is_required: false,
       max_selections: 2,
@@ -95,7 +96,7 @@ async function main() {
   // Step 3.5: Create Food and Snack Modifier Groups
   const spicinessGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Level Pedas',
       is_required: false,
       max_selections: 1,
@@ -104,7 +105,7 @@ async function main() {
 
   const foodToppingsGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Topping Makanan',
       is_required: false,
       max_selections: 4,
@@ -113,7 +114,7 @@ async function main() {
 
   const drinkSugarGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Level Gula',
       is_required: false,
       max_selections: 1,
@@ -122,7 +123,7 @@ async function main() {
 
   const iceGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Es Batu',
       is_required: false,
       max_selections: 1,
@@ -131,7 +132,7 @@ async function main() {
 
   const drinkToppingsGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Topping Minuman',
       is_required: false,
       max_selections: 4,
@@ -140,7 +141,7 @@ async function main() {
 
   const snackToppingsGroup = await prisma.modifierGroup.create({
     data: {
-      id: crypto.randomUUID(),
+      id: randomUUID(),
       name: 'Topping Snack',
       is_required: false,
       max_selections: 3,
@@ -152,79 +153,79 @@ async function main() {
   // Create modifiers for each group
   const temperatureModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: temperatureGroup.id, name: 'Hot', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: temperatureGroup.id, name: 'Iced', price_extra: 3000 },
+      { id: randomUUID(), modifier_group_id: temperatureGroup.id, name: 'Hot', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: temperatureGroup.id, name: 'Iced', price_extra: 3000 },
     ],
   });
 
   const sugarModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: sugarGroup.id, name: 'Normal Sugar', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: sugarGroup.id, name: 'Less Sugar', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: sugarGroup.id, name: 'No Sugar', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: sugarGroup.id, name: 'Normal Sugar', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: sugarGroup.id, name: 'Less Sugar', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: sugarGroup.id, name: 'No Sugar', price_extra: 0 },
     ],
   });
 
   const addonModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: addonGroup.id, name: 'Extra Espresso Shot', price_extra: 5000 },
-      { id: crypto.randomUUID(), modifier_group_id: addonGroup.id, name: 'Oat Milk Upgrade', price_extra: 8000 },
+      { id: randomUUID(), modifier_group_id: addonGroup.id, name: 'Extra Espresso Shot', price_extra: 5000 },
+      { id: randomUUID(), modifier_group_id: addonGroup.id, name: 'Oat Milk Upgrade', price_extra: 8000 },
     ],
   });
 
   // Food modifiers
   const spicinessModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Tidak Pedas', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Sedikit Pedas', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Pedas', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Sangat Pedas', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Tidak Pedas', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Sedikit Pedas', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Pedas', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Sangat Pedas', price_extra: 0 },
     ],
   });
 
   const foodToppingsModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Nasi', price_extra: 5000 },
-      { id: crypto.randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Telur', price_extra: 3000 },
-      { id: crypto.randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Ayam', price_extra: 8000 },
-      { id: crypto.randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Kerupuk', price_extra: 2000 },
+      { id: randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Nasi', price_extra: 5000 },
+      { id: randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Telur', price_extra: 3000 },
+      { id: randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Ayam', price_extra: 8000 },
+      { id: randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Kerupuk', price_extra: 2000 },
     ],
   });
 
   // Drink modifiers
   const drinkSugarModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Tanpa Gula', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Sedikit Gula', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Normal', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Extra Gula', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Tanpa Gula', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Sedikit Gula', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Normal', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Extra Gula', price_extra: 0 },
     ],
   });
 
   const iceModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: iceGroup.id, name: 'Tanpa Es', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: iceGroup.id, name: 'Sedikit Es', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: iceGroup.id, name: 'Normal', price_extra: 0 },
-      { id: crypto.randomUUID(), modifier_group_id: iceGroup.id, name: 'Extra Es', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: iceGroup.id, name: 'Tanpa Es', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: iceGroup.id, name: 'Sedikit Es', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: iceGroup.id, name: 'Normal', price_extra: 0 },
+      { id: randomUUID(), modifier_group_id: iceGroup.id, name: 'Extra Es', price_extra: 0 },
     ],
   });
 
   const drinkToppingsModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Jelly', price_extra: 3000 },
-      { id: crypto.randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Puding', price_extra: 3000 },
-      { id: crypto.randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Nata de Coco', price_extra: 3000 },
-      { id: crypto.randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Susu Kental Manis', price_extra: 2000 },
+      { id: randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Jelly', price_extra: 3000 },
+      { id: randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Puding', price_extra: 3000 },
+      { id: randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Nata de Coco', price_extra: 3000 },
+      { id: randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Susu Kental Manis', price_extra: 2000 },
     ],
   });
 
   // Snack modifiers
   const snackToppingsModifiers = await prisma.modifier.createMany({
     data: [
-      { id: crypto.randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Saus', price_extra: 2000 },
-      { id: crypto.randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Mayones', price_extra: 2000 },
-      { id: crypto.randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Keju Parut', price_extra: 3000 },
+      { id: randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Saus', price_extra: 2000 },
+      { id: randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Mayones', price_extra: 2000 },
+      { id: randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Keju Parut', price_extra: 3000 },
     ],
   });
 
@@ -248,7 +249,7 @@ async function main() {
     espressoDrinks.map((drink) =>
       prisma.product.create({
         data: {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           category_id: coffeeCategory.id,
           name: drink.name,
           description: drink.description,
@@ -286,7 +287,7 @@ async function main() {
     coldCoffee.map((drink) =>
       prisma.product.create({
         data: {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           category_id: coffeeCategory.id,
           name: drink.name,
           description: drink.description,
@@ -324,7 +325,7 @@ async function main() {
     nonCoffeeDrinks.map((drink) =>
       prisma.product.create({
         data: {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           category_id: nonCoffeeCategory.id,
           name: drink.name,
           description: drink.description,
@@ -362,7 +363,7 @@ async function main() {
     foodItems.map((item) =>
       prisma.product.create({
         data: {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           category_id: foodCategory.id,
           name: item.name,
           description: item.description,
@@ -399,7 +400,7 @@ async function main() {
     bakeryItems.map((item) =>
       prisma.product.create({
         data: {
-          id: crypto.randomUUID(),
+          id: randomUUID(),
           category_id: bakeryCategory.id,
           name: item.name,
           description: item.description,
