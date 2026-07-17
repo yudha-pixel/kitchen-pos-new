@@ -25,16 +25,19 @@ interface Transaction {
   id: string;
   time: string;
   orderId: string;
-  total: number;
+  menuName: string;
+  quantity: number;
+  unitPrice: number;
+  modifiers: { name: string; price: number }[];
   status: 'completed' | 'pending' | 'cancelled';
 }
 
 const mockTransactions: Transaction[] = [
-  { id: '1', time: '09:15', orderId: 'ORD-001', total: 45000, status: 'completed' },
-  { id: '2', time: '09:30', orderId: 'ORD-002', total: 62000, status: 'completed' },
-  { id: '3', time: '10:00', orderId: 'ORD-003', total: 28000, status: 'completed' },
-  { id: '4', time: '10:45', orderId: 'ORD-004', total: 75000, status: 'completed' },
-  { id: '5', time: '11:20', orderId: 'ORD-005', total: 35000, status: 'pending' },
+  { id: '1', time: '09:15', orderId: 'ORD-001', menuName: 'Nasi Goreng Spesial', quantity: 2, unitPrice: 20000, modifiers: [{ name: 'Extra Telur', price: 5000 }], status: 'completed' },
+  { id: '2', time: '09:30', orderId: 'ORD-002', menuName: 'Mie Ayam Bakso', quantity: 1, unitPrice: 60000, modifiers: [{ name: 'Pedas', price: 2000 }], status: 'completed' },
+  { id: '3', time: '10:00', orderId: 'ORD-003', menuName: 'Ayam Bakar Madu', quantity: 1, unitPrice: 28000, modifiers: [], status: 'completed' },
+  { id: '4', time: '10:45', orderId: 'ORD-004', menuName: 'Sate Ayam', quantity: 3, unitPrice: 20000, modifiers: [{ name: 'Bumbu Kacang', price: 3000 }, { name: 'Extra Sate', price: 15000 }], status: 'completed' },
+  { id: '5', time: '11:20', orderId: 'ORD-005', menuName: 'Es Teh Manis', quantity: 2, unitPrice: 15000, modifiers: [{ name: 'Less Sugar', price: 0 }], status: 'pending' },
 ];
 
 const SHIFT_STORAGE_KEY = 'kitchen_pos_shift';
@@ -116,6 +119,17 @@ export default function ShiftPage() {
     localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shiftData));
   }, [shiftData]);
 
+  // Calculate total sales dynamically from all transactions
+  const calculateTotalSales = () => {
+    return mockTransactions
+      .filter(t => t.status === 'completed')
+      .reduce((sum, transaction) => {
+        const subtotal = transaction.quantity * transaction.unitPrice;
+        const modifierTotal = transaction.modifiers?.reduce((modSum, mod) => modSum + (mod.price || 0), 0) || 0;
+        return sum + subtotal + modifierTotal;
+      }, 0);
+  };
+
   const handleOpenShift = () => {
     const cash = parseFloat(startingCashInput);
     if (isNaN(cash) || cash < 0) {
@@ -194,7 +208,50 @@ export default function ShiftPage() {
   };
 
   const handlePrint = () => {
+    const style = document.createElement('style');
+    style.textContent = `
+      @media print {
+        @page {
+          size: auto;
+          margin: 0 !important;
+        }
+        html, body {
+          width: 80mm !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          min-width: 80mm !important;
+          max-width: 80mm !important;
+        }
+        #print-receipt-container {
+          width: 80mm !important;
+          max-width: 80mm !important;
+          min-width: 80mm !important;
+          margin: 0 auto !important;
+          border: 1px solid #000 !important;
+          padding: 10px !important;
+          box-shadow: none !important;
+          page-break-inside: avoid !important;
+        }
+        #print-receipt-container > * {
+          page-break-inside: avoid !important;
+        }
+        .space-y-2 > div {
+          display: flex !important;
+          justify-content: space-between !important;
+        }
+        button, .no-print {
+          display: none !important;
+        }
+        * {
+          page-break-inside: avoid !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
     window.print();
+    setTimeout(() => {
+      document.head.removeChild(style);
+    }, 1000);
   };
 
   const handleDownloadPDF = async () => {
@@ -240,66 +297,8 @@ export default function ShiftPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b-2 border-line bg-surface px-6 py-4">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.back()}
-            aria-label="Kembali"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
-          <Clock className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold text-ink">Buka/Tutup Shift</h1>
-        </div>
-      </div>
-
       <div className="p-6">
         <div className="mx-auto max-w-4xl space-y-6">
-          {/* Shift Status Card */}
-          <div className="rounded-lg border-2 border-line bg-surface p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">Status Shift</h2>
-                <p className="text-sm text-ink-muted">
-                  {shiftData.isOpen ? (
-                    <span className="flex items-center gap-2 text-success">
-                      <CheckCircle className="h-4 w-4" />
-                      Shift Terbuka
-                    </span>
-                  ) : (
-                    <span className="flex items-center gap-2 text-ink-muted">
-                      <Clock className="h-4 w-4" />
-                      Shift Tertutup
-                    </span>
-                  )}
-                </p>
-              </div>
-              {shiftData.cashierName && (
-                <div className="text-right">
-                  <p className="text-sm text-ink-muted">Kasir</p>
-                  <p className="font-medium text-ink">{shiftData.cashierName}</p>
-                </div>
-              )}
-            </div>
-
-            {shiftData.openedAt && (
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-ink-muted">Dibuka pada</p>
-                  <p className="font-medium text-ink">{formatDateTime(shiftData.openedAt)}</p>
-                </div>
-                {shiftData.closedAt && (
-                  <div>
-                    <p className="text-ink-muted">Ditutup pada</p>
-                    <p className="font-medium text-ink">{formatDateTime(shiftData.closedAt)}</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {/* Open Shift Form */}
           {!shiftData.isOpen && !shiftData.closedAt && (
             <div className="rounded-lg border-2 border-line bg-surface p-6">
@@ -348,7 +347,7 @@ export default function ShiftPage() {
                       <TrendingUp className="h-4 w-4" />
                       <p className="text-sm">Total Penjualan</p>
                     </div>
-                    <p className="mt-1 text-xl font-bold text-success">{formatCurrency(shiftData.totalSales)}</p>
+                    <p className="mt-1 text-xl font-bold text-success">{formatCurrency(calculateTotalSales())}</p>
                   </div>
                   <div className="rounded-lg bg-surface-alt p-4">
                     <div className="flex items-center gap-2 text-ink-muted">
@@ -393,7 +392,7 @@ export default function ShiftPage() {
                       >
                         <div className="text-ink">{transaction.time}</div>
                         <div className="text-ink font-medium">{transaction.orderId}</div>
-                        <div className="text-ink font-bold">{formatCurrency(transaction.total)}</div>
+                        <div className="text-ink font-bold">{new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format((transaction.quantity * transaction.unitPrice) + (transaction.modifiers?.reduce((sum, mod) => sum + (mod.price || 0), 0) || 0))}</div>
                         <div>
                           <span
                             className={`rounded-full px-2 py-1 text-xs font-medium ${
@@ -539,51 +538,134 @@ export default function ShiftPage() {
             </div>
           )}
 
-          {/* Shift Closed Summary */}
+          {/* Shift Closed Summary - Receipt Style */}
           {shiftData.closedAt && !shiftData.isOpen && (
-            <div className="space-y-6">
-              <div id="shift-summary" className="rounded-lg border-2 border-line bg-surface p-6">
-                <h3 className="mb-4 text-lg font-semibold text-ink">Ringkasan Shift Ditutup</h3>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="rounded-lg bg-surface-alt p-4">
-                    <p className="text-sm text-ink-muted">Modal Awal</p>
-                    <p className="text-lg font-bold text-ink">{formatCurrency(shiftData.startingCash)}</p>
-                  </div>
-                  <div className="rounded-lg bg-surface-alt p-4">
-                    <p className="text-sm text-ink-muted">Total Penjualan</p>
-                    <p className="text-lg font-bold text-success">{formatCurrency(shiftData.totalSales)}</p>
-                  </div>
-                  <div className="rounded-lg bg-surface-alt p-4">
-                    <p className="text-sm text-ink-muted">Total Pengeluaran</p>
-                    <p className="text-lg font-bold text-danger">{formatCurrency(shiftData.totalExpenses)}</p>
-                  </div>
-                  <div className="rounded-lg bg-surface-alt p-4">
-                    <p className="text-sm text-ink-muted">Uang Tunai Akhir</p>
-                    <p className="text-lg font-bold text-ink">{formatCurrency(shiftData.endingCash || 0)}</p>
-                  </div>
-                </div>
-
-                <div className="mt-4 rounded-lg border-2 border-line bg-surface-alt p-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm text-ink-muted">Selisih (Variance)</p>
-                      <p className={`text-lg font-bold ${shiftData.variance === 0 ? 'text-success' : (shiftData.variance && shiftData.variance > 0) ? 'text-warning' : 'text-danger'}`}>
-                        {formatCurrency(shiftData.variance || 0)}
-                      </p>
-                    </div>
-                    {shiftData.variance && shiftData.variance !== 0 && (
-                      <div className="flex items-center gap-2 text-ink-muted">
-                        <AlertCircle className="h-5 w-5" />
-                        <span className="text-sm">
-                          {shiftData.variance > 0 ? 'Kelebihan' : 'Kekurangan'}
-                        </span>
-                      </div>
-                    )}
-                  </div>
+            <div id="print-receipt-container" className="max-w-2xl mx-auto p-6" style={{ 
+              fontFamily: "'Courier New', monospace",
+              border: '1px solid #e0e0e0',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+              padding: '20px',
+              margin: '20px auto',
+              background: 'white'
+            }} data-print-container>
+              {/* Header Section */}
+              <div className="text-center mb-6">
+                <h1 className="text-2xl font-bold mb-2">KITCHEN POS</h1>
+                <p className="text-sm text-gray-600">Laporan Tutup Shift</p>
+                <div className="mt-2 text-xs text-gray-500">
+                  <p>Kasir: {shiftData.cashierName || 'admin'}</p>
+                  <p>Buka: {shiftData?.openedAt ? formatDateTime(shiftData.openedAt) : "-"}</p>
+                  <p>Tutup: {shiftData?.closedAt ? formatDateTime(shiftData.closedAt) : "-"}</p>
                 </div>
               </div>
 
-              <div className="flex gap-2">
+              {/* Divider */}
+              <div className="border-t-2 border-dashed border-gray-400 my-4"></div>
+
+              {/* Financial Summary - Text Format */}
+              <div className="space-y-2 mb-6">
+                <div className="flex justify-between text-sm">
+                  <span>Modal Awal:</span>
+                  <span className="font-semibold">{formatCurrency(shiftData.startingCash)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Total Penjualan:</span>
+                  <span className="font-semibold text-green-600">{formatCurrency(calculateTotalSales())}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Total Pengeluaran:</span>
+                  <span className="font-semibold text-red-600">{formatCurrency(shiftData.totalExpenses)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span>Uang Tunai Akhir:</span>
+                  <span className="font-semibold">{formatCurrency(shiftData.endingCash || 0)}</span>
+                </div>
+                <div className="flex justify-between text-sm font-bold border-t border-gray-300 pt-2 mt-2">
+                  <span>Selisih (Variance):</span>
+                  <span className={shiftData.variance === 0 ? 'text-green-600' : (shiftData.variance && shiftData.variance > 0) ? 'text-yellow-600' : 'text-red-600'}>
+                    {formatCurrency(shiftData.variance || 0)} {shiftData.variance && shiftData.variance !== 0 && (shiftData.variance > 0 ? '(Kelebihan)' : '(Kekurangan)')}
+                  </span>
+                </div>
+              </div>
+
+              {/* Divider */}
+              <div className="border-t-2 border-dashed border-gray-400 my-4"></div>
+
+              {/* Transaction List - Limited for Single Page */}
+              <div className="mb-6">
+                <h2 className="text-lg font-bold mb-4 text-center">Daftar Transaksi</h2>
+                {mockTransactions
+                  .filter(transaction => 
+                    transaction.status === 'completed' || 
+                    transaction.status === 'pending' || 
+                    transaction.status === 'cancelled'
+                  )
+                  .slice(0, 3) // Limit to 3 transactions for single page
+                  .map((transaction, index) => (
+                    <div key={transaction.id} className="mb-4">
+                      {/* Main Transaction Row */}
+                      <div className="text-sm">
+                        <span className="font-semibold">{transaction.time}</span>
+                        <span className="ml-2">{transaction.quantity} x {transaction.menuName}</span>
+                      </div>
+                      
+                      {/* Price Calculation Detail */}
+                      <div className="text-xs text-gray-600 ml-4">
+                        ({transaction.quantity} x {formatCurrency(transaction.unitPrice)} = {formatCurrency(transaction.quantity * transaction.unitPrice)})
+                      </div>
+                      
+                      {/* Modifiers */}
+                      {transaction.modifiers && transaction.modifiers.length > 0 && (
+                        <div className="text-xs text-gray-600 ml-4">
+                          {transaction.modifiers.map((mod, modIndex) => (
+                            <div key={modIndex}>- {mod.name} ({mod.price > 0 ? formatCurrency(mod.price) : 'Gratis'})</div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {/* Total and Status */}
+                      <div className="flex justify-between text-sm mt-1 ml-4">
+                        <span className={`font-medium ${
+                          transaction.status === 'completed' ? 'text-green-600' :
+                          transaction.status === 'pending' ? 'text-yellow-600' :
+                          'text-red-600'
+                        }`}>
+                          Status: {transaction.status === 'completed' ? 'Selesai' :
+                   transaction.status === 'pending' ? 'Pending' : 'Batal'}
+                        </span>
+                        <span className="font-bold">Total: {new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format((transaction.quantity * transaction.unitPrice) + (transaction.modifiers?.reduce((sum, mod) => sum + (mod.price || 0), 0) || 0))}</span>
+                      </div>
+                      
+                      {/* Separator between transactions */}
+                      {index < Math.min(3, mockTransactions.filter(t => 
+                    t.status === 'completed' || 
+                    t.status === 'pending' || 
+                    t.status === 'cancelled'
+                  ).length) - 1 && (
+                        <div className="border-b border-dashed border-gray-300 my-3"></div>
+                      )}
+                    </div>
+                  ))}
+                {mockTransactions.filter(t => 
+                    t.status === 'completed' || 
+                    t.status === 'pending' || 
+                    t.status === 'cancelled'
+                  ).length > 3 && (
+                  <div className="text-center text-sm text-gray-600 mt-2">
+                    ... dan {mockTransactions.filter(t => 
+                    t.status === 'completed' || 
+                    t.status === 'pending' || 
+                    t.status === 'cancelled'
+                  ).length - 3} transaksi lainnya
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div className="border-t-2 border-dashed border-gray-400 my-4"></div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-2 mt-6 no-print">
                 <Button onClick={handlePrint} variant="secondary" className="flex-1">
                   <Printer className="h-4 w-4" />
                   Cetak
@@ -608,36 +690,11 @@ export default function ShiftPage() {
 if (typeof document !== 'undefined') {
   const style = document.createElement('style');
   style.textContent = `
-    @media print {
-      /* Hide navigation and buttons */
-      button, .no-print {
-        display: none !important;
-      }
-      
-      /* Only show the summary card */
-      body > div > div > div > div {
-        display: none !important;
-      }
-      
-      /* Show only the shift closed summary section */
-      body > div > div > div > div:last-child {
-        display: block !important;
-      }
-      
-      /* Add print title */
-      body::before {
-        content: "Laporan Tutup Shift - ${new Date().toLocaleDateString('id-ID', { dateStyle: 'full' })}";
-        display: block;
-        font-size: 18px;
-        font-weight: bold;
-        margin-bottom: 20px;
-        text-align: center;
-      }
-      
-      /* Ensure proper spacing */
-      .rounded-lg {
-        page-break-inside: avoid;
-      }
+    /* Screen styles for receipt container */
+    #print-receipt-container {
+      width: 100%;
+      max-width: 72mm;
+      margin: 0 auto;
     }
   `;
   document.head.appendChild(style);

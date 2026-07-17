@@ -433,6 +433,7 @@ export const CartPanel = () => {
               total={receiptData.total}
               paymentMethod={receiptData.paymentMethod}
               notes={receiptData.notes}
+              onClose={() => setShowReceipt(false)}
             />
           </div>
         </div>

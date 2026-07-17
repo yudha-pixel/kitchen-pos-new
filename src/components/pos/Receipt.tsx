@@ -307,7 +307,10 @@ export const Receipt = ({
             Cetak Struk
           </button>
           <button
-            onClick={() => router.back()}
+            onClick={() => {
+              if (onClose) onClose();
+              router.push('/pos');
+            }}
             className="w-full mt-2 bg-gray-200 text-gray-700 py-2 rounded-lg font-medium hover:bg-gray-300 transition print:hidden"
           >
             Kembali ke Dashboard
