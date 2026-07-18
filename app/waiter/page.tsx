@@ -10,7 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Hold, Send, Table } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 
@@ -151,9 +151,9 @@ export default function WaiterPage() {
     }
 
     try {
-      // Set table number and guest count in cart store
+      // Set table number in cart store (guest count stored in notes for now)
       useCartStore.getState().setTableNumber(selectedTable);
-      useCartStore.getState().setGuestCount(guestCount);
+      useCartStore.getState().setNotes(`Guest count: ${guestCount}`);
 
       // Process payment (this will sync to server if online, or queue if offline)
       await processPayment();
@@ -355,7 +355,7 @@ export default function WaiterPage() {
               ) : (
                 <div className="space-y-3">
                   {cartItems.map((item) => (
-                    <div key={`${item.productId}-${item.modifiers.map(m => m.id).join('-')}`} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                    <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
                       <div className="flex-1">
                         <h4 className="font-medium text-sm">{item.name}</h4>
                         <p className="text-xs text-gray-500">Rp {item.price.toLocaleString()}</p>
@@ -367,14 +367,14 @@ export default function WaiterPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => updateQuantity(item.productId, item.modifiers, Math.max(0, item.quantity - 1))}
+                          onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
                           className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
-                          onClick={() => updateQuantity(item.productId, item.modifiers, item.quantity + 1)}
+                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
                           className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700"
                         >
                           <Plus className="h-4 w-4" />
@@ -400,7 +400,7 @@ export default function WaiterPage() {
                     disabled={syncInProgress}
                     className="flex-1 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                    <Hold className="h-5 w-5" />
+                    <Clock className="h-5 w-5" />
                     Tahan
                   </button>
                   <button
