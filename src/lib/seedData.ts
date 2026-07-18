@@ -167,11 +167,140 @@ export const seedDummyData = async () => {
     await db.modifiers.bulkAdd(modifiers);
     console.log(`✅ Added ${modifiers.length} modifiers`);
 
+    // Seed Ingredients
+    console.log('📦 Seeding ingredients...');
+    const ingredients = [
+      {
+        id: crypto.randomUUID(),
+        name: 'Beras',
+        current_stock: 2.0, // 10 portions × 0.2 kg = 2 kg
+        unit: 'kg',
+        min_stock: 2.0, // Minimum for 10 portions
+        unit_price: 15000, // Rp 15.000 per kg
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Daging Ayam',
+        current_stock: 1.0, // 10 portions × 0.1 kg = 1 kg
+        unit: 'kg',
+        min_stock: 1.0, // Minimum for 10 portions
+        unit_price: 45000, // Rp 45.000 per kg
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Minyak Goreng',
+        current_stock: 0.5, // 10 portions × 0.05 liter = 0.5 liter
+        unit: 'liter',
+        min_stock: 0.5, // Minimum for 10 portions
+        unit_price: 20000, // Rp 20.000 per liter
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        name: 'Bumbu Dasar',
+        current_stock: 0.3, // 10 portions × 0.03 kg = 0.3 kg
+        unit: 'kg',
+        min_stock: 0.3, // Minimum for 10 portions
+        unit_price: 25000, // Rp 25.000 per kg
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      },
+    ];
+    await db.ingredients.bulkAdd(ingredients);
+    console.log(`✅ Added ${ingredients.length} ingredients`);
+
+    // Seed Recipes (BOM) - Per portion ratios
+    console.log('📋 Seeding recipes (BOM)...');
+    const recipes = [
+      // Nasi Goreng Spesial (products[0])
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[0].id,
+        ingredient_id: ingredients[0].id, // Beras
+        quantity_required: 0.2, // 0.2 kg per portion
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[0].id,
+        ingredient_id: ingredients[1].id, // Daging Ayam
+        quantity_required: 0.1, // 0.1 kg per portion
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[0].id,
+        ingredient_id: ingredients[2].id, // Minyak Goreng
+        quantity_required: 0.05, // 0.05 liter per portion
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[0].id,
+        ingredient_id: ingredients[3].id, // Bumbu Dasar
+        quantity_required: 0.03, // 0.03 kg per portion
+        created_at: new Date().toISOString(),
+      },
+      // Mie Ayam Bakso (products[1])
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[1].id,
+        ingredient_id: ingredients[1].id, // Daging Ayam
+        quantity_required: 0.1, // 0.1 kg per portion
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[1].id,
+        ingredient_id: ingredients[2].id, // Minyak Goreng
+        quantity_required: 0.05, // 0.05 liter per portion
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[1].id,
+        ingredient_id: ingredients[3].id, // Bumbu Dasar
+        quantity_required: 0.03, // 0.03 kg per portion
+        created_at: new Date().toISOString(),
+      },
+      // Ayam Bakar Madu (products[2])
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[2].id,
+        ingredient_id: ingredients[1].id, // Daging Ayam
+        quantity_required: 0.15, // 0.15 kg per portion (more chicken)
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[2].id,
+        ingredient_id: ingredients[2].id, // Minyak Goreng
+        quantity_required: 0.05, // 0.05 liter per portion
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        menu_item_id: products[2].id,
+        ingredient_id: ingredients[3].id, // Bumbu Dasar
+        quantity_required: 0.04, // 0.04 kg per portion (more seasoning)
+        created_at: new Date().toISOString(),
+      },
+    ];
+    await db.recipes.bulkAdd(recipes);
+    console.log(`✅ Added ${recipes.length} recipes (BOM)`);
+
     console.log('🎉 Dummy data seeding completed successfully!');
     console.log('📊 Summary:');
     console.log(`   - Categories: ${categories.length}`);
     console.log(`   - Products: ${products.length}`);
     console.log(`   - Modifiers: ${modifiers.length}`);
+    console.log(`   - Ingredients: ${ingredients.length}`);
+    console.log(`   - Recipes (BOM): ${recipes.length}`);
   } catch (error) {
     console.error('❌ Error seeding dummy data:', error);
     throw error;
@@ -185,6 +314,8 @@ export const clearDummyData = async () => {
     await db.products.clear();
     await db.categories.clear();
     await db.modifiers.clear();
+    await db.ingredients.clear();
+    await db.recipes.clear();
     console.log('✅ Dummy data cleared');
   } catch (error) {
     console.error('❌ Error clearing dummy data:', error);

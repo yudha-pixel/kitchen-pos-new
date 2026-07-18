@@ -18,6 +18,7 @@ import {
   HeartHandshake,
   IdCard,
   Package,
+  ClipboardList,
 } from 'lucide-react';
 
 interface Category {
@@ -41,6 +42,7 @@ const moduleLinks = [
 const cashierLinks = [
   { href: '/pos/meja', label: 'Manajemen Meja', icon: Table },
   { href: '/inventory', label: 'Inventaris', icon: Package },
+  { href: '/inventory/mapping', label: 'Mapping Resep', icon: ClipboardList },
   { href: '/customers', label: 'Data Pelanggan', icon: Users },
   { href: '/shift', label: 'Buka/Tutup Shift', icon: Clock },
 ];
