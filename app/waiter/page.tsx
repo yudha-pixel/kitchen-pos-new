@@ -90,14 +90,14 @@ export default function WaiterPage() {
           const { db } = await import('@/src/lib/db');
           const orders = await db.orders
             .where('status')
-            .anyOf(['done', 'paid', 'synced'])
+            .anyOf(['pending', 'done', 'paid', 'synced'])
             .reverse()
             .limit(50)
             .toArray();
 
           // Debug: Log if no orders found
           if (orders.length === 0) {
-            console.log('No orders found with status done/paid/synced. Checking all orders...');
+            console.log('No orders found with status pending/done/paid/synced. Checking all orders...');
             const allOrders = await db.orders.toArray();
             console.log('All orders in database:', allOrders.map(o => ({ id: o.id, status: o.status, sync_status: o.sync_status })));
           }

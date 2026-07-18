@@ -177,6 +177,7 @@ export const useCartStore = create<CartState>()(
           console.log(`📴 ${mode} mode: Saving payment to IndexedDB...`);
           try {
             console.log(`Saving order ${orderId} to IndexedDB awaiting sync...`);
+            console.log('Menyimpan pesanan ke database:', orderData);
             // Save order to IndexedDB, flagged for sync once the API is reachable
             await db.orders.add({
               ...orderData,
@@ -220,9 +221,14 @@ export const useCartStore = create<CartState>()(
             };
           } catch (error) {
             console.error('❌ Failed to save offline order:', error);
-            return { 
-              success: false, 
-              message: `Gagal menyimpan transaksi lokal: ${error instanceof Error ? error.message : 'Unknown error'}` 
+            console.error('Error details:', {
+              name: error instanceof Error ? error.name : 'Unknown',
+              message: error instanceof Error ? error.message : 'Unknown error',
+              stack: error instanceof Error ? error.stack : undefined
+            });
+            return {
+              success: false,
+              message: `Gagal menyimpan transaksi lokal: ${error instanceof Error ? error.message : 'Unknown error'}`
             };
           }
         };
