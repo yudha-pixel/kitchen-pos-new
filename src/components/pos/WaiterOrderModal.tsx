@@ -35,6 +35,12 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
+  const [orderCategory, setOrderCategory] = useState<'dine-in' | 'takeaway' | 'delivery'>('dine-in');
+  const [customerName, setCustomerName] = useState('');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [courierName, setCourierName] = useState('');
+  const [courierType, setCourierType] = useState<'internal' | 'external'>('internal');
+  const [receiptNumber, setReceiptNumber] = useState<string>('');
 
   // Keep the cart store aware of the logged-in waiter
   useEffect(() => {
@@ -141,9 +147,23 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
       return;
     }
 
+    // Validate required fields based on category
+    if (orderCategory === 'takeaway' && !customerName) {
+      toast('error', 'Mohon isi nama pelanggan terlebih dahulu');
+      return;
+    }
+    if (orderCategory === 'delivery' && (!deliveryAddress || !courierName)) {
+      toast('error', 'Mohon isi alamat pengiriman dan nama kurir terlebih dahulu');
+      return;
+    }
+
     try {
       const { db } = await import('@/src/lib/db');
       const orderId = crypto.randomUUID();
+
+      // Generate receipt number
+      const generatedReceiptNumber = await generateReceiptNumber(orderCategory);
+      setReceiptNumber(generatedReceiptNumber);
 
       // Calculate total
       const calculatedTotal = cartItems.reduce((sum, item) => {
@@ -168,7 +188,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
       // Save order to db.orders
       const order = {
         id: orderId,
-        table_number: tableNumber,
+        table_number: orderCategory === 'dine-in' ? tableNumber : null,
         status: 'completed' as const,
         total_amount: calculatedTotal,
         payment_method: selectedPaymentMethod as 'cash' | 'card' | 'qr' | 'transfer',
@@ -178,6 +198,12 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
         cashier_id: null,
         discount_amount: 0,
         rounding_amount: 0,
+        order_category: orderCategory,
+        receipt_number: generatedReceiptNumber,
+        customer_name: orderCategory === 'takeaway' ? customerName : null,
+        delivery_address: orderCategory === 'delivery' ? deliveryAddress : null,
+        courier_name: orderCategory === 'delivery' ? courierName : null,
+        courier_type: orderCategory === 'delivery' ? courierType : null,
       };
 
       await db.orders.add(order);
@@ -190,7 +216,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
       // Prepare receipt data
       const receiptData = {
         orderId,
-        tableNumber,
+        tableNumber: orderCategory === 'dine-in' ? tableNumber : 'Direct',
         items: cartItems.map(item => ({
           name: item.name,
           quantity: item.quantity,
@@ -205,6 +231,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
         paymentMethod: selectedPaymentMethod,
         cashierName: (user as any)?.name || 'Waiter',
         notes: '',
+        receiptNumber: generatedReceiptNumber,
       };
 
       setSelectedOrderForReceipt(receiptData);
@@ -327,6 +354,40 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
     }
   };
 
+  // Generate receipt number based on category
+  const generateReceiptNumber = async (category: 'dine-in' | 'takeaway' | 'delivery'): Promise<string> => {
+    try {
+      const { db } = await import('@/src/lib/db');
+      
+      const prefix = category === 'dine-in' ? 'DI-' : category === 'takeaway' ? 'TA-' : 'DL-';
+      
+      // Get the last order for this category
+      const lastOrder = await db.orders
+        .where('order_category')
+        .equals(category)
+        .reverse()
+        .limit(1)
+        .first();
+      
+      let sequenceNumber = 1;
+      if (lastOrder && lastOrder.receipt_number) {
+        // Extract sequence number from last receipt number
+        const lastSequence = parseInt(lastOrder.receipt_number.replace(prefix, ''));
+        if (!isNaN(lastSequence)) {
+          sequenceNumber = lastSequence + 1;
+        }
+      }
+      
+      // Format: DI-0001, TA-0001, DL-0001
+      return `${prefix}${String(sequenceNumber).padStart(4, '0')}`;
+    } catch (error) {
+      console.error('Failed to generate receipt number:', error);
+      // Fallback to timestamp-based number
+      const prefix = category === 'dine-in' ? 'DI-' : category === 'takeaway' ? 'TA-' : 'DL-';
+      return `${prefix}${Date.now().toString().slice(-4)}`;
+    }
+  };
+
   // Filter products
   const filteredProducts = products.filter((product: any) => {
     const matchesCategory = selectedCategory === 'Semua' || product.category_id === selectedCategory;
@@ -358,6 +419,105 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
           >
             <X className="h-6 w-6" />
           </button>
+        </div>
+
+        {/* Order Category Selection */}
+        <div className="p-4 border-b">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setOrderCategory('dine-in')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                orderCategory === 'dine-in'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Dine-in
+            </button>
+            <button
+              onClick={() => setOrderCategory('takeaway')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                orderCategory === 'takeaway'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Takeaway
+            </button>
+            <button
+              onClick={() => setOrderCategory('delivery')}
+              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                orderCategory === 'delivery'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Delivery
+            </button>
+          </div>
+        </div>
+
+        {/* Conditional Input Fields */}
+        <div className="p-4 border-b">
+          {orderCategory === 'dine-in' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Meja</label>
+              <input
+                type="text"
+                value={tableNumber}
+                disabled
+                className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p className="text-xs text-gray-500 mt-1">Nomor meja terkunci otomatis untuk Dine-in</p>
+            </div>
+          )}
+          {orderCategory === 'takeaway' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pelanggan</label>
+              <input
+                type="text"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Masukkan nama pelanggan"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+              />
+            </div>
+          )}
+          {orderCategory === 'delivery' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Pengiriman</label>
+                <input
+                  type="text"
+                  value={deliveryAddress}
+                  onChange={(e) => setDeliveryAddress(e.target.value)}
+                  placeholder="Masukkan alamat pengiriman"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Nama Kurir</label>
+                <input
+                  type="text"
+                  value={courierName}
+                  onChange={(e) => setCourierName(e.target.value)}
+                  placeholder="Masukkan nama kurir"
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Tipe Kurir</label>
+                <select
+                  value={courierType}
+                  onChange={(e) => setCourierType(e.target.value as 'internal' | 'external')}
+                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                >
+                  <option value="internal">Internal</option>
+                  <option value="external">External</option>
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Main Content */}

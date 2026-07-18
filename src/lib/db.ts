@@ -78,6 +78,25 @@ export interface SyncQueueItem {
   synced_at: string | null;
 }
 
+export interface Ingredient {
+  id?: string; // UUID
+  name: string;
+  current_stock: number;
+  unit: string; // e.g., kg, gram, ml, pcs
+  min_stock: number; // buffer stock threshold
+  unit_price: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Recipe {
+  id?: string; // UUID
+  menu_item_id: string; // UUID - connects to products table
+  ingredient_id: string; // UUID - connects to ingredients table
+  quantity_required: number;
+  created_at: string;
+}
+
 // Dexie database class for IndexedDB
 export class KitchenPOSDB extends Dexie {
   // Define tables with their types and key paths
@@ -88,6 +107,8 @@ export class KitchenPOSDB extends Dexie {
   order_items!: DexieTable<OrderItem>;
   order_void_logs!: DexieTable<OrderVoidLog>;
   sync_queue!: DexieTable<SyncQueueItem>;
+  ingredients!: DexieTable<Ingredient>;
+  recipes!: DexieTable<Recipe>;
 
   constructor() {
     super('KitchenPOSDB');
@@ -101,6 +122,8 @@ export class KitchenPOSDB extends Dexie {
       order_items: 'id, order_id, product_id, split_group_id',
       order_void_logs: 'id, order_id, cashier_id, created_at',
       sync_queue: 'id, status, table_name, created_at',
+      ingredients: 'id, name',
+      recipes: 'id, menu_item_id, ingredient_id',
     });
 
     // v2: sync state moves out of `status` into a dedicated `sync_status` field,
@@ -165,6 +188,8 @@ export const dbHelpers = {
     await db.order_items.clear();
     await db.order_void_logs.clear();
     await db.sync_queue.clear();
+    await db.ingredients.clear();
+    await db.recipes.clear();
   },
 
   // Get database size in bytes
