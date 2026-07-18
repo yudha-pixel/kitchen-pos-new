@@ -213,6 +213,29 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
       await db.order_items.bulkAdd(orderItems);
       console.log(`✅ Order items saved to IndexedDB`);
 
+      // Reduce stock for ingredients based on order items
+      try {
+        const { reduceStockForOrder } = await import('@/src/features/inventory/inventoryService');
+        const orderItemsForStock = cartItems.map(item => ({
+          product_id: item.productId,
+          quantity: item.quantity,
+        }));
+        const stockResult = await reduceStockForOrder(orderItemsForStock);
+        if (stockResult.success) {
+          console.log(`✅ Stock reduced: ${stockResult.message}`);
+          if (stockResult.details) {
+            stockResult.details.forEach(detail => {
+              console.log(`  - ${detail.ingredientName}: ${detail.previousStock} → ${detail.newStock} (${detail.quantityUsed} used)`);
+            });
+          }
+        } else {
+          console.warn(`⚠️ Stock reduction warning: ${stockResult.message}`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to reduce stock:', error);
+        // Don't block payment if stock reduction fails
+      }
+
       // Prepare receipt data
       const receiptData = {
         orderId,
@@ -341,6 +364,24 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
 
       await db.orders.add(order);
       await db.order_items.bulkAdd(orderItems);
+
+      // Reduce stock for ingredients based on split items
+      try {
+        const { reduceStockForOrder } = await import('@/src/features/inventory/inventoryService');
+        const orderItemsForStock = splitItems.map(item => ({
+          product_id: item.productId,
+          quantity: item.quantity,
+        }));
+        const stockResult = await reduceStockForOrder(orderItemsForStock);
+        if (stockResult.success) {
+          console.log(`✅ Stock reduced for split bill: ${stockResult.message}`);
+        } else {
+          console.warn(`⚠️ Stock reduction warning for split bill: ${stockResult.message}`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to reduce stock for split bill:', error);
+        // Don't block split bill if stock reduction fails
+      }
 
       // Remove split items from cart
       splitItems.forEach(item => removeFromCart(item.id));
