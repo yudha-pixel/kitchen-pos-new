@@ -17,7 +17,8 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
-import { ShoppingCart, Search, Wifi, WifiOff, RefreshCw, AlertCircle, Plus, X } from 'lucide-react';
+import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X } from 'lucide-react';
 
 export default function POSPage() {
   const router = useRouter();
@@ -124,20 +125,10 @@ export default function POSPage() {
       <Header title="Kitchen POS" onSearch={setSearchQuery} />
 
       {/* Sync Status Strip */}
-      <div
-        className={`flex items-center justify-between gap-2 border-b border-line px-4 py-1.5 text-sm ${
-          isOnline ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning'
-        }`}
-      >
+      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-1.5 text-sm">
         <div className="flex items-center gap-2">
-          {isOnline ? <Wifi className="h-4 w-4" aria-hidden="true" /> : <WifiOff className="h-4 w-4" aria-hidden="true" />}
-          <span className="font-medium">{isOnline ? 'Online' : 'Offline Mode'}</span>
+          <ConnectionIndicator />
           {productsFromCache && <Badge tone="info">Data dari cache</Badge>}
-          {pendingTransactions > 0 && (
-            <Badge tone="warning">
-              <AlertCircle className="h-3 w-3" /> {pendingTransactions} transaksi pending
-            </Badge>
-          )}
         </div>
 
         <div className="flex items-center gap-3">
