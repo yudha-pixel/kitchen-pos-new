@@ -91,11 +91,14 @@ export const Receipt = ({
           <style>
             @page {
               margin: 0 !important;
-              size: auto !important;
+              size: 80mm auto !important;
             }
             html, body {
+              width: 80mm !important;
               margin: 0 !important;
-              padding: 10px !important;
+              padding: 0 !important;
+              min-width: 80mm !important;
+              max-width: 80mm !important;
               height: auto !important;
               overflow: hidden !important;
               background-color: #ffffff !important;
@@ -108,10 +111,13 @@ export const Receipt = ({
             button, .btn, [class*="CetakStruk"], button[onClick*="Print"] {
               display: none !important;
             }
+            * {
+              page-break-inside: avoid !important;
+            }
           </style>
         </head>
         <body>
-          <div style="width: 100%; max-width: 400px; margin: 0 auto;">
+          <div style="width: 80mm; margin: 0 auto;">
             ${receiptElement.innerHTML}
           </div>
         </body>

@@ -136,11 +136,14 @@ export const ReceiptModal = ({
           <style>
             @page {
               margin: 0 !important;
-              size: auto !important;
+              size: 80mm auto !important;
             }
             html, body {
+              width: 80mm !important;
               margin: 0 !important;
-              padding: 10px !important;
+              padding: 0 !important;
+              min-width: 80mm !important;
+              max-width: 80mm !important;
               height: auto !important;
               overflow: hidden !important;
               background-color: #ffffff !important;
@@ -154,10 +157,13 @@ export const ReceiptModal = ({
             button, .btn, [class*="CetakStruk"] {
               display: none !important;
             }
+            * {
+              page-break-inside: avoid !important;
+            }
           </style>
         </head>
         <body>
-          <div style="width: 100%; max-width: 400px;">
+          <div style="width: 80mm; margin: 0 auto;">
             ${(receiptElement as HTMLElement).innerHTML}
           </div>
         </body>
