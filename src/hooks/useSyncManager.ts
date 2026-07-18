@@ -4,6 +4,16 @@ import { db, SyncQueueItem } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
 
 const MAX_RETRIES = 5;
+const BASE_RETRY_DELAY_MS = 1000; // 1 second base delay
+
+/**
+ * Calculate exponential backoff delay for retry
+ * @param retryCount - Current retry count (0-based)
+ * @returns Delay in milliseconds
+ */
+const calculateRetryDelay = (retryCount: number): number => {
+  return BASE_RETRY_DELAY_MS * Math.pow(2, retryCount);
+};
 
 /**
  * useSyncManager Hook
@@ -63,7 +73,7 @@ export const useSyncManager = () => {
 
   /**
    * Drain the sync queue: replay each pending operation, remove on success,
-   * track retries on failure and give up after MAX_RETRIES.
+   * track retries on failure with exponential backoff and give up after MAX_RETRIES.
    */
   const drainSyncQueue = useCallback(async () => {
     const pending = await getPendingTransactions();
@@ -79,11 +89,20 @@ export const useSyncManager = () => {
         const retryCount = (item.retry_count ?? 0) + 1;
         const message = error instanceof Error ? error.message : 'Unknown error';
         console.error(`❌ Failed to replay ${item.operation} on ${item.table_name}:`, error);
+        
+        // Update retry count and status
         await db.sync_queue.update(item.id!, {
           retry_count: retryCount,
           error_message: message,
           status: retryCount >= MAX_RETRIES ? 'failed' : 'pending',
         });
+
+        // If not at max retries, apply exponential backoff delay
+        if (retryCount < MAX_RETRIES) {
+          const delay = calculateRetryDelay(retryCount);
+          console.log(`⏳ Waiting ${delay}ms before next retry (attempt ${retryCount}/${MAX_RETRIES})...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
     }
   }, [getPendingTransactions, removeTransaction, replayQueueItem]);
