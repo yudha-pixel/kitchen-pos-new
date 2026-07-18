@@ -234,10 +234,10 @@ export const useCartStore = create<CartState>()(
         };
 
         if (isOnline) {
-          // Online: Send directly to the local API
-          console.log('🌐 Online mode: Sending payment directly to local API...');
+          // Online: Send to local API AND save to IndexedDB for local history
+          console.log('🌐 Online mode: Sending payment to local API and IndexedDB...');
           try {
-            console.log(`� Inserting order ${orderId} to local API...`);
+            console.log(`📡 Inserting order ${orderId} to local API...`);
             await api.createOrder(orderData, orderItems);
             console.log(`✅ Order ${orderId} inserted to local API successfully`);
 
@@ -246,7 +246,7 @@ export const useCartStore = create<CartState>()(
               console.log('🖨️ Getting print jobs for order...');
               const printJobs = await api.getPrintJobsForOrder(orderId);
               console.log('🖨️ Print jobs:', printJobs);
-              
+
               // TODO: Open kitchen receipt modals for each printer
               // This will be handled by the UI component that calls processPayment
             } catch (printError) {
@@ -255,6 +255,18 @@ export const useCartStore = create<CartState>()(
             }
 
             console.log(`✅ Order items inserted to local API successfully`);
+
+            // Also save to IndexedDB for local order history
+            console.log('💾 Saving order to IndexedDB for local history...');
+            await db.orders.add({
+              ...orderData,
+              sync_status: 'synced',
+            });
+            console.log(`✅ Order ${orderId} saved to IndexedDB for history`);
+
+            console.log(`📥 Saving ${orderItems.length} order items to IndexedDB...`);
+            await db.order_items.bulkAdd(orderItems);
+            console.log(`✅ Order items saved to IndexedDB successfully`);
 
             // Prepare receipt data BEFORE clearing cart
             const receiptData = {
@@ -279,9 +291,9 @@ export const useCartStore = create<CartState>()(
             set({ items: [], tableNumber: '', notes: '' });
             console.log('🧹 Cart cleared after successful payment');
 
-            return { 
-              success: true, 
-              message: 'Pembayaran berhasil!', 
+            return {
+              success: true,
+              message: 'Pembayaran berhasil!',
               orderId,
               receiptData,
             };
@@ -290,9 +302,9 @@ export const useCartStore = create<CartState>()(
               console.warn('📴 Local API unreachable, falling back to IndexedDB...');
             } else {
               console.error('❌ Payment failed:', error);
-              return { 
-                success: false, 
-                message: `Pembayaran gagal: ${error instanceof Error ? error.message : 'Unknown error'}` 
+              return {
+                success: false,
+                message: `Pembayaran gagal: ${error instanceof Error ? error.message : 'Unknown error'}`
               };
             }
           }
