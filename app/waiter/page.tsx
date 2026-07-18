@@ -612,7 +612,7 @@ export default function WaiterPage() {
                           </p>
                         </div>
                         <Badge
-                          variant={
+                          tone={
                             order.status === 'done'
                               ? 'success'
                               : order.status === 'cooking'
