@@ -5,7 +5,8 @@ import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { Modal } from '@/src/components/ui/Modal';
 import { Badge } from '@/src/components/ui/Badge';
-import { Users, CheckCircle, UserRound, CalendarClock, Sparkles, LucideIcon } from 'lucide-react';
+import { Users, CheckCircle, UserRound, CalendarClock, Sparkles, LucideIcon, ShoppingCart } from 'lucide-react';
+import WaiterOrderModal from '@/src/components/pos/WaiterOrderModal';
 
 type TableStatus = 'available' | 'occupied' | 'reserved' | 'dirty';
 
@@ -65,10 +66,17 @@ export default function TableManagementPage() {
     { id: '12', nomor_meja: 'Meja 12', kapasitas: 4, status: 'available' },
   ]);
   const [activeTable, setActiveTable] = useState<Table | null>(null);
+  const [waiterOrderModalOpen, setWaiterOrderModalOpen] = useState(false);
+  const [selectedTableForOrder, setSelectedTableForOrder] = useState<Table | null>(null);
 
   const setStatus = (tableId: string, status: TableStatus) => {
     setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status } : t)));
     setActiveTable(null);
+  };
+
+  const handleOpenWaiterOrder = (table: Table) => {
+    setSelectedTableForOrder(table);
+    setWaiterOrderModalOpen(true);
   };
 
   return (
@@ -101,12 +109,11 @@ export default function TableManagementPage() {
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
             {tables.map((table) => {
               const { label, Icon, card } = statusConfig[table.status];
+              const canOrder = table.status === 'available' || table.status === 'occupied';
               return (
-                <button
+                <div
                   key={table.id}
-                  onClick={() => setActiveTable(table)}
-                  aria-label={`${table.nomor_meja}, ${label}, kapasitas ${table.kapasitas} orang. Ubah status`}
-                  className={`rounded-xl border-2 p-5 text-left transition-all duration-150 hover:shadow-md active:scale-[0.98] ${card}`}
+                  className={`rounded-xl border-2 p-5 text-left transition-all duration-150 hover:shadow-md ${card}`}
                 >
                   <div className="flex flex-col items-center gap-2">
                     <div className="text-xl font-bold">{table.nomor_meja}</div>
@@ -118,8 +125,17 @@ export default function TableManagementPage() {
                       <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                       {label}
                     </div>
+                    {canOrder && (
+                      <button
+                        onClick={() => handleOpenWaiterOrder(table)}
+                        className="mt-2 flex items-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
+                      >
+                        <ShoppingCart className="h-4 w-4" />
+                        Pesan
+                      </button>
+                    )}
                   </div>
-                </button>
+                </div>
               );
             })}
           </div>
@@ -128,7 +144,7 @@ export default function TableManagementPage() {
           <div className="mt-8 rounded-lg border border-info/30 bg-info-soft p-4">
             <h3 className="mb-1 font-semibold text-info">Petunjuk</h3>
             <p className="text-sm text-info">
-              Ketuk meja lalu pilih status baru: Tersedia, Terisi, Reservasi, atau Kotor.
+              Ketuk meja lalu pilih status baru: Tersedia, Terisi, Reservasi, atau Kotor. Gunakan tombol "Pesan" untuk memesan menu pada meja yang tersedia atau terisi.
             </p>
           </div>
         </main>
@@ -164,6 +180,18 @@ export default function TableManagementPage() {
           })}
         </div>
       </Modal>
+
+      {/* Waiter Order Modal */}
+      {selectedTableForOrder && (
+        <WaiterOrderModal
+          isOpen={waiterOrderModalOpen}
+          onClose={() => {
+            setWaiterOrderModalOpen(false);
+            setSelectedTableForOrder(null);
+          }}
+          tableNumber={selectedTableForOrder.nomor_meja}
+        />
+      )}
     </div>
   );
 }

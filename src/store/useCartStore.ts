@@ -268,6 +268,15 @@ export const useCartStore = create<CartState>()(
             await db.order_items.bulkAdd(orderItems);
             console.log(`✅ Order items saved to IndexedDB successfully`);
 
+            // Update order status to 'paid' after successful payment
+            try {
+              await db.orders.where('id').equals(orderId).modify({ status: 'paid' as any });
+              console.log(`✅ Updated order ${orderId} status to 'paid' in IndexedDB`);
+            } catch (statusError) {
+              console.error('Failed to update order status to paid:', statusError);
+              // Don't fail the payment if status update fails
+            }
+
             // Prepare receipt data BEFORE clearing cart
             const receiptData = {
               orderId,

@@ -10,9 +10,10 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X, List, History } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X, List, History, Printer } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
-import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
+import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
+import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 
 interface CartItem {
   productId: string;
@@ -35,6 +36,12 @@ export default function WaiterPage() {
   const [heldOrders, setHeldOrders] = useState<any[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
+  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
+  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<any>(null);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
+  const [modifierModalOpen, setModifierModalOpen] = useState(false);
+  const [selectedProductForModifier, setSelectedProductForModifier] = useState<any>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -95,14 +102,55 @@ export default function WaiterPage() {
             .limit(50)
             .toArray();
 
+          // Fetch items for each order from order_items table
+          const ordersWithItems = await Promise.all(
+            orders.map(async (order) => {
+              const items = await db.order_items
+                .where('order_id')
+                .equals(order.id)
+                .toArray();
+
+              // Fetch product details for each item
+              const itemsWithProducts = await Promise.all(
+                items.map(async (item) => {
+                  if (!item.product_id) {
+                    return {
+                      ...item,
+                      product: null,
+                    };
+                  }
+                  const product = await db.products.get(item.product_id);
+                  return {
+                    ...item,
+                    product: product ? { name: product.name } : null,
+                  };
+                })
+              );
+
+              return {
+                ...order,
+                items: itemsWithProducts,
+              };
+            })
+          );
+
+          // Debug: Log orders with items
+          console.log('Orders with items:', ordersWithItems.map(o => ({
+            id: o.id,
+            table_number: o.table_number,
+            status: o.status,
+            items_count: o.items?.length || 0,
+            items: o.items
+          })));
+
           // Debug: Log if no orders found
-          if (orders.length === 0) {
+          if (ordersWithItems.length === 0) {
             console.log('No orders found with status pending/done/paid/synced. Checking all orders...');
             const allOrders = await db.orders.toArray();
             console.log('All orders in database:', allOrders.map(o => ({ id: o.id, status: o.status, sync_status: o.sync_status })));
           }
 
-          setOrderHistory(orders);
+          setOrderHistory(ordersWithItems);
         } catch (error) {
           console.error('Failed to load order history:', error);
           setOrderHistory([]);
@@ -153,6 +201,35 @@ export default function WaiterPage() {
       modifiers,
     });
     toast('success', `${name} ditambahkan ke keranjang`);
+  };
+
+  const handleProductClick = (product: any) => {
+    if (!selectedTable) {
+      toast('error', 'Silakan pilih nomor meja terlebih dahulu');
+      return;
+    }
+
+    // Check if product has modifiers
+    const productModifiers = getProductModifiers(product);
+    if (productModifiers && productModifiers.length > 0) {
+      setSelectedProductForModifier(product);
+      setModifierModalOpen(true);
+    } else {
+      handleAddToCart(product.id, product.name, product.price, []);
+    }
+  };
+
+  const handleModifierConfirm = (selectedModifiers: ModifierOption[]) => {
+    if (selectedProductForModifier) {
+      handleAddToCart(
+        selectedProductForModifier.id,
+        selectedProductForModifier.name,
+        selectedProductForModifier.price,
+        selectedModifiers
+      );
+    }
+    setModifierModalOpen(false);
+    setSelectedProductForModifier(null);
   };
 
   const handleHoldOrder = async () => {
@@ -256,6 +333,125 @@ export default function WaiterPage() {
       toast('success', 'Pesanan dihapus');
     } catch (error) {
       toast('error', 'Gagal menghapus pesanan');
+    }
+  };
+
+  const handlePrintReceipt = (order: any) => {
+    const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+      const price = Number(item.price_at_time) || 0;
+      return sum + (price * item.quantity);
+    }, 0) || 0;
+
+    setSelectedOrderForReceipt({
+      orderId: order.id,
+      tableNumber: order.table_number || '-',
+      items: order.items?.map((item: any) => ({
+        name: item.product?.name || 'Unknown',
+        quantity: item.quantity,
+        price: Number(item.price_at_time) || 0,
+        modifiers: item.modifiers_applied && Array.isArray(item.modifiers_applied)
+          ? item.modifiers_applied.map((m: any) => m.name || m)
+          : [],
+      })) || [],
+      subtotal: calculatedTotal,
+      tax: 0,
+      discount: 0,
+      roundingAmount: 0,
+      total: calculatedTotal,
+      paymentMethod: 'cash',
+      cashierName: (user as any)?.name || 'Waiter',
+      notes: order.notes,
+    });
+    setReceiptModalOpen(true);
+  };
+
+  const handlePayment = async () => {
+    if (!selectedPaymentMethod) {
+      toast('error', 'Pilih metode pembayaran terlebih dahulu');
+      return;
+    }
+
+    try {
+      const { db } = await import('@/src/lib/db');
+      const orderId = crypto.randomUUID();
+
+      // Calculate total
+      const calculatedTotal = cartItems.reduce((sum, item) => {
+        const itemTotal = item.price * item.quantity;
+        const modifiersTotal = item.modifiers.reduce((modSum, mod) => modSum + mod.price, 0);
+        return sum + itemTotal + (modifiersTotal * item.quantity);
+      }, 0);
+
+      // Prepare order items
+      const orderItems = cartItems.map(item => ({
+        id: crypto.randomUUID(),
+        order_id: orderId,
+        product_id: item.productId,
+        quantity: item.quantity,
+        price_at_time: item.price,
+        modifiers_applied: item.modifiers,
+        discount_item: 0,
+        split_group_id: null,
+        created_at: new Date().toISOString(),
+      }));
+
+      // Save order to db.orders
+      const order = {
+        id: orderId,
+        table_number: selectedTable,
+        status: 'completed' as const,
+        total_amount: calculatedTotal,
+        payment_method: selectedPaymentMethod as 'cash' | 'card' | 'qr' | 'transfer',
+        notes: '',
+        created_at: new Date().toISOString(),
+        sync_status: 'pending' as const,
+        cashier_id: null, // Set to null to avoid UUID validation issues
+        discount_amount: 0,
+        rounding_amount: 0,
+      };
+
+      console.log('Saving order to IndexedDB:', order);
+      console.log('Saving order items to IndexedDB:', orderItems);
+
+      await db.orders.add(order);
+      console.log(`✅ Order ${orderId} saved to IndexedDB with status 'paid'`);
+
+      // Save order items
+      await db.order_items.bulkAdd(orderItems);
+      console.log(`✅ Order items saved to IndexedDB`);
+
+      // Prepare receipt data
+      const receiptData = {
+        orderId,
+        tableNumber: selectedTable,
+        items: cartItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          modifiers: item.modifiers.map(m => m.name),
+        })),
+        subtotal: calculatedTotal,
+        tax: 0,
+        discount: 0,
+        roundingAmount: 0,
+        total: calculatedTotal,
+        paymentMethod: selectedPaymentMethod,
+        cashierName: (user as any)?.name || 'Waiter',
+        notes: '',
+      };
+
+      setSelectedOrderForReceipt(receiptData);
+      setPaymentModalOpen(false);
+      setReceiptModalOpen(true);
+
+      // Clear cart
+      clearCart();
+      setIsCartOpen(false);
+      toast('success', 'Pembayaran berhasil');
+
+    } catch (error) {
+      console.error('Payment failed:', error);
+      toast('error', 'Gagal memproses pembayaran');
     }
   };
 
@@ -387,7 +583,7 @@ export default function WaiterPage() {
             {filteredProducts.map((product: any) => (
               <button
                 key={product.id}
-                onClick={() => handleAddToCart(product.id, product.name, product.price, [])}
+                onClick={() => handleProductClick(product)}
                 className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-left active:scale-95"
               >
                 <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
@@ -519,6 +715,14 @@ export default function WaiterPage() {
                     <Send className="h-5 w-5" />
                     Kirim
                   </button>
+                  <button
+                    onClick={() => setPaymentModalOpen(true)}
+                    disabled={syncInProgress || cartItems.length === 0}
+                    className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Printer className="h-5 w-5" />
+                    Bayar
+                  </button>
                 </div>
               </div>
             )}
@@ -621,7 +825,9 @@ export default function WaiterPage() {
                         </div>
                         <Badge
                           tone={
-                            order.status === 'done'
+                            order.status === 'paid'
+                              ? 'success'
+                              : order.status === 'done'
                               ? 'success'
                               : order.status === 'cooking'
                               ? 'warning'
@@ -630,17 +836,31 @@ export default function WaiterPage() {
                               : 'neutral'
                           }
                         >
-                          {order.status || 'pending'}
+                          {order.status === 'paid' ? 'Lunas' : order.status === 'done' ? 'Done' : order.status === 'preparing' ? 'Diproses' : order.status || 'Pending'}
                         </Badge>
                       </div>
                       <div className="text-sm text-gray-600">
                         {order.items && order.items.length > 0 ? (
-                          order.items.map((item: any, i: number) => (
-                            <div key={i} className="flex justify-between py-1">
-                              <span>{item.quantity}x {item.name}</span>
-                              <span>Rp {(item.price * item.quantity).toLocaleString()}</span>
-                            </div>
-                          ))
+                          <>
+                            {console.log('Order Item Data:', order.items)}
+                            {order.items.map((item: any, i: number) => {
+                              const price = Number(item.price_at_time) || 0;
+                              const name = item.product?.name || 'Unknown';
+                              const modifiers = item.modifiers_applied && Array.isArray(item.modifiers_applied)
+                                ? item.modifiers_applied.map((m: any) => m.name || m).join(', ')
+                                : '';
+
+                              return (
+                                <div key={i} className="flex justify-between py-1">
+                                  <span>
+                                    {item.quantity}x {name}
+                                    {modifiers && <span className="text-xs text-gray-400 ml-1">({modifiers})</span>}
+                                  </span>
+                                  <span>Rp {(price * item.quantity).toLocaleString()}</span>
+                                </div>
+                              );
+                            })}
+                          </>
                         ) : (
                           <p className="text-gray-400">No items</p>
                         )}
@@ -648,8 +868,28 @@ export default function WaiterPage() {
                       <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between font-medium">
                         <span>Total</span>
                         <span className="text-blue-600">
-                          Rp {order.total?.toLocaleString() || '0'}
+                          {(() => {
+                            const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+                              const price = Number(item.price_at_time) || 0;
+                              return sum + (price * item.quantity);
+                            }, 0) || 0;
+                            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(calculatedTotal);
+                          })()}
                         </span>
+                      </div>
+                      {order.payment_method && (
+                        <div className="mt-1 text-sm text-gray-500">
+                          Metode Pembayaran: {order.payment_method}
+                        </div>
+                      )}
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          onClick={() => handlePrintReceipt(order)}
+                          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          <Printer className="w-4 h-4" />
+                          Cetak Struk
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -658,6 +898,114 @@ export default function WaiterPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Receipt Modal */}
+      {selectedOrderForReceipt && (
+        <ReceiptModal
+          isOpen={receiptModalOpen}
+          onClose={() => setReceiptModalOpen(false)}
+          orderId={selectedOrderForReceipt.orderId}
+          tableNumber={selectedOrderForReceipt.tableNumber}
+          items={selectedOrderForReceipt.items}
+          subtotal={selectedOrderForReceipt.subtotal}
+          tax={selectedOrderForReceipt.tax}
+          discount={selectedOrderForReceipt.discount}
+          roundingAmount={selectedOrderForReceipt.roundingAmount}
+          total={selectedOrderForReceipt.total}
+          paymentMethod={selectedOrderForReceipt.paymentMethod}
+          cashierName={selectedOrderForReceipt.cashierName}
+          notes={selectedOrderForReceipt.notes}
+        />
+      )}
+
+      {/* Payment Method Modal */}
+      {paymentModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Pilih Metode Pembayaran</h3>
+              <button
+                onClick={() => setPaymentModalOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <button
+                onClick={() => setSelectedPaymentMethod('cash')}
+                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
+                  selectedPaymentMethod === 'cash'
+                    ? 'border-green-600 bg-green-50 text-green-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Tunai
+              </button>
+              <button
+                onClick={() => setSelectedPaymentMethod('qr')}
+                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
+                  selectedPaymentMethod === 'qr'
+                    ? 'border-green-600 bg-green-50 text-green-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                QRIS
+              </button>
+              <button
+                onClick={() => setSelectedPaymentMethod('card')}
+                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
+                  selectedPaymentMethod === 'card'
+                    ? 'border-green-600 bg-green-50 text-green-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Debit/Kartu
+              </button>
+              <button
+                onClick={() => setSelectedPaymentMethod('transfer')}
+                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
+                  selectedPaymentMethod === 'transfer'
+                    ? 'border-green-600 bg-green-50 text-green-700'
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                Transfer
+              </button>
+            </div>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setPaymentModalOpen(false)}
+                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handlePayment}
+                disabled={!selectedPaymentMethod}
+                className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                Proses Bayar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modifier Modal */}
+      {selectedProductForModifier && (
+        <ModifierModal
+          isOpen={modifierModalOpen}
+          onClose={() => {
+            setModifierModalOpen(false);
+            setSelectedProductForModifier(null);
+          }}
+          modifiers={getProductModifiers(selectedProductForModifier)}
+          onConfirm={handleModifierConfirm}
+          productName={selectedProductForModifier.name}
+          basePrice={selectedProductForModifier.price}
+        />
       )}
     </div>
   );

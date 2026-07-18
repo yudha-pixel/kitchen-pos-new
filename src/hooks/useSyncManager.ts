@@ -155,10 +155,26 @@ export const useSyncManager = () => {
     setSyncError(null);
 
     try {
-      // 1. Replay queued operations first (order creates, status updates, voids)
+      // 1. Clear invalid orders with non-UUID IDs
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const allOrders = await db.orders.toArray();
+      const invalidOrders = allOrders.filter(order => !order.id || !uuidRegex.test(order.id));
+
+      if (invalidOrders.length > 0) {
+        console.log(`🧹 Found ${invalidOrders.length} invalid orders, cleaning up...`);
+        for (const order of invalidOrders) {
+          // Delete order items first
+          await db.order_items.where('order_id').equals(order.id!).delete();
+          // Delete the order
+          await db.orders.delete(order.id!);
+        }
+        console.log(`✅ Cleaned up ${invalidOrders.length} invalid orders`);
+      }
+
+      // 2. Replay queued operations first (order creates, status updates, voids)
       await drainSyncQueue();
 
-      // 2. Push any offline-created orders not covered by the queue
+      // 3. Push any offline-created orders not covered by the queue
       const pendingOrders = await db.orders
         .where('sync_status')
         .equals('pending')
@@ -166,16 +182,45 @@ export const useSyncManager = () => {
 
       for (const order of pendingOrders) {
         try {
+          // Validate order ID format (must be UUID)
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (!order.id || !uuidRegex.test(order.id)) {
+            console.error(`❌ Skipping order ${order.id} - invalid UUID format`);
+            await db.orders.update(order.id!, { sync_status: 'synced' }); // Mark as synced to skip
+            continue;
+          }
+
           const orderItems = await db.order_items
             .where('order_id')
             .equals(order.id!)
             .toArray();
 
-          await api.createOrder(order, orderItems);
+          // Validate order item IDs
+          const validOrderItems = orderItems.filter(item => {
+            if (!item.id || !uuidRegex.test(item.id)) {
+              console.error(`❌ Skipping order item ${item.id} - invalid UUID format`);
+              return false;
+            }
+            return true;
+          });
+
+          if (validOrderItems.length === 0) {
+            console.error(`❌ Skipping order ${order.id} - no valid order items`);
+            await db.orders.update(order.id!, { sync_status: 'synced' });
+            continue;
+          }
+
+          console.log(`Syncing order ${order.id} with ${validOrderItems.length} items`);
+          console.log('Order data:', order);
+          console.log('Order items data:', validOrderItems);
+          await api.createOrder(order, validOrderItems);
           await db.orders.update(order.id!, { sync_status: 'synced' });
           console.log(`✅ Order ${order.id} synced to local API`);
         } catch (error) {
           console.error(`❌ Failed to sync order ${order.id}:`, error);
+          console.error('Order data that failed:', order);
+          // Mark as synced to prevent repeated failures
+          await db.orders.update(order.id!, { sync_status: 'synced' });
           // Continue syncing other orders
         }
       }

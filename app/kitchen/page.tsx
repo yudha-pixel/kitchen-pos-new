@@ -95,6 +95,19 @@ export default function KitchenDisplayPage() {
     setUpdatingOrderId(orderId);
     try {
       await api.updateOrderStatus(orderId, status);
+
+      // Also update status in IndexedDB for local order history
+      try {
+        const { db } = await import('@/src/lib/db');
+        // Map 'completed' to 'done' for local order history
+        const localStatus = status === 'completed' ? 'done' : status;
+        await db.orders.where('id').equals(orderId).modify({ status: localStatus as any });
+        console.log(`✅ Updated order ${orderId} status to ${localStatus} in IndexedDB`);
+      } catch (dbError) {
+        console.error('Failed to update order status in IndexedDB:', dbError);
+        // Don't fail the operation if IndexedDB update fails
+      }
+
       toast('success', status === 'preparing' ? 'Order diproses' : 'Order selesai');
       await fetchOrders(true);
     } catch (error) {
@@ -105,39 +118,44 @@ export default function KitchenDisplayPage() {
     }
   };
 
-  const filteredOrders = orders.filter(order => {
-    if (filter === 'all') return true;
+  // Flatten orders into individual items with order context
+  const filteredItems = orders.flatMap(order => {
+    if (filter === 'all') {
+      // Debug: Log category names for each order in 'Semua' tab
+      console.log(`Order ${order.id} (Table ${order.table_number}):`, {
+        items: order.items.map(item => ({
+          name: item.product?.name,
+          categoryName: item.product?.category?.name
+        }))
+      });
+      return order.items.map(item => ({ ...item, order }));
+    }
 
-    // Debug: Log category names for each order
-    console.log(`Order ${order.id} (Table ${order.table_number}):`, {
-      items: order.items.map(item => ({
-        name: item.product?.name,
-        categoryName: item.product?.category?.name
-      }))
-    });
-
-    const hasKitchenItems = order.items.some(item =>
+    const isKitchenItem = (item: OrderItem) =>
       item.product?.category?.name?.toLowerCase().includes('makanan') ||
       item.product?.category?.name?.toLowerCase().includes('food') ||
       item.product?.category?.name?.toLowerCase().includes('main') ||
-      item.product?.category?.name?.toLowerCase().includes('utama')
-    );
+      item.product?.category?.name?.toLowerCase().includes('utama') ||
+      item.product?.category?.name?.toLowerCase().includes('bakery');
 
-    const hasBarItems = order.items.some(item =>
+    const isBarItem = (item: OrderItem) =>
       item.product?.category?.name?.toLowerCase().includes('minuman') ||
       item.product?.category?.name?.toLowerCase().includes('drink') ||
       item.product?.category?.name?.toLowerCase().includes('beverage') ||
       item.product?.category?.name?.toLowerCase().includes('jus') ||
       item.product?.category?.name?.toLowerCase().includes('kopi') ||
-      item.product?.category?.name?.toLowerCase().includes('tea')
-    );
+      item.product?.category?.name?.toLowerCase().includes('tea') ||
+      item.product?.category?.name?.toLowerCase().includes('coffee') ||
+      item.product?.category?.name?.toLowerCase().includes('non-coffee');
 
-    console.log(`Filter: ${filter}, hasKitchenItems: ${hasKitchenItems}, hasBarItems: ${hasBarItems}`);
+    if (filter === 'kitchen') {
+      return order.items.filter(isKitchenItem).map(item => ({ ...item, order }));
+    }
+    if (filter === 'bar') {
+      return order.items.filter(isBarItem).map(item => ({ ...item, order }));
+    }
 
-    if (filter === 'kitchen') return hasKitchenItems;
-    if (filter === 'bar') return hasBarItems;
-
-    return true;
+    return order.items.map(item => ({ ...item, order }));
   });
 
   const filterButtons = [
@@ -205,18 +223,19 @@ export default function KitchenDisplayPage() {
           <div className="flex h-64 items-center justify-center text-orange-500">
             <Spinner size="lg" />
           </div>
-        ) : filteredOrders.length === 0 ? (
+        ) : filteredItems.length === 0 ? (
           <EmptyState icon={AlertCircle} title="Tidak ada order pending" message="Order baru akan muncul di sini" />
         ) : (
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredOrders.map((order) => {
+            {filteredItems.map((item: any) => {
+              const order = item.order;
               const urgency = getUrgency(order.created_at);
               const { border, chip, label } = urgencyStyles[urgency];
               const busy = updatingOrderId === order.id;
 
               return (
                 <div
-                  key={order.id}
+                  key={`${order.id}-${item.id}`}
                   className={`overflow-hidden rounded-lg border border-kds-border border-l-4 bg-kds-surface ${border}`}
                 >
                   {/* Order Header */}
@@ -244,25 +263,23 @@ export default function KitchenDisplayPage() {
                     </div>
                   </div>
 
-                  {/* Order Items — large type for distance reading */}
-                  <div className="space-y-3 p-4">
-                    {order.items.map((item) => (
-                      <div key={item.id} className="border-l-4 border-orange-500 pl-3">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span className="tnum text-xl font-bold">{item.quantity}x</span>
-                          <span className="flex-1 text-right text-lg font-medium">
-                            {item.product?.name || 'Unknown'}
-                          </span>
-                        </div>
-                        {item.modifiers_applied && Array.isArray(item.modifiers_applied) && item.modifiers_applied.length > 0 && (
-                          <div className="mt-1 text-sm text-kds-text-secondary">
-                            {item.modifiers_applied.map((mod: any, idx: number) => (
-                              <span key={idx} className="block">+ {mod.name || mod}</span>
-                            ))}
-                          </div>
-                        )}
+                  {/* Item Card */}
+                  <div className="p-4">
+                    <div className="border-l-4 border-orange-500 pl-3">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="tnum text-xl font-bold">{item.quantity}x</span>
+                        <span className="flex-1 text-right text-lg font-medium">
+                          {item.product?.name || 'Unknown'}
+                        </span>
                       </div>
-                    ))}
+                      {item.modifiers_applied && Array.isArray(item.modifiers_applied) && item.modifiers_applied.length > 0 && (
+                        <div className="mt-1 text-sm text-kds-text-secondary">
+                          {item.modifiers_applied.map((mod: any, idx: number) => (
+                            <span key={idx} className="block">+ {mod.name || mod}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   {/* Notes */}
