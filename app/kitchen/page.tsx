@@ -108,15 +108,31 @@ export default function KitchenDisplayPage() {
   const filteredOrders = orders.filter(order => {
     if (filter === 'all') return true;
 
+    // Debug: Log category names for each order
+    console.log(`Order ${order.id} (Table ${order.table_number}):`, {
+      items: order.items.map(item => ({
+        name: item.product?.name,
+        categoryName: item.product?.category?.name
+      }))
+    });
+
     const hasKitchenItems = order.items.some(item =>
       item.product?.category?.name?.toLowerCase().includes('makanan') ||
-      item.product?.category?.name?.toLowerCase().includes('food')
+      item.product?.category?.name?.toLowerCase().includes('food') ||
+      item.product?.category?.name?.toLowerCase().includes('main') ||
+      item.product?.category?.name?.toLowerCase().includes('utama')
     );
 
     const hasBarItems = order.items.some(item =>
       item.product?.category?.name?.toLowerCase().includes('minuman') ||
-      item.product?.category?.name?.toLowerCase().includes('drink')
+      item.product?.category?.name?.toLowerCase().includes('drink') ||
+      item.product?.category?.name?.toLowerCase().includes('beverage') ||
+      item.product?.category?.name?.toLowerCase().includes('jus') ||
+      item.product?.category?.name?.toLowerCase().includes('kopi') ||
+      item.product?.category?.name?.toLowerCase().includes('tea')
     );
+
+    console.log(`Filter: ${filter}, hasKitchenItems: ${hasKitchenItems}, hasBarItems: ${hasBarItems}`);
 
     if (filter === 'kitchen') return hasKitchenItems;
     if (filter === 'bar') return hasBarItems;
