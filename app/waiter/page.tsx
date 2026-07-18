@@ -10,7 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X, List } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 
@@ -31,6 +31,8 @@ export default function WaiterPage() {
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [guestCount, setGuestCount] = useState<number>(1);
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
+  const [heldOrders, setHeldOrders] = useState<any[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -64,6 +66,19 @@ export default function WaiterPage() {
   useEffect(() => {
     if (syncError) toast('error', syncError);
   }, [syncError, toast]);
+
+  // Load held orders from localStorage when modal opens
+  useEffect(() => {
+    if (isHeldOrdersOpen) {
+      try {
+        const orders = JSON.parse(localStorage.getItem('heldOrders') || '[]');
+        setHeldOrders(orders);
+      } catch (error) {
+        console.error('Failed to load held orders:', error);
+        setHeldOrders([]);
+      }
+    }
+  }, [isHeldOrdersOpen]);
 
   // Cart state from store
   const cartItems = useCartStore((state) => state.items);
@@ -164,6 +179,51 @@ export default function WaiterPage() {
       setGuestCount(1);
     } catch (error) {
       toast('error', error instanceof Error ? error.message : 'Gagal mengirim pesanan');
+    }
+  };
+
+  const handleLoadHeldOrder = (index: number) => {
+    try {
+      const order = heldOrders[index];
+      
+      // Clear current cart
+      clearCart();
+      
+      // Set table and guest count
+      setSelectedTable(order.table);
+      setGuestCount(order.guestCount);
+      
+      // Add items to cart
+      order.items.forEach((item: any) => {
+        addToCart({
+          productId: item.productId,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          modifiers: item.modifiers || [],
+        });
+      });
+      
+      // Remove from localStorage
+      const updatedHeldOrders = heldOrders.filter((_, i) => i !== index);
+      localStorage.setItem('heldOrders', JSON.stringify(updatedHeldOrders));
+      setHeldOrders(updatedHeldOrders);
+      
+      toast('success', `Pesanan meja ${order.table} dimuat kembali`);
+      setIsHeldOrdersOpen(false);
+    } catch (error) {
+      toast('error', 'Gagal memuat pesanan');
+    }
+  };
+
+  const handleDeleteHeldOrder = (index: number) => {
+    try {
+      const updatedHeldOrders = heldOrders.filter((_, i) => i !== index);
+      localStorage.setItem('heldOrders', JSON.stringify(updatedHeldOrders));
+      setHeldOrders(updatedHeldOrders);
+      toast('success', 'Pesanan dihapus');
+    } catch (error) {
+      toast('error', 'Gagal menghapus pesanan');
     }
   };
 
@@ -332,6 +392,14 @@ export default function WaiterPage() {
         )}
       </button>
 
+      {/* Held Orders Button */}
+      <button
+        onClick={() => setIsHeldOrdersOpen(true)}
+        className="fixed bottom-4 left-4 z-40 bg-orange-500 text-white rounded-full p-4 shadow-lg"
+      >
+        <List className="h-6 w-6" />
+      </button>
+
       {/* Cart Modal */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
@@ -414,6 +482,68 @@ export default function WaiterPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Held Orders Modal */}
+      {isHeldOrdersOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-bold">Pesanan Ditahan</h2>
+              <button
+                onClick={() => setIsHeldOrdersOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {heldOrders.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <Clock className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>Tidak ada pesanan ditahan</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {heldOrders.map((order, index) => (
+                    <div key={index} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-gray-900">Meja {order.table}</h4>
+                          <p className="text-xs text-gray-500">{order.guestCount} tamu</p>
+                          <p className="text-xs text-gray-400">
+                            {new Date(order.timestamp).toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteHeldOrder(index)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <div className="text-sm text-gray-600 mb-3">
+                        {order.items.map((item: any, i: number) => (
+                          <div key={i} className="flex justify-between">
+                            <span>{item.quantity}x {item.name}</span>
+                            <span>Rp {(item.price * item.quantity).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        onClick={() => handleLoadHeldOrder(index)}
+                        className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                      >
+                        Muat Pesanan
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
