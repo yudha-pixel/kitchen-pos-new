@@ -10,7 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X, List } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X, List, History } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 
@@ -33,6 +33,8 @@ export default function WaiterPage() {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
   const [heldOrders, setHeldOrders] = useState<any[]>([]);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [orderHistory, setOrderHistory] = useState<any[]>([]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -79,6 +81,28 @@ export default function WaiterPage() {
       }
     }
   }, [isHeldOrdersOpen]);
+
+  // Load order history from IndexedDB when modal opens
+  useEffect(() => {
+    if (isHistoryOpen) {
+      const fetchOrderHistory = async () => {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const orders = await db.orders
+            .where('sync_status')
+            .equals('synced')
+            .reverse()
+            .limit(50)
+            .toArray();
+          setOrderHistory(orders);
+        } catch (error) {
+          console.error('Failed to load order history:', error);
+          setOrderHistory([]);
+        }
+      };
+      fetchOrderHistory();
+    }
+  }, [isHistoryOpen]);
 
   // Cart state from store
   const cartItems = useCartStore((state) => state.items);
@@ -400,6 +424,14 @@ export default function WaiterPage() {
         <List className="h-6 w-6" />
       </button>
 
+      {/* History Button */}
+      <button
+        onClick={() => setIsHistoryOpen(true)}
+        className="fixed bottom-20 left-4 z-40 bg-gray-600 text-white rounded-full p-4 shadow-lg"
+      >
+        <History className="h-6 w-6" />
+      </button>
+
       {/* Cart Modal */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
@@ -539,6 +571,78 @@ export default function WaiterPage() {
                       >
                         Muat Pesanan
                       </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Order History Modal */}
+      {isHistoryOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
+          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b flex items-center justify-between">
+              <h2 className="text-lg font-bold">Riwayat Pesanan</h2>
+              <button
+                onClick={() => setIsHistoryOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-full"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4">
+              {orderHistory.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  <History className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                  <p>Tidak ada riwayat pesanan</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {orderHistory.map((order) => (
+                    <div key={order.id} className="bg-gray-50 rounded-lg p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <div>
+                          <h4 className="font-bold text-gray-900">Meja {order.table_number || '-'}</h4>
+                          <p className="text-xs text-gray-500">
+                            {new Date(order.created_at).toLocaleString('id-ID')}
+                          </p>
+                        </div>
+                        <Badge
+                          variant={
+                            order.status === 'done'
+                              ? 'success'
+                              : order.status === 'cooking'
+                              ? 'warning'
+                              : order.status === 'confirmed'
+                              ? 'info'
+                              : 'neutral'
+                          }
+                        >
+                          {order.status || 'pending'}
+                        </Badge>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        {order.items && order.items.length > 0 ? (
+                          order.items.map((item: any, i: number) => (
+                            <div key={i} className="flex justify-between py-1">
+                              <span>{item.quantity}x {item.name}</span>
+                              <span>Rp {(item.price * item.quantity).toLocaleString()}</span>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-gray-400">No items</p>
+                        )}
+                      </div>
+                      <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between font-medium">
+                        <span>Total</span>
+                        <span className="text-blue-600">
+                          Rp {order.total?.toLocaleString() || '0'}
+                        </span>
+                      </div>
                     </div>
                   ))}
                 </div>
