@@ -30,12 +30,47 @@ export const useProducts = (categoryId?: string | null) => {
 
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-      // FORCE: Always fetch from API, completely skip IndexedDB
+      // STEP 1: Try to load from IndexedDB cache
+      try {
+        let cachedProducts: DBProduct[] = [];
+        
+        if (categoryId) {
+          cachedProducts = await db.products
+            .where('category_id')
+            .equals(categoryId)
+            .toArray();
+        } else {
+          cachedProducts = await db.products.toArray();
+        }
+
+        if (cachedProducts.length > 0) {
+          setProducts(cachedProducts as unknown as Product[]);
+          setIsFromCache(true);
+          console.log('Loaded products from IndexedDB cache:', cachedProducts.length);
+        }
+      } catch (cacheError) {
+        console.warn('Failed to load products from cache:', cacheError);
+      }
+
+      // STEP 2: If online, fetch fresh data from the local API and update IndexedDB
       if (isOnline) {
         try {
           const data = await api.fetchProducts(categoryId);
 
           if (Array.isArray(data) && data.length > 0) {
+            // Update IndexedDB cache
+            try {
+              if (categoryId) {
+                await db.products.where('category_id').equals(categoryId).delete();
+              } else {
+                await db.products.clear();
+              }
+              await db.products.bulkPut(data as unknown as DBProduct[]);
+              console.log('Updated products cache with fresh data:', data.length);
+            } catch (cacheError) {
+              console.warn('Failed to update products cache:', cacheError);
+            }
+
             setProducts(data as unknown as Product[]);
             setIsFromCache(false);
           } else if (data && !Array.isArray(data)) {
@@ -43,14 +78,12 @@ export const useProducts = (categoryId?: string | null) => {
           }
         } catch (err) {
           if (err instanceof NetworkError) {
-            console.warn('API unreachable, no fallback available');
-            setError('API unreachable and no cached data available');
+            console.warn('API unreachable, using cached products');
+            setIsFromCache(true);
           } else {
             throw err;
           }
         }
-      } else {
-        setError('Offline mode not available - API required');
       }
     } catch (err) {
       if (products.length === 0) {
@@ -86,25 +119,45 @@ export const useCategories = () => {
 
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
-      // FORCE: Always fetch from API, completely skip IndexedDB
+      // STEP 1: Try to load from IndexedDB cache
+      try {
+        const cachedCategories = await db.categories.toArray();
+
+        if (cachedCategories.length > 0) {
+          setCategories(cachedCategories as unknown as Category[]);
+          setIsFromCache(true);
+          console.log('Loaded categories from IndexedDB cache:', cachedCategories.length);
+        }
+      } catch (cacheError) {
+        console.warn('Failed to load categories from cache:', cacheError);
+      }
+
+      // STEP 2: If online, fetch fresh data from the local API and update IndexedDB
       if (isOnline) {
         try {
           const data = await api.fetchCategories();
 
           if (Array.isArray(data) && data.length > 0) {
+            // Update IndexedDB cache
+            try {
+              await db.categories.clear();
+              await db.categories.bulkPut(data as unknown as DBCategory[]);
+              console.log('Updated categories cache with fresh data:', data.length);
+            } catch (cacheError) {
+              console.warn('Failed to update categories cache:', cacheError);
+            }
+
             setCategories(data);
             setIsFromCache(false);
           }
         } catch (err) {
           if (err instanceof NetworkError) {
-            console.warn('API unreachable, no fallback available');
-            setError('API unreachable and no cached data available');
+            console.warn('API unreachable, using cached categories');
+            setIsFromCache(true);
           } else {
             throw err;
           }
         }
-      } else {
-        setError('Offline mode not available - API required');
       }
     } catch (err) {
       if (categories.length === 0) {
