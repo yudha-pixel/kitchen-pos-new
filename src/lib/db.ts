@@ -37,6 +37,12 @@ export interface Order {
   rounding_amount: number;
   notes: string | null;
   created_at: string;
+  order_category?: 'dine-in' | 'takeaway' | 'delivery';
+  receipt_number?: string;
+  customer_name?: string | null;
+  delivery_address?: string | null;
+  courier_name?: string | null;
+  courier_type?: 'internal' | 'external' | null;
 }
 
 export interface OrderItem {
@@ -118,6 +124,26 @@ export class KitchenPOSDB extends Dexie {
               order.sync_status = 'pending';
             } else if (!order.sync_status) {
               order.sync_status = 'synced';
+            }
+          });
+      });
+
+    // v3: Add order_category, receipt_number, and related fields for order flow
+    this.version(3)
+      .stores({
+        orders: 'id, cashier_id, status, sync_status, order_category, receipt_number, created_at',
+      })
+      .upgrade(async (tx) => {
+        await tx
+          .table('orders')
+          .toCollection()
+          .modify((order) => {
+            // Set default values for existing orders
+            if (!order.order_category) {
+              order.order_category = 'dine-in';
+            }
+            if (!order.receipt_number) {
+              order.receipt_number = `DI-${Date.now().toString().slice(-4)}`;
             }
           });
       });

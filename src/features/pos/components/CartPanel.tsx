@@ -19,8 +19,18 @@ const paymentOptions = [
   { value: 'DEBIT', label: 'Debit' },
 ] as const;
 
-export const CartPanel = () => {
-  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, clearCart, tableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod } = useCartStore();
+interface CartPanelProps {
+  orderCategory?: 'dine-in' | 'takeaway' | 'delivery';
+  tableNumber?: string;
+  customerName?: string;
+  deliveryAddress?: string;
+  courierName?: string;
+  courierType?: 'internal' | 'external';
+  receiptNumber?: string;
+}
+
+export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNumber, customerName, deliveryAddress, courierName, courierType, receiptNumber }: CartPanelProps) => {
+  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod } = useCartStore();
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -71,7 +81,7 @@ export const CartPanel = () => {
       toast('warning', 'Keranjang kosong');
       return;
     }
-    if (!tableNumber) {
+    if (!storeTableNumber) {
       toast('warning', 'Mohon isi nomor meja terlebih dahulu');
       return;
     }
@@ -91,7 +101,7 @@ export const CartPanel = () => {
 
     setPaying(true);
     try {
-      const result = await processPayment(roundTo);
+      const result = await processPayment(roundTo, orderCategory, receiptNumber, customerName, deliveryAddress, courierName, courierType);
       if (result.success && result.receiptData) {
         setReceiptData(result.receiptData);
         setShowReceipt(true);
@@ -174,7 +184,7 @@ export const CartPanel = () => {
           <input
             id="cart-table"
             type="text"
-            value={tableNumber}
+            value={storeTableNumber}
             onChange={(e) => setTableNumber(e.target.value)}
             placeholder="Contoh: Meja 1"
             className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"

@@ -37,7 +37,7 @@ interface CartState {
   updateQuantity: (id: string, quantity: number) => void;
   updateModifiers: (id: string, modifiers: ModifierOption[]) => void;
   clearCart: () => void;
-  processPayment: (roundTo?: number) => Promise<{ success: boolean; message: string; orderId?: string; receiptData?: unknown }>;
+  processPayment: (roundTo?: number, orderCategory?: 'dine-in' | 'takeaway' | 'delivery', receiptNumber?: string, customerName?: string, deliveryAddress?: string, courierName?: string, courierType?: 'internal' | 'external') => Promise<{ success: boolean; message: string; orderId?: string; receiptData?: unknown }>;
   voidItem: (itemId: string, reason: string) => Promise<{ success: boolean; message: string }>;
   voidOrderItem: (orderId: string, orderItemId: string, productId: string, quantity: number, reason: string) => Promise<{ success: boolean; message: string }>;
   calculateTotal: () => number;
@@ -115,15 +115,22 @@ export const useCartStore = create<CartState>()(
 
       clearCart: () => set({ items: [], tableNumber: '', notes: '' }),
 
-      processPayment: async (roundTo = 0) => {
+      processPayment: async (roundTo = 0, orderCategory = 'dine-in', receiptNumber, customerName, deliveryAddress, courierName, courierType) => {
         const state = get();
 
         if (state.items.length === 0) {
           return { success: false, message: 'Keranjang kosong' };
         }
 
-        if (!state.tableNumber) {
+        // Validate required fields based on category
+        if (orderCategory === 'dine-in' && !state.tableNumber) {
           return { success: false, message: 'Mohon isi nomor meja terlebih dahulu' };
+        }
+        if (orderCategory === 'takeaway' && !customerName) {
+          return { success: false, message: 'Mohon isi nama pelanggan terlebih dahulu' };
+        }
+        if (orderCategory === 'delivery' && (!deliveryAddress || !courierName)) {
+          return { success: false, message: 'Mohon isi alamat pengiriman dan nama kurir terlebih dahulu' };
         }
 
         const subtotal = state.getSubtotal();
@@ -151,11 +158,17 @@ export const useCartStore = create<CartState>()(
           // Paid up front, but the kitchen still has to prepare it: the order
           // enters the lifecycle at 'pending' so it shows up on the KDS.
           status: 'pending' as const,
-          table_number: state.tableNumber,
+          table_number: orderCategory === 'dine-in' ? state.tableNumber : null,
           discount_amount: 0,
           rounding_amount: roundingAmount,
           notes: state.notes,
           created_at: new Date().toISOString(),
+          order_category: orderCategory,
+          receipt_number: receiptNumber,
+          customer_name: orderCategory === 'takeaway' ? customerName : null,
+          delivery_address: orderCategory === 'delivery' ? deliveryAddress : null,
+          courier_name: orderCategory === 'delivery' ? courierName : null,
+          courier_type: orderCategory === 'delivery' ? courierType : null,
         };
 
         // Create order items
