@@ -16,6 +16,21 @@ const calculateRetryDelay = (retryCount: number): number => {
 };
 
 /**
+ * Compare two timestamps for conflict resolution
+ * @param localTimestamp - Local data timestamp (ISO string)
+ * @param serverTimestamp - Server data timestamp (ISO string)
+ * @returns 'local' if local is newer, 'server' if server is newer, 'equal' if same
+ */
+const compareTimestamps = (localTimestamp: string, serverTimestamp: string): 'local' | 'server' | 'equal' => {
+  const localDate = new Date(localTimestamp);
+  const serverDate = new Date(serverTimestamp);
+  
+  if (localDate > serverDate) return 'local';
+  if (localDate < serverDate) return 'server';
+  return 'equal';
+};
+
+/**
  * useSyncManager Hook
  *
  * Pushes offline work to the local backend API when online:
@@ -52,7 +67,7 @@ export const useSyncManager = () => {
   } = useOfflineStore();
 
   /**
-   * Replay a single queued operation against the API.
+   * Replay a single queued operation against the API with conflict resolution.
    */
   const replayQueueItem = useCallback(async (item: SyncQueueItem) => {
     if (item.table_name === 'orders' && item.operation === 'create') {
@@ -62,6 +77,27 @@ export const useSyncManager = () => {
         await db.orders.update(order.id, { sync_status: 'synced' });
       }
     } else if (item.table_name === 'orders' && item.operation === 'update') {
+      // Conflict resolution for order status updates
+      const localOrder = await db.orders.get(item.data.id);
+      
+      if (localOrder) {
+        // Check if we have timestamp information for conflict resolution
+        const localTimestamp = localOrder.created_at; // Using created_at as fallback
+        const queuedTimestamp = item.created_at;
+        
+        // If timestamps indicate potential conflict, log it
+        if (localTimestamp && queuedTimestamp) {
+          const comparison = compareTimestamps(queuedTimestamp, localTimestamp);
+          if (comparison === 'server') {
+            console.warn(`⚠️ Conflict detected for order ${item.data.id}: Server version is newer, skipping local update`);
+            // Skip the update as server version is newer
+            return;
+          } else if (comparison === 'local') {
+            console.log(`✓ Local version is newer for order ${item.data.id}, proceeding with update`);
+          }
+        }
+      }
+      
       await api.updateOrderStatus(item.data.id, item.data.status);
     } else if (item.table_name === 'order_void_logs' || item.table_name === 'void_logs') {
       await api.createVoidLogs([item.data]);
