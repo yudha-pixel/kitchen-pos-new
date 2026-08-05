@@ -180,8 +180,9 @@ export async function upsertRecipe(
     
     // Check if recipe already exists for this menu item and ingredient
     const existing = await db.recipes
-      .where('[menu_item_id+ingredient_id]')
-      .equals([recipe.menu_item_id, recipe.ingredient_id])
+      .where('menu_item_id')
+      .equals(recipe.menu_item_id)
+      .and(r => r.ingredient_id === recipe.ingredient_id)
       .first();
     
     if (existing) {

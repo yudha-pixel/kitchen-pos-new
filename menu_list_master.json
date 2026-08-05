@@ -1,0 +1,47 @@
+[
+  {
+    "id": "NG-001",
+    "nama_menu": "Nasi Goreng Spesial",
+    "kategori": "Makanan Utama",
+    "deskripsi": "Nasi goreng dengan ayam, telur, dan bumbu spesial",
+    "harga": 25000,
+    "sku": "NG-001",
+    "status": "complete"
+  },
+  {
+    "id": "MA-002",
+    "nama_menu": "Mie Ayam Bakso",
+    "kategori": "Makanan Utama",
+    "deskripsi": "Mie ayam dengan topping bakso dan pangsit goreng",
+    "harga": 20000,
+    "sku": "MA-002",
+    "status": "complete"
+  },
+  {
+    "id": "AB-003",
+    "nama_menu": "Ayam Bakar Madu",
+    "kategori": "Makanan Utama",
+    "deskripsi": "Ayam bakar dengan saus madu dan nasi",
+    "harga": 35000,
+    "sku": "AB-003",
+    "status": "complete"
+  },
+  {
+    "id": "ET-004",
+    "nama_menu": "Es Teh Manis",
+    "kategori": "Minuman",
+    "deskripsi": "Es teh manis segar",
+    "harga": 5000,
+    "sku": "ET-004",
+    "status": "complete"
+  },
+  {
+    "id": "JJ-005",
+    "nama_menu": "Jus Jeruk Segar",
+    "kategori": "Minuman",
+    "deskripsi": "Jus jeruk segar dengan es",
+    "harga": 12000,
+    "sku": "JJ-005",
+    "status": "complete"
+  }
+]

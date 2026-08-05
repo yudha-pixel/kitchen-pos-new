@@ -1,12 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Image as ImageIcon, Edit, Plus } from 'lucide-react';
+import { Image as ImageIcon, Plus } from 'lucide-react';
 import { ModifierModal, ModifierOption, UIModifierGroup } from './ModifierModal';
-import { EditProductModal } from './EditProductModal';
 import { Product } from '@/src/types/database.types';
-import * as api from '@/src/lib/api';
-import { useToast } from '@/src/components/ui/Toast';
 import { Badge } from '@/src/components/ui/Badge';
 import { formatRupiah } from '@/src/lib/format';
 
@@ -14,15 +11,11 @@ interface ProductCardProps {
   product: Product;
   onAddToCart: (productId: string, name: string, price: number, modifiers: ModifierOption[]) => void;
   modifiers?: UIModifierGroup[];
-  userRole?: 'admin' | 'cashier';
-  onProductUpdate?: () => void;
 }
 
-export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = 'cashier', onProductUpdate }: ProductCardProps) => {
+export const ProductCard = ({ product, onAddToCart, modifiers = [] }: ProductCardProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
-  const { toast } = useToast();
 
   const handleAddToCart = () => {
     if (modifiers.length > 0) {
@@ -35,23 +28,6 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
   const handleConfirmModifiers = (selectedModifiers: ModifierOption[]) => {
     onAddToCart(product.id, product.name, product.price, selectedModifiers);
     setIsModalOpen(false);
-  };
-
-  const handleSaveProduct = async (updatedData: Partial<Product>) => {
-    const dataToUpdate = {
-      name: updatedData.name,
-      price: updatedData.price,
-      stock_quantity: product.stock_quantity,
-      image_url: updatedData.image_url || null,
-      category_id: product.category_id,
-    };
-    try {
-      await api.updateProduct(product.id, dataToUpdate);
-      toast('success', 'Produk berhasil diupdate');
-      onProductUpdate?.();
-    } catch (error) {
-      toast('error', error instanceof Error ? error.message : 'Gagal mengupdate produk');
-    }
   };
 
   return (
@@ -97,19 +73,6 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
           </div>
         </button>
 
-        {userRole === 'admin' && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsEditModalOpen(true);
-            }}
-            aria-label={`Edit ${product.name}`}
-            title="Edit Produk"
-            className="absolute bottom-2 right-2 flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-surface/90 text-ink-secondary shadow-sm transition-colors hover:bg-surface-alt"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
-        )}
       </div>
 
       {/* Modifier Modal */}
@@ -120,15 +83,6 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], userRole = '
         onConfirm={handleConfirmModifiers}
         productName={product.name}
         basePrice={product.price}
-      />
-
-      {/* Edit Product Modal */}
-      <EditProductModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        product={product}
-        onSave={handleSaveProduct}
-        userRole={userRole}
       />
     </>
   );

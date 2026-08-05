@@ -13,7 +13,7 @@ interface EditProductModalProps {
   onClose: () => void;
   product: Product;
   onSave: (updatedProduct: Partial<Product>) => Promise<void>;
-  userRole?: 'admin' | 'cashier';
+  userRole?: 'admin' | 'management' | 'cashier';
 }
 
 const inputClass =
@@ -80,10 +80,10 @@ export const EditProductModal = ({
     }
   };
 
-  if (userRole !== 'admin') {
+  if (userRole !== 'admin' && userRole !== 'management') {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Akses Ditolak" size="sm">
-        <p className="text-sm text-ink-secondary">Hanya admin yang dapat mengedit produk.</p>
+        <p className="text-sm text-ink-secondary">Hanya admin dan management yang dapat mengedit produk.</p>
       </Modal>
     );
   }

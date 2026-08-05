@@ -11,7 +11,7 @@ interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProductAdded: () => void;
-  userRole?: 'admin' | 'cashier';
+  userRole?: 'admin' | 'management' | 'cashier';
 }
 
 interface Category {
@@ -120,10 +120,10 @@ export const AddProductModal = ({
     }
   };
 
-  if (userRole !== 'admin') {
+  if (userRole !== 'admin' && userRole !== 'management') {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Akses Ditolak" size="sm">
-        <p className="text-sm text-ink-secondary">Hanya admin yang dapat menambahkan produk.</p>
+        <p className="text-sm text-ink-secondary">Hanya admin dan management yang dapat menambahkan produk.</p>
       </Modal>
     );
   }

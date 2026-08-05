@@ -6,7 +6,6 @@ import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
 import { CartPanel } from '@/src/features/pos/components/CartPanel';
-import { AddProductModal } from '@/src/features/pos/components/AddProductModal';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
@@ -27,7 +26,6 @@ export default function POSPage() {
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [showTableOrders, setShowTableOrders] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
@@ -653,12 +651,6 @@ export default function POSPage() {
                   <h2 className="text-2xl font-bold text-ink">{selectedCategoryName}</h2>
                   <p className="text-sm text-ink-muted">Menampilkan {filteredProducts.length} produk</p>
                 </div>
-                {userRole === 'admin' && (
-                  <Button onClick={() => setIsAddModalOpen(true)}>
-                    <Plus className="h-4 w-4" />
-                    <span className="hidden sm:inline">Tambah Produk</span>
-                  </Button>
-                )}
               </div>
 
               {/* Order Category Selection */}
@@ -787,8 +779,6 @@ export default function POSPage() {
                       product={product}
                       onAddToCart={handleAddToCart}
                       modifiers={getProductModifiers(product)}
-                      userRole={userRole}
-                      onProductUpdate={refetchProducts}
                     />
                   ))}
                 </div>
@@ -860,14 +850,6 @@ export default function POSPage() {
           </div>
         </div>
       )}
-
-      {/* Add Product Modal */}
-      <AddProductModal
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onProductAdded={refetchProducts}
-        userRole={userRole}
-      />
 
       {/* Receipt Modal */}
       {selectedOrderForReceipt && (
