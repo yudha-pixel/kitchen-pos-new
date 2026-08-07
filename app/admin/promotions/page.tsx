@@ -281,7 +281,7 @@ export default function PromotionsPage() {
                 </div>
                 <button
                   onClick={handleAddPromotion}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
                   Tambah Promosi
@@ -593,7 +593,7 @@ export default function PromotionsPage() {
               </button>
               <button
                 onClick={handleSavePromotion}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
               >
                 Simpan
               </button>

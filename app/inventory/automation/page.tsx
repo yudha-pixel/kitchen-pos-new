@@ -329,7 +329,7 @@ export default function AutomationPage() {
                   <button
                     onClick={handleRunAutoRestock}
                     disabled={isRunningAutoRestock}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <Play className="h-4 w-4 mr-2" />
                     {isRunningAutoRestock ? 'Memproses...' : 'Jalankan Auto-Restock'}
@@ -354,7 +354,7 @@ export default function AutomationPage() {
                     <button
                       onClick={handleCreatePO}
                       disabled={isCreatingPO}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       {isCreatingPO ? 'Membuat PO...' : 'Buat Purchase Order'}
@@ -515,7 +515,7 @@ export default function AutomationPage() {
                 <button
                   onClick={handleUpdateMinStock}
                   disabled={isUpdating}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Menyimpan...' : 'Simpan'}
                 </button>
@@ -619,7 +619,7 @@ export default function AutomationPage() {
                 <button
                   onClick={handleSavePO}
                   disabled={isSavingPO}
-                  className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isSavingPO ? 'Menyimpan...' : 'Kirim/Simpan PO'}
                 </button>

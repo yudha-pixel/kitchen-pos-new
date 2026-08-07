@@ -440,7 +440,7 @@ export default function StockApprovalsPage() {
                   <button
                     onClick={handleBulkApprove}
                     disabled={isBulkProcessing}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <Check className="h-4 w-4 mr-2" />
                     {isBulkProcessing ? 'Memproses...' : 'Setujui Terpilih'}
@@ -636,7 +636,7 @@ export default function StockApprovalsPage() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleApprove(request.id, request.type)}
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700"
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700"
                                 >
                                   <Check className="h-3 w-3 mr-1" />
                                   Approve
@@ -884,7 +884,7 @@ export default function StockApprovalsPage() {
                 <div className="flex gap-3 pt-4 border-t">
                   <button
                     onClick={() => handleApprove(selectedDetailRequest.id, selectedDetailRequest.type)}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                    className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                   >
                     <Check className="h-4 w-4 inline mr-2" />
                     Approve

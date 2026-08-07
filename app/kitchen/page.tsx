@@ -355,7 +355,7 @@ export default function KitchenDisplayPage() {
                     <button
                       onClick={() => updateItemStatus(item.id, 'completed')}
                       disabled={busy}
-                      className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 font-medium text-white transition-colors hover:bg-green-700 active:scale-[0.98] disabled:opacity-50"
+                      className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 font-medium text-white transition-colors hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
                     >
                       {busy ? <Spinner size="sm" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
                       Selesai

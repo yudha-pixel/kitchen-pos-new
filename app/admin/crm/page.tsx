@@ -291,7 +291,7 @@ export default function CRMPage() {
                 </div>
                 <button
                   onClick={handleAddMember}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
                 >
                   <UserPlus className="h-4 w-4" />
                   Tambah Member
@@ -512,7 +512,7 @@ export default function CRMPage() {
               </button>
               <button
                 onClick={handleSaveMember}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
               >
                 Simpan
               </button>

@@ -18,7 +18,7 @@ import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2 } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2, Loader2 } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
 import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames } from '@/src/features/inventory/inventoryService';
@@ -39,6 +39,7 @@ export default function POSPage() {
   const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<any>(null);
+  const [openingReceiptForOrderId, setOpeningReceiptForOrderId] = useState<string | null>(null);
   const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false);
   const [deleteOrderConfirmOpen, setDeleteOrderConfirmOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<any>(null);
@@ -680,7 +681,7 @@ export default function POSPage() {
           )}
           <button
             onClick={handleRecalculateStock}
-            className="hidden rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:inline-flex items-center gap-2"
+            className="hidden rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:inline-flex items-center gap-2"
             title="Sinkronkan stok menu dengan inventori"
           >
             <RefreshCw className="h-4 w-4" />
@@ -688,7 +689,7 @@ export default function POSPage() {
           </button>
           <button
             onClick={handleOpenProductListModal}
-            className="hidden rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 sm:inline-flex items-center gap-2"
+            className="hidden rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 sm:inline-flex items-center gap-2"
             title="Lihat daftar produk dan stok"
           >
             <RefreshCw className="h-4 w-4" />
@@ -952,6 +953,7 @@ export default function POSPage() {
                       <div className="mt-3 flex gap-2">
                         <button
                           onClick={() => {
+                            setOpeningReceiptForOrderId(order.id);
                             const receiptData = {
                               orderId: order.id,
                               tableNumber: order.table_number || 'Direct',
@@ -972,11 +974,26 @@ export default function POSPage() {
                             };
                             setSelectedOrderForReceipt(receiptData);
                             setReceiptModalOpen(true);
+                            setOpeningReceiptForOrderId(null);
                           }}
-                          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                          disabled={openingReceiptForOrderId === order.id}
+                          className={`flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors ${
+                            openingReceiptForOrderId === order.id
+                              ? 'bg-slate-800 text-white cursor-not-allowed'
+                              : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                          }`}
                         >
-                          <Printer className="w-4 h-4" />
-                          Cetak Struk
+                          {openingReceiptForOrderId === order.id ? (
+                            <>
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                              Membuka...
+                            </>
+                          ) : (
+                            <>
+                              <Printer className="w-4 h-4" />
+                              Cetak Struk
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -1001,7 +1018,7 @@ export default function POSPage() {
                     onClick={() => setOrderCategory('dine-in')}
                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
                       orderCategory === 'dine-in'
-                        ? 'bg-blue-600 text-white'
+                        ? 'bg-indigo-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >
@@ -1021,7 +1038,7 @@ export default function POSPage() {
                     onClick={() => setOrderCategory('delivery')}
                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
                       orderCategory === 'delivery'
-                        ? 'bg-green-600 text-white'
+                        ? 'bg-emerald-600 text-white'
                         : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                   >

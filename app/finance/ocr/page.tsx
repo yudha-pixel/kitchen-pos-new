@@ -66,7 +66,7 @@ export default function FinancePage() {
                 <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Owner, Management, dan Admin.</p>
                 <button
                   onClick={() => router.push('/inventory')}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                   Kembali ke Inventori
                 </button>
@@ -247,14 +247,14 @@ export default function FinancePage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleAddExpense}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                   Tambah Manual
                 </button>
                 <button
                   onClick={handleExportCSV}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   <Download className="h-4 w-4" />
                   Export CSV
@@ -406,7 +406,7 @@ export default function FinancePage() {
               </button>
               <button
                 onClick={handleSaveExpense}
-                className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
               >
                 Simpan
               </button>

@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
-import { Download, Printer } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { Download, Printer, Loader2 } from 'lucide-react';
 import { Modal } from '@/src/components/ui/Modal';
 import { ReceiptTemplate } from '@/src/components/features/ReceiptTemplate';
 import html2canvas from 'html2canvas-pro';
@@ -50,11 +50,14 @@ export const ReceiptModal = ({
   storePhone,
 }: ReceiptModalProps) => {
   const receiptRef = useRef<HTMLDivElement>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const generatePDF = async () => {
     if (!receiptRef.current) return;
 
     try {
+      setIsDownloading(true);
       // Capture receipt as canvas using html2canvas-pro
       const canvas = await html2canvas(receiptRef.current, {
         scale: 2, // Higher resolution for better quality
@@ -89,15 +92,19 @@ export const ReceiptModal = ({
     } catch (error) {
       console.error('PDF generation failed:', error);
       alert('Gagal membuat PDF. Silakan coba lagi.');
+    } finally {
+      setIsDownloading(false);
     }
   };
 
   const handlePrint = () => {
+    setIsPrinting(true);
     // 1. Cari elemen struk belanja Anda
     const receiptElement = receiptRef.current || document.querySelector('.receipt-template');
 
     if (!receiptElement) {
       console.error("Elemen struk tidak ditemukan!");
+      setIsPrinting(false);
       return;
     }
 
@@ -124,7 +131,10 @@ export const ReceiptModal = ({
 
     // 5. Tulis konten struk secara MURNI ke dalam iframe (Dashboard dijamin tidak akan ikut!)
     const iframeWindow = iframe.contentWindow;
-    if (!iframeWindow) return;
+    if (!iframeWindow) {
+      setIsPrinting(false);
+      return;
+    }
 
     const iframeDoc = iframeWindow.document;
     iframeDoc.open();
@@ -178,6 +188,7 @@ export const ReceiptModal = ({
       // Hapus kembali iframe setelah dialog print selesai
       setTimeout(() => {
         document.body.removeChild(iframe);
+        setIsPrinting(false);
       }, 1000);
     }, 500);
   };
@@ -196,17 +207,45 @@ export const ReceiptModal = ({
         <div className="flex gap-2">
           <button
             onClick={handlePrint}
-            className="flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+            disabled={isPrinting}
+            className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors ${
+              isPrinting
+                ? 'bg-slate-800 text-white cursor-not-allowed'
+                : 'bg-indigo-600 text-white hover:bg-indigo-700'
+            }`}
           >
-            <Printer className="w-4 h-4" />
-            Cetak Struk
+            {isPrinting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Mencetak...
+              </>
+            ) : (
+              <>
+                <Printer className="w-4 h-4" />
+                Cetak Struk
+              </>
+            )}
           </button>
           <button
             onClick={handleDownloadPDF}
-            className="flex items-center justify-center gap-2 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+            disabled={isDownloading}
+            className={`flex items-center justify-center gap-2 py-2 px-4 rounded-lg transition-colors ${
+              isDownloading
+                ? 'bg-slate-800 text-white cursor-not-allowed'
+                : 'bg-emerald-600 text-white hover:bg-emerald-700'
+            }`}
           >
-            <Download className="w-4 h-4" />
-            Download PDF
+            {isDownloading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Mengunduh...
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                Download PDF
+              </>
+            )}
           </button>
         </div>
       }

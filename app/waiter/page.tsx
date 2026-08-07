@@ -535,7 +535,7 @@ export default function WaiterPage() {
             onClick={() => setSelectedCategory('Semua')}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
               selectedCategory === 'Semua'
-                ? 'bg-blue-600 text-white'
+                ? 'bg-indigo-600 text-white'
                 : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
             }`}
           >
@@ -547,7 +547,7 @@ export default function WaiterPage() {
               onClick={() => setSelectedCategory(cat.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
                 selectedCategory === cat.id
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-indigo-600 text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
@@ -610,7 +610,7 @@ export default function WaiterPage() {
       {/* Cart Button */}
       <button
         onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 right-4 z-40 bg-blue-600 text-white rounded-full p-4 shadow-lg flex items-center gap-2"
+        className="fixed bottom-4 right-4 z-40 bg-indigo-600 text-white rounded-full p-4 shadow-lg flex items-center gap-2"
       >
         <ShoppingCart className="h-6 w-6" />
         {cartItems.length > 0 && (
@@ -679,7 +679,7 @@ export default function WaiterPage() {
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700"
+                          className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -710,7 +710,7 @@ export default function WaiterPage() {
                   <button
                     onClick={handleSendOrder}
                     disabled={syncInProgress}
-                    className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Send className="h-5 w-5" />
                     Kirim
@@ -718,7 +718,7 @@ export default function WaiterPage() {
                   <button
                     onClick={() => setPaymentModalOpen(true)}
                     disabled={syncInProgress || cartItems.length === 0}
-                    className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Printer className="h-5 w-5" />
                     Bayar
@@ -779,7 +779,7 @@ export default function WaiterPage() {
                       </div>
                       <button
                         onClick={() => handleLoadHeldOrder(index)}
-                        className="w-full py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                        className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
                       >
                         Muat Pesanan
                       </button>
@@ -885,7 +885,7 @@ export default function WaiterPage() {
                       <div className="mt-3 flex gap-2">
                         <button
                           onClick={() => handlePrintReceipt(order)}
-                          className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors"
+                          className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
                         >
                           <Printer className="w-4 h-4" />
                           Cetak Struk

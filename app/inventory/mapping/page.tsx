@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
-import { getIngredientsWithStatus, upsertRecipe, getRecipesForMenuItem, calculateRecipeCost, calculateProductProfitability } from '@/src/features/inventory/inventoryService';
+import { getIngredientsWithStatus, upsertRecipe, getRecipesForMenuItem, calculateProductProfitability, deleteRecipesForMenuItem } from '@/src/features/inventory/recipeApiService';
 import { AddProductModal } from '@/src/features/pos/components/AddProductModal';
 import { EditProductModal } from '@/src/features/pos/components/EditProductModal';
 import { db } from '@/src/lib/db';
@@ -317,10 +317,7 @@ export default function RecipeMappingPage() {
       // Handle different BoM types
       if (bomType === 'manufacture') {
         // Delete existing recipes for this product
-        await db.recipes
-          .where('menu_item_id')
-          .equals(selectedProduct)
-          .delete();
+        await deleteRecipesForMenuItem(selectedProduct);
 
         // Add new recipes
         for (const mapping of recipeMappings) {
@@ -593,7 +590,7 @@ export default function RecipeMappingPage() {
                 {(user?.role === 'admin' || user?.role === 'management') && (
                   <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                   >
                     <Plus className="h-5 w-5" />
                     <span>Tambah Menu</span>
@@ -601,7 +598,7 @@ export default function RecipeMappingPage() {
                 )}
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
                 >
                   <Download className="h-5 w-5" />
                   <span>Export JSON</span>
@@ -702,7 +699,7 @@ export default function RecipeMappingPage() {
                   <div className="p-4 border-t">
                     <button
                       onClick={() => setIsAddModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                      className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       Tambah Menu
@@ -774,7 +771,7 @@ export default function RecipeMappingPage() {
                       <div className="mt-4">
                         <button
                           onClick={() => setIsAddModalOpen(true)}
-                          className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                         >
                           <Plus className="h-4 w-4" />
                           Tambah Menu
@@ -876,43 +873,43 @@ export default function RecipeMappingPage() {
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">HPP (Biaya Bahan)</p>
                             <p className="text-sm font-bold text-orange-600">
-                              Rp {profitability.hpp.toLocaleString('id-ID')}
+                              Rp {(profitability.hpp || 0).toLocaleString('id-ID')}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">Penjualan Bersih</p>
                             <p className="text-sm font-bold text-gray-900">
-                              Rp {Math.round(profitability.netSales).toLocaleString('id-ID')}
+                              Rp {(profitability.netSales || 0).toLocaleString('id-ID')}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">Pajak ({taxRate}%)</p>
                             <p className="text-sm font-bold text-red-600">
-                              Rp {Math.round(profitability.taxAmount).toLocaleString('id-ID')}
+                              Rp {(profitability.taxAmount || 0).toLocaleString('id-ID')}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">Service Charge ({serviceChargeRate}%)</p>
                             <p className="text-sm font-bold text-purple-600">
-                              Rp {Math.round(profitability.serviceChargeAmount).toLocaleString('id-ID')}
+                              Rp {(profitability.serviceChargeAmount || 0).toLocaleString('id-ID')}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">Laba Kotor</p>
                             <p className="text-sm font-bold text-green-600">
-                              Rp {Math.round(profitability.grossProfit).toLocaleString('id-ID')}
+                              Rp {(profitability.grossProfit || 0).toLocaleString('id-ID')}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">Laba Bersih</p>
-                            <p className={`text-sm font-bold ${profitability.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              Rp {Math.round(profitability.netProfit).toLocaleString('id-ID')}
+                            <p className={`text-sm font-bold ${(profitability.netProfit || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              Rp {(profitability.netProfit || 0).toLocaleString('id-ID')}
                             </p>
                           </div>
                           <div className="bg-white rounded-lg p-3 shadow-sm">
                             <p className="text-xs text-gray-600 mb-1">Margin Bersih</p>
-                            <p className={`text-sm font-bold ${profitability.netMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {profitability.netMargin.toFixed(1)}%
+                            <p className={`text-sm font-bold ${(profitability.netMargin || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {(profitability.netMargin || 0).toFixed(1)}%
                             </p>
                           </div>
                         </div>
@@ -1244,7 +1241,7 @@ export default function RecipeMappingPage() {
                       <button
                         onClick={handleSave}
                         disabled={saving}
-                        className="flex items-center gap-2 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        className="flex items-center gap-2 bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
                       >
                         <Save className="h-5 w-5" />
                         <span>{saving ? 'Menyimpan...' : 'Simpan Resep'}</span>
@@ -1418,7 +1415,7 @@ export default function RecipeMappingPage() {
                           setCatalogSearch('');
                         }}
                         disabled={selectedCatalogItems.size === 0}
-                        className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         Tambah Bahan ({selectedCatalogItems.size})
                       </button>
