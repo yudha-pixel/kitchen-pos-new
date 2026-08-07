@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
@@ -12,6 +12,7 @@ import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
+import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -19,11 +20,16 @@ import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
 import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2 } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
+import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
+import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames } from '@/src/features/inventory/inventoryService';
+import { useTheme } from '@/src/context/ThemeContext';
 
 export default function POSPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { selectedOutletId } = useOutletStore();
+  const { settings } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
@@ -34,12 +40,16 @@ export default function POSPage() {
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
   const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<any>(null);
   const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false);
+  const [deleteOrderConfirmOpen, setDeleteOrderConfirmOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<any>(null);
   const [orderCategory, setOrderCategory] = useState<'dine-in' | 'takeaway' | 'delivery'>('dine-in');
   const [tableNumber, setTableNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [courierName, setCourierName] = useState('');
   const [courierType, setCourierType] = useState<'internal' | 'external'>('internal');
+  const [productStocks, setProductStocks] = useState<Map<string, number | null>>(new Map());
+  const [productListModalOpen, setProductListModalOpen] = useState(false);
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -62,6 +72,201 @@ export default function POSPage() {
   const { products, loading: productsLoading, error: productsError, refetch: refetchProducts, isFromCache: productsFromCache } = useProducts();
   const { categories } = useCategories();
 
+  // Extract unique categories from products for ProductListModal
+  const productCategories = useMemo(() => {
+    const uniqueCategories = new Map();
+    products.forEach(product => {
+      if (product.category_id) {
+        const category = categories.find(c => c.id === product.category_id);
+        if (category) {
+          uniqueCategories.set(category.id, { id: category.id, name: category.name });
+        }
+      }
+    });
+    return Array.from(uniqueCategories.values());
+  }, [products, categories]);
+
+  // Calculate stock for all products when products are loaded
+  useEffect(() => {
+    if (products && products.length > 0) {
+      console.log('🔍 [POS Page] Products loaded:', products.length, 'products');
+      console.log('🔍 [POS Page] Product IDs:', products.map(p => ({ id: p.id, name: p.name })));
+
+      // Seed sample inventory data if needed
+      seedSampleInventoryData().then(() => {
+        console.log('🔍 [POS Page] Inventory data check completed');
+      }).catch(error => {
+        console.error('❌ Failed to seed inventory data:', error);
+      });
+
+      const productIds = products.map(p => p.id);
+      console.log('🔍 [POS Page] Calculating stocks for:', productIds.length, 'products');
+      calculateMenuStocks(productIds).then(stockMap => {
+        console.log('🔍 [POS Page] Stock calculation result:', Array.from(stockMap.entries()));
+        console.log('🔍 [POS Page] Setting productStocks state...');
+        setProductStocks(stockMap);
+        console.log('🔍 [POS Page] productStocks state set');
+      }).catch(error => {
+        console.error('❌ Failed to calculate product stocks:', error);
+      });
+    }
+  }, [products]);
+
+  // Debug log to check productStocks state changes
+  useEffect(() => {
+    console.log('🔍 [POS Page] productStocks state changed:', Array.from(productStocks.entries()));
+  }, [productStocks]);
+
+  // Listen for inventory stock changes and recalculate menu stock automatically
+  useEffect(() => {
+    const handleInventoryStockChanged = () => {
+      console.log('📡 Received inventoryStockChanged event, recalculating menu stock...');
+      if (products && products.length > 0) {
+        const productIds = products.map(p => p.id);
+        calculateMenuStocks(productIds).then(stockMap => {
+          console.log('🔍 [POS Page] Stock recalculated after inventory change:', Array.from(stockMap.entries()));
+          setProductStocks(stockMap);
+        }).catch(error => {
+          console.error('❌ Failed to recalculate stock after inventory change:', error);
+        });
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('inventoryStockChanged', handleInventoryStockChanged);
+      console.log('🔍 [POS Page] Listening for inventoryStockChanged events');
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('inventoryStockChanged', handleInventoryStockChanged);
+        console.log('🔍 [POS Page] Stopped listening for inventoryStockChanged events');
+      }
+    };
+  }, [products]);
+
+  // Recalculate stock when outlet changes to ensure real-time data
+  useEffect(() => {
+    if (selectedOutletId && products && products.length > 0) {
+      console.log('🔍 [POS Page] Outlet changed to:', selectedOutletId, '- recalculating stock...');
+      const productIds = products.map(p => p.id);
+      calculateMenuStocks(productIds).then(stockMap => {
+        console.log('🔍 [POS Page] Stock recalculated after outlet change:', Array.from(stockMap.entries()));
+        setProductStocks(stockMap);
+        toast('success', 'Stok diperbarui sesuai outlet yang dipilih');
+      }).catch(error => {
+        console.error('❌ Failed to recalculate stock after outlet change:', error);
+      });
+    }
+  }, [selectedOutletId, products]);
+
+  // Listen for order completion and refresh transaction history
+  useEffect(() => {
+    const handleOrderCompleted = () => {
+      console.log('📡 Received orderCompleted event, refreshing transaction history...');
+      if (showTransactionHistory) {
+        const fetchTransactionHistory = async () => {
+          try {
+            const { db } = await import('@/src/lib/db');
+            const orders = await db.orders
+              .where('status')
+              .anyOf(['completed', 'pending'])
+              .reverse()
+              .limit(50)
+              .toArray();
+
+            const ordersWithItems = await Promise.all(
+              orders.map(async (order) => {
+                if (!order.id) {
+                  return {
+                    ...order,
+                    items: [],
+                  };
+                }
+                const items = await db.order_items
+                  .where('order_id')
+                  .equals(order.id)
+                  .toArray();
+                return {
+                  ...order,
+                  items,
+                };
+              })
+            );
+
+            setTransactionHistory(ordersWithItems);
+          } catch (error) {
+            console.error('Failed to refresh transaction history:', error);
+          }
+        };
+        fetchTransactionHistory();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('orderCompleted', handleOrderCompleted);
+      console.log('🔍 [POS Page] Listening for orderCompleted events');
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('orderCompleted', handleOrderCompleted);
+        console.log('🔍 [POS Page] Stopped listening for orderCompleted events');
+      }
+    };
+  }, [showTransactionHistory]);
+
+  // Handler for force re-seeding inventory data
+  const handleForceReseed = async () => {
+    try {
+      console.log('🔄 Force re-seeding inventory data...');
+      await forceReseedInventoryData();
+      toast('success', 'Data inventori berhasil di-reset ulang');
+      
+      // Recalculate stocks after re-seeding
+      if (products && products.length > 0) {
+        const productIds = products.map(p => p.id);
+        const stockMap = await calculateMenuStocks(productIds);
+        setProductStocks(stockMap);
+      }
+    } catch (error) {
+      console.error('❌ Failed to force re-seed:', error);
+      toast('error', 'Gagal me-reset data inventori');
+    }
+  };
+
+  const handleGetAllProductNames = async () => {
+    try {
+      const productNames = await getAllProductNames();
+      console.log('Product names retrieved:', productNames);
+      toast('success', `Ditemukan ${productNames.length} produk (lihat console)`);
+    } catch (error) {
+      console.error('Failed to get product names:', error);
+      toast('error', 'Gagal mengambil daftar produk');
+    }
+  };
+
+  const handleOpenProductListModal = () => {
+    setProductListModalOpen(true);
+  };
+
+  // Handler to recalculate menu stock (sync with inventory)
+  const handleRecalculateStock = async () => {
+    try {
+      console.log('🔄 Recalculating menu stock from inventory...');
+      if (products && products.length > 0) {
+        const productIds = products.map(p => p.id);
+        const stockMap = await calculateMenuStocks(productIds);
+        setProductStocks(stockMap);
+        console.log('✅ Menu stock recalculated successfully');
+        toast('success', 'Stok menu disinkronkan dengan inventori');
+      }
+    } catch (error) {
+      console.error('❌ Failed to recalculate stock:', error);
+      toast('error', 'Gagal menyinkronkan stok');
+    }
+  };
+
   // Sync manager for offline-first functionality
   const {
     isOnline,
@@ -76,6 +281,82 @@ export default function POSPage() {
   useEffect(() => {
     if (syncError) toast('error', syncError);
   }, [syncError, toast]);
+
+  // Listen for order completion events from KDS
+  useEffect(() => {
+    const handleOrderReady = (event: CustomEvent) => {
+      console.log('📡 Received orderReady event:', event.detail);
+      if (showTableOrders) {
+        // Refresh table orders to show updated status
+        const fetchTableOrders = async () => {
+          try {
+            const { db } = await import('@/src/lib/db');
+            const orders = await db.orders
+              .where('status')
+              .equals('done')
+              .reverse()
+              .limit(50)
+              .toArray();
+
+            // Fetch items for each order from order_items table
+            const ordersWithItems = await Promise.all(
+              orders.map(async (order) => {
+                if (!order.id) {
+                  return {
+                    ...order,
+                    items: [],
+                  };
+                }
+                const items = await db.order_items
+                  .where('order_id')
+                  .equals(order.id)
+                  .toArray();
+
+                // Fetch product details for each item
+                const itemsWithProducts = await Promise.all(
+                  items.map(async (item) => {
+                    if (!item.product_id) {
+                      return {
+                        ...item,
+                        product: null,
+                      };
+                    }
+                    const product = await db.products.get(item.product_id);
+                    return {
+                      ...item,
+                      product: product ? { name: product.name } : null,
+                    };
+                  })
+                );
+
+                return {
+                  ...order,
+                  items: itemsWithProducts,
+                };
+              })
+            );
+
+            setTableOrders(ordersWithItems);
+          } catch (error) {
+            console.error('Failed to fetch table orders:', error);
+          }
+        };
+        fetchTableOrders();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('orderReady', handleOrderReady as EventListener);
+      console.log('🔍 [POS Page] Listening for orderReady events');
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('orderReady', handleOrderReady as EventListener);
+        console.log('🔍 [POS Page] Stopped listening for orderReady events');
+      }
+    };
+  }, [showTableOrders]);
 
   // Fetch table orders with status 'done' when tab is opened
   useEffect(() => {
@@ -224,6 +505,32 @@ export default function POSPage() {
     }
   };
 
+  // Handle delete individual order
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    
+    try {
+      const { db } = await import('@/src/lib/db');
+      
+      // Delete order items first
+      await db.order_items.where('order_id').equals(orderToDelete.id).delete();
+      console.log(`✅ Order items for order ${orderToDelete.id} deleted`);
+      
+      // Delete order
+      await db.orders.where('id').equals(orderToDelete.id).delete();
+      console.log(`✅ Order ${orderToDelete.id} deleted`);
+      
+      // Update state
+      setTableOrders(prev => prev.filter(order => order.id !== orderToDelete.id));
+      setDeleteOrderConfirmOpen(false);
+      setOrderToDelete(null);
+      toast('success', 'Pesanan berhasil dihapus');
+    } catch (error) {
+      console.error('Failed to delete order:', error);
+      toast('error', 'Gagal menghapus pesanan');
+    }
+  };
+
   // Generate receipt number based on category
   const generateReceiptNumber = async (category: 'dine-in' | 'takeaway' | 'delivery'): Promise<string> => {
     try {
@@ -350,7 +657,11 @@ export default function POSPage() {
       : categories.find((c) => c.id === selectedCategory)?.name ?? 'Kategori';
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
+    <div 
+      className="flex h-dvh flex-col bg-background"
+      data-card-view={settings?.card_view || 'grid'}
+      data-cart-position={settings?.cart_position || 'right-sidebar'}
+    >
       {/* Header */}
       <Header title="Kitchen POS" onSearch={setSearchQuery} />
 
@@ -367,6 +678,22 @@ export default function POSPage() {
               Terakhir sync: {new Date(lastSyncTime).toLocaleTimeString('id-ID')}
             </span>
           )}
+          <button
+            onClick={handleRecalculateStock}
+            className="hidden rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white hover:bg-blue-700 sm:inline-flex items-center gap-2"
+            title="Sinkronkan stok menu dengan inventori"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>Sync Stok</span>
+          </button>
+          <button
+            onClick={handleOpenProductListModal}
+            className="hidden rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white hover:bg-green-700 sm:inline-flex items-center gap-2"
+            title="Lihat daftar produk dan stok"
+          >
+            <RefreshCw className="h-4 w-4" />
+            <span>List Produk</span>
+          </button>
           <button
             onClick={triggerManualSync}
             disabled={syncInProgress || !isOnline}
@@ -477,7 +804,21 @@ export default function POSPage() {
                             {new Date(order.created_at).toLocaleString('id-ID')}
                           </p>
                         </div>
-                        <Badge tone="success">Done</Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge tone="success" className="bg-green-100 text-green-800 border-green-300 animate-pulse">
+                            ✓ Siap
+                          </Badge>
+                          <button
+                            onClick={() => {
+                              setOrderToDelete(order);
+                              setDeleteOrderConfirmOpen(true);
+                            }}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Hapus pesanan"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="mb-3 space-y-1 text-sm">
@@ -772,13 +1113,18 @@ export default function POSPage() {
               ) : filteredProducts.length === 0 ? (
                 <EmptyState icon={Search} title="Tidak ada produk ditemukan" message="Coba kata kunci atau kategori lain" />
               ) : (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                <div 
+                  className={`product-grid ${settings?.card_view === 'list' ? 'flex flex-col' : settings?.card_view === 'minimalist' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}
+                  style={{ gap: `var(--layout-spacing)` }}
+                >
                   {filteredProducts.map((product) => (
                     <ProductCard
                       key={product.id}
                       product={product}
                       onAddToCart={handleAddToCart}
                       modifiers={getProductModifiers(product)}
+                      stockCount={productStocks.get(product.id)}
+                      cardView={settings?.card_view || 'grid'}
                     />
                   ))}
                 </div>
@@ -788,7 +1134,10 @@ export default function POSPage() {
         </main>
 
         {/* Cart Panel (desktop) */}
-        <aside className="hidden w-96 lg:block" aria-label="Keranjang">
+        <aside 
+          className={`cart-container ${settings?.cart_position === 'floating-drawer' ? 'fixed bottom-0 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px] border-t border-line bg-surface z-50 rounded-t-lg max-h-[50vh] overflow-y-auto' : 'hidden w-96 lg:block'}`}
+          aria-label="Keranjang"
+        >
           <CartPanel
             orderCategory={orderCategory}
             tableNumber={tableNumber}
@@ -870,6 +1219,17 @@ export default function POSPage() {
         />
       )}
 
+      {/* Product List Modal */}
+      <ProductListModal
+        isOpen={productListModalOpen}
+        onClose={() => setProductListModalOpen(false)}
+        products={products}
+        productStocks={productStocks}
+        onStockUpdate={handleRecalculateStock}
+        userRole={userRole}
+        categories={productCategories}
+      />
+
       {/* Delete History Confirmation Modal */}
       {deleteHistoryConfirmOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
@@ -895,6 +1255,43 @@ export default function POSPage() {
               </button>
               <button
                 onClick={handleDeleteHistory}
+                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+              >
+                Ya, Hapus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Order Confirmation Modal */}
+      {deleteOrderConfirmOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold">Hapus Pesanan</h3>
+              <button
+                onClick={() => setDeleteOrderConfirmOpen(false)}
+                className="p-2 hover:bg-gray-100 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <p className="text-gray-600 mb-6">
+              Apakah Anda yakin ingin menghapus pesanan meja {orderToDelete?.table_number || '-'}? Tindakan ini tidak dapat dibatalkan.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setDeleteOrderConfirmOpen(false);
+                  setOrderToDelete(null);
+                }}
+                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleDeleteOrder}
                 className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
               >
                 Ya, Hapus

@@ -15,6 +15,7 @@ interface OrderItem {
   quantity: number;
   price_at_time: number;
   modifiers_applied: any;
+  status: string;
   product?: {
     name: string;
     category?: {
@@ -91,28 +92,71 @@ export default function KitchenDisplayPage() {
     };
   }, [fetchOrders]);
 
-  const updateOrderStatus = async (orderId: string, status: string) => {
-    setUpdatingOrderId(orderId);
+  const updateItemStatus = async (itemId: string, status: string) => {
+    setUpdatingOrderId(itemId);
     try {
-      await api.updateOrderStatus(orderId, status);
+      await api.updateOrderItemStatus(itemId, status);
 
       // Also update status in IndexedDB for local order history
       try {
         const { db } = await import('@/src/lib/db');
-        // Map 'completed' to 'done' for local order history
-        const localStatus = status === 'completed' ? 'done' : status;
-        await db.orders.where('id').equals(orderId).modify({ status: localStatus as any });
-        console.log(`✅ Updated order ${orderId} status to ${localStatus} in IndexedDB`);
+        await db.order_items.where('id').equals(itemId).modify({ status });
+        console.log(`✅ Updated item ${itemId} status to ${status} in IndexedDB`);
       } catch (dbError) {
-        console.error('Failed to update order status in IndexedDB:', dbError);
+        console.error('Failed to update item status in IndexedDB:', dbError);
         // Don't fail the operation if IndexedDB update fails
       }
 
-      toast('success', status === 'preparing' ? 'Order diproses' : 'Order selesai');
+      // Remove completed items from local state for instant feedback
+      if (status === 'completed') {
+        setOrders(prevOrders => {
+          return prevOrders.map(order => ({
+            ...order,
+            items: order.items.filter(item => item.id !== itemId),
+          })).filter(order => order.items.length > 0);
+        });
+
+        // Check if all items in the order are completed and update order status
+        try {
+          const { db } = await import('@/src/lib/db');
+          const item = await db.order_items.get(itemId);
+          if (item) {
+            const allItems = await db.order_items.where('order_id').equals(item.order_id).toArray();
+            const allCompleted = allItems.every(i => i.status === 'completed');
+            
+            if (allCompleted) {
+              await db.orders.where('id').equals(item.order_id).modify((order) => {
+                order.status = 'done';
+              });
+              console.log(`✅ Updated order ${item.order_id} status to 'done'`);
+              
+              // Dispatch event to notify Cashier page that order is ready
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('orderReady', { 
+                  detail: { orderId: item.order_id } 
+                }));
+                console.log('📡 Dispatched orderReady event');
+              }
+            }
+          }
+        } catch (dbError) {
+          console.error('Failed to check/update order status:', dbError);
+        }
+
+        // Dispatch event to notify Cashier page
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('orderItemCompleted', { 
+            detail: { itemId } 
+          }));
+          console.log('📡 Dispatched orderItemCompleted event');
+        }
+      }
+
+      toast('success', status === 'preparing' ? 'Item diproses' : 'Item selesai');
       await fetchOrders(true);
     } catch (error) {
-      console.error('Failed to update order status:', error);
-      toast('error', 'Gagal mengubah status order. Coba lagi.');
+      console.error('Failed to update item status:', error);
+      toast('error', 'Gagal mengubah status item. Coba lagi.');
     } finally {
       setUpdatingOrderId(null);
     }
@@ -121,32 +165,37 @@ export default function KitchenDisplayPage() {
   // Flatten orders into individual items with order context
   const filteredItems = orders.flatMap(order => {
     if (filter === 'all') {
-      // Debug: Log category names for each order in 'Semua' tab
-      console.log(`Order ${order.id} (Table ${order.table_number}):`, {
-        items: order.items.map(item => ({
-          name: item.product?.name,
-          categoryName: item.product?.category?.name
-        }))
-      });
       return order.items.map(item => ({ ...item, order }));
     }
 
-    const isKitchenItem = (item: OrderItem) =>
-      item.product?.category?.name?.toLowerCase().includes('makanan') ||
-      item.product?.category?.name?.toLowerCase().includes('food') ||
-      item.product?.category?.name?.toLowerCase().includes('main') ||
-      item.product?.category?.name?.toLowerCase().includes('utama') ||
-      item.product?.category?.name?.toLowerCase().includes('bakery');
+    const isKitchenItem = (item: OrderItem) => {
+      const categoryName = item.product?.category?.name?.toLowerCase() || '';
+      const kitchenKeywords = [
+        'makanan', 'food', 'main', 'utama', 'bakery',
+        'appetizer', 'starter', 'soup', 'salad',
+        'entree', 'dinner', 'lunch', 'breakfast',
+        'snack', 'dessert', 'cake', 'pastry',
+        'ayam', 'beef', 'pork', 'fish', 'seafood',
+        'nasi', 'mie', 'pasta', 'rice', 'noodle',
+        'burger', 'sandwich', 'pizza', 'steak',
+        'goreng', 'bakar', 'rebus', 'panggang'
+      ];
+      return kitchenKeywords.some(keyword => categoryName.includes(keyword));
+    };
 
-    const isBarItem = (item: OrderItem) =>
-      item.product?.category?.name?.toLowerCase().includes('minuman') ||
-      item.product?.category?.name?.toLowerCase().includes('drink') ||
-      item.product?.category?.name?.toLowerCase().includes('beverage') ||
-      item.product?.category?.name?.toLowerCase().includes('jus') ||
-      item.product?.category?.name?.toLowerCase().includes('kopi') ||
-      item.product?.category?.name?.toLowerCase().includes('tea') ||
-      item.product?.category?.name?.toLowerCase().includes('coffee') ||
-      item.product?.category?.name?.toLowerCase().includes('non-coffee');
+    const isBarItem = (item: OrderItem) => {
+      const categoryName = item.product?.category?.name?.toLowerCase() || '';
+      const barKeywords = [
+        'minuman', 'drink', 'beverage', 'jus', 'kopi', 'tea', 'coffee', 'non-coffee',
+        'cocktail', 'mocktail', 'smoothie', 'shake', 'milkshake',
+        'soda', 'water', 'juice', 'es', 'ice',
+        'latte', 'cappuccino', 'espresso', 'macchiato',
+        'tea', 'matcha', 'green tea', 'black tea',
+        'beer', 'wine', 'spirits', 'liquor',
+        'fresh', 'blend', 'cold', 'hot'
+      ];
+      return barKeywords.some(keyword => categoryName.includes(keyword));
+    };
 
     if (filter === 'kitchen') {
       return order.items.filter(isKitchenItem).map(item => ({ ...item, order }));
@@ -293,9 +342,9 @@ export default function KitchenDisplayPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 border-t border-kds-border p-4">
-                    {order.status === 'pending' && (
+                    {item.status === 'pending' && (
                       <button
-                        onClick={() => updateOrderStatus(order.id, 'preparing')}
+                        onClick={() => updateItemStatus(item.id, 'preparing')}
                         disabled={busy}
                         className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-600 font-medium text-white transition-colors hover:bg-yellow-700 active:scale-[0.98] disabled:opacity-50"
                       >
@@ -304,7 +353,7 @@ export default function KitchenDisplayPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => updateOrderStatus(order.id, 'completed')}
+                      onClick={() => updateItemStatus(item.id, 'completed')}
                       disabled={busy}
                       className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 font-medium text-white transition-colors hover:bg-green-700 active:scale-[0.98] disabled:opacity-50"
                     >

@@ -11,13 +11,25 @@ interface ProductCardProps {
   product: Product;
   onAddToCart: (productId: string, name: string, price: number, modifiers: ModifierOption[]) => void;
   modifiers?: UIModifierGroup[];
+  stockCount?: number | null; // null = unlimited, number = available stock
+  cardView?: 'grid' | 'list' | 'minimalist';
 }
 
-export const ProductCard = ({ product, onAddToCart, modifiers = [] }: ProductCardProps) => {
+export const ProductCard = ({ product, onAddToCart, modifiers = [], stockCount, cardView = 'grid' }: ProductCardProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
+  const isOutOfStock = stockCount === 0;
+  const hasLimitedStock = stockCount !== null && stockCount !== undefined;
+  const isUnlimited = stockCount === null;
+
+  // Debug log to check if stockCount is received
+  console.log(`🔍 [ProductCard] ${product.name} (ID: ${product.id}): stockCount=${stockCount}, isOutOfStock=${isOutOfStock}, hasLimitedStock=${hasLimitedStock}, isUnlimited=${isUnlimited}, cardView=${cardView}`);
+
   const handleAddToCart = () => {
+    if (isOutOfStock) {
+      return; // Prevent adding to cart if out of stock
+    }
     if (modifiers.length > 0) {
       setIsModalOpen(true);
     } else {
@@ -33,11 +45,12 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [] }: ProductCar
   return (
     <>
       {/* Whole card is the tap target (touch-first); hover overlay is a desktop extra */}
-      <div className="group relative overflow-hidden rounded-lg bg-surface shadow-md transition-shadow hover:shadow-lg">
+      <div className={`group relative overflow-hidden rounded-lg bg-surface shadow-md transition-shadow hover:shadow-lg ${isOutOfStock ? 'opacity-60' : ''}`}>
         <button
           onClick={handleAddToCart}
           aria-label={`Tambah ${product.name} ke keranjang`}
-          className="block w-full text-left transition-transform active:scale-[0.98]"
+          className={`block w-full text-left transition-transform active:scale-[0.98] ${isOutOfStock ? 'cursor-not-allowed' : ''}`}
+          disabled={isOutOfStock}
         >
           {/* Product Image */}
           <div className="relative aspect-square overflow-hidden bg-surface-alt">
@@ -68,7 +81,16 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [] }: ProductCar
             <h3 className="mb-1 line-clamp-2 font-semibold text-ink">{product.name}</h3>
             <div className="flex flex-wrap items-center justify-between gap-1">
               <p className="tnum text-lg font-bold text-primary">{formatRupiah(product.price)}</p>
-              {modifiers.length > 0 && <Badge tone="warning">+ Modifier</Badge>}
+              <div className="flex gap-1">
+                {modifiers.length > 0 && <Badge tone="warning">+ Modifier</Badge>}
+                {isUnlimited ? (
+                  <Badge tone="success">Tersedia</Badge>
+                ) : (
+                  <Badge tone={isOutOfStock ? 'danger' : stockCount! <= 5 ? 'warning' : 'success'}>
+                    {isOutOfStock ? 'Habis' : `Stok: ${stockCount}`}
+                  </Badge>
+                )}
+              </div>
             </div>
           </div>
         </button>

@@ -104,6 +104,7 @@ const orderItemSchema = z.object({
   modifiers_applied: z.array(z.any()).optional(),
   discount_item: z.number().nonnegative().optional(),
   split_group_id: z.string().max(100).nullish(),
+  status: z.enum(ORDER_STATUSES).optional(),
   created_at: z.string().optional(),
 });
 

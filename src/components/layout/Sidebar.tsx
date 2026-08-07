@@ -15,12 +15,20 @@ import {
   ChevronDown,
   LayoutGrid,
   BarChart3,
-  Boxes,
-  Wallet,
   HeartHandshake,
   IdCard,
   Package,
   ClipboardList,
+  Boxes,
+  Percent,
+  Wallet,
+  Tag,
+  UserPlus,
+  TrendingUp,
+  Check,
+  Building2,
+  Utensils,
+  FileText,
 } from 'lucide-react';
 
 interface Category {
@@ -37,21 +45,32 @@ interface SidebarProps {
 
 const cashierLinks = [
   { href: '/pos/meja', label: 'Manajemen Meja', icon: Table },
+  { href: '/pos/settings', label: 'Pengaturan Tampilan', icon: Settings },
   { href: '/customers', label: 'Data Pelanggan', icon: Users },
   { href: '/shift', label: 'Buka/Tutup Shift', icon: Clock },
 ];
 
 
 const adminLinks = [
+  { href: '/admin/outlets', label: 'Manajemen Outlet', icon: Building2 },
   { href: '/admin/crm', label: 'Pelanggan & CRM', icon: HeartHandshake },
   { href: '/admin/hr', label: 'HR & Payroll', icon: IdCard },
+  { href: '/admin/attendance', label: 'Absensi (Selfie)', icon: Clock },
+  { href: '/admin/reports', label: 'Laporan Keseluruhan', icon: FileText },
   { href: '/admin/settings', label: 'Pengaturan Sistem', icon: Settings },
 ];
 
 const dashboardSubLinks = [
-  { href: '/inventory', label: 'Inventori', icon: Package },
+  { href: '/admin/products', label: 'Manajemen Produk', icon: Package },
+  { href: '/inventory', label: 'Inventori', icon: Boxes },
   { href: '/inventory/mapping', label: 'Mapping Resep', icon: ClipboardList },
   { href: '/inventory/automation', label: 'Otomatisasi Pengadaan', icon: Boxes },
+  { href: '/inventory/suppliers', label: 'Manajemen Supplier', icon: Building2 },
+  { href: '/inventory/stock-approvals', label: 'Persetujuan Stok', icon: Check },
+  { href: '/admin/discount-reports', label: 'Laporan Diskon', icon: Percent },
+  { href: '/admin/vouchers', label: 'Manajemen Voucer', icon: Tag },
+  { href: '/admin/crm', label: 'Pelanggan & CRM', icon: UserPlus },
+  { href: '/admin/promotions', label: 'Promosi Otomatis', icon: TrendingUp },
 ];
 
 const financeSubLinks = [
@@ -166,6 +185,17 @@ export const Sidebar = ({ categories = [], selectedCategory = 'Semua', onCategor
             </div>
           )}
         </div>
+
+        {/* POS (menu) */}
+        <Link
+          href="/pos"
+          aria-current={pathname === '/pos' ? 'page' : undefined}
+          title={isOpen ? undefined : 'POS (menu)'}
+          className={`${navLinkClass(pathname === '/pos')} ${isOpen ? '' : 'justify-center px-0'}`}
+        >
+          <Utensils className="h-5 w-5 shrink-0" aria-hidden="true" />
+          {isOpen && 'POS (menu)'}
+        </Link>
 
         {/* KDS (Dapur) */}
         <Link

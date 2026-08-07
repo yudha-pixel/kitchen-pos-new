@@ -1,6 +1,7 @@
 'use client';
 
 import { forwardRef } from 'react';
+import { useConfigStore } from '@/src/store/useConfigStore';
 
 interface ReceiptItem {
   name: string;
@@ -46,6 +47,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     },
     ref
   ) => {
+    const taxRate = useConfigStore((state) => state.taxRate); // Get dynamic tax rate from config
     const formatDate = () => {
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');
@@ -148,14 +150,6 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
 
         {/* Summary */}
         <div style={{ fontSize: '11px', marginBottom: '10px', lineHeight: '1.8' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Subtotal</span>
-            <span>{formatCurrency(subtotal)}</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span>Pajak (10%)</span>
-            <span>{formatCurrency(tax)}</span>
-          </div>
           {discount > 0 && (
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span>Diskon</span>

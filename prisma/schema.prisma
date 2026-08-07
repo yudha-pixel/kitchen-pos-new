@@ -12,11 +12,14 @@ model Profile {
   username      String         @unique
   role          String         @default("cashier")
   password_hash String
+  outlet_id     String?        @db.Uuid
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt
   void_logs     OrderVoidLog[]
   orders        Order[]
+  outlet        Outlet?        @relation(fields: [outlet_id], references: [id])
 
+  @@index([outlet_id])
   @@map("profiles")
 }
 
@@ -68,6 +71,7 @@ model Product {
   image_url             String?
   sku                   String?                @unique
   is_active             Boolean                @default(true)
+  outlet_id             String?                @db.Uuid
   created_at            DateTime               @default(now())
   updated_at            DateTime               @updatedAt
   description           String?
@@ -75,10 +79,13 @@ model Product {
   void_logs             OrderVoidLog[]
   productModifierGroups ProductModifierGroup[]
   category              Category?              @relation(fields: [category_id], references: [id])
+  outlet                Outlet?                @relation(fields: [outlet_id], references: [id])
+  customerOrderItems    CustomerOrderItem[]
 
   @@index([category_id])
   @@index([name])
   @@index([sku])
+  @@index([outlet_id])
   @@map("products")
 }
 
@@ -106,14 +113,23 @@ model Order {
   discount_amount Float          @default(0)
   rounding_amount Float          @default(0)
   notes           String?
+  outlet_id       String?        @db.Uuid
+  customer_order_id String?      @db.Uuid
+  payment_transaction_id String? @unique @db.Uuid
   items           OrderItem[]
   void_logs       OrderVoidLog[]
   cashier         Profile?       @relation(fields: [cashier_id], references: [id])
+  outlet          Outlet?        @relation(fields: [outlet_id], references: [id])
+  customerOrder   CustomerOrder? @relation(fields: [customer_order_id], references: [id])
+  paymentTransaction PaymentTransaction?
 
   @@index([cashier_id])
   @@index([status])
   @@index([created_at])
   @@index([table_number])
+  @@index([outlet_id])
+  @@index([customer_order_id])
+  @@index([payment_transaction_id])
   @@map("orders")
 }
 
@@ -126,6 +142,7 @@ model OrderItem {
   modifiers_applied Json?
   discount_item     Float    @default(0)
   split_group_id    String?
+  status            String   @default("pending")
   created_at        DateTime @default(now())
   order             Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
   product           Product? @relation(fields: [product_id], references: [id])
@@ -133,6 +150,7 @@ model OrderItem {
   @@index([order_id])
   @@index([product_id])
   @@index([split_group_id])
+  @@index([status])
   @@map("order_items")
 }
 
@@ -180,4 +198,108 @@ model CategoryPrinter {
   @@index([category_id])
   @@index([printer_id])
   @@map("category_printers")
+}
+
+model Outlet {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  code        String   @unique
+  address     String?
+  phone       String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  profiles    Profile[]
+  products    Product[]
+  tables      Table[]
+  orders      Order[]
+
+  @@index([code])
+  @@map("outlets")
+}
+
+model Table {
+  id          String   @id @default(uuid()) @db.Uuid
+  table_number String   @unique
+  qr_code     String?
+  is_active   Boolean  @default(true)
+  outlet_id   String?  @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  customerOrders CustomerOrder[]
+  outlet      Outlet?  @relation(fields: [outlet_id], references: [id])
+
+  @@index([table_number])
+  @@index([outlet_id])
+  @@map("tables")
+}
+
+model CustomerOrder {
+  id           String     @id @default(uuid()) @db.Uuid
+  table_id     String     @db.Uuid
+  customer_name String?
+  total_amount Float
+  status       String     @default("pending")
+  payment_method String?
+  payment_status String   @default("unpaid")
+  created_at   DateTime   @default(now())
+  updated_at   DateTime   @updatedAt
+  items        CustomerOrderItem[]
+  table        Table      @relation(fields: [table_id], references: [id])
+  orders       Order[]
+
+  @@index([table_id])
+  @@index([status])
+  @@map("customer_orders")
+}
+
+model CustomerOrderItem {
+  id           String   @id @default(uuid()) @db.Uuid
+  order_id     String   @db.Uuid
+  product_id   String   @db.Uuid
+  quantity     Int
+  price_at_time Float
+  modifiers_applied Json?
+  created_at   DateTime @default(now())
+  order        CustomerOrder @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product      Product  @relation(fields: [product_id], references: [id])
+
+  @@index([order_id])
+  @@index([product_id])
+  @@map("customer_order_items")
+}
+
+model PaymentTransaction {
+  id              String   @id @default(uuid()) @db.Uuid
+  order_id        String   @unique @db.Uuid
+  gateway         String
+  gateway_tx_id   String?  @unique
+  amount          Float
+  payment_method  String
+  status          String   @default("pending")
+  qr_code         String?
+  qr_expiry       DateTime?
+  paid_at         DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  order           Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@index([gateway_tx_id])
+  @@index([status])
+  @@map("payment_transactions")
+}
+
+model AppSettings {
+  id              String   @id @default(uuid()) @db.Uuid
+  primary_color   String   @default("blue")
+  theme_mode      String   @default("light")
+  card_style      String   @default("rounded")
+  layout_density  String   @default("spacious")
+  card_view       String   @default("grid")
+  cart_position   String   @default("right-sidebar")
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@map("app_settings")
 }

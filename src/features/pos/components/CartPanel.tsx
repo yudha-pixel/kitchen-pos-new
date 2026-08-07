@@ -2,16 +2,23 @@
 
 import { useState, useEffect } from 'react';
 import { useCartStore } from '@/src/store/useCartStore';
-import { ShoppingCart, Trash2, Plus, Minus, Ban } from 'lucide-react';
+import { ShoppingCart, Trash2, Plus, Minus, Ban, Gift, X, User } from 'lucide-react';
 import { Receipt } from '@/src/components/pos/Receipt';
-import { SplitBillModal } from './SplitBillModal';
+import { useProducts, useCategories } from '@/src/hooks/useProducts';
+import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
+import { useOutletStore } from '@/src/features/outlet/outletStore';
+import { reduceStockForOrder } from '@/src/features/inventory/inventoryService';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { PromptDialog } from '@/src/components/ui/PromptDialog';
 import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { formatRupiah } from '@/src/lib/format';
+import { createPaymentTransaction } from '@/src/features/payment/paymentService';
+import { usePaymentStore } from '@/src/features/payment/paymentStore';
+import { SplitBillModal } from './SplitBillModal';
+import { QRISModal } from '@/src/components/payment/QRISModal';
 
 const paymentOptions = [
   { value: 'CASH', label: 'Tunai' },
@@ -30,9 +37,10 @@ interface CartPanelProps {
 }
 
 export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNumber, customerName, deliveryAddress, courierName, courierType, receiptNumber }: CartPanelProps) => {
-  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod } = useCartStore();
+  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod, discountAmount, discountType, setDiscount, freeItems, addFreeItem, removeFreeItem, clearFreeItems, getDiscount, globalDiscountAmount, globalDiscountType, setGlobalDiscount, clearGlobalDiscount, getGlobalDiscount, setVoucher, clearVoucher, voucherDiscountAmount, setMember, clearMember, member, sendToKitchen, kitchenSent } = useCartStore();
   const { user } = useAuth();
   const { toast } = useToast();
+  const { setCurrentPayment, clearPayment } = usePaymentStore();
 
   const [mounted, setMounted] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
@@ -43,11 +51,188 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   const [cashReceived, setCashReceived] = useState<string>('');
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [paying, setPaying] = useState(false);
+  const [showQRISModal, setShowQRISModal] = useState(false);
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [discountValue, setDiscountValue] = useState<string>('');
+  const [localDiscountType, setLocalDiscountType] = useState<'nominal' | 'percentage'>('nominal');
+  const [showFreeItemModal, setShowFreeItemModal] = useState(false);
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+  const [selectedFreeProduct, setSelectedFreeProduct] = useState<any>(null);
+  const [freeItemQuantity, setFreeItemQuantity] = useState<number>(1);
+  const [showDiscountModal, setShowDiscountModal] = useState(false);
+  const [discountTab, setDiscountTab] = useState<'regular' | 'global' | 'voucher'>('regular');
+  const [voucherCode, setVoucherCode] = useState<string>('');
+  const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
+  const [showGlobalDiscountInput, setShowGlobalDiscountInput] = useState(false);
+  const [globalDiscountValue, setGlobalDiscountValue] = useState<string>('');
+  const [localGlobalDiscountType, setLocalGlobalDiscountType] = useState<'nominal' | 'percentage'>('nominal');
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinValue, setPinValue] = useState<string>('');
+  const [discountReason, setDiscountReason] = useState<string>('');
+  const [memberSearchTerm, setMemberSearchTerm] = useState<string>('');
+  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
+  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [showMemberSearch, setShowMemberSearch] = useState(false);
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Load available products when free item modal opens
+  useEffect(() => {
+    if (showFreeItemModal) {
+      loadAvailableProducts();
+    }
+  }, [showFreeItemModal]);
+
+  // Search members when search term changes
+  useEffect(() => {
+    const searchMembers = async () => {
+      if (memberSearchTerm.length >= 3) {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const allMembers = await db.members.toArray();
+          const results = allMembers.filter(member =>
+            member.is_active &&
+            (member.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
+              member.phone.includes(memberSearchTerm))
+          );
+          setMemberSearchResults(results);
+        } catch (error) {
+          console.error('Failed to search members:', error);
+        }
+      } else {
+        setMemberSearchResults([]);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchMembers, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [memberSearchTerm]);
+
+  const loadAvailableProducts = async () => {
+    try {
+      const { db } = await import('@/src/lib/db');
+      const products = await db.products.toArray();
+      setAvailableProducts(products);
+    } catch (error) {
+      console.error('Failed to load products:', error);
+      toast('error', 'Gagal memuat daftar produk');
+    }
+  };
+
+  const handleAddFreeItem = () => {
+    if (!selectedFreeProduct) {
+      toast('error', 'Pilih produk terlebih dahulu');
+      return;
+    }
+    if (freeItemQuantity < 1) {
+      toast('error', 'Jumlah minimal 1');
+      return;
+    }
+
+    // Add free item with price 0
+    addFreeItem({
+      productId: selectedFreeProduct.id,
+      name: selectedFreeProduct.name,
+      price: 0, // Free items have price 0
+      quantity: freeItemQuantity,
+      modifiers: [],
+    });
+
+    toast('success', `${selectedFreeProduct.name} x${freeItemQuantity} ditambahkan sebagai item gratis`);
+    setShowFreeItemModal(false);
+    setSelectedFreeProduct(null);
+    setFreeItemQuantity(1);
+  };
+
+  const handleApplyVoucher = async () => {
+    try {
+      const { db } = await import('@/src/lib/db');
+      const voucher = await db.vouchers.where('code').equals(voucherCode).first();
+
+      if (!voucher) {
+        toast('error', 'Kode voucer tidak valid');
+        return;
+      }
+
+      // Check if voucher is active
+      if (!voucher.is_active) {
+        toast('error', 'Voucer tidak aktif');
+        return;
+      }
+
+      // Check expiry
+      const now = new Date();
+      const validFrom = new Date(voucher.valid_from);
+      const validUntil = new Date(voucher.valid_until);
+      if (now < validFrom || now > validUntil) {
+        toast('error', 'Voucer sudah kedaluwarsa atau belum berlaku');
+        return;
+      }
+
+      // Check quota
+      if (voucher.used_count >= voucher.quota) {
+        toast('error', 'Kuota voucer sudah habis');
+        return;
+      }
+
+      // Check minimum purchase
+      const subtotal = getSubtotal();
+      if (subtotal < voucher.minimum_purchase) {
+        toast('error', `Minimum belanja Rp ${formatRupiah(voucher.minimum_purchase)}`);
+        return;
+      }
+
+      // Prevent double discount - check if other discounts are applied
+      if (discountAmount > 0 || globalDiscountAmount > 0) {
+        toast('error', 'Hanya boleh menggunakan satu jenis diskon per transaksi');
+        return;
+      }
+
+      // Calculate discount amount
+      let calculatedDiscount = 0;
+      if (voucher.discount_type === 'percentage') {
+        calculatedDiscount = subtotal * (voucher.discount_value / 100);
+        // Apply max discount if set
+        if (voucher.max_discount && calculatedDiscount > voucher.max_discount) {
+          calculatedDiscount = voucher.max_discount;
+        }
+      } else {
+        calculatedDiscount = voucher.discount_value;
+      }
+
+      // Apply voucher
+      setVoucher(voucher.code, voucher.id!, voucher.discount_type, voucher.discount_value, calculatedDiscount);
+      setAppliedVoucher(voucher);
+      setVoucherCode('');
+      setShowDiscountModal(false);
+
+      // Increment voucher usage count
+      await db.vouchers.update(voucher.id!, { used_count: voucher.used_count + 1, updated_at: new Date().toISOString() });
+
+      toast('success', `Voucer ${voucher.name} berhasil diterapkan`);
+    } catch (error) {
+      console.error('Failed to apply voucher:', error);
+      toast('error', 'Gagal menerapkan voucer');
+    }
+  };
+
+  const handleSelectMember = (member: any) => {
+    setSelectedMember(member);
+    setMember(member);
+    setMemberSearchTerm('');
+    setMemberSearchResults([]);
+    setShowMemberSearch(false);
+    toast('success', `Member ${member.name} (${member.tier}) dipilih - Diskon ${member.discount_percentage}%`);
+  };
+
+  const handleClearMember = () => {
+    setSelectedMember(null);
+    clearMember();
+    toast('success', 'Member dihapus');
+  };
 
   // Dialog state
   const [confirmClear, setConfirmClear] = useState(false);
@@ -76,6 +261,58 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     toast(result.success ? 'success' : 'error', result.message);
   };
 
+  const handleApplyDiscount = () => {
+    const value = Number(discountValue);
+    if (isNaN(value) || value <= 0) {
+      toast('error', 'Masukkan nilai diskon yang valid');
+      return;
+    }
+    setDiscount(value, localDiscountType);
+    setShowDiscountInput(false);
+    setDiscountValue('');
+    toast('success', `Diskon ${localDiscountType === 'percentage' ? value + '%' : formatRupiah(value)} diterapkan`);
+  };
+
+  const handleClearDiscount = () => {
+    setDiscount(0, 'nominal');
+    toast('success', 'Diskon dihapus');
+  };
+
+  const handleGlobalDiscountPinSubmit = () => {
+    // Simple PIN validation - in production, this should verify against a secure system
+    const validPin = '1234'; // Default PIN - should be configurable
+    if (pinValue !== validPin) {
+      toast('error', 'PIN salah. Akses ditolak.');
+      setPinValue('');
+      return;
+    }
+
+    if (!discountReason.trim()) {
+      toast('error', 'Mohon isi alasan diskon.');
+      return;
+    }
+
+    const value = Number(globalDiscountValue);
+    if (isNaN(value) || value <= 0) {
+      toast('error', 'Masukkan nilai diskon yang valid');
+      return;
+    }
+
+    // Apply global discount with authorization
+    setGlobalDiscount(value, localGlobalDiscountType, user?.username || 'Unknown', discountReason);
+    setShowPinModal(false);
+    setShowGlobalDiscountInput(false);
+    setGlobalDiscountValue('');
+    setPinValue('');
+    setDiscountReason('');
+    toast('success', `Global Diskon ${localGlobalDiscountType === 'percentage' ? value + '%' : formatRupiah(value)} diterapkan dengan otorisasi ${user?.username}`);
+  };
+
+  const handleClearGlobalDiscount = () => {
+    clearGlobalDiscount();
+    toast('success', 'Global Diskon dihapus');
+  };
+
   const handlePayment = async () => {
     if (items.length === 0) {
       toast('warning', 'Keranjang kosong');
@@ -86,13 +323,84 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
       return;
     }
 
+    const total = calculateRoundedTotal(roundTo).total;
+
     if (paymentMethod === 'QRIS') {
-      toast('info', 'Silakan scan QRIS toko');
+      // Process the order first to get a valid order_id
+      setPaying(true);
+      try {
+        const result = await processPayment(roundTo, orderCategory, receiptNumber, customerName, deliveryAddress, courierName, courierType);
+        
+        if (result.success) {
+          const { orderId } = result;
+          
+          if (!orderId) {
+            toast('error', 'Gagal mendapatkan order ID');
+            return;
+          }
+          
+          console.log('Order created successfully, ID:', orderId);
+          
+          // Create payment transaction for QRIS with the actual order_id
+          const payment = await createPaymentTransaction(
+            orderId,
+            'midtrans',
+            'qris',
+            total
+          );
+
+          console.log('Payment creation result:', payment);
+
+          if (payment) {
+            setCurrentPayment(payment);
+            setShowQRISModal(true);
+            
+            // Store receipt data for after payment success
+            setReceiptData({
+              orderId,
+              tableNumber: storeTableNumber,
+              items: items.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                modifiers: (item.modifiers || []).map(m => m.name || String(m)),
+              })),
+              freeItems: freeItems.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                modifiers: (item.modifiers || []).map(m => m.name || String(m)),
+              })),
+              subtotal: getSubtotal(),
+              tax: getTax(),
+              discount: getDiscount() + getGlobalDiscount(),
+              discountType: discountType,
+              globalDiscount: globalDiscountAmount,
+              globalDiscountType: globalDiscountType,
+              roundingAmount: calculateRoundedTotal(roundTo).roundingAmount,
+              total: calculateRoundedTotal(roundTo).total,
+              paymentMethod: paymentMethod,
+              cashierName: (user as any)?.name || 'Kasir',
+              notes: notes,
+            });
+          } else {
+            toast('error', 'Gagal membuat pembayaran QRIS. Order ID: ' + orderId);
+            // Order was created but payment failed - need to handle this
+          }
+        } else {
+          toast('error', result.message || 'Gagal memproses pesanan');
+        }
+      } catch (error) {
+        console.error('Error processing order for QRIS:', error);
+        toast('error', 'Gagal memproses pesanan');
+      } finally {
+        setPaying(false);
+      }
+      return;
     }
 
     if (paymentMethod === 'CASH') {
       const cashAmount = Number(cashReceived);
-      const total = calculateRoundedTotal(roundTo).total;
       if (!cashReceived || cashAmount < total) {
         toast('error', `Uang tunai yang diterima kurang. Total: ${formatRupiah(total)}`);
         return;
@@ -102,17 +410,73 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     setPaying(true);
     try {
       const result = await processPayment(roundTo, orderCategory, receiptNumber, customerName, deliveryAddress, courierName, courierType);
-      if (result.success && result.receiptData) {
-        setReceiptData(result.receiptData);
+      
+      if (result.success) {
+        const { orderId, receiptData } = result;
+        setReceiptData({
+          orderId,
+          tableNumber: storeTableNumber,
+          items: items.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            modifiers: (item.modifiers || []).map(m => m.name || String(m)),
+          })),
+          freeItems: freeItems.map(item => ({
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+            modifiers: (item.modifiers || []).map(m => m.name || String(m)),
+          })),
+          subtotal: getSubtotal(),
+          tax: getTax(),
+          discount: getDiscount() + getGlobalDiscount(),
+          discountType: discountType,
+          globalDiscount: globalDiscountAmount,
+          globalDiscountType: globalDiscountType,
+          roundingAmount: calculateRoundedTotal(roundTo).roundingAmount,
+          total: calculateRoundedTotal(roundTo).total,
+          paymentMethod: paymentMethod,
+          cashierName: (user as any)?.name || 'Kasir',
+          notes: notes,
+        });
         setShowReceipt(true);
-        toast('success', 'Pembayaran berhasil');
+        clearCart();
+        setCashReceived('');
+        clearGlobalDiscount();
+        clearVoucher();
+        clearMember();
+        clearFreeItems();
       } else {
-        toast('error', result.message);
+        toast('error', result.message || 'Gagal memproses pembayaran');
       }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast('error', 'Terjadi kesalahan saat memproses pembayaran');
     } finally {
       setPaying(false);
     }
   };
+
+  const handleQRISPaymentSuccess = async () => {
+    // Order was already processed before showing QRIS modal
+    // Just show the receipt and clear the cart
+    setShowReceipt(true);
+    clearCart();
+    setCashReceived('');
+    clearGlobalDiscount();
+    clearVoucher();
+    clearMember();
+    clearFreeItems();
+    clearPayment();
+  };
+
+  const handleQRISPaymentFailed = () => {
+    toast('error', 'Pembayaran QRIS gagal atau expired');
+    clearPayment();
+    // Order was already created, so we need to handle this case
+    // In production, you might want to void the order or mark it as unpaid
+  };  
 
   const handleSplitComplete = (splitCart: any[]) => {
     toast('success', `Split bill berhasil! ${splitCart.length} item dipisah ke transaksi baru.`);
@@ -132,15 +496,187 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     setSplitMode(false);
   };
 
-  const handlePaySplit = () => {
+  const handleSendToKitchen = async () => {
+    const result = await sendToKitchen();
+    if (result.success) {
+      toast('success', result.message);
+    } else {
+      toast('error', result.message);
+    }
+  };
+
+  const handlePaySplit = async () => {
     if (!currentSplitGroup) return;
     const splitTotal = getSplitGroupTotal(currentSplitGroup);
     if (splitTotal === 0) {
       toast('warning', 'Tidak ada item dalam grup pembayaran ini');
       return;
     }
-    // TODO: Implement split payment logic
-    toast('info', `Pembayaran untuk grup: ${formatRupiah(splitTotal)}`);
+
+    setPaying(true);
+    try {
+      // Get items in the current split group
+      const splitItems = items.filter(item => item.splitGroupId === currentSplitGroup);
+      
+      if (splitItems.length === 0) {
+        toast('warning', 'Tidak ada item dalam grup pembayaran ini');
+        return;
+      }
+
+      // Calculate totals for split items
+      const splitSubtotal = splitItems.reduce((sum, item) => {
+        const modifierTotal = (item.modifiers || []).reduce((mSum, m) => mSum + (m.price || 0), 0);
+        return sum + ((item.price + modifierTotal) * item.quantity);
+      }, 0);
+
+      const splitTax = splitSubtotal * 0.1; // Assuming 10% tax
+      const splitDiscount = 0; // No discount for split items for now
+      const splitFinalTotal = splitSubtotal + splitTax - splitDiscount;
+
+      // Create order data for split payment
+      const orderId = crypto.randomUUID();
+      
+      // Prepare receipt data for split items
+      const splitReceiptData = {
+        orderId,
+        tableNumber: storeTableNumber,
+        items: splitItems.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+          modifiers: (item.modifiers || []).map(m => m.name || String(m)),
+        })),
+        freeItems: [],
+        subtotal: splitSubtotal,
+        tax: splitTax,
+        discount: splitDiscount,
+        discountType: 'nominal' as const,
+        globalDiscount: 0,
+        globalDiscountType: 'nominal' as const,
+        roundingAmount: 0,
+        total: splitFinalTotal,
+        paymentMethod: paymentMethod,
+        cashierName: (user as any)?.name || 'Kasir',
+        notes: `Split Payment - Group: ${currentSplitGroup.slice(0, 8)}`,
+      };
+
+      // Remove split items from cart
+      splitItems.forEach(item => {
+        removeFromCart(item.id);
+      });
+
+      // Reduce stock for split items
+      try {
+        const stockResult = await reduceStockForOrder(
+          splitItems.map(item => ({ product_id: item.productId, quantity: item.quantity }))
+        );
+        console.log('Stock reduction result (handlePaySplit):', stockResult);
+        
+        // Dispatch custom event to notify POS page to recalculate menu stock
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('inventoryStockChanged'));
+          console.log('📡 Dispatched inventoryStockChanged event');
+        }
+      } catch (stockError) {
+        console.error('Failed to reduce stock (handlePaySplit):', stockError);
+        // Don't fail the payment if stock reduction fails
+      }
+
+      // Show receipt
+      setReceiptData(splitReceiptData);
+      setShowReceipt(true);
+
+      // Auto-print receipt after a short delay to ensure DOM is ready
+      setTimeout(() => {
+        const receiptElement = document.getElementById('receipt-container');
+        if (receiptElement) {
+          // Create iframe for printing
+          const oldIframe = document.getElementById('split-receipt-print-iframe');
+          if (oldIframe) document.body.removeChild(oldIframe);
+
+          const iframe = document.createElement('iframe');
+          iframe.id = 'split-receipt-print-iframe';
+          iframe.style.position = 'fixed';
+          iframe.style.right = '0';
+          iframe.style.bottom = '0';
+          iframe.style.width = '0';
+          iframe.style.height = '0';
+          iframe.style.border = 'none';
+          document.body.appendChild(iframe);
+
+          let stylesHtml = '';
+          document.querySelectorAll('style, link[rel="stylesheet"]').forEach((node) => {
+            stylesHtml += node.outerHTML;
+          });
+
+          const iframeWindow = iframe.contentWindow;
+          if (!iframeWindow) return;
+
+          const iframeDoc = iframeWindow.document;
+          iframeDoc.open();
+          iframeDoc.write(`
+            <html>
+              <head>
+                <title>Print Split Receipt</title>
+                ${stylesHtml}
+                <style>
+                  @page {
+                    margin: 0 !important;
+                    size: 80mm auto !important;
+                  }
+                  html, body {
+                    width: 80mm !important;
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    min-width: 80mm !important;
+                    max-width: 80mm !important;
+                    height: auto !important;
+                    overflow: hidden !important;
+                    background-color: #ffffff !important;
+                  }
+                  body {
+                    font-family: sans-serif;
+                    display: flex;
+                    justify-content: center;
+                  }
+                  button, .btn, [class*="CetakStruk"], button[onClick*="Print"] {
+                    display: none !important;
+                  }
+                  * {
+                    page-break-inside: avoid !important;
+                  }
+                </style>
+              </head>
+              <body>
+                <div style="width: 80mm; margin: 0 auto;">
+                  ${receiptElement.innerHTML}
+                </div>
+              </body>
+            </html>
+          `);
+          iframeDoc.close();
+
+          setTimeout(() => {
+            iframeWindow.focus();
+            iframeWindow.print();
+            setTimeout(() => {
+              document.body.removeChild(iframe);
+            }, 1000);
+          }, 500);
+        }
+      }, 1000);
+
+      // Exit split mode
+      setCurrentSplitGroup(null);
+      setSplitMode(false);
+
+      toast('success', `Pembayaran split berhasil: ${formatRupiah(splitFinalTotal)}`);
+    } catch (error) {
+      console.error('Error processing split payment:', error);
+      toast('error', 'Gagal memproses pembayaran split');
+    } finally {
+      setPaying(false);
+    }
   };
 
   const rounded = calculateRoundedTotal(roundTo);
@@ -161,15 +697,15 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   return (
     <div className="flex h-full flex-col border-l border-line bg-surface">
       {/* Header */}
-      <div className="border-b border-line p-4">
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-ink">Keranjang</h2>
+      <div className="border-b border-line p-3">
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-lg font-bold text-ink">Keranjang</h2>
           {items.length > 0 && (
-            <div className="flex gap-2">
-              <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-soft" onClick={() => setConfirmClear(true)}>
+            <div className="flex gap-1.5">
+              <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-soft text-xs px-2 py-1" onClick={() => setConfirmClear(true)}>
                 Kosongkan
               </Button>
-              <Button variant={splitMode ? 'secondary' : 'primary'} size="sm" onClick={splitMode ? handleEndSplit : handleStartSplit}>
+              <Button variant={splitMode ? 'secondary' : 'primary'} size="sm" className="text-xs px-2 py-1" onClick={splitMode ? handleEndSplit : handleStartSplit}>
                 {splitMode ? 'Selesai Split' : 'Split Bill'}
               </Button>
             </div>
@@ -177,8 +713,8 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
         </div>
 
         {/* Table Number Input */}
-        <div className="mb-3">
-          <label htmlFor="cart-table" className="mb-1 block text-sm font-medium text-ink">
+        <div className="mb-2">
+          <label htmlFor="cart-table" className="mb-0.5 block text-xs font-medium text-ink">
             Nomor Meja <span aria-hidden="true" className="text-danger">*</span>
           </label>
           <input
@@ -187,13 +723,79 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
             value={storeTableNumber}
             onChange={(e) => setTableNumber(e.target.value)}
             placeholder="Contoh: Meja 1"
-            className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+            className="min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
           />
+        </div>
+
+        {/* Member Search */}
+        <div className="mb-2 relative">
+          <label htmlFor="member-search" className="mb-0.5 block text-xs font-medium text-ink">
+            Member (Opsional)
+          </label>
+          <div className="relative">
+            <input
+              id="member-search"
+              type="text"
+              value={selectedMember ? `${selectedMember.name} (${selectedMember.tier})` : memberSearchTerm}
+              onChange={(e) => {
+                if (!selectedMember) {
+                  setMemberSearchTerm(e.target.value);
+                  setShowMemberSearch(true);
+                }
+              }}
+              onFocus={() => setShowMemberSearch(true)}
+              placeholder="Cari nama atau nomor HP member..."
+              className="min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 pr-8 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+            />
+            {selectedMember && (
+              <button
+                onClick={handleClearMember}
+                className="absolute right-6 top-1/2 -translate-y-1/2 text-ink-muted hover:text-danger"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <User className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted" />
+          </div>
+
+          {/* Member Search Results Dropdown */}
+          {showMemberSearch && memberSearchResults.length > 0 && (
+            <div className="absolute z-10 mt-1 w-full rounded-lg border border-line-strong bg-surface shadow-lg max-h-60 overflow-y-auto">
+              {memberSearchResults.map((member) => (
+                <button
+                  key={member.id}
+                  onClick={() => handleSelectMember(member)}
+                  className="w-full px-2.5 py-2 text-left hover:bg-surface-alt border-b border-line last:border-b-0 text-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-medium text-ink">{member.name}</div>
+                      <div className="text-xs text-ink-secondary">{member.phone}</div>
+                    </div>
+                    <div className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary-soft text-primary">
+                      {member.tier.charAt(0).toUpperCase() + member.tier.slice(1)}
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Free Item Button */}
+        <div className="mb-2">
+          <button
+            onClick={() => setShowFreeItemModal(true)}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong bg-surface-alt px-2.5 py-1.5 text-xs font-medium text-ink-secondary hover:bg-surface hover:text-ink"
+          >
+            <Gift className="h-3.5 w-3.5" />
+            <span>+ Tambah Item Gratis</span>
+          </button>
         </div>
 
         {/* Notes Input */}
         <div>
-          <label htmlFor="cart-notes" className="mb-1 block text-sm font-medium text-ink">
+          <label htmlFor="cart-notes" className="mb-0.5 block text-xs font-medium text-ink">
             Catatan Pesanan
           </label>
           <textarea
@@ -202,7 +804,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Catatan khusus untuk pesanan..."
             rows={2}
-            className="w-full resize-none rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+            className="w-full resize-none rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
           />
         </div>
       </div>
@@ -298,33 +900,71 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
       </div>
 
       {/* Footer - Total and Payment */}
-      <div className="border-t border-line bg-surface-alt p-4">
-        <div className="mb-4 space-y-2">
-          <div className="flex justify-between text-sm text-ink-secondary">
-            <span>Subtotal</span>
-            <span className="tnum">{formatRupiah(getSubtotal())}</span>
+      <div className="border-t border-line bg-surface-alt p-3">
+        <div className="mb-3 space-y-2">
+          {/* Subtotal hidden from customer view - tax and service are included in final price */}
+          
+          {/* Combined Discount Button */}
+          <div className="flex items-center justify-between">
+            {(globalDiscountAmount > 0 || discountAmount > 0) ? (
+              <div className="space-y-0.5 flex-1">
+                {globalDiscountAmount > 0 && (
+                  <div className="flex justify-between text-xs text-warning">
+                    <span>Global Diskon ({globalDiscountType === 'percentage' ? globalDiscountAmount + '%' : formatRupiah(globalDiscountAmount)})</span>
+                    <span className="tnum">-{formatRupiah(getGlobalDiscount())}</span>
+                  </div>
+                )}
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-xs text-success">
+                    <span>Diskon ({discountType === 'percentage' ? discountAmount + '%' : formatRupiah(discountAmount)})</span>
+                    <span className="tnum">-{formatRupiah(getDiscount())}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowDiscountModal(true)}
+                className="text-xs text-primary hover:underline"
+              >
+                + Diskon
+              </button>
+            )}
           </div>
-          <div className="flex justify-between text-sm text-ink-secondary">
-            <span>Pajak (10%)</span>
-            <span className="tnum">{formatRupiah(getTax())}</span>
-          </div>
+          
+          {/* Tax hidden from customer view - included in final price */}
+          
+          {/* Free Items Section */}
+          {freeItems.length > 0 && (
+            <div className="space-y-0.5">
+              <div className="text-xs font-medium text-ink">Item Gratis:</div>
+              {freeItems.map((item) => (
+                <div key={item.id} className="flex justify-between text-xs text-success">
+                  <span>{item.name} x{item.quantity}</span>
+                  <span className="tnum">{formatRupiah(item.price * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+          )}
+
           {splitMode && currentSplitGroup && (
-            <div className="flex justify-between text-sm font-medium text-ink">
+            <div className="flex justify-between text-xs font-medium text-ink">
               <span>Split Total</span>
               <span className="tnum">{formatRupiah(getSplitGroupTotal(currentSplitGroup))}</span>
             </div>
           )}
-          <div className="flex justify-between text-sm text-ink-secondary">
+          <div className="flex justify-between text-xs text-ink-secondary">
             <span>Pembulatan ({roundTo})</span>
             <span className="tnum">{formatRupiah(rounded.roundingAmount)}</span>
           </div>
-          <div className="flex justify-between border-t border-line pt-2 text-lg font-bold text-ink">
+          
+          {/* Total with visual emphasis */}
+          <div className="flex justify-between rounded-lg bg-primary-soft/30 border border-primary/20 px-3 py-2 text-base font-bold text-primary">
             <span>Total (dibulatkan)</span>
             <span className="tnum">{formatRupiah(rounded.total)}</span>
           </div>
         </div>
 
-        <div className="mb-3">
+        <div className="mb-2">
           <label htmlFor="cart-rounding" className="sr-only">
             Pembulatan
           </label>
@@ -332,7 +972,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
             id="cart-rounding"
             value={roundTo}
             onChange={(e) => setRoundTo(Number(e.target.value))}
-            className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink focus:border-primary focus:outline-none"
+            className="min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-xs text-ink focus:border-primary focus:outline-none"
           >
             <option value={500}>Pembulatan 500</option>
             <option value={1000}>Pembulatan 1000</option>
@@ -340,13 +980,13 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           </select>
         </div>
 
-        <fieldset className="mb-3">
+        <fieldset className="mb-2">
           <legend className="sr-only">Metode pembayaran</legend>
-          <div className="flex gap-2">
+          <div className="flex gap-1.5">
             {paymentOptions.map(({ value, label }) => (
               <label
                 key={value}
-                className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 py-2 transition-colors ${
+                className={`flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors ${
                   paymentMethod === value
                     ? 'border-primary bg-primary-soft text-primary'
                     : 'border-line-strong text-ink-secondary hover:bg-surface'
@@ -360,7 +1000,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
                   onChange={() => setPaymentMethod(value)}
                   className="sr-only"
                 />
-                <span className="text-sm font-medium">{label}</span>
+                <span className="text-xs font-medium">{label}</span>
               </label>
             ))}
           </div>
@@ -368,8 +1008,8 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
 
         {/* Cash Input - Only show for CASH payment */}
         {paymentMethod === 'CASH' && (
-          <div className="mb-3">
-            <label htmlFor="cart-cash" className="mb-1 block text-sm font-medium text-ink">
+          <div className="mb-2">
+            <label htmlFor="cart-cash" className="mb-0.5 block text-xs font-medium text-ink">
               Uang Diterima
             </label>
             <input
@@ -379,46 +1019,47 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
               value={cashReceived}
               onChange={(e) => setCashReceived(e.target.value)}
               placeholder="Masukkan jumlah uang tunai"
-              className="tnum min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+              className="tnum min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
             />
             {cashReceived && (
-              <p className="tnum mt-1 text-sm text-ink-secondary">
+              <p className="tnum mt-0.5 text-xs text-ink-secondary">
                 Kembalian: {formatRupiah(Number(cashReceived) - rounded.total)}
               </p>
             )}
           </div>
         )}
 
-        <div className="mb-3">
-          <Button
-            variant="secondary"
-            className="w-full"
-            disabled={items.length === 0}
-            onClick={() => setShowSplitBillModal(true)}
-          >
-            Split Bill
-          </Button>
-        </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-1.5">
           {splitMode && currentSplitGroup && (
-            <Button variant="secondary" size="lg" className="flex-1" onClick={handlePaySplit}>
+            <Button variant="secondary" size="lg" className="flex-1 text-sm py-2.5" onClick={handlePaySplit}>
               Bayar Split
             </Button>
           )}
           <Button
             variant="ghost"
             size="lg"
-            className="flex-1 text-danger hover:bg-danger-soft"
+            className="flex-1 text-danger hover:bg-danger-soft text-sm py-2.5"
             disabled={items.length === 0}
             onClick={() => setConfirmClear(true)}
           >
             Batal
           </Button>
+          {orderCategory === 'dine-in' && storeTableNumber && (
+            <Button
+              variant="primary"
+              size="lg"
+              className="flex-1 text-sm py-2.5"
+              disabled={items.length === 0 || kitchenSent}
+              onClick={handleSendToKitchen}
+              title={kitchenSent ? 'Keranjang sudah dikirim ke dapur. Tambah atau ubah item untuk mengirim ulang.' : undefined}
+            >
+              {kitchenSent ? 'Sudah Dikirim' : 'Kirim ke Dapur'}
+            </Button>
+          )}
           <Button
             variant="success"
             size="lg"
-            className="flex-[2]"
+            className="flex-[2] text-sm py-2.5"
             disabled={items.length === 0}
             loading={paying}
             onClick={handlePayment}
@@ -436,9 +1077,15 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
               orderId={receiptData.orderId}
               tableNumber={receiptData.tableNumber}
               items={receiptData.items}
+              freeItems={receiptData.freeItems}
               subtotal={receiptData.subtotal}
               tax={receiptData.tax}
               discount={receiptData.discount}
+              discountType={receiptData.discountType}
+              globalDiscount={receiptData.globalDiscount}
+              globalDiscountType={receiptData.globalDiscountType}
+              globalDiscountAuthorizedBy={receiptData.globalDiscountAuthorizedBy}
+              globalDiscountReason={receiptData.globalDiscountReason}
               roundingAmount={receiptData.roundingAmount}
               total={receiptData.total}
               paymentMethod={receiptData.paymentMethod}
@@ -447,6 +1094,15 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
             />
           </div>
         </div>
+      )}
+
+      {/* QRIS Modal */}
+      {showQRISModal && (
+        <QRISModal
+          onClose={() => setShowQRISModal(false)}
+          onSuccess={handleQRISPaymentSuccess}
+          onFailed={handleQRISPaymentFailed}
+        />
       )}
 
       {/* Split Bill Modal */}
@@ -491,6 +1147,354 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
         onSubmit={handleVoidSubmit}
         onCancel={() => setVoidTargetId(null)}
       />
+      
+      {/* Free Item Modal */}
+      {showFreeItemModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-2xl max-h-[80vh] rounded-lg bg-surface p-6 shadow-lg overflow-y-auto">
+            <h3 className="mb-4 text-lg font-bold text-ink">Tambah Item Gratis</h3>
+            <p className="mb-4 text-sm text-ink-secondary">
+              Pilih produk dari menu untuk ditambahkan sebagai item gratis. Item gratis tidak dikenakan pajak dan akan mengurangi stok inventori sesuai resep.
+            </p>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-ink mb-2">Pilih Produk</label>
+              <div className="max-h-48 overflow-y-auto border border-line-strong rounded-lg">
+                {availableProducts.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-ink-secondary">
+                    Memuat produk...
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2 p-2">
+                    {availableProducts.map((product) => (
+                      <button
+                        key={product.id}
+                        onClick={() => setSelectedFreeProduct(product)}
+                        className={`p-3 rounded-lg border text-left transition-colors ${
+                          selectedFreeProduct?.id === product.id
+                            ? 'border-primary bg-primary/10'
+                            : 'border-line-strong hover:bg-surface-alt'
+                        }`}
+                      >
+                        <div className="font-medium text-sm text-ink">{product.name}</div>
+                        <div className="text-xs text-ink-secondary">{formatRupiah(product.price)}</div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-ink mb-2">Jumlah</label>
+              <input
+                type="number"
+                min="1"
+                value={freeItemQuantity}
+                onChange={(e) => setFreeItemQuantity(Number(e.target.value))}
+                className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink focus:border-primary focus:outline-none"
+              />
+            </div>
+
+            {selectedFreeProduct && (
+              <div className="mb-4 p-3 bg-surface-alt rounded-lg">
+                <div className="text-sm text-ink-secondary">Produk Terpilih:</div>
+                <div className="font-medium text-ink">{selectedFreeProduct.name}</div>
+                <div className="text-sm text-ink-secondary">Harga Asli: {formatRupiah(selectedFreeProduct.price)}</div>
+                <div className="text-sm text-success font-medium">Harga Gratis: Rp 0</div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowFreeItemModal(false);
+                  setSelectedFreeProduct(null);
+                  setFreeItemQuantity(1);
+                }}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleAddFreeItem}
+                disabled={!selectedFreeProduct}
+              >
+                Tambah Gratis
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unified Discount Modal */}
+      {showDiscountModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-bold text-ink">Diskon</h3>
+            
+            {/* Tab Navigation */}
+            <div className="mb-4 border-b border-line">
+              <nav className="-mb-px flex space-x-4">
+                <button
+                  onClick={() => setDiscountTab('regular')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    discountTab === 'regular'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  Diskon Regular
+                </button>
+                <button
+                  onClick={() => setDiscountTab('global')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    discountTab === 'global'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  Global Diskon (PIN)
+                </button>
+                <button
+                  onClick={() => setDiscountTab('voucher')}
+                  className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                    discountTab === 'voucher'
+                      ? 'border-primary text-primary'
+                      : 'border-transparent text-ink-secondary hover:text-ink'
+                  }`}
+                >
+                  Voucer
+                </button>
+              </nav>
+            </div>
+
+            {discountTab === 'regular' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">Tipe Diskon</label>
+                  <select
+                    value={localDiscountType}
+                    onChange={(e) => setLocalDiscountType(e.target.value as 'nominal' | 'percentage')}
+                    className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none"
+                  >
+                    <option value="nominal">Nominal (Rp)</option>
+                    <option value="percentage">Persentase (%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">Nilai Diskon</label>
+                  <input
+                    type="number"
+                    value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder={localDiscountType === 'percentage' ? 'Masukkan persentase' : 'Masukkan nominal'}
+                    className="tnum w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowDiscountModal(false);
+                      setDiscountValue('');
+                    }}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!discountValue) {
+                        toast('error', 'Masukkan nilai diskon');
+                        return;
+                      }
+                      handleApplyDiscount();
+                      setShowDiscountModal(false);
+                      setDiscountValue('');
+                    }}
+                  >
+                    Terapkan
+                  </Button>
+                </div>
+              </div>
+            ) : discountTab === 'global' ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">Tipe Diskon</label>
+                  <select
+                    value={localGlobalDiscountType}
+                    onChange={(e) => setLocalGlobalDiscountType(e.target.value as 'nominal' | 'percentage')}
+                    className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:border-primary focus:outline-none"
+                  >
+                    <option value="nominal">Nominal (Rp)</option>
+                    <option value="percentage">Persentase (%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">Nilai Diskon</label>
+                  <input
+                    type="number"
+                    value={globalDiscountValue}
+                    onChange={(e) => setGlobalDiscountValue(e.target.value)}
+                    placeholder={localGlobalDiscountType === 'percentage' ? 'Masukkan persentase' : 'Masukkan nominal'}
+                    className="tnum w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-ink mb-2">Alasan Diskon</label>
+                  <textarea
+                    value={discountReason}
+                    onChange={(e) => setDiscountReason(e.target.value)}
+                    placeholder="Contoh: Pelanggan VIP, Promo Spesial, dll."
+                    className="min-h-20 w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    variant="ghost"
+                    onClick={() => {
+                      setShowDiscountModal(false);
+                      setGlobalDiscountValue('');
+                      setDiscountReason('');
+                    }}
+                  >
+                    Batal
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (!globalDiscountValue) {
+                        toast('error', 'Masukkan nilai diskon');
+                        return;
+                      }
+                      if (!discountReason) {
+                        toast('error', 'Masukkan alasan diskon');
+                        return;
+                      }
+                      setShowPinModal(true);
+                    }}
+                  >
+                    Lanjut ke PIN
+                  </Button>
+                </div>
+              </div>
+            ) : discountTab === 'voucher' ? (
+              <div className="space-y-4">
+                {appliedVoucher ? (
+                  <div className="p-4 bg-success-soft rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="font-medium text-success">{appliedVoucher.name}</span>
+                      <button
+                        onClick={() => {
+                          setAppliedVoucher(null);
+                          setVoucherCode('');
+                          clearVoucher();
+                        }}
+                        className="text-danger hover:text-danger-dark"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                    <div className="text-sm text-ink-secondary mb-2">{appliedVoucher.description}</div>
+                    <div className="text-sm font-medium text-ink">
+                      Diskon: {appliedVoucher.discount_type === 'percentage' ? `${appliedVoucher.discount_value}%` : formatRupiah(appliedVoucher.discount_value)}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-ink mb-2">Kode Voucer</label>
+                      <input
+                        type="text"
+                        value={voucherCode}
+                        onChange={(e) => setVoucherCode(e.target.value.toUpperCase())}
+                        placeholder="Masukkan kode voucer"
+                        className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        onClick={() => {
+                          setShowDiscountModal(false);
+                          setVoucherCode('');
+                        }}
+                      >
+                        Batal
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          if (!voucherCode) {
+                            toast('error', 'Masukkan kode voucer');
+                            return;
+                          }
+                          await handleApplyVoucher();
+                        }}
+                      >
+                        Terapkan
+                      </Button>
+                    </div>
+                  </>
+                )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* PIN Authorization Modal for Global Discount */}
+      {showPinModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-bold text-ink">Otorisasi PIN</h3>
+            <p className="mb-4 text-sm text-ink-secondary">
+              Masukkan PIN untuk mengaktifkan Global Diskon.
+            </p>
+            <div className="mb-4">
+              <label htmlFor="pin-input" className="mb-1 block text-sm font-medium text-ink">
+                PIN
+              </label>
+              <input
+                id="pin-input"
+                type="password"
+                value={pinValue}
+                onChange={(e) => setPinValue(e.target.value)}
+                placeholder="Masukkan PIN"
+                className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+                maxLength={4}
+              />
+            </div>
+            <div className="mb-4">
+              <label htmlFor="reason-input" className="mb-1 block text-sm font-medium text-ink">
+                Alasan Diskon
+              </label>
+              <textarea
+                id="reason-input"
+                value={discountReason}
+                onChange={(e) => setDiscountReason(e.target.value)}
+                placeholder="Contoh: Pelanggan VIP, Promo Spesial, dll."
+                className="min-h-20 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setShowPinModal(false);
+                  setPinValue('');
+                  setDiscountReason('');
+                }}
+              >
+                Batal
+              </Button>
+              <Button
+                onClick={handleGlobalDiscountPinSubmit}
+              >
+                Konfirmasi
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

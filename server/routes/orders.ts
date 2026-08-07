@@ -35,11 +35,21 @@ router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
 
 // Active orders for the Kitchen Display: one call returns orders still being
 // worked on, with items joined to product + category for station filtering.
+// Filter orders that have at least one item not completed/cancelled
 router.get('/orders/active', authMiddleware, async (_req: Request, res: Response) => {
   const orders = await prisma.order.findMany({
-    where: { status: { in: ['pending', 'preparing'] } },
+    where: {
+      items: {
+        some: {
+          status: { in: ['pending', 'preparing', 'ready', 'served'] },
+        },
+      },
+    },
     include: {
       items: {
+        where: {
+          status: { in: ['pending', 'preparing', 'ready', 'served'] },
+        },
         include: {
           product: {
             include: { category: true },
@@ -71,6 +81,34 @@ router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Respon
 router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   const { order, items } = createOrderSchema.parse(req.body);
   const orderId = order.id ?? randomUUID();
+
+  // Validate stock availability before creating order
+  // Note: Backend uses product.stock_quantity for basic stock validation
+  // BOM/Recipe logic is handled in frontend via IndexedDB
+  const productIds = items.map(item => item.product_id).filter((id): id is string => id !== null);
+  const products = await prisma.product.findMany({
+    where: { id: { in: productIds } },
+  });
+
+  const productMap = new Map(products.map(p => [p.id, p]));
+
+  // Check stock availability using product.stock_quantity
+  for (const item of items) {
+    if (!item.product_id) continue;
+
+    const product = productMap.get(item.product_id);
+    if (!product) {
+      res.status(404).json({ error: `Product ${item.product_id} not found` });
+      return;
+    }
+
+    if (product.stock_quantity < item.quantity) {
+      res.status(400).json({
+        error: `Stok tidak mencukupi untuk ${product.name}. Tersedia: ${product.stock_quantity}, Dibutuhkan: ${item.quantity}`
+      });
+      return;
+    }
+  }
 
   const created = await prisma.$transaction(async (tx) => {
     const newOrder = await tx.order.upsert({
@@ -109,10 +147,30 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
         modifiers_applied: item.modifiers_applied ?? [],
         discount_item: item.discount_item ?? 0,
         split_group_id: item.split_group_id ?? null,
+        status: item.status ?? 'pending',
         created_at: item.created_at ? new Date(item.created_at) : new Date(),
       })),
       skipDuplicates: true,
     });
+
+    // Reduce stock for each product
+    // Note: Backend uses product.stock_quantity for basic stock reduction
+    // BOM/Recipe logic is handled in frontend via IndexedDB
+    for (const item of items) {
+      if (!item.product_id) continue;
+
+      const product = productMap.get(item.product_id);
+      if (!product) continue;
+
+      await tx.product.update({
+        where: { id: item.product_id },
+        data: {
+          stock_quantity: {
+            decrement: item.quantity,
+          },
+        },
+      });
+    }
 
     return newOrder;
   });
@@ -171,12 +229,36 @@ router.post('/order-items', authMiddleware, async (req: Request, res: Response) 
       modifiers_applied: item.modifiers_applied ?? [],
       discount_item: item.discount_item ?? 0,
       split_group_id: item.split_group_id ?? null,
+      status: item.status ?? 'pending',
       created_at: item.created_at ? new Date(item.created_at) : new Date(),
     })),
     skipDuplicates: true,
   });
 
   res.json({ success: true });
+});
+
+router.patch('/order-items/:id/status', authMiddleware, async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+  const { status } = updateOrderStatusSchema.parse(req.body);
+
+  const existing = await prisma.orderItem.findUnique({ where: { id } });
+  if (!existing) {
+    res.status(404).json({ error: 'Order item not found' });
+    return;
+  }
+
+  if (existing.status === status) {
+    res.json(existing);
+    return;
+  }
+
+  const updated = await prisma.orderItem.update({
+    where: { id },
+    data: { status },
+  });
+
+  res.json(updated);
 });
 
 router.post('/void-logs', authMiddleware, async (req: Request, res: Response) => {

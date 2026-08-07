@@ -123,6 +123,10 @@ export async function updateProduct(id: string, data: unknown) {
   return request<unknown>('PATCH', `/products/${id}`, data);
 }
 
+export async function updateProductStock(id: string, stockQuantity: number) {
+  return request<unknown>('PATCH', `/products/${id}`, { stock_quantity: stockQuantity });
+}
+
 // Soft delete: the product is deactivated, not removed.
 export async function deleteProduct(id: string) {
   return request<{ success: boolean }>('DELETE', `/products/${id}`);
@@ -210,6 +214,10 @@ export async function createOrder(order: unknown, items: unknown[]) {
 
 export async function updateOrderStatus(id: string, status: string) {
   return request<unknown>('PATCH', `/orders/${id}/status`, { status });
+}
+
+export async function updateOrderItemStatus(id: string, status: string) {
+  return request<unknown>('PATCH', `/order-items/${id}/status`, { status });
 }
 
 export async function createOrderItems(items: unknown[]) {

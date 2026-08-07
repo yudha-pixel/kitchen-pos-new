@@ -12,6 +12,10 @@ import authRoutes from './routes/auth';
 import productRoutes from './routes/products';
 import orderRoutes from './routes/orders';
 import printRoutes from './routes/print';
+import selfOrderRoutes from './routes/selfOrder';
+import outletRoutes from './routes/outlets';
+import paymentRoutes from './routes/payments';
+import settingsRoutes from './routes/settings';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -39,6 +43,10 @@ app.use('/auth', authRoutes);
 app.use(productRoutes);
 app.use(orderRoutes);
 app.use(printRoutes);
+app.use('/self-order', selfOrderRoutes);
+app.use(outletRoutes);
+app.use(paymentRoutes);
+app.use('/settings', settingsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });

@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { deductManufactureStock, deductKitStock, canOrderProduct } from '@/src/features/inventory/inventoryService';
+import { useConfigStore } from './useConfigStore';
 import * as api from '@/src/lib/api';
 import { NetworkError } from '@/src/lib/api';
 import { db } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
+import { reduceStockForOrder, restoreStockForOrder } from '@/src/features/inventory/inventoryService';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -28,16 +31,46 @@ interface CartState {
   notes: string;
   paymentMethod: 'CASH' | 'QRIS' | 'DEBIT';
   cashierId: string | null;
+  discountAmount: number;
+  discountType: 'nominal' | 'percentage';
+  freeItems: CartItem[];
+  globalDiscountAmount: number;
+  globalDiscountType: 'nominal' | 'percentage';
+  globalDiscountAuthorizedBy: string | null;
+  globalDiscountReason: string;
+  voucherCode: string | null;
+  voucherId: string | null;
+  voucherDiscountType: 'nominal' | 'percentage' | null;
+  voucherDiscountValue: number;
+  voucherDiscountAmount: number;
+  member: any | null;
+  memberDiscountAmount: number;
+  appliedPromotion: any | null;
+  promotionDiscountAmount: number;
+  kitchenSent: boolean;
   setCashierId: (id: string | null) => void;
   setTableNumber: (tableNumber: string) => void;
   setNotes: (notes: string) => void;
   setPaymentMethod: (method: 'CASH' | 'QRIS' | 'DEBIT') => void;
-  addToCart: (item: Omit<CartItem, 'id'>) => void;
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  setDiscount: (amount: number, type: 'nominal' | 'percentage') => void;
+  setGlobalDiscount: (amount: number, type: 'nominal' | 'percentage', authorizedBy: string, reason: string) => void;
+  clearGlobalDiscount: () => void;
+  setVoucher: (code: string, id: string, discountType: 'nominal' | 'percentage', discountValue: number, discountAmount: number) => void;
+  clearVoucher: () => void;
+  setMember: (member: any) => void;
+  clearMember: () => void;
+  checkPromotions: () => Promise<void>;
+  clearPromotion: () => void;
+  addFreeItem: (item: Omit<CartItem, 'id'>) => void;
+  removeFreeItem: (id: string) => void;
+  clearFreeItems: () => void;
+  addToCart: (item: Omit<CartItem, 'id'>) => Promise<void>;
+  removeFromCart: (id: string) => Promise<void>;
+  updateQuantity: (id: string, quantity: number) => Promise<void>;
   updateModifiers: (id: string, modifiers: ModifierOption[]) => void;
   clearCart: () => void;
   processPayment: (roundTo?: number, orderCategory?: 'dine-in' | 'takeaway' | 'delivery', receiptNumber?: string, customerName?: string, deliveryAddress?: string, courierName?: string, courierType?: 'internal' | 'external') => Promise<{ success: boolean; message: string; orderId?: string; receiptData?: unknown }>;
+  sendToKitchen: () => Promise<{ success: boolean; message: string; orderId?: string }>;
   voidItem: (itemId: string, reason: string) => Promise<{ success: boolean; message: string }>;
   voidOrderItem: (orderId: string, orderItemId: string, productId: string, quantity: number, reason: string) => Promise<{ success: boolean; message: string }>;
   calculateTotal: () => number;
@@ -48,6 +81,10 @@ interface CartState {
   getTotal: () => number;
   getSubtotal: () => number;
   getTax: () => number;
+  getDiscount: () => number;
+  // Reverse calculation for internal reporting (extracts tax/service from final price)
+  getInternalBreakdown: (finalPrice: number) => { netSales: number; taxAmount: number; serviceChargeAmount: number };
+  getGlobalDiscount: () => number;
   getItemCount: () => number;
   splitBill: (selectedItemIds: string[]) => { success: boolean; message: string; splitCart?: CartItem[] };
   mergeTable: (targetTable: string, sourceTable: string) => Promise<{ success: boolean; message: string }>;
@@ -61,51 +98,213 @@ export const useCartStore = create<CartState>()(
       notes: '',
       paymentMethod: 'CASH',
       cashierId: null,
+      discountAmount: 0,
+      discountType: 'nominal',
+      freeItems: [],
+      globalDiscountAmount: 0,
+      globalDiscountType: 'nominal',
+      globalDiscountAuthorizedBy: null,
+      globalDiscountReason: '',
+      voucherCode: null,
+      voucherId: null,
+      voucherDiscountType: null,
+      voucherDiscountValue: 0,
+      voucherDiscountAmount: 0,
+      member: null,
+      memberDiscountAmount: 0,
+      appliedPromotion: null,
+      promotionDiscountAmount: 0,
+      kitchenSent: false,
 
       setCashierId: (id) => set({ cashierId: id }),
       setTableNumber: (tableNumber) => set({ tableNumber }),
       setNotes: (notes) => set({ notes }),
       setPaymentMethod: (method) => set({ paymentMethod: method }),
-      
-      addToCart: (item) => set((state) => {
-        // Check if item with same product and modifiers exists
-        const existingIndex = state.items.findIndex(
-          (i) => 
-            i.productId === item.productId &&
-            JSON.stringify(i.modifiers.map(m => m.id).sort()) === 
-            JSON.stringify(item.modifiers.map(m => m.id).sort())
-        );
-
-        if (existingIndex >= 0) {
-          // Update quantity of existing item
-          const updatedItems = [...state.items];
-          updatedItems[existingIndex] = {
-            ...updatedItems[existingIndex],
-            quantity: updatedItems[existingIndex].quantity + item.quantity,
-          };
-          return { items: updatedItems };
-        }
-
-        // Add new item with UUID
-        return { 
-          items: [...state.items, { ...item, id: crypto.randomUUID() }] 
-        };
+      setDiscount: (amount, type) => set({ discountAmount: amount, discountType: type }),
+      setGlobalDiscount: (amount, type, authorizedBy, reason) => set({
+        globalDiscountAmount: amount,
+        globalDiscountType: type,
+        globalDiscountAuthorizedBy: authorizedBy,
+        globalDiscountReason: reason
       }),
+      clearGlobalDiscount: () => set({
+        globalDiscountAmount: 0,
+        globalDiscountType: 'nominal',
+        globalDiscountAuthorizedBy: null,
+        globalDiscountReason: ''
+      }),
+      setVoucher: (code, id, discountType, discountValue, discountAmount) => set({
+        voucherCode: code,
+        voucherId: id,
+        voucherDiscountType: discountType,
+        voucherDiscountValue: discountValue,
+        voucherDiscountAmount: discountAmount
+      }),
+      clearVoucher: () => set({
+        voucherCode: null,
+        voucherId: null,
+        voucherDiscountType: null,
+        voucherDiscountValue: 0,
+        voucherDiscountAmount: 0
+      }),
+      setMember: (member) => {
+        const subtotal = get().getSubtotal();
+        const memberDiscount = member ? subtotal * (member.discount_percentage / 100) : 0;
+        set({
+          member,
+          memberDiscountAmount: memberDiscount
+        });
+      },
+      clearMember: () => set({
+        member: null,
+        memberDiscountAmount: 0
+      }),
+      checkPromotions: async () => {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const state = get();
+          
+          // Get all active promotions
+          const now = new Date();
+          const allPromotions = await db.promotions.toArray();
+          const activePromotions = allPromotions.filter(promotion => {
+            const validFrom = new Date(promotion.valid_from);
+            const validUntil = new Date(promotion.valid_until);
+            return promotion.is_active && now >= validFrom && now <= validUntil;
+          });
 
-      removeFromCart: (id) => set((state) => ({
-        items: state.items.filter((item) => item.id !== id),
+          const subtotal = state.getSubtotal();
+          const totalQuantity = state.items.reduce((sum, item) => sum + item.quantity, 0);
+
+          // Find applicable promotion
+          let applicablePromotion = null;
+          let promotionDiscount = 0;
+
+          for (const promotion of activePromotions) {
+            if (promotion.type === 'quantity' && promotion.min_quantity) {
+              if (totalQuantity >= promotion.min_quantity) {
+                let discount = 0;
+                if (promotion.discount_type === 'percentage') {
+                  discount = subtotal * (promotion.discount_value / 100);
+                  if (promotion.max_discount && discount > promotion.max_discount) {
+                    discount = promotion.max_discount;
+                  }
+                } else {
+                  discount = promotion.discount_value;
+                }
+                
+                if (discount > promotionDiscount) {
+                  promotionDiscount = discount;
+                  applicablePromotion = promotion;
+                }
+              }
+            } else if (promotion.type === 'amount' && promotion.min_amount) {
+              if (subtotal >= promotion.min_amount) {
+                let discount = 0;
+                if (promotion.discount_type === 'percentage') {
+                  discount = subtotal * (promotion.discount_value / 100);
+                  if (promotion.max_discount && discount > promotion.max_discount) {
+                    discount = promotion.max_discount;
+                  }
+                } else {
+                  discount = promotion.discount_value;
+                }
+                
+                if (discount > promotionDiscount) {
+                  promotionDiscount = discount;
+                  applicablePromotion = promotion;
+                }
+              }
+            }
+          }
+
+          set({
+            appliedPromotion: applicablePromotion,
+            promotionDiscountAmount: promotionDiscount
+          });
+
+          if (applicablePromotion) {
+            console.log(`✅ Promotion applied: ${applicablePromotion.name} - Rp${promotionDiscount.toLocaleString('id-ID')} discount`);
+          }
+        } catch (error) {
+          console.error('Failed to check promotions:', error);
+        }
+      },
+      clearPromotion: () => set({
+        appliedPromotion: null,
+        promotionDiscountAmount: 0
+      }),
+      addFreeItem: (item) => set((state) => ({
+        freeItems: [...state.freeItems, { ...item, id: crypto.randomUUID() }]
       })),
+      removeFreeItem: (id) => set((state) => ({
+        freeItems: state.freeItems.filter((item) => item.id !== id)
+      })),
+      clearFreeItems: () => set({ freeItems: [] }),
+      
+      addToCart: async (item) => {
+        // Reset kitchenSent when cart changes
+        set({ kitchenSent: false });
 
-      updateQuantity: (id, quantity) => set((state) => {
-        if (quantity <= 0) {
-          return { items: state.items.filter((item) => item.id !== id) };
-        }
-        return {
-          items: state.items.map((item) =>
-            item.id === id ? { ...item, quantity } : item
-          ),
-        };
-      }),
+        set((state) => {
+          // Check if item with same product and modifiers exists
+          const existingIndex = state.items.findIndex(
+            (i) => 
+              i.productId === item.productId &&
+              JSON.stringify(i.modifiers.map(m => m.id).sort()) === 
+              JSON.stringify(item.modifiers.map(m => m.id).sort())
+          );
+
+          if (existingIndex >= 0) {
+            // Update quantity of existing item
+            const updatedItems = [...state.items];
+            const oldQuantity = updatedItems[existingIndex].quantity;
+            const newQuantity = oldQuantity + item.quantity;
+            updatedItems[existingIndex] = {
+              ...updatedItems[existingIndex],
+              quantity: newQuantity,
+            };
+
+            return { items: updatedItems };
+          }
+
+          // Add new item with UUID
+          return { 
+            items: [...state.items, { ...item, id: crypto.randomUUID() }] 
+          };
+        });
+      },
+
+      removeFromCart: async (id) => {
+        // Reset kitchenSent when cart changes
+        set({ kitchenSent: false });
+
+        const state = get();
+        const item = state.items.find((i) => i.id === id);
+
+        set((state) => ({
+          items: state.items.filter((item) => item.id !== id),
+        }));
+      },
+
+      updateQuantity: async (id, quantity) => {
+        // Reset kitchenSent when cart changes
+        set({ kitchenSent: false });
+
+        const state = get();
+        const item = state.items.find((i) => i.id === id);
+
+        set((state) => {
+          if (quantity <= 0) {
+            return { items: state.items.filter((item) => item.id !== id) };
+          }
+          return {
+            items: state.items.map((item) =>
+              item.id === id ? { ...item, quantity } : item
+            ),
+          };
+        });
+      },
 
       updateModifiers: (id, modifiers) => set((state) => ({
         items: state.items.map((item) =>
@@ -113,7 +312,7 @@ export const useCartStore = create<CartState>()(
         ),
       })),
 
-      clearCart: () => set({ items: [], tableNumber: '', notes: '' }),
+      clearCart: () => set({ items: [], tableNumber: '', notes: '', discountAmount: 0, discountType: 'nominal', freeItems: [], globalDiscountAmount: 0, globalDiscountType: 'nominal', globalDiscountAuthorizedBy: null, globalDiscountReason: '', voucherCode: null, voucherId: null, voucherDiscountType: null, voucherDiscountValue: 0, voucherDiscountAmount: 0, member: null, memberDiscountAmount: 0, appliedPromotion: null, promotionDiscountAmount: 0, kitchenSent: false }),
 
       processPayment: async (roundTo = 0, orderCategory = 'dine-in', receiptNumber, customerName, deliveryAddress, courierName, courierType) => {
         const state = get();
@@ -133,8 +332,18 @@ export const useCartStore = create<CartState>()(
           return { success: false, message: 'Mohon isi alamat pengiriman dan nama kurir terlebih dahulu' };
         }
 
+        // Check stock availability for all items based on their bom_type
+        for (const item of state.items) {
+          const stockCheck = await canOrderProduct(item.productId, item.quantity);
+          if (!stockCheck.canOrder) {
+            return { success: false, message: stockCheck.message };
+          }
+        }
+
         const subtotal = state.getSubtotal();
         const tax = state.getTax();
+        const discount = state.getDiscount();
+        const globalDiscount = state.getGlobalDiscount();
         const total = state.getTotal();
         const orderId = crypto.randomUUID();
         const paymentMethod = state.paymentMethod;
@@ -159,7 +368,28 @@ export const useCartStore = create<CartState>()(
           // enters the lifecycle at 'pending' so it shows up on the KDS.
           status: 'pending' as const,
           table_number: orderCategory === 'dine-in' ? state.tableNumber : null,
-          discount_amount: 0,
+          discount_amount: discount,
+          discount_type: state.discountType,
+          global_discount_amount: globalDiscount,
+          global_discount_type: state.globalDiscountType,
+          global_discount_authorized_by: state.globalDiscountAuthorizedBy,
+          global_discount_reason: state.globalDiscountReason,
+          voucher_code: state.voucherCode,
+          voucher_id: state.voucherId,
+          voucher_discount_type: state.voucherDiscountType,
+          voucher_discount_value: state.voucherDiscountValue,
+          voucher_discount_amount: state.voucherDiscountAmount,
+          member_id: state.member?.id || null,
+          member_name: state.member?.name || null,
+          member_phone: state.member?.phone || null,
+          member_tier: state.member?.tier || null,
+          member_discount_percentage: state.member?.discount_percentage || 0,
+          member_discount_amount: state.memberDiscountAmount,
+          member_points_earned: Math.floor(finalTotal / 1000), // 1 point per 1000 spent
+          promotion_id: state.appliedPromotion?.id || null,
+          promotion_name: state.appliedPromotion?.name || null,
+          promotion_type: state.appliedPromotion?.type || null,
+          promotion_discount_amount: state.promotionDiscountAmount,
           rounding_amount: roundingAmount,
           notes: state.notes,
           created_at: new Date().toISOString(),
@@ -171,7 +401,7 @@ export const useCartStore = create<CartState>()(
           courier_type: orderCategory === 'delivery' ? courierType : null,
         };
 
-        // Create order items
+        // Create order items (regular items)
         const orderItems = state.items.map((item) => ({
           id: crypto.randomUUID(),
           order_id: orderId,
@@ -181,7 +411,24 @@ export const useCartStore = create<CartState>()(
           discount_item: 0,
           modifiers_applied: item.modifiers,
           split_group_id: null,
+          is_free: false,
         }));
+
+        // Create order items for free items
+        const freeOrderItems = state.freeItems.map((item) => ({
+          id: crypto.randomUUID(),
+          order_id: orderId,
+          product_id: item.productId,
+          quantity: item.quantity,
+          price_at_time: item.price,
+          discount_item: item.price, // Full discount for free items
+          modifiers_applied: item.modifiers,
+          split_group_id: null,
+          is_free: true,
+        }));
+
+        // Combine regular and free items
+        const allOrderItems = [...orderItems, ...freeOrderItems];
 
         // Check connection and local API availability
         const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
@@ -198,10 +445,67 @@ export const useCartStore = create<CartState>()(
             });
             console.log(`✅ Order ${orderId} saved to IndexedDB successfully`);
 
-            console.log(`📥 Saving ${orderItems.length} order items to IndexedDB...`);
+            console.log(`📥 Saving ${allOrderItems.length} order items to IndexedDB...`);
             // Save order items to IndexedDB
-            await db.order_items.bulkAdd(orderItems);
+            await db.order_items.bulkAdd(allOrderItems);
             console.log(`✅ Order items saved to IndexedDB successfully`);
+
+            // Deduct stock based on bom_type for each item (offline mode)
+            for (const item of state.items) {
+              const product = await db.products.get(item.productId);
+              if (!product) continue;
+
+              if (product.bom_type === 'manufacture') {
+                await deductManufactureStock(item.productId, item.quantity);
+              } else if (product.bom_type === 'kit') {
+                await deductKitStock(item.productId, item.quantity);
+              }
+            }
+
+            // Update member points and total spent
+            if (state.member) {
+              try {
+                const { db } = await import('@/src/lib/db');
+                const currentMember = await db.members.get(state.member.id!);
+                if (currentMember) {
+                  const pointsEarned = Math.floor(finalTotal / 1000); // 1 point per 1000 spent
+                  const newTotalSpent = currentMember.total_spent + finalTotal;
+                  
+                  // Auto-upgrade tier based on new total_spent
+                  let newTier = currentMember.tier;
+                  let newDiscount = currentMember.discount_percentage;
+                  
+                  if (newTotalSpent >= 5000000) {
+                    newTier = 'platinum';
+                    newDiscount = 20;
+                  } else if (newTotalSpent >= 2000000) {
+                    newTier = 'gold';
+                    newDiscount = 15;
+                  } else if (newTotalSpent >= 500000) {
+                    newTier = 'silver';
+                    newDiscount = 10;
+                  }
+                  
+                  await db.members.update(state.member.id!, {
+                    total_spent: newTotalSpent,
+                    points: currentMember.points + pointsEarned,
+                    tier: newTier,
+                    discount_percentage: newDiscount,
+                    updated_at: new Date().toISOString()
+                  });
+                  console.log(`✅ Member updated: +${pointsEarned} points, +Rp${finalTotal.toLocaleString('id-ID')} total spent, tier: ${newTier}`);
+                  
+                  // Dispatch event to notify CRM page
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('memberUpdated'));
+                    console.log('📡 Dispatched memberUpdated event');
+                  }
+                }
+              } catch (memberError) {
+                console.error('Failed to update member:', memberError);
+                // Don't fail the payment if member update fails
+              }
+            }
 
             // Prepare receipt data BEFORE clearing cart
             const receiptData = {
@@ -212,10 +516,28 @@ export const useCartStore = create<CartState>()(
                 quantity: item.quantity,
                 price: item.price,
                 modifiers: item.modifiers.map(m => m.name),
+                isFree: false,
+              })),
+              freeItems: state.freeItems.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                modifiers: item.modifiers.map(m => m.name),
+                isFree: true,
               })),
               subtotal: state.getSubtotal(),
               tax: state.getTax(),
-              discount: 0,
+              discount: discount,
+              discountType: state.discountType,
+              globalDiscount: globalDiscount,
+              globalDiscountType: state.globalDiscountType,
+              globalDiscountAuthorizedBy: state.globalDiscountAuthorizedBy,
+              globalDiscountReason: state.globalDiscountReason,
+              voucherCode: state.voucherCode,
+              voucherDiscountAmount: state.voucherDiscountAmount,
+              memberName: state.member?.name || null,
+              memberTier: state.member?.tier || null,
+              memberDiscountAmount: state.memberDiscountAmount,
               roundingAmount,
               total: finalTotal,
               paymentMethod,
@@ -223,7 +545,7 @@ export const useCartStore = create<CartState>()(
             };
 
             // Clear cart after saving
-            set({ items: [], tableNumber: '', notes: '' });
+            set({ items: [], tableNumber: '', notes: '', discountAmount: 0, discountType: 'nominal', freeItems: [], globalDiscountAmount: 0, globalDiscountType: 'nominal', globalDiscountAuthorizedBy: null, globalDiscountReason: '', voucherCode: null, voucherId: null, voucherDiscountType: null, voucherDiscountValue: 0, voucherDiscountAmount: 0, member: null, memberDiscountAmount: 0, appliedPromotion: null, promotionDiscountAmount: 0 });
             console.log('🧹 Cart cleared after saving to IndexedDB');
 
             return { 
@@ -251,7 +573,7 @@ export const useCartStore = create<CartState>()(
           console.log('🌐 Online mode: Sending payment to local API and IndexedDB...');
           try {
             console.log(`📡 Inserting order ${orderId} to local API...`);
-            await api.createOrder(orderData, orderItems);
+            await api.createOrder(orderData, allOrderItems);
             console.log(`✅ Order ${orderId} inserted to local API successfully`);
 
             // Get print jobs for kitchen/bar routing
@@ -277,16 +599,78 @@ export const useCartStore = create<CartState>()(
             });
             console.log(`✅ Order ${orderId} saved to IndexedDB for history`);
 
-            console.log(`📥 Saving ${orderItems.length} order items to IndexedDB...`);
-            await db.order_items.bulkAdd(orderItems);
+            console.log(`📥 Saving ${allOrderItems.length} order items to IndexedDB...`);
+            await db.order_items.bulkAdd(allOrderItems);
             console.log(`✅ Order items saved to IndexedDB successfully`);
 
-            // Update order status to 'paid' after successful payment
+            // Deduct stock based on bom_type for each item
+            for (const item of state.items) {
+              const product = await db.products.get(item.productId);
+              if (!product) continue;
+
+              if (product.bom_type === 'manufacture') {
+                await deductManufactureStock(item.productId, item.quantity);
+              } else if (product.bom_type === 'kit') {
+                await deductKitStock(item.productId, item.quantity);
+              }
+            }
+
+            // Update member points and total spent
+            if (state.member) {
+              try {
+                const currentMember = await db.members.get(state.member.id!);
+                if (currentMember) {
+                  const pointsEarned = Math.floor(finalTotal / 1000); // 1 point per 1000 spent
+                  const newTotalSpent = currentMember.total_spent + finalTotal;
+                  
+                  // Auto-upgrade tier based on new total_spent
+                  let newTier = currentMember.tier;
+                  let newDiscount = currentMember.discount_percentage;
+                  
+                  if (newTotalSpent >= 5000000) {
+                    newTier = 'platinum';
+                    newDiscount = 20;
+                  } else if (newTotalSpent >= 2000000) {
+                    newTier = 'gold';
+                    newDiscount = 15;
+                  } else if (newTotalSpent >= 500000) {
+                    newTier = 'silver';
+                    newDiscount = 10;
+                  }
+                  
+                  await db.members.update(state.member.id!, {
+                    total_spent: newTotalSpent,
+                    points: currentMember.points + pointsEarned,
+                    tier: newTier,
+                    discount_percentage: newDiscount,
+                    updated_at: new Date().toISOString()
+                  });
+                  console.log(`✅ Member updated: +${pointsEarned} points, +Rp${finalTotal.toLocaleString('id-ID')} total spent, tier: ${newTier}`);
+                  
+                  // Dispatch event to notify CRM page
+                  if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new CustomEvent('memberUpdated'));
+                    console.log('📡 Dispatched memberUpdated event');
+                  }
+                }
+              } catch (memberError) {
+                console.error('Failed to update member:', memberError);
+                // Don't fail the payment if member update fails
+              }
+            }
+
+            // Update order status to 'completed' after successful payment
             try {
-              await db.orders.where('id').equals(orderId).modify({ status: 'paid' as any });
-              console.log(`✅ Updated order ${orderId} status to 'paid' in IndexedDB`);
+              await db.orders.where('id').equals(orderId).modify({ status: 'completed' as any });
+              console.log(`✅ Updated order ${orderId} status to 'completed' in IndexedDB`);
+              
+              // Dispatch event to notify UI components
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('orderCompleted', { detail: { orderId } }));
+                console.log('📡 Dispatched orderCompleted event');
+              }
             } catch (statusError) {
-              console.error('Failed to update order status to paid:', statusError);
+              console.error('Failed to update order status to completed:', statusError);
               // Don't fail the payment if status update fails
             }
 
@@ -299,10 +683,25 @@ export const useCartStore = create<CartState>()(
                 quantity: item.quantity,
                 price: item.price,
                 modifiers: item.modifiers.map(m => m.name),
+                isFree: false,
+              })),
+              freeItems: state.freeItems.map(item => ({
+                name: item.name,
+                quantity: item.quantity,
+                price: item.price,
+                modifiers: item.modifiers.map(m => m.name),
+                isFree: true,
               })),
               subtotal: state.getSubtotal(),
               tax: state.getTax(),
-              discount: 0,
+              discount: discount,
+              discountType: state.discountType,
+              globalDiscount: globalDiscount,
+              globalDiscountType: state.globalDiscountType,
+              globalDiscountAuthorizedBy: state.globalDiscountAuthorizedBy,
+              globalDiscountReason: state.globalDiscountReason,
+              voucherCode: state.voucherCode,
+              voucherDiscountAmount: state.voucherDiscountAmount,
               roundingAmount,
               total: finalTotal,
               paymentMethod,
@@ -310,7 +709,7 @@ export const useCartStore = create<CartState>()(
             };
 
             // Clear cart after successful payment
-            set({ items: [], tableNumber: '', notes: '' });
+            set({ items: [], tableNumber: '', notes: '', discountAmount: 0, discountType: 'nominal', freeItems: [], globalDiscountAmount: 0, globalDiscountType: 'nominal', globalDiscountAuthorizedBy: null, globalDiscountReason: '', voucherCode: null, voucherId: null, voucherDiscountType: null, voucherDiscountValue: 0, voucherDiscountAmount: 0, member: null, memberDiscountAmount: 0, appliedPromotion: null, promotionDiscountAmount: 0 });
             console.log('🧹 Cart cleared after successful payment');
 
             return {
@@ -363,7 +762,7 @@ export const useCartStore = create<CartState>()(
         try {
           const state = get();
           const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
-          
+
           const voidLog = {
             id: crypto.randomUUID(),
             order_id: orderId,
@@ -462,7 +861,36 @@ export const useCartStore = create<CartState>()(
           const modifierTotal = item.modifiers.reduce((mSum, m) => mSum + m.price, 0);
           return sum + ((item.price + modifierTotal) * item.quantity);
         }, 0);
-        return subtotal * 0.1; // 10% tax
+        const globalDiscount = state.getGlobalDiscount(); // Applied BEFORE tax
+        const discountedSubtotal = subtotal - globalDiscount;
+        const taxRate = useConfigStore.getState().getTaxRateAsDecimal(); // Get dynamic tax rate from config
+        return discountedSubtotal * taxRate;
+      },
+
+      getDiscount: () => {
+        const state = get();
+        const subtotal = state.items.reduce((sum, item) => {
+          const modifierTotal = item.modifiers.reduce((mSum, m) => mSum + m.price, 0);
+          return sum + ((item.price + modifierTotal) * item.quantity);
+        }, 0);
+        
+        if (state.discountType === 'percentage') {
+          return subtotal * (state.discountAmount / 100);
+        }
+        return state.discountAmount; // nominal
+      },
+
+      getGlobalDiscount: () => {
+        const state = get();
+        const subtotal = state.items.reduce((sum, item) => {
+          const modifierTotal = item.modifiers.reduce((mSum, m) => mSum + m.price, 0);
+          return sum + ((item.price + modifierTotal) * item.quantity);
+        }, 0);
+        
+        if (state.globalDiscountType === 'percentage') {
+          return subtotal * (state.globalDiscountAmount / 100);
+        }
+        return state.globalDiscountAmount; // nominal
       },
 
       getTotal: () => {
@@ -471,7 +899,39 @@ export const useCartStore = create<CartState>()(
           const modifierTotal = item.modifiers.reduce((mSum, m) => mSum + m.price, 0);
           return sum + ((item.price + modifierTotal) * item.quantity);
         }, 0);
-        return subtotal * 1.1; // subtotal + 10% tax
+        const globalDiscount = state.getGlobalDiscount(); // Applied BEFORE tax
+        const voucherDiscount = state.voucherDiscountAmount; // Applied BEFORE tax
+        const memberDiscount = state.memberDiscountAmount; // Applied BEFORE tax
+        const promotionDiscount = state.promotionDiscountAmount; // Applied BEFORE tax
+        const discountedSubtotal = subtotal - globalDiscount - voucherDiscount - memberDiscount - promotionDiscount;
+        const taxRate = useConfigStore.getState().getTaxRateAsDecimal(); // Get dynamic tax rate from config
+        const tax = discountedSubtotal * taxRate; // Dynamic tax rate on discounted subtotal (free items have price 0, so they don't affect tax)
+        const discount = state.getDiscount(); // Regular discount applied after tax
+        return discountedSubtotal + tax - discount; // (subtotal - globalDiscount - voucherDiscount - memberDiscount - promotionDiscount) + tax - regularDiscount
+      },
+
+      // Reverse calculation for internal reporting
+      // Extracts tax and service charge from final price for accounting purposes
+      getInternalBreakdown: (finalPrice: number) => {
+        const taxRate = useConfigStore.getState().getTaxRateAsDecimal(); // Get dynamic tax rate from config
+        const serviceChargeRate = useConfigStore.getState().getServiceChargeRateAsDecimal(); // Get dynamic service charge rate from config
+        
+        // Formula: finalPrice = netSales + tax + serviceCharge
+        // where tax = netSales * taxRate and serviceCharge = netSales * serviceChargeRate
+        // finalPrice = netSales + (netSales * taxRate) + (netSales * serviceChargeRate)
+        // finalPrice = netSales * (1 + taxRate + serviceChargeRate)
+        // netSales = finalPrice / (1 + taxRate + serviceChargeRate)
+        
+        const divisor = 1 + taxRate + serviceChargeRate;
+        const netSales = finalPrice / divisor;
+        const taxAmount = netSales * taxRate;
+        const serviceChargeAmount = netSales * serviceChargeRate;
+        
+        return {
+          netSales: Math.round(netSales),
+          taxAmount: Math.round(taxAmount),
+          serviceChargeAmount: Math.round(serviceChargeAmount),
+        };
       },
 
       getItemCount: () => {
@@ -499,32 +959,143 @@ export const useCartStore = create<CartState>()(
       },
 
       mergeTable: async (targetTable, sourceTable) => {
+        try {
+          const result = await api.mergeTable(targetTable, sourceTable);
+          return { success: true, message: `Berhasil menggabungkan meja ${sourceTable} ke ${targetTable}` };
+        } catch (error) {
+          console.error('Failed to merge tables:', error);
+          return { success: false, message: 'Gagal menggabungkan meja' };
+        }
+      },
+
+      sendToKitchen: async () => {
         const state = get();
 
-        if (!targetTable || !sourceTable) {
-          return { success: false, message: 'Nomor meja tidak boleh kosong' };
+        if (state.items.length === 0) {
+          return { success: false, message: 'Keranjang kosong' };
         }
 
-        if (targetTable === sourceTable) {
-          return { success: false, message: 'Meja asal dan tujuan tidak boleh sama' };
+        if (!state.tableNumber) {
+          return { success: false, message: 'Mohon isi nomor meja terlebih dahulu' };
         }
+
+        // Check stock availability for all items based on their bom_type
+        for (const item of state.items) {
+          const stockCheck = await canOrderProduct(item.productId, item.quantity);
+          if (!stockCheck.canOrder) {
+            return { success: false, message: stockCheck.message };
+          }
+        }
+
+        const subtotal = state.getSubtotal();
+        const tax = state.getTax();
+        const discount = state.getDiscount();
+        const globalDiscount = state.getGlobalDiscount();
+        const total = state.getTotal();
+
+        const orderId = crypto.randomUUID();
+
+        // Convert payment method to database format
+        const paymentMethodMap: Record<string, 'cash' | 'card' | 'qr' | 'transfer'> = {
+          'CASH': 'cash',
+          'QRIS': 'qr',
+          'DEBIT': 'card',
+        };
+        const dbPaymentMethod = paymentMethodMap[state.paymentMethod] || 'cash';
+
+        // Prepare order data
+        const orderData = {
+          id: orderId,
+          cashier_id: state.cashierId,
+          total_amount: total,
+          payment_method: dbPaymentMethod,
+          status: 'pending' as const,
+          table_number: state.tableNumber,
+          discount_amount: discount,
+          rounding_amount: 0,
+          notes: state.notes,
+          outlet_id: null,
+          created_at: new Date().toISOString(),
+        };
+
+        // Prepare order items
+        const allOrderItems = [
+          ...state.items.map(item => ({
+            id: crypto.randomUUID(),
+            order_id: orderId,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price_at_time: item.price,
+            modifiers_applied: item.modifiers,
+            discount_item: 0,
+            split_group_id: null,
+            status: 'pending' as const,
+          })),
+          ...state.freeItems.map(item => ({
+            id: crypto.randomUUID(),
+            order_id: orderId,
+            product_id: item.productId,
+            quantity: item.quantity,
+            price_at_time: 0,
+            modifiers_applied: item.modifiers,
+            discount_item: 0,
+            split_group_id: null,
+            status: 'pending' as const,
+          })),
+        ];
 
         try {
-          const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+          // Send to API
+          await api.createOrder(orderData, allOrderItems);
+          console.log('✅ Order sent to kitchen successfully');
 
-          if (isOnline) {
-            await api.mergeTable(sourceTable, targetTable);
+          // Save to IndexedDB
+          await db.orders.add({
+            ...orderData,
+            sync_status: 'synced',
+          });
+          await db.order_items.bulkAdd(allOrderItems);
+          console.log('✅ Order saved to IndexedDB');
+
+          // Dispatch event to notify KDS
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('orderCreated', { detail: { orderId } }));
+            console.log('📡 Dispatched orderCreated event');
+          }
+
+          // Set kitchenSent to true to prevent duplicate submissions
+          set({ kitchenSent: true });
+          console.log('✅ kitchenSent set to true');
+
+          // Reduce stock based on BOM/Recipe after order is sent
+          try {
+            const stockItems = state.items.map(item => ({
+              product_id: item.productId,
+              quantity: item.quantity
+            }));
+            const stockResult = await reduceStockForOrder(stockItems);
+            console.log('✅ Stock reduced after sendToKitchen:', stockResult);
+
+            // Dispatch event to notify POS page to recalculate menu stock
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('inventoryStockChanged'));
+              console.log('📡 Dispatched inventoryStockChanged event');
+            }
+          } catch (stockError) {
+            console.error('Failed to reduce stock after sendToKitchen:', stockError);
           }
 
           return {
             success: true,
-            message: `Berhasil menggabungkan meja ${sourceTable} ke ${targetTable}`
+            message: 'Pesanan dikirim ke dapur',
+            orderId,
           };
         } catch (error) {
-          if (error instanceof NetworkError) {
-            return { success: false, message: 'Gagal terhubung ke server lokal' };
-          }
-          return { success: false, message: 'Terjadi kesalahan saat menggabungkan meja' };
+          console.error('Failed to send order to kitchen:', error);
+          return {
+            success: false,
+            message: `Gagal mengirim pesanan: ${error instanceof Error ? error.message : 'Unknown error'}`
+          };
         }
       },
     }),

@@ -28,6 +28,48 @@ async function main() {
     console.log('✅ Created default admin user (username: admin, password: admin)');
   }
 
+  // Create default outlets
+  const outlet1 = await prisma.outlet.upsert({
+    where: { code: 'OUT-001' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      name: 'Outlet Pusat',
+      code: 'OUT-001',
+      address: 'Jl. Jendral Sudirman No. 1, Jakarta',
+      phone: '021-12345678',
+      is_active: true,
+    },
+  });
+
+  const outlet2 = await prisma.outlet.upsert({
+    where: { code: 'OUT-002' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      name: 'Outlet Cabang Senopati',
+      code: 'OUT-002',
+      address: 'Jl. Senopati Raya No. 45, Jakarta Selatan',
+      phone: '021-87654321',
+      is_active: true,
+    },
+  });
+
+  const outlet3 = await prisma.outlet.upsert({
+    where: { code: 'OUT-003' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      name: 'Outlet Cabang BSD',
+      code: 'OUT-003',
+      address: 'Jl. BSD City Raya No. 78, Tangerang',
+      phone: '021-55555555',
+      is_active: true,
+    },
+  });
+
+  console.log('✅ Created 3 default outlets (Pusat, Senopati, BSD)');
+
   // Step 2: Create Categories with colors
   const coffeeCategory = await prisma.category.create({
     data: {

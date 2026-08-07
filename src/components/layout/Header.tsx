@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, LogOut, ArrowLeft, Users, User } from 'lucide-react';
 import { TableMergeModal } from './TableMergeModal';
+import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
 
 interface HeaderProps {
@@ -96,6 +97,10 @@ export const Header = ({ title = 'Kitchen POS', onSearch }: HeaderProps) => {
           >
             <Users className="h-5 w-5" />
           </button>
+
+          {/* Outlet Selector */}
+          <OutletSelector />
+
           <div className="flex items-center gap-1 border-l border-line pl-2 sm:pl-3">
             <span className="flex items-center gap-2 px-1 text-sm font-medium text-ink-secondary">
               <User className="h-4 w-4" aria-hidden="true" />

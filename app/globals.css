@@ -4,11 +4,24 @@
   --background: #f8fafc;
   --foreground: #0f172a;
 
-  /* Brand */
-  --primary: #1d4ed8;
-  --primary-hover: #1e40af;
-  --primary-soft: #dbeafe;
+  /* Brand - Dynamic from ThemeContext */
+  --primary-rgb: 59 130 246; /* Default blue */
+  --primary: rgb(var(--primary-rgb));
+  --primary-hover: rgb(var(--primary-rgb), 0.8);
+  --primary-soft: rgb(var(--primary-rgb), 0.1);
   --on-primary: #ffffff;
+
+  /* Card Style - Dynamic from ThemeContext */
+  --card-radius: 0.5rem; /* Default rounded */
+
+  /* Layout Density - Dynamic from ThemeContext */
+  --layout-spacing: 1rem; /* Default spacious */
+
+  /* Card View - Dynamic from ThemeContext */
+  --card-view: grid; /* Default grid */
+
+  /* Cart Position - Dynamic from ThemeContext */
+  --cart-position: right-sidebar; /* Default right-sidebar */
 
   /* Surfaces */
   --surface: #ffffff;
@@ -91,10 +104,104 @@
   --text-muted: #94a3b8;
 }
 
+/* Dark mode support */
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --surface: #1e293b;
+  --surface-alt: #334155;
+  --border-color: #334155;
+  --border-strong: #475569;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+/* Utility class for dynamic card radius */
+.card-dynamic {
+  border-radius: var(--card-radius);
+}
+
+/* Utility class for dynamic primary color */
+.bg-primary-dynamic {
+  background-color: var(--primary);
+}
+
+.text-primary-dynamic {
+  color: var(--primary);
+}
+
+.border-primary-dynamic {
+  border-color: var(--primary);
+}
+
+/* Utility class for dynamic layout spacing */
+.layout-spacing-dynamic {
+  gap: var(--layout-spacing);
+  padding: var(--layout-spacing);
+}
+
+/* Override common Tailwind classes to use dynamic theme */
+.bg-blue-600 {
+  background-color: var(--primary) !important;
+}
+
+.text-blue-600 {
+  color: var(--primary) !important;
+}
+
+.border-blue-600 {
+  border-color: var(--primary) !important;
+}
+
+.bg-blue-700 {
+  background-color: var(--primary-hover) !important;
+}
+
+.hover\:bg-blue-700:hover {
+  background-color: var(--primary-hover) !important;
+}
+
+.bg-blue-50 {
+  background-color: var(--primary-soft) !important;
+}
+
+.ring-blue-200 {
+  --tw-ring-color: var(--primary-soft) !important;
+}
+
+/* Card view styles */
+[data-card-view="list"] .product-grid > div {
+  display: flex;
+  align-items: center;
+  gap: var(--layout-spacing);
+}
+
+[data-card-view="minimalist"] .product-image {
+  display: none !important;
+}
+
+/* Cart position styles */
+[data-cart-position="floating-drawer"] .cart-container {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90%;
+  max-width: 600px;
+  border-top: 1px solid var(--border-color);
+  background: var(--surface);
+  z-index: 50;
+  border-radius: var(--card-radius) var(--card-radius) 0 0;
+  max-height: 50vh;
+  overflow-y: auto;
 }
 
 /* Touch behavior: kill 300ms tap delay, keep pinch-zoom available on the page */

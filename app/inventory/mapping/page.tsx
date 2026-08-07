@@ -3,13 +3,14 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
-import { getIngredientsWithStatus, upsertRecipe, getRecipesForMenuItem } from '@/src/features/inventory/inventoryService';
+import { getIngredientsWithStatus, upsertRecipe, getRecipesForMenuItem, calculateRecipeCost, calculateProductProfitability } from '@/src/features/inventory/inventoryService';
 import { AddProductModal } from '@/src/features/pos/components/AddProductModal';
 import { EditProductModal } from '@/src/features/pos/components/EditProductModal';
 import { db } from '@/src/lib/db';
 import { Product } from '@/src/types/database.types';
 import { useAuth } from '@/src/context/AuthContext';
-import { Package, Plus, Trash2, Save, Upload, Download, Edit, ChevronLeft, ChevronRight, ArrowLeft, Search } from 'lucide-react';
+import { useConfigStore } from '@/src/store/useConfigStore';
+import { Package, Plus, Trash2, Save, Upload, Download, Edit, ChevronLeft, ChevronRight, ArrowLeft, Search, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 
 interface Ingredient {
   id?: string;
@@ -23,10 +24,42 @@ interface Ingredient {
 interface RecipeMapping {
   ingredient_id: string;
   quantity_required: number;
+  unit: string;
 }
+
+interface KitComponentMapping {
+  component_product_id: string;
+  quantity_required: number;
+}
+
+interface SubcontractingInfo {
+  vendor_name: string;
+  vendor_contact: string;
+  lead_time_days: number;
+  unit_cost: number;
+  notes?: string;
+}
+
+// Standard unit options for recipe mapping
+const STANDARD_UNITS = [
+  { value: 'kg', label: 'kg' },
+  { value: 'gram', label: 'gram' },
+  { value: 'liter', label: 'liter' },
+  { value: 'ml', label: 'ml' },
+  { value: 'pcs', label: 'pcs' },
+  { value: 'porsi', label: 'porsi' },
+  { value: 'sachet', label: 'sachet' },
+  { value: 'sendok', label: 'sendok' },
+  { value: 'sdm', label: 'sdm' },
+  { value: 'sdt', label: 'sdt' },
+  { value: 'cup', label: 'cup' },
+  { value: 'buah', label: 'buah' },
+];
 
 export default function RecipeMappingPage() {
   const { user } = useAuth();
+  const taxRate = useConfigStore((state) => state.taxRate);
+  const serviceChargeRate = useConfigStore((state) => state.serviceChargeRate);
   const [products, setProducts] = useState<Product[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>('');
@@ -48,9 +81,23 @@ export default function RecipeMappingPage() {
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'status'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [focusedIndex, setFocusedIndex] = useState<number>(-1);
+  const [profitability, setProfitability] = useState<any>(null);
+  const [kitComponents, setKitComponents] = useState<KitComponentMapping[]>([]);
+  const [subcontractingInfo, setSubcontractingInfo] = useState<SubcontractingInfo>({
+    vendor_name: '',
+    vendor_contact: '',
+    lead_time_days: 0,
+    unit_cost: 0,
+    notes: '',
+  });
 
   useEffect(() => {
     loadData();
+    
+    // Expose db to window for console access (for debugging/scripts)
+    if (typeof window !== 'undefined') {
+      (window as any).db = db;
+    }
   }, []);
 
   const loadData = async () => {
@@ -71,8 +118,78 @@ export default function RecipeMappingPage() {
   useEffect(() => {
     if (selectedProduct) {
       loadExistingRecipes();
+      loadKitComponents();
+      loadProfitability();
     }
   }, [selectedProduct]);
+
+  useEffect(() => {
+    // Load appropriate data when bomType changes
+    if (selectedProduct) {
+      if (bomType === 'manufacture') {
+        loadExistingRecipes();
+      } else if (bomType === 'kit') {
+        loadKitComponents();
+      } else if (bomType === 'subcontracting') {
+        loadSubcontractingInfo();
+      }
+    }
+  }, [bomType]);
+
+  // Real-time HPP calculation when recipe mappings change
+  useEffect(() => {
+    if (selectedProduct && bomType === 'manufacture' && recipeMappings.length > 0) {
+      loadProfitability();
+    }
+  }, [recipeMappings]);
+
+  // Real-time HPP calculation when kit components change
+  useEffect(() => {
+    if (selectedProduct && bomType === 'kit' && kitComponents.length > 0) {
+      loadProfitability();
+    }
+  }, [kitComponents]);
+
+  const loadSubcontractingInfo = async () => {
+    if (!selectedProduct) return;
+    
+    try {
+      const product = await db.products.get(selectedProduct);
+      if (product && (product as any).subcontracting_info) {
+        setSubcontractingInfo((product as any).subcontracting_info);
+      } else {
+        // Reset to default
+        setSubcontractingInfo({
+          vendor_name: '',
+          vendor_contact: '',
+          lead_time_days: 0,
+          unit_cost: 0,
+          notes: '',
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load subcontracting info:', error);
+    }
+  };
+
+  const loadProfitability = async () => {
+    if (!selectedProduct) return;
+    
+    try {
+      const product = products.find(p => p.id === selectedProduct);
+      if (!product) return;
+      
+      const profitData = await calculateProductProfitability(
+        selectedProduct,
+        product.price,
+        taxRate,
+        serviceChargeRate
+      );
+      setProfitability(profitData);
+    } catch (error) {
+      console.error('Failed to load profitability:', error);
+    }
+  };
 
   const loadExistingRecipes = async () => {
     try {
@@ -83,10 +200,30 @@ export default function RecipeMappingPage() {
       const mappings: RecipeMapping[] = recipes.map(recipe => ({
         ingredient_id: recipe.ingredient_id,
         quantity_required: recipe.quantity_required,
+        unit: recipe.unit || 'pcs', // Default to pcs if not specified
       }));
       setRecipeMappings(mappings);
     } catch (error) {
       console.error('Failed to load existing recipes:', error);
+    }
+  };
+
+  const loadKitComponents = async () => {
+    if (!selectedProduct) return;
+    
+    try {
+      const components = await db.kit_components
+        .where('menu_item_id')
+        .equals(selectedProduct)
+        .toArray();
+      
+      const mappings: KitComponentMapping[] = components.map(comp => ({
+        component_product_id: comp.component_product_id,
+        quantity_required: comp.quantity_required,
+      }));
+      setKitComponents(mappings);
+    } catch (error) {
+      console.error('Failed to load kit components:', error);
     }
   };
 
@@ -95,7 +232,10 @@ export default function RecipeMappingPage() {
     if (existing) {
       setRecipeMappings(recipeMappings.filter(m => m.ingredient_id !== ingredientId));
     } else {
-      setRecipeMappings([...recipeMappings, { ingredient_id: ingredientId, quantity_required: 0 }]);
+      // Get the ingredient's default unit
+      const ingredient = ingredients.find(i => i.id === ingredientId);
+      const defaultUnit = ingredient?.unit || 'pcs';
+      setRecipeMappings([...recipeMappings, { ingredient_id: ingredientId, quantity_required: 0, unit: defaultUnit }]);
     }
   };
 
@@ -103,6 +243,14 @@ export default function RecipeMappingPage() {
     setRecipeMappings(
       recipeMappings.map(m =>
         m.ingredient_id === ingredientId ? { ...m, quantity_required: quantity } : m
+      )
+    );
+  };
+
+  const handleUnitChange = (ingredientId: string, unit: string) => {
+    setRecipeMappings(
+      recipeMappings.map(m =>
+        m.ingredient_id === ingredientId ? { ...m, unit } : m
       )
     );
   };
@@ -159,32 +307,68 @@ export default function RecipeMappingPage() {
   };
 
   const handleSave = async () => {
-    if (!selectedProduct) {
-      alert('Pilih menu terlebih dahulu');
-      return;
-    }
+    if (!selectedProduct) return;
 
     setSaving(true);
     try {
-      // Delete existing recipes for this product
-      const existing = await db.recipes.where('menu_item_id').equals(selectedProduct).toArray();
-      await db.recipes.bulkDelete(existing.map(r => r.id!));
+      const product = products.find(p => p.id === selectedProduct);
+      if (!product) return;
 
-      // Add new recipes
-      for (const mapping of recipeMappings) {
-        // Skip empty rows
-        if (!mapping.ingredient_id) {
-          continue;
+      // Handle different BoM types
+      if (bomType === 'manufacture') {
+        // Delete existing recipes for this product
+        await db.recipes
+          .where('menu_item_id')
+          .equals(selectedProduct)
+          .delete();
+
+        // Add new recipes
+        for (const mapping of recipeMappings) {
+          if (mapping.ingredient_id && mapping.quantity_required > 0) {
+            await upsertRecipe({
+              menu_item_id: selectedProduct,
+              ingredient_id: mapping.ingredient_id,
+              quantity_required: mapping.quantity_required,
+              unit: mapping.unit,
+            });
+          }
         }
-        await upsertRecipe({
-          menu_item_id: selectedProduct,
-          ingredient_id: mapping.ingredient_id,
-          quantity_required: mapping.quantity_required,
+      } else if (bomType === 'kit') {
+        // Delete existing kit components
+        await db.kit_components
+          .where('menu_item_id')
+          .equals(selectedProduct)
+          .delete();
+
+        // Add new kit components
+        for (const component of kitComponents) {
+          if (component.component_product_id && component.quantity_required > 0) {
+            await db.kit_components.add({
+              id: crypto.randomUUID(),
+              menu_item_id: selectedProduct,
+              component_product_id: component.component_product_id,
+              quantity_required: component.quantity_required,
+              created_at: new Date().toISOString(),
+            });
+          }
+        }
+      } else if (bomType === 'subcontracting') {
+        // Update subcontracting info
+        await db.products.update(selectedProduct, {
+          subcontracting_info: subcontractingInfo,
         });
       }
 
-      alert('Resep berhasil disimpan');
+      // Update bom_type
+      await db.products.update(selectedProduct, { bom_type });
+
+      // Reload data
       await loadExistingRecipes();
+      await loadKitComponents();
+      await loadSubcontractingInfo();
+      await loadProfitability();
+
+      alert('Resep berhasil disimpan');
     } catch (error) {
       console.error('Failed to save recipes:', error);
       alert('Gagal menyimpan resep');
@@ -675,29 +859,115 @@ export default function RecipeMappingPage() {
                       </div>
                     </div>
 
+                    {/* Profitability Analysis */}
+                    {profitability && (
+                      <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-4 border border-blue-200">
+                        <div className="flex items-center gap-2 mb-3">
+                          <DollarSign className="h-5 w-5 text-blue-600" />
+                          <h3 className="font-semibold text-gray-900">Analisis Profitabilitas</h3>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Harga Jual</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              Rp {products.find(p => p.id === selectedProduct)?.price.toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">HPP (Biaya Bahan)</p>
+                            <p className="text-sm font-bold text-orange-600">
+                              Rp {profitability.hpp.toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Penjualan Bersih</p>
+                            <p className="text-sm font-bold text-gray-900">
+                              Rp {Math.round(profitability.netSales).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Pajak ({taxRate}%)</p>
+                            <p className="text-sm font-bold text-red-600">
+                              Rp {Math.round(profitability.taxAmount).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Service Charge ({serviceChargeRate}%)</p>
+                            <p className="text-sm font-bold text-purple-600">
+                              Rp {Math.round(profitability.serviceChargeAmount).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Laba Kotor</p>
+                            <p className="text-sm font-bold text-green-600">
+                              Rp {Math.round(profitability.grossProfit).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Laba Bersih</p>
+                            <p className={`text-sm font-bold ${profitability.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              Rp {Math.round(profitability.netProfit).toLocaleString('id-ID')}
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-lg p-3 shadow-sm">
+                            <p className="text-xs text-gray-600 mb-1">Margin Bersih</p>
+                            <p className={`text-sm font-bold ${profitability.netMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {profitability.netMargin.toFixed(1)}%
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Tab System */}
                     <div className="border-b mb-4">
                       <div className="flex gap-6">
-                        <button
-                          onClick={() => setActiveTab('components')}
-                          className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'components'
-                              ? 'border-blue-600 text-blue-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          Components
-                        </button>
-                        <button
-                          onClick={() => setActiveTab('operations')}
-                          className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
-                            activeTab === 'operations'
-                              ? 'border-blue-600 text-blue-600'
-                              : 'border-transparent text-gray-500 hover:text-gray-700'
-                          }`}
-                        >
-                          Operations
-                        </button>
+                        {bomType === 'manufacture' ? (
+                          <>
+                            <button
+                              onClick={() => setActiveTab('components')}
+                              className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === 'components'
+                                  ? 'border-blue-600 text-blue-600'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                              }`}
+                            >
+                              Components
+                            </button>
+                            <button
+                              onClick={() => setActiveTab('operations')}
+                              className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                                activeTab === 'operations'
+                                  ? 'border-blue-600 text-blue-600'
+                                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                              }`}
+                            >
+                              Operations
+                            </button>
+                          </>
+                        ) : bomType === 'kit' ? (
+                          <button
+                            onClick={() => setActiveTab('components')}
+                            className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                              activeTab === 'components'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Kit Components
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setActiveTab('components')}
+                            className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
+                              activeTab === 'components'
+                                ? 'border-blue-600 text-blue-600'
+                                : 'border-transparent text-gray-500 hover:text-gray-700'
+                            }`}
+                          >
+                            Vendor Info
+                          </button>
+                        )}
                         <button
                           onClick={() => setActiveTab('miscellaneous')}
                           className={`pb-2 px-1 text-sm font-medium border-b-2 transition-colors ${
@@ -714,99 +984,250 @@ export default function RecipeMappingPage() {
                     {/* Tab Content */}
                     {activeTab === 'components' && (
                       <div>
-                        <table className="w-full border-collapse">
-                          <thead>
-                            <tr className="border-b bg-gray-50">
-                              <th className="w-8 py-2 px-2"></th>
-                              <th className="text-left py-2 px-3 font-medium text-gray-700">Component</th>
-                              <th className="text-left py-2 px-3 font-medium text-gray-700">Quantity</th>
-                              <th className="text-left py-2 px-3 font-medium text-gray-700">Unit</th>
-                              <th className="w-10 py-2 px-3"></th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {recipeMappings.map((mapping, index) => {
-                              const ingredient = ingredients.find(i => i.id === mapping.ingredient_id);
-                              return (
-                                <tr key={index} className="border-b hover:bg-gray-50">
-                                  <td className="py-2 px-2 text-gray-400 cursor-move">
-                                    <span className="text-lg">⋮⋮</span>
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    <select
-                                      value={mapping.ingredient_id}
-                                      onChange={(e) => {
-                                        const newMappings = [...recipeMappings];
-                                        newMappings[index] = { ...newMappings[index], ingredient_id: e.target.value };
-                                        setRecipeMappings(newMappings);
-                                      }}
-                                      className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white"
-                                    >
-                                      <option value="">Select ingredient</option>
-                                      {ingredients.map((ing) => (
-                                        <option key={ing.id} value={ing.id}>
-                                          {ing.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    <input
-                                      type="number"
-                                      value={mapping.quantity_required}
-                                      onChange={(e) => {
-                                        const newMappings = [...recipeMappings];
-                                        newMappings[index] = { ...newMappings[index], quantity_required: parseFloat(e.target.value) || 0 };
-                                        setRecipeMappings(newMappings);
-                                      }}
-                                      min="0"
-                                      step="0.01"
-                                      className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white"
-                                      placeholder="0"
-                                    />
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    <span className="text-sm text-gray-600">
-                                      {ingredient?.unit || 'pcs'}
-                                    </span>
-                                  </td>
-                                  <td className="py-2 px-3 text-right">
-                                    <button
-                                      onClick={() => {
-                                        setRecipeMappings(recipeMappings.filter((_, i) => i !== index));
-                                      }}
-                                      className="text-gray-400 hover:text-red-500 transition-colors"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                        {bomType === 'manufacture' ? (
+                          // Manufacture mode - show ingredients table
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="border-b bg-gray-50">
+                                <th className="w-8 py-2 px-2"></th>
+                                <th className="text-left py-2 px-3 font-medium text-gray-700">Component</th>
+                                <th className="text-left py-2 px-3 font-medium text-gray-700">Quantity</th>
+                                <th className="text-left py-2 px-3 font-medium text-gray-700">Unit</th>
+                                <th className="w-10 py-2 px-3"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {recipeMappings.map((mapping, index) => {
+                                const ingredient = ingredients.find(i => i.id === mapping.ingredient_id);
+                                return (
+                                  <tr key={index} className="border-b hover:bg-gray-50">
+                                    <td className="py-2 px-2 text-gray-400 cursor-move">
+                                      <span className="text-lg">⋮⋮</span>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <select
+                                        value={mapping.ingredient_id}
+                                        onChange={(e) => {
+                                          const newMappings = [...recipeMappings];
+                                          newMappings[index] = { ...newMappings[index], ingredient_id: e.target.value };
+                                          setRecipeMappings(newMappings);
+                                        }}
+                                        className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white"
+                                      >
+                                        <option value="">Select ingredient</option>
+                                        {ingredients.map((ing) => (
+                                          <option key={ing.id} value={ing.id}>
+                                            {ing.name}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <input
+                                        type="number"
+                                        value={mapping.quantity_required}
+                                        onChange={(e) => {
+                                          const newMappings = [...recipeMappings];
+                                          newMappings[index] = { ...newMappings[index], quantity_required: parseFloat(e.target.value) || 0 };
+                                          setRecipeMappings(newMappings);
+                                        }}
+                                        min="0"
+                                        step="0.01"
+                                        className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white"
+                                        placeholder="0"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <select
+                                        value={mapping.unit}
+                                        onChange={(e) => {
+                                          const newMappings = [...recipeMappings];
+                                          newMappings[index] = { ...newMappings[index], unit: e.target.value };
+                                          setRecipeMappings(newMappings);
+                                        }}
+                                        className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white text-sm"
+                                      >
+                                        {STANDARD_UNITS.map((unit) => (
+                                          <option key={unit.value} value={unit.value}>
+                                            {unit.label}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2 px-3 text-right">
+                                      <button
+                                        onClick={() => {
+                                          setRecipeMappings(recipeMappings.filter((_, i) => i !== index));
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        ) : bomType === 'kit' ? (
+                          // Kit mode - show products table
+                          <table className="w-full border-collapse">
+                            <thead>
+                              <tr className="border-b bg-gray-50">
+                                <th className="w-8 py-2 px-2"></th>
+                                <th className="text-left py-2 px-3 font-medium text-gray-700">Product Component</th>
+                                <th className="text-left py-2 px-3 font-medium text-gray-700">Quantity</th>
+                                <th className="w-10 py-2 px-3"></th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {kitComponents.map((component, index) => {
+                                const product = products.find(p => p.id === component.component_product_id);
+                                return (
+                                  <tr key={index} className="border-b hover:bg-gray-50">
+                                    <td className="py-2 px-2 text-gray-400 cursor-move">
+                                      <span className="text-lg">⋮⋮</span>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <select
+                                        value={component.component_product_id}
+                                        onChange={(e) => {
+                                          const newComponents = [...kitComponents];
+                                          newComponents[index] = { ...newComponents[index], component_product_id: e.target.value };
+                                          setKitComponents(newComponents);
+                                        }}
+                                        className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white"
+                                      >
+                                        <option value="">Select product</option>
+                                        {products
+                                          .filter(p => p.id !== selectedProduct) // Exclude self
+                                          .map((prod) => (
+                                            <option key={prod.id} value={prod.id}>
+                                              {prod.name}
+                                            </option>
+                                          ))}
+                                      </select>
+                                    </td>
+                                    <td className="py-2 px-3">
+                                      <input
+                                        type="number"
+                                        value={component.quantity_required}
+                                        onChange={(e) => {
+                                          const newComponents = [...kitComponents];
+                                          newComponents[index] = { ...newComponents[index], quantity_required: parseFloat(e.target.value) || 0 };
+                                          setKitComponents(newComponents);
+                                        }}
+                                        min="0"
+                                        step="1"
+                                        className="w-full px-2 py-1 border-0 bg-transparent focus:outline-none focus:ring-0 focus:bg-white"
+                                        placeholder="0"
+                                      />
+                                    </td>
+                                    <td className="py-2 px-3 text-right">
+                                      <button
+                                        onClick={() => {
+                                          setKitComponents(kitComponents.filter((_, i) => i !== index));
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 transition-colors"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        ) : (
+                          // Subcontracting mode - show vendor info form
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Name</label>
+                                <input
+                                  type="text"
+                                  value={subcontractingInfo.vendor_name}
+                                  onChange={(e) => setSubcontractingInfo({ ...subcontractingInfo, vendor_name: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Enter vendor name"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Vendor Contact</label>
+                                <input
+                                  type="text"
+                                  value={subcontractingInfo.vendor_contact}
+                                  onChange={(e) => setSubcontractingInfo({ ...subcontractingInfo, vendor_contact: e.target.value })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="Phone or email"
+                                />
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Lead Time (Days)</label>
+                                <input
+                                  type="number"
+                                  value={subcontractingInfo.lead_time_days}
+                                  onChange={(e) => setSubcontractingInfo({ ...subcontractingInfo, lead_time_days: parseFloat(e.target.value) || 0 })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0"
+                                  min="0"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
+                                <input
+                                  type="number"
+                                  value={subcontractingInfo.unit_cost}
+                                  onChange={(e) => setSubcontractingInfo({ ...subcontractingInfo, unit_cost: parseFloat(e.target.value) || 0 })}
+                                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="0"
+                                  min="0"
+                                  step="0.01"
+                                />
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                              <textarea
+                                value={subcontractingInfo.notes}
+                                onChange={(e) => setSubcontractingInfo({ ...subcontractingInfo, notes: e.target.value })}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                placeholder="Additional notes about this vendor or product"
+                                rows={3}
+                              />
+                            </div>
+                          </div>
+                        )}
 
-                        {/* Table Footer */}
-                        <div className="mt-4 flex items-center gap-4">
-                          <button
-                            onClick={() => {
-                              setRecipeMappings([...recipeMappings, { ingredient_id: '', quantity_required: 0 }]);
-                            }}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                          >
-                            Add a line
-                          </button>
-                          <button 
-                            onClick={() => setCatalogOpen(true)}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                          >
-                            Catalog
-                          </button>
-                        </div>
+                        {/* Table Footer - only show for manufacture and kit modes */}
+                        {bomType !== 'subcontracting' && (
+                          <div className="mt-4 flex items-center gap-4">
+                            <button
+                              onClick={() => {
+                                if (bomType === 'manufacture') {
+                                  setRecipeMappings([...recipeMappings, { ingredient_id: '', quantity_required: 0, unit: 'pcs' }]);
+                                } else if (bomType === 'kit') {
+                                  setKitComponents([...kitComponents, { component_product_id: '', quantity_required: 0 }]);
+                                }
+                              }}
+                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            >
+                              Add a line
+                            </button>
+                            <button 
+                              onClick={() => setCatalogOpen(true)}
+                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            >
+                              Catalog
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
 
-                    {activeTab === 'operations' && (
+                    {activeTab === 'operations' && bomType === 'manufacture' && (
                       <div className="py-8 text-center text-gray-500 text-sm">
                         Operations tab - Coming soon
                       </div>
@@ -986,7 +1407,9 @@ export default function RecipeMappingPage() {
                           const newMappings = [...recipeMappings];
                           selectedCatalogItems.forEach(ingredientId => {
                             if (!recipeMappings.find(m => m.ingredient_id === ingredientId)) {
-                              newMappings.push({ ingredient_id: ingredientId, quantity_required: 0 });
+                              const ingredient = ingredients.find(i => i.id === ingredientId);
+                              const defaultUnit = ingredient?.unit || 'pcs';
+                              newMappings.push({ ingredient_id: ingredientId, quantity_required: 0, unit: defaultUnit });
                             }
                           });
                           setRecipeMappings(newMappings);

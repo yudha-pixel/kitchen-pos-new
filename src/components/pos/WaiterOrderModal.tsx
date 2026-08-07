@@ -17,9 +17,10 @@ interface WaiterOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   tableNumber: string;
+  isSelfOrder?: boolean; // If true, hide certain UI elements for self-order
 }
 
-export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: WaiterOrderModalProps) {
+export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfOrder = false }: WaiterOrderModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
@@ -284,6 +285,24 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
     }
 
     try {
+      // Restore stock for items in cart (since stock was reduced when items were added)
+      try {
+        const { restoreStockForOrder } = await import('@/src/features/inventory/inventoryService');
+        const orderItemsForStock = cartItems.map(item => ({
+          product_id: item.productId,
+          quantity: item.quantity,
+        }));
+        const stockResult = await restoreStockForOrder(orderItemsForStock);
+        if (stockResult.success) {
+          console.log(`✅ Stock restored: ${stockResult.message}`);
+        } else {
+          console.warn(`⚠️ Stock restoration warning: ${stockResult.message}`);
+        }
+      } catch (error) {
+        console.error('❌ Failed to restore stock:', error);
+        // Don't block cancellation if stock restoration fails
+      }
+
       // Clear cart
       clearCart();
       setCancelConfirmOpen(false);
@@ -462,45 +481,47 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
           </button>
         </div>
 
-        {/* Order Category Selection */}
-        <div className="p-4 border-b">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setOrderCategory('dine-in')}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
-                orderCategory === 'dine-in'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Dine-in
-            </button>
-            <button
-              onClick={() => setOrderCategory('takeaway')}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
-                orderCategory === 'takeaway'
-                  ? 'bg-orange-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Takeaway
-            </button>
-            <button
-              onClick={() => setOrderCategory('delivery')}
-              className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
-                orderCategory === 'delivery'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              Delivery
-            </button>
+        {/* Order Category Selection - Hide for self-order */}
+        {!isSelfOrder && (
+          <div className="p-4 border-b">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setOrderCategory('dine-in')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                  orderCategory === 'dine-in'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Dine-in
+              </button>
+              <button
+                onClick={() => setOrderCategory('takeaway')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                  orderCategory === 'takeaway'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Takeaway
+              </button>
+              <button
+                onClick={() => setOrderCategory('delivery')}
+                className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
+                  orderCategory === 'delivery'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                Delivery
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Conditional Input Fields */}
         <div className="p-4 border-b">
-          {orderCategory === 'dine-in' && (
+          {isSelfOrder || orderCategory === 'dine-in' ? (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Meja</label>
               <input
@@ -511,8 +532,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
               />
               <p className="text-xs text-gray-500 mt-1">Nomor meja terkunci otomatis untuk Dine-in</p>
             </div>
-          )}
-          {orderCategory === 'takeaway' && (
+          ) : null}
+          {!isSelfOrder && orderCategory === 'takeaway' && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pelanggan</label>
               <input
@@ -524,7 +545,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
               />
             </div>
           )}
-          {orderCategory === 'delivery' && (
+          {!isSelfOrder && orderCategory === 'delivery' && (
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Pengiriman</label>
@@ -705,40 +726,51 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
                 <span className="font-medium">Total</span>
                 <span className="font-bold text-blue-600">Rp {cartTotal.toLocaleString()}</span>
               </div>
-              <div className="grid grid-cols-4 gap-2">
-                <button
-                  onClick={handleSendOrder}
-                  disabled={syncInProgress || cartItems.length === 0}
-                  className="col-span-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Send className="h-5 w-5" />
-                  Kirim
-                </button>
+              {isSelfOrder ? (
                 <button
                   onClick={() => setPaymentModalOpen(true)}
                   disabled={syncInProgress || cartItems.length === 0}
-                  className="col-span-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <Printer className="h-5 w-5" />
                   Bayar
                 </button>
-                <button
-                  onClick={handleSplitBill}
-                  disabled={syncInProgress || cartItems.length === 0}
-                  className="col-span-1 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Scissors className="h-5 w-5" />
-                  Split
-                </button>
-                <button
-                  onClick={() => setCancelConfirmOpen(true)}
-                  disabled={syncInProgress || cartItems.length === 0}
-                  className="col-span-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Trash2 className="h-5 w-5" />
-                  Batal
-                </button>
-              </div>
+              ) : (
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    onClick={handleSendOrder}
+                    disabled={syncInProgress || cartItems.length === 0}
+                    className="col-span-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Send className="h-5 w-5" />
+                    Kirim
+                  </button>
+                  <button
+                    onClick={() => setPaymentModalOpen(true)}
+                    disabled={syncInProgress || cartItems.length === 0}
+                    className="col-span-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Printer className="h-5 w-5" />
+                    Bayar
+                  </button>
+                  <button
+                    onClick={handleSplitBill}
+                    disabled={syncInProgress || cartItems.length === 0}
+                    className="col-span-1 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Scissors className="h-5 w-5" />
+                    Split
+                  </button>
+                  <button
+                    onClick={() => setCancelConfirmOpen(true)}
+                    disabled={syncInProgress || cartItems.length === 0}
+                    className="col-span-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                    Batal
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

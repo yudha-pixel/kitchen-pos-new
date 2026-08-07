@@ -8,15 +8,22 @@ interface ReceiptItem {
   quantity: number;
   price: number;
   modifiers: string[];
+  isFree?: boolean;
 }
 
 interface ReceiptProps {
   orderId: string;
   tableNumber: string;
   items: ReceiptItem[];
+  freeItems?: ReceiptItem[];
   subtotal: number;
   tax: number;
   discount: number;
+  discountType?: 'nominal' | 'percentage';
+  globalDiscount?: number;
+  globalDiscountType?: 'nominal' | 'percentage';
+  globalDiscountAuthorizedBy?: string;
+  globalDiscountReason?: string;
   roundingAmount: number;
   total: number;
   paymentMethod: string;
@@ -32,9 +39,15 @@ export const Receipt = ({
   orderId,
   tableNumber,
   items,
+  freeItems = [],
   subtotal,
   tax,
   discount,
+  discountType = 'nominal',
+  globalDiscount = 0,
+  globalDiscountType = 'nominal',
+  globalDiscountAuthorizedBy,
+  globalDiscountReason,
   roundingAmount,
   total,
   paymentMethod,
@@ -228,6 +241,37 @@ export const Receipt = ({
               )}
             </div>
           ))}
+          {freeItems.length > 0 && (
+            <>
+              {/* ASCII Separator */}
+              <div className="text-center text-gray-800 mb-2">
+                {'-'.repeat(32)}
+              </div>
+              <div className="text-xs text-gray-700 mb-2 font-bold">ITEM GRATIS:</div>
+              {freeItems.map((item, index) => (
+                <div key={`free-${index}`} className="mb-3 py-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="font-bold text-gray-900 text-left flex-1">
+                      {item.name}
+                    </span>
+                    <span className="font-bold text-gray-900 text-right">
+                      GRATIS
+                </span>
+                  </div>
+                  <div className="flex justify-between text-xs text-gray-700">
+                    <span className="text-left">{item.quantity} x {item.price.toLocaleString()}</span>
+                  </div>
+                  {item.modifiers.length > 0 && (
+                    <div className="text-xs italic mt-1 ml-4" style={{ color: '#333333', wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+                      {item.modifiers.map((mod, modIndex) => (
+                        <span key={modIndex} className="block">+ {mod}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </>
+          )}
         </div>
 
         {/* ASCII Separator */}
@@ -237,17 +281,16 @@ export const Receipt = ({
 
         {/* Summary */}
         <div className="space-y-1 text-sm mb-4">
-          <div className="flex justify-between text-gray-700">
-            <span className="text-left">Subtotal</span>
-            <span className="text-right">Rp {subtotal.toLocaleString()}</span>
-          </div>
-          <div className="flex justify-between text-gray-700">
-            <span className="text-left">Pajak (10%)</span>
-            <span className="text-right">Rp {tax.toLocaleString()}</span>
-          </div>
+          {/* Subtotal and tax hidden from customer view - tax and service are included in final price */}
+          {globalDiscount > 0 && (
+            <div className="flex justify-between text-gray-700">
+              <span className="text-left">Global Diskon ({globalDiscountType === 'percentage' ? globalDiscount + '%' : 'Rp ' + globalDiscount.toLocaleString()})</span>
+              <span className="text-right">-Rp {globalDiscount.toLocaleString()}</span>
+            </div>
+          )}
           {discount > 0 && (
             <div className="flex justify-between text-gray-700">
-              <span className="text-left">Diskon</span>
+              <span className="text-left">Diskon ({discountType === 'percentage' ? discount + '%' : 'Rp ' + discount.toLocaleString()})</span>
               <span className="text-right">-Rp {discount.toLocaleString()}</span>
             </div>
           )}

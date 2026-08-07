@@ -66,6 +66,7 @@ export interface Product {
   stock_quantity: number;
   image_url: string | null;
   modifier_groups?: ModifierGroup[];
+  bom_type?: 'manufacture' | 'kit' | 'subcontracting'; // Bill of Materials type
 }
 
 export interface ProductInsert {
@@ -86,6 +87,7 @@ export interface ProductUpdate {
   price?: number;
   stock_quantity?: number;
   image_url?: string | null;
+  modifier_groups?: ModifierGroup[];
 }
 
 // ============================================================================
