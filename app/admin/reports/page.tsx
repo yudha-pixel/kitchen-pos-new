@@ -158,7 +158,7 @@ export default function ReportsPage() {
                 <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Admin dan Management.</p>
                 <button
                   onClick={() => router.push('/inventory')}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                 >
                   Kembali ke Inventori
                 </button>
@@ -296,7 +296,7 @@ export default function ReportsPage() {
                     )}
                     <button
                       onClick={exportToCSV}
-                      className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                      className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                     >
                       <Download className="h-3 w-3" />
                       Export

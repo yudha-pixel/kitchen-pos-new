@@ -11,6 +11,7 @@ import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/M
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
+import { useTables, TableStatus } from '@/src/hooks/useTables';
 import { useToast } from '@/src/components/ui/Toast';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { Button } from '@/src/components/ui/Button';
@@ -18,10 +19,11 @@ import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2, Loader2 } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2, Loader2, CreditCard } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
-import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames } from '@/src/features/inventory/inventoryService';
+import { PaymentModal } from '@/src/components/pos/PaymentModal';
+import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
 
 export default function POSPage() {
@@ -30,8 +32,10 @@ export default function POSPage() {
   const { toast } = useToast();
   const { selectedOutletId } = useOutletStore();
   const { settings } = useTheme();
-  const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState<'name' | 'price'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const [showTableOrders, setShowTableOrders] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
@@ -51,6 +55,8 @@ export default function POSPage() {
   const [courierType, setCourierType] = useState<'internal' | 'external'>('internal');
   const [productStocks, setProductStocks] = useState<Map<string, number | null>>(new Map());
   const [productListModalOpen, setProductListModalOpen] = useState(false);
+  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any>(null);
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -72,6 +78,7 @@ export default function POSPage() {
   // Fetch data from the local API with offline support
   const { products, loading: productsLoading, error: productsError, refetch: refetchProducts, isFromCache: productsFromCache } = useProducts();
   const { categories } = useCategories();
+  const { tables, loading: tablesLoading, updateTableStatus } = useTables();
 
   // Extract unique categories from products for ProductListModal
   const productCategories = useMemo(() => {
@@ -165,26 +172,24 @@ export default function POSPage() {
   useEffect(() => {
     const handleOrderCompleted = () => {
       console.log('📡 Received orderCompleted event, refreshing transaction history...');
-      if (showTransactionHistory) {
-        const fetchTransactionHistory = async () => {
-          try {
-            const { db } = await import('@/src/lib/db');
-            const orders = await db.orders
-              .where('status')
-              .anyOf(['completed', 'pending'])
-              .reverse()
-              .limit(50)
-              .toArray();
+      const fetchTransactionHistory = async () => {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const orders = await db.orders
+            .where('status')
+            .anyOf(['completed', 'pending', 'done', 'paid', 'cancelled'])
+            .reverse()
+            .toArray();
 
-            const ordersWithItems = await Promise.all(
-              orders.map(async (order) => {
-                if (!order.id) {
-                  return {
-                    ...order,
-                    items: [],
-                  };
-                }
-                const items = await db.order_items
+          const ordersWithItems = await Promise.all(
+            orders.map(async (order) => {
+              if (!order.id) {
+                return {
+                  ...order,
+                  items: [],
+                };
+              }
+              const items = await db.order_items
                   .where('order_id')
                   .equals(order.id)
                   .toArray();
@@ -201,21 +206,61 @@ export default function POSPage() {
           }
         };
         fetchTransactionHistory();
-      }
+    };
+
+    // Also listen for orderCreated events (for "Kirim ke Dapur" orders)
+    const handleOrderCreated = () => {
+      console.log('📡 Received orderCreated event, refreshing transaction history...');
+      const fetchTransactionHistory = async () => {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const orders = await db.orders
+            .where('status')
+            .anyOf(['completed', 'pending', 'done', 'paid', 'cancelled'])
+            .reverse()
+            .toArray();
+
+          const ordersWithItems = await Promise.all(
+            orders.map(async (order) => {
+              if (!order.id) {
+                return {
+                  ...order,
+                  items: [],
+                };
+              }
+              const items = await db.order_items
+                  .where('order_id')
+                  .equals(order.id)
+                  .toArray();
+                return {
+                  ...order,
+                  items,
+                };
+              })
+            );
+
+            setTransactionHistory(ordersWithItems);
+          } catch (error) {
+            console.error('Failed to refresh transaction history:', error);
+          }
+        };
+        fetchTransactionHistory();
     };
 
     if (typeof window !== 'undefined') {
       window.addEventListener('orderCompleted', handleOrderCompleted);
-      console.log('🔍 [POS Page] Listening for orderCompleted events');
+      window.addEventListener('orderCreated', handleOrderCreated);
+      console.log('🔍 [POS Page] Listening for orderCompleted and orderCreated events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderCompleted', handleOrderCompleted);
-        console.log('🔍 [POS Page] Stopped listening for orderCompleted events');
+        window.removeEventListener('orderCreated', handleOrderCreated);
+        console.log('🔍 [POS Page] Stopped listening for order events');
       }
     };
-  }, [showTransactionHistory]);
+  }, []);
 
   // Handler for force re-seeding inventory data
   const handleForceReseed = async () => {
@@ -283,7 +328,7 @@ export default function POSPage() {
     if (syncError) toast('error', syncError);
   }, [syncError, toast]);
 
-  // Listen for order completion events from KDS
+  // Listen for order completion events from KDS and orderCreated events
   useEffect(() => {
     const handleOrderReady = (event: CustomEvent) => {
       console.log('📡 Received orderReady event:', event.detail);
@@ -294,9 +339,68 @@ export default function POSPage() {
             const { db } = await import('@/src/lib/db');
             const orders = await db.orders
               .where('status')
-              .equals('done')
+              .anyOf(['pending', 'done'])
               .reverse()
-              .limit(50)
+              .toArray();
+
+            // Fetch items for each order from order_items table
+            const ordersWithItems = await Promise.all(
+              orders.map(async (order) => {
+                if (!order.id) {
+                  return {
+                    ...order,
+                    items: [],
+                  };
+                }
+                const items = await db.order_items
+                  .where('order_id')
+                  .equals(order.id)
+                  .toArray();
+
+                // Fetch product details for each item
+                const itemsWithProducts = await Promise.all(
+                  items.map(async (item) => {
+                    if (!item.product_id) {
+                      return {
+                        ...item,
+                        product: null,
+                      };
+                    }
+                    const product = await db.products.get(item.product_id);
+                    return {
+                      ...item,
+                      product: product ? { name: product.name } : null,
+                    };
+                  })
+                );
+
+                return {
+                  ...order,
+                  items: itemsWithProducts,
+                };
+              })
+            );
+
+            setTableOrders(ordersWithItems);
+          } catch (error) {
+            console.error('Failed to fetch table orders:', error);
+          }
+        };
+        fetchTableOrders();
+      }
+    };
+
+    const handleOrderCreated = () => {
+      console.log('📡 Received orderCreated event, refreshing table orders...');
+      if (showTableOrders) {
+        // Refresh table orders to show new pending orders
+        const fetchTableOrders = async () => {
+          try {
+            const { db } = await import('@/src/lib/db');
+            const orders = await db.orders
+              .where('status')
+              .anyOf(['pending', 'done'])
+              .reverse()
               .toArray();
 
             // Fetch items for each order from order_items table
@@ -348,18 +452,20 @@ export default function POSPage() {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('orderReady', handleOrderReady as EventListener);
-      console.log('🔍 [POS Page] Listening for orderReady events');
+      window.addEventListener('orderCreated', handleOrderCreated);
+      console.log('🔍 [POS Page] Listening for orderReady and orderCreated events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderReady', handleOrderReady as EventListener);
-        console.log('🔍 [POS Page] Stopped listening for orderReady events');
+        window.removeEventListener('orderCreated', handleOrderCreated);
+        console.log('🔍 [POS Page] Stopped listening for order events');
       }
     };
   }, [showTableOrders]);
 
-  // Fetch table orders with status 'done' when tab is opened
+  // Fetch table orders with status 'pending' or 'done' when tab is opened
   useEffect(() => {
     if (showTableOrders) {
       const fetchTableOrders = async () => {
@@ -367,9 +473,8 @@ export default function POSPage() {
           const { db } = await import('@/src/lib/db');
           const orders = await db.orders
             .where('status')
-            .equals('done')
+            .anyOf(['pending', 'done'])
             .reverse()
-            .limit(50)
             .toArray();
 
           // Fetch items for each order from order_items table
@@ -429,9 +534,8 @@ export default function POSPage() {
           const { db } = await import('@/src/lib/db');
           const orders = await db.orders
             .where('status')
-            .anyOf(['completed', 'pending'])
+            .anyOf(['completed', 'pending', 'done', 'paid', 'cancelled'])
             .reverse()
-            .limit(50)
             .toArray();
 
           // Fetch items for each order from order_items table
@@ -586,7 +690,14 @@ export default function POSPage() {
     }));
   };
 
-  const handleAddToCart = (productId: string, name: string, price: number, modifiers: ModifierOption[]) => {
+  const handleAddToCart = async (productId: string, name: string, price: number, modifiers: ModifierOption[]) => {
+    // Check stock availability before adding to cart
+    const stockCheck = await canOrderProduct(productId, 1);
+    if (!stockCheck.canOrder) {
+      toast('error', `Stok tidak mencukupi untuk ${name}. ${stockCheck.message}`);
+      return;
+    }
+
     useCartStore.getState().addToCart({
       productId,
       name,
@@ -633,29 +744,225 @@ export default function POSPage() {
     }
   };
 
-  const handleClearCache = async () => {
+  const handleDirectPayment = (order: any) => {
+    // Open payment modal directly with order data
+    setSelectedOrderForPayment(order);
+    setPaymentModalOpen(true);
+  };
+
+  const handleSplitBillComplete = async (selectedItems: any[], paymentMethod: string) => {
     try {
+      const order = selectedOrderForPayment;
+      if (!order) return;
+
+      // Calculate total for selected items
+      const calculatedTotal = selectedItems.reduce((sum: number, item: any) => {
+        const price = Number(item.price_at_time) || 0;
+        return sum + (price * item.quantity);
+      }, 0);
+
+      // Convert payment method to database format
+      const paymentMethodMap: Record<string, 'cash' | 'card' | 'qr' | 'transfer'> = {
+        'CASH': 'cash',
+        'QRIS': 'qr',
+        'DEBIT': 'card',
+      };
+      const dbPaymentMethod = paymentMethodMap[paymentMethod] || 'cash';
+
+      // Update order status to 'completed' with payment details
       const { db } = await import('@/src/lib/db');
-      await db.products.clear();
-      await db.categories.clear();
-      await db.modifiers.clear();
-      window.location.reload();
+      await db.orders.where('id').equals(order.id).modify({
+        status: 'completed',
+        payment_method: dbPaymentMethod,
+        total_amount: calculatedTotal,
+        sync_status: 'pending',
+      });
+
+      console.log(`✅ Order ${order.id} split payment processed with ${paymentMethod}`);
+
+      // Dispatch event to notify other components
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orderCompleted', { detail: { orderId: order.id } }));
+      }
+
+      toast('success', `Pembayaran split Rp${calculatedTotal.toLocaleString('id-ID')} berhasil diproses`);
+
+      // Close payment modal
+      setPaymentModalOpen(false);
+      setSelectedOrderForPayment(null);
+
+      // Refresh transaction history
+      const fetchTransactionHistory = async () => {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const orders = await db.orders
+            .where('status')
+            .anyOf(['completed', 'pending', 'done', 'paid', 'cancelled'])
+            .reverse()
+            .toArray();
+
+          const ordersWithItems = await Promise.all(
+            orders.map(async (order) => {
+              if (!order.id) {
+                return { ...order, items: [] };
+              }
+              const items = await db.order_items
+                .where('order_id')
+                .equals(order.id)
+                .toArray();
+              return { ...order, items };
+            })
+          );
+
+          setTransactionHistory(ordersWithItems);
+        } catch (error) {
+          console.error('Failed to refresh transaction history:', error);
+        }
+      };
+      fetchTransactionHistory();
+
     } catch (error) {
-      console.error('Failed to clear cache:', error);
+      console.error('Failed to process split payment:', error);
+      toast('error', 'Gagal memproses pembayaran split');
     }
   };
 
-  // Filter products based on category and search
-  const filteredProducts = products.filter((product) => {
-    const matchesCategory = selectedCategory === 'Semua' || product.category_id === selectedCategory;
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const handlePaymentComplete = async (paymentMethod: string, amount?: number) => {
+    try {
+      const order = selectedOrderForPayment;
+      if (!order) return;
 
-  const selectedCategoryName =
-    selectedCategory === 'Semua'
-      ? 'Semua'
-      : categories.find((c) => c.id === selectedCategory)?.name ?? 'Kategori';
+      // Calculate total from order items
+      const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+        const price = Number(item.price_at_time) || 0;
+        return sum + (price * item.quantity);
+      }, 0) || 0;
+
+      // Convert payment method to database format
+      const paymentMethodMap: Record<string, 'cash' | 'card' | 'qr' | 'transfer'> = {
+        'CASH': 'cash',
+        'QRIS': 'qr',
+        'DEBIT': 'card',
+      };
+      const dbPaymentMethod = paymentMethodMap[paymentMethod] || 'cash';
+
+      // Update order status to 'completed' with payment details
+      const { db } = await import('@/src/lib/db');
+      await db.orders.where('id').equals(order.id).modify({
+        status: 'completed',
+        payment_method: dbPaymentMethod,
+        total_amount: calculatedTotal,
+        sync_status: 'pending',
+      });
+
+      console.log(`✅ Order ${order.id} marked as paid with ${paymentMethod}${amount ? ` (amount: Rp${amount.toLocaleString('id-ID')})` : ''}`);
+
+      // Dispatch event to notify other components
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orderCompleted', { detail: { orderId: order.id } }));
+      }
+
+      const change = amount ? amount - calculatedTotal : 0;
+      let message = `Pembayaran Rp${calculatedTotal.toLocaleString('id-ID')} berhasil diproses`;
+      if (paymentMethod === 'CASH' && change > 0) {
+        message += `. Kembalian: Rp${change.toLocaleString('id-ID')}`;
+      }
+      toast('success', message);
+
+      // Close payment modal
+      setPaymentModalOpen(false);
+      setSelectedOrderForPayment(null);
+
+      // Refresh transaction history
+      const fetchTransactionHistory = async () => {
+        try {
+          const { db } = await import('@/src/lib/db');
+          const orders = await db.orders
+            .where('status')
+            .anyOf(['completed', 'pending', 'done', 'paid', 'cancelled'])
+            .reverse()
+            .toArray();
+
+          const ordersWithItems = await Promise.all(
+            orders.map(async (order) => {
+              if (!order.id) {
+                return { ...order, items: [] };
+              }
+              const items = await db.order_items
+                .where('order_id')
+                .equals(order.id)
+                .toArray();
+              return { ...order, items };
+            })
+          );
+
+          setTransactionHistory(ordersWithItems);
+        } catch (error) {
+          console.error('Failed to refresh transaction history:', error);
+        }
+      };
+      fetchTransactionHistory();
+
+    } catch (error) {
+      console.error('Failed to process payment:', error);
+      toast('error', 'Gagal memproses pembayaran');
+    }
+  };
+
+  const handleClearCache = async () => {
+    try {
+      console.log('🔄 Starting cache clear and re-seed...');
+      const { db } = await import('@/src/lib/db');
+      
+      console.log('🗑️ Clearing database tables...');
+      await db.products.clear();
+      await db.categories.clear();
+      await db.modifiers.clear();
+      await db.ingredients.clear();
+      await db.recipes.clear();
+      await db.shifts.clear();
+      await db.employees.clear();
+      await db.attendance.clear();
+      console.log('✅ Database cleared');
+      
+      // Re-seed with new category data (force re-seeding)
+      console.log('🌱 Starting re-seeding with force=true...');
+      const { seedDummyData } = await import('@/src/lib/seedData');
+      await seedDummyData(true);
+      console.log('✅ Re-seeding completed');
+      
+      console.log('🔄 Reloading page...');
+      window.location.reload();
+    } catch (error) {
+      console.error('❌ Failed to clear cache:', error);
+      alert('Gagal membersihkan cache. Cek console untuk detail error.');
+    }
+  };
+
+  // Filter and sort products
+  const filteredProducts = useMemo(() => {
+    let result = products.filter((product) => {
+      const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+
+    // Sort products
+    result.sort((a, b) => {
+      if (sortBy === 'name') {
+        return sortOrder === 'asc'
+          ? a.name.localeCompare(b.name)
+          : b.name.localeCompare(a.name);
+      } else if (sortBy === 'price') {
+        return sortOrder === 'asc'
+          ? a.price - b.price
+          : b.price - a.price;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [products, selectedCategory, searchQuery, sortBy, sortOrder]);
 
   return (
     <div 
@@ -699,7 +1006,7 @@ export default function POSPage() {
             onClick={triggerManualSync}
             disabled={syncInProgress || !isOnline}
             aria-label="Sinkronkan data"
-            className="flex min-h-9 items-center gap-1 rounded-lg bg-surface px-3 text-ink-secondary transition-colors hover:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-50"
+            className="flex min-h-9 items-center gap-1 rounded-lg bg-surface px-3 text-ink-secondary transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${syncInProgress ? 'animate-spin' : ''}`} />
             <span>Sync</span>
@@ -707,28 +1014,22 @@ export default function POSPage() {
         </div>
       </div>
 
-      {/* Dev Tools (development only) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="flex items-center gap-4 border-b border-line bg-surface-alt px-6 py-1.5">
-          <span className="text-xs font-medium text-ink-muted">Dev Tools:</span>
-          <button
-            onClick={handleClearCache}
-            className="flex items-center gap-1 rounded bg-warning-soft px-2 py-1 text-xs font-medium text-warning hover:opacity-80"
-          >
-            <RefreshCw className="h-3 w-3" />
-            Clear Cache & Reload
-          </button>
-        </div>
-      )}
+      {/* Dev Tools */}
+      <div className="flex items-center gap-4 border-b border-line bg-surface-alt px-6 py-1.5">
+        <span className="text-xs font-medium text-ink-muted">Tools:</span>
+        <button
+          onClick={handleClearCache}
+          className="flex items-center gap-1 rounded bg-warning-soft px-2 py-1 text-xs font-medium text-warning hover:opacity-80"
+        >
+          <RefreshCw className="h-3 w-3" />
+          Clear Cache & Reload
+        </button>
+      </div>
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar - Categories */}
-        <Sidebar
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategorySelect={setSelectedCategory}
-        />
+        {/* Sidebar */}
+        <Sidebar />
 
         {/* Product Grid */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
@@ -806,15 +1107,21 @@ export default function POSPage() {
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge tone="success" className="bg-green-100 text-green-800 border-green-300 animate-pulse">
-                            ✓ Siap
+                          <Badge tone={
+                            order.status === 'done' ? 'success' :
+                            order.status === 'pending' ? 'warning' :
+                            'neutral'
+                          }>
+                            {order.status === 'done' ? 'Siap Bayar' :
+                             order.status === 'pending' ? 'Belum Bayar' :
+                             order.status || '-'}
                           </Badge>
                           <button
                             onClick={() => {
                               setOrderToDelete(order);
                               setDeleteOrderConfirmOpen(true);
                             }}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="p-2 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg transition-colors"
                             title="Hapus pesanan"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -902,8 +1209,14 @@ export default function POSPage() {
                             {new Date(order.created_at).toLocaleString('id-ID')}
                           </p>
                         </div>
-                        <Badge tone={order.status === 'completed' ? 'success' : 'warning'}>
-                          {order.status === 'completed' ? 'Paid' : 'Pending'}
+                        <Badge tone={
+                          order.status === 'completed' || order.status === 'paid' ? 'success' :
+                          order.status === 'cancelled' ? 'danger' :
+                          'warning'
+                        }>
+                          {order.status === 'completed' || order.status === 'paid' ? 'Lunas' :
+                           order.status === 'cancelled' ? 'Batal' :
+                           'Belum Bayar'}
                         </Badge>
                       </div>
 
@@ -951,6 +1264,16 @@ export default function POSPage() {
                       )}
 
                       <div className="mt-3 flex gap-2">
+                        {/* Bayar button - only show for pending orders */}
+                        {(order.status === 'pending' || order.status === 'done') && (
+                          <button
+                            onClick={() => handleDirectPayment(order)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            Bayar
+                          </button>
+                        )}
                         <button
                           onClick={() => {
                             setOpeningReceiptForOrderId(order.id);
@@ -1004,10 +1327,65 @@ export default function POSPage() {
           ) : (
             /* Products View */
             <>
-              <div className="mb-6 flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-2xl font-bold text-ink">{selectedCategoryName}</h2>
-                  <p className="text-sm text-ink-muted">Menampilkan {filteredProducts.length} produk</p>
+              {/* Search and Sort Controls */}
+              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Cari produk..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as 'name' | 'price')}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  >
+                    <option value="name">Nama</option>
+                    <option value="price">Harga</option>
+                  </select>
+                  <button
+                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    title={sortOrder === 'asc' ? 'Urutkan Naik' : 'Urutkan Turun'}
+                  >
+                    {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Category Chips */}
+              <div className="mb-6 overflow-x-auto pb-2">
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setSelectedCategory('all')}
+                    className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                      selectedCategory === 'all'
+                        ? 'bg-indigo-600 text-white active:bg-indigo-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
+                    }`}
+                  >
+                    Semua
+                  </button>
+                  {categories.map((category) => (
+                    <button
+                      key={category.id}
+                      onClick={() => setSelectedCategory(category.id)}
+                      className={`whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                        selectedCategory === category.id
+                          ? 'bg-indigo-600 text-white active:bg-indigo-700'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
+                      }`}
+                    >
+                      {category.name}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -1018,8 +1396,8 @@ export default function POSPage() {
                     onClick={() => setOrderCategory('dine-in')}
                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
                       orderCategory === 'dine-in'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-indigo-600 text-white active:bg-indigo-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
                     }`}
                   >
                     Dine-in
@@ -1028,8 +1406,8 @@ export default function POSPage() {
                     onClick={() => setOrderCategory('takeaway')}
                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
                       orderCategory === 'takeaway'
-                        ? 'bg-orange-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-orange-600 text-white active:bg-orange-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
                     }`}
                   >
                     Takeaway
@@ -1038,8 +1416,8 @@ export default function POSPage() {
                     onClick={() => setOrderCategory('delivery')}
                     className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
                       orderCategory === 'delivery'
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-emerald-600 text-white active:bg-emerald-700'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
                     }`}
                   >
                     Delivery
@@ -1047,68 +1425,54 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {/* Conditional Input Fields */}
-              <div className="mb-6">
-                {orderCategory === 'dine-in' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Meja</label>
-                    <input
-                      type="text"
-                      value={tableNumber}
-                      onChange={(e) => setTableNumber(e.target.value)}
-                      placeholder="Masukkan nomor meja"
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
-                {orderCategory === 'takeaway' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pelanggan</label>
-                    <input
-                      type="text"
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Masukkan nama pelanggan"
-                      className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
-                    />
-                  </div>
-                )}
-                {orderCategory === 'delivery' && (
-                  <div className="space-y-3">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Pengiriman</label>
-                      <input
-                        type="text"
-                        value={deliveryAddress}
-                        onChange={(e) => setDeliveryAddress(e.target.value)}
-                        placeholder="Masukkan alamat pengiriman"
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
+              {/* Table Selection for Dine-in */}
+              {orderCategory === 'dine-in' && (
+                <div className="mb-6">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Meja</label>
+                  {tablesLoading ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Memuat meja...
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Nama Kurir</label>
-                      <input
-                        type="text"
-                        value={courierName}
-                        onChange={(e) => setCourierName(e.target.value)}
-                        placeholder="Masukkan nama kurir"
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      />
+                  ) : (
+                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                      {tables.map((table) => {
+                        const statusConfig = {
+                          available: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: 'Available' },
+                          occupied: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Occupied' },
+                          dirty: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Dirty' },
+                          reserved: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Reserved' },
+                        };
+                        const config = statusConfig[table.status];
+                        const isSelected = tableNumber === table.table_number;
+                        
+                        return (
+                          <button
+                            key={table.id}
+                            onClick={() => {
+                              setTableNumber(table.table_number);
+                              useCartStore.getState().setTableNumber(table.table_number);
+                            }}
+                            className={`
+                              relative p-3 rounded-lg border-2 transition-all
+                              ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
+                              ${config.bg} ${config.border} ${config.text}
+                              hover:opacity-80 active:scale-95
+                            `}
+                            title={`${table.table_number} - ${config.label}`}
+                          >
+                            <div className="text-sm font-bold">{table.table_number}</div>
+                            <div className="text-xs mt-1">{config.label}</div>
+                            {table.hasActiveOrders && (
+                              <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" title="Has active orders" />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tipe Kurir</label>
-                      <select
-                        value={courierType}
-                        onChange={(e) => setCourierType(e.target.value as 'internal' | 'external')}
-                        className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="internal">Internal</option>
-                        <option value="external">External</option>
-                      </select>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {authLoading || productsLoading ? (
                 <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -1141,7 +1505,7 @@ export default function POSPage() {
                       onAddToCart={handleAddToCart}
                       modifiers={getProductModifiers(product)}
                       stockCount={productStocks.get(product.id)}
-                      cardView={settings?.card_view || 'grid'}
+                      cardView={(settings?.card_view as 'grid' | 'list' | 'minimalist') || 'grid'}
                     />
                   ))}
                 </div>
@@ -1247,6 +1611,20 @@ export default function POSPage() {
         categories={productCategories}
       />
 
+      {/* Payment Modal */}
+      {selectedOrderForPayment && (
+        <PaymentModal
+          isOpen={paymentModalOpen}
+          onClose={() => {
+            setPaymentModalOpen(false);
+            setSelectedOrderForPayment(null);
+          }}
+          order={selectedOrderForPayment}
+          onPaymentComplete={handlePaymentComplete}
+          onSplitBillComplete={handleSplitBillComplete}
+        />
+      )}
+
       {/* Delete History Confirmation Modal */}
       {deleteHistoryConfirmOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
@@ -1255,7 +1633,7 @@ export default function POSPage() {
               <h3 className="text-xl font-bold">Hapus Riwayat Transaksi</h3>
               <button
                 onClick={() => setDeleteHistoryConfirmOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1266,13 +1644,13 @@ export default function POSPage() {
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteHistoryConfirmOpen(false)}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 hover:text-gray-900 active:bg-gray-400 border border-gray-300"
               >
                 Batal
               </button>
               <button
                 onClick={handleDeleteHistory}
-                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 hover:text-white"
               >
                 Ya, Hapus
               </button>
@@ -1289,7 +1667,7 @@ export default function POSPage() {
               <h3 className="text-xl font-bold">Hapus Pesanan</h3>
               <button
                 onClick={() => setDeleteOrderConfirmOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1303,13 +1681,13 @@ export default function POSPage() {
                   setDeleteOrderConfirmOpen(false);
                   setOrderToDelete(null);
                 }}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 hover:text-gray-900 active:bg-gray-400 border border-gray-300"
               >
                 Batal
               </button>
               <button
                 onClick={handleDeleteOrder}
-                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 hover:text-white"
               >
                 Ya, Hapus
               </button>

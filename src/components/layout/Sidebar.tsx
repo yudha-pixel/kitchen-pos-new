@@ -31,16 +31,8 @@ import {
   FileText,
 } from 'lucide-react';
 
-interface Category {
-  id: string;
-  name: string;
-  color?: string | null;
-}
-
 interface SidebarProps {
-  categories?: Category[];
-  selectedCategory?: string;
-  onCategorySelect?: (category: string) => void;
+  // Category filter props removed
 }
 
 const cashierLinks = [
@@ -77,7 +69,7 @@ const financeSubLinks = [
   { href: '/finance/ocr', label: 'Pemindaian Faktur (OCR)', icon: Wallet },
 ];
 
-export const Sidebar = ({ categories = [], selectedCategory = 'Semua', onCategorySelect }: SidebarProps) => {
+export const Sidebar = () => {
   const [isOpen, setIsOpen] = useState(true);
   const [posOpen, setPosOpen] = useState(false);
   const [dashboardOpen, setDashboardOpen] = useState(false);
@@ -91,10 +83,6 @@ export const Sidebar = ({ categories = [], selectedCategory = 'Semua', onCategor
       active ? 'bg-primary text-on-primary' : 'text-ink-secondary hover:bg-surface-alt'
     }`;
 
-  const categoryButtonClass = (active: boolean) =>
-    `flex min-h-11 w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-      active ? 'bg-primary text-on-primary' : 'text-ink-secondary hover:bg-surface-alt'
-    }`;
 
   return (
     <nav
@@ -138,36 +126,6 @@ export const Sidebar = ({ categories = [], selectedCategory = 'Semua', onCategor
           </button>
           {posOpen && isOpen && (
             <div className="ml-4 mt-1 space-y-1">
-              {onCategorySelect && (
-                <>
-                  <button
-                    onClick={() => onCategorySelect('Semua')}
-                    aria-pressed={selectedCategory === 'Semua'}
-                    className={`${navLinkClass(selectedCategory === 'Semua')} pl-3`}
-                  >
-                    <LayoutGrid className="h-4 w-4 shrink-0" aria-hidden="true" />
-                    Semua
-                  </button>
-                  {categories.map((category) => {
-                    const active = selectedCategory === category.id;
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => onCategorySelect(category.id)}
-                        aria-pressed={active}
-                        className={`${navLinkClass(active)} pl-3`}
-                      >
-                        <span
-                          aria-hidden="true"
-                          className={`h-3 w-3 shrink-0 rounded-full ${active ? 'ring-2 ring-white/60' : ''}`}
-                          style={{ backgroundColor: category.color || '#94a3b8' }}
-                        />
-                        <span className="truncate">{category.name}</span>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
               {cashierLinks.map(({ href, label, icon: Icon }) => {
                 const active = pathname === href;
                 return (

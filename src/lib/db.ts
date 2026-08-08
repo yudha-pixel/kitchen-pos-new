@@ -35,7 +35,7 @@ export interface Order {
   id?: string; // UUID
   cashier_id: string | null; // UUID
   total_amount: number;
-  payment_method: 'cash' | 'card' | 'qr' | 'transfer';
+  payment_method: 'cash' | 'card' | 'qr' | 'transfer' | null; // null indicates "Belum Bayar" (Pending)
   status: 'pending' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled' | 'done';
   // Local-only flag: 'pending' = created offline, not yet pushed to the API.
   // Kept separate from `status`, which is the order lifecycle shared with the server.

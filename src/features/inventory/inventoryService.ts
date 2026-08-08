@@ -427,59 +427,55 @@ export async function calculateMenuStocks(
     // Calculate stock for each product
     for (const productId of productIds) {
       const recipes = recipesByProduct.get(productId) || [];
-      
+
       console.log(`🔍 [calculateMenuStocks] Product ${productId}: ${recipes.length} recipes`);
-      
-      // If no recipe exists, check product stock_quantity
+
+      // Get product stock_quantity as well
+      const product = await db.products.get(productId);
+      const productStock = (product && product.stock_quantity !== null && product.stock_quantity !== undefined) ? product.stock_quantity : null;
+
+      // If no recipe exists, use product stock_quantity
       if (recipes.length === 0) {
-        // Try to get product stock_quantity as fallback
-        const product = await db.products.get(productId);
-        if (product && product.stock_quantity !== null && product.stock_quantity !== undefined) {
-          stockMap.set(productId, product.stock_quantity);
-          console.log(`🔍 [calculateMenuStocks] Product ${productId}: No recipes -> using product stock_quantity = ${product.stock_quantity}`);
+        if (productStock !== null) {
+          stockMap.set(productId, productStock);
+          console.log(`🔍 [calculateMenuStocks] Product ${productId}: No recipes -> using product stock_quantity = ${productStock}`);
         } else {
           stockMap.set(productId, null);
           console.log(`🔍 [calculateMenuStocks] Product ${productId}: No recipes and no stock_quantity -> unlimited`);
         }
         continue;
       }
-      
+
       let minStock = Infinity;
       let validIngredientsCount = 0;
-      
+
       for (const recipe of recipes) {
         const ingredient = await db.ingredients.get(recipe.ingredient_id);
-        
+
         if (!ingredient) {
           console.warn(`⚠️ Ingredient ${recipe.ingredient_id} not found for product ${productId}, skipping`);
           continue;
         }
-        
+
         // Check if ingredient has valid stock data
         if (ingredient.current_stock === null || ingredient.current_stock === undefined) {
           console.warn(`⚠️ Ingredient ${ingredient.name} has invalid stock data for product ${productId}, skipping`);
           continue;
         }
-        
-        // Check if recipe has valid quantity_required
-        if (recipe.quantity_required === null || recipe.quantity_required === undefined || recipe.quantity_required <= 0) {
-          console.warn(`⚠️ Recipe has invalid quantity_required for product ${productId}, skipping`);
-          continue;
-        }
-        
+
         validIngredientsCount++;
-        const portionsFromIngredient = Math.floor(
-          ingredient.current_stock / recipe.quantity_required
-        );
-        
+
+        // Calculate how many portions can be made from this ingredient
+        const portionsFromIngredient = Math.floor(ingredient.current_stock / recipe.quantity_required);
+
         console.log(`🔍 [calculateMenuStocks] Product ${productId}, Ingredient ${ingredient.name}: ` +
           `stock=${ingredient.current_stock}, required=${recipe.quantity_required}, portions=${portionsFromIngredient}`);
-        
+
         if (portionsFromIngredient < minStock) {
           minStock = portionsFromIngredient;
         }
       }
-      
+
       // If no valid ingredients found, treat as unlimited (not out of stock)
       if (validIngredientsCount === 0) {
         stockMap.set(productId, null);
@@ -488,8 +484,11 @@ export async function calculateMenuStocks(
         stockMap.set(productId, null);
         console.log(`🔍 [calculateMenuStocks] Product ${productId}: Calculation error -> unlimited`);
       } else {
-        stockMap.set(productId, minStock);
-        console.log(`🔍 [calculateMenuStocks] Product ${productId}: Final stock = ${minStock}`);
+        // Take the minimum of ingredient-based stock and product stock_quantity
+        // This ensures both constraints are respected
+        const finalStock = productStock !== null ? Math.min(minStock, productStock) : minStock;
+        stockMap.set(productId, finalStock);
+        console.log(`🔍 [calculateMenuStocks] Product ${productId}: Ingredient stock = ${minStock}, Product stock = ${productStock}, Final = ${finalStock}`);
       }
     }
     

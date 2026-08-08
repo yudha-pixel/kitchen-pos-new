@@ -11,7 +11,7 @@ interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProductAdded: () => void;
-  userRole?: 'admin' | 'management' | 'cashier';
+  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
 }
 
 interface Category {

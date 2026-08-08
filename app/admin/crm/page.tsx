@@ -4,7 +4,9 @@ import { useEffect, useState } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
+import { getToken } from '@/src/lib/api';
 import { Search, UserPlus, Edit, Trash2, Crown, Shield, Star, Gem, Phone, Mail, Calendar, TrendingUp } from 'lucide-react';
+import { useAuth } from '@/src/context/AuthContext';
 
 interface Member {
   id?: string;
@@ -27,7 +29,10 @@ const TIER_CONFIG = {
   platinum: { color: 'text-purple-600', bg: 'bg-purple-100', icon: Gem, discount: 20, minSpent: 5000000 },
 };
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+
 export default function CRMPage() {
+  const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,8 +82,18 @@ export default function CRMPage() {
 
   const loadMembers = async () => {
     try {
-      const { db } = await import('@/src/lib/db');
-      const allMembers = await db.members.toArray();
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/customers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch members');
+      }
+
+      const allMembers = await response.json();
       setMembers(allMembers);
       setFilteredMembers(allMembers);
     } catch (error) {
@@ -140,8 +155,18 @@ export default function CRMPage() {
     if (!confirm('Apakah Anda yakin ingin menghapus member ini?')) return;
 
     try {
-      const { db } = await import('@/src/lib/db');
-      await db.members.delete(id);
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/customers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete member');
+      }
+
       await loadMembers();
     } catch (error) {
       console.error('Failed to delete member:', error);
@@ -156,27 +181,21 @@ export default function CRMPage() {
     }
 
     try {
-      const { db } = await import('@/src/lib/db');
-      const now = new Date().toISOString();
+      const token = getToken();
+      const url = editingMember ? `${API_BASE}/customers/${editingMember.id}` : `${API_BASE}/customers`;
+      const method = editingMember ? 'PUT' : 'POST';
 
-      // Auto-upgrade tier based on total_spent
-      const newTier = autoUpgradeTier(formData.total_spent);
-      const tierConfig = TIER_CONFIG[newTier];
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
 
-      const memberData = {
-        ...formData,
-        tier: newTier,
-        discount_percentage: tierConfig.discount,
-        updated_at: now,
-      };
-
-      if (editingMember) {
-        await db.members.update(editingMember.id!, memberData);
-      } else {
-        await db.members.add({
-          ...memberData,
-          created_at: now,
-        });
+      if (!response.ok) {
+        throw new Error('Failed to save member');
       }
 
       await loadMembers();
@@ -189,11 +208,18 @@ export default function CRMPage() {
 
   const handleToggleActive = async (member: Member) => {
     try {
-      const { db } = await import('@/src/lib/db');
-      await db.members.update(member.id!, {
-        is_active: !member.is_active,
-        updated_at: new Date().toISOString(),
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/customers/${member.id}/toggle-active`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle member status');
+      }
+
       await loadMembers();
     } catch (error) {
       console.error('Failed to toggle member status:', error);
@@ -291,7 +317,7 @@ export default function CRMPage() {
                 </div>
                 <button
                   onClick={handleAddMember}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 hover:text-white flex items-center gap-2"
                 >
                   <UserPlus className="h-4 w-4" />
                   Tambah Member
@@ -506,13 +532,13 @@ export default function CRMPage() {
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-gray-900"
               >
                 Batal
               </button>
               <button
                 onClick={handleSaveMember}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white"
               >
                 Simpan
               </button>

@@ -51,7 +51,7 @@ export default function HRPage() {
                 <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Owner, Management, dan Admin.</p>
                 <button
                   onClick={() => router.push('/inventory')}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                 >
                   Kembali ke Inventori
                 </button>
@@ -157,7 +157,7 @@ export default function HRPage() {
               {activeTab === 'employees' && (
                 <button
                   onClick={handleAddEmployee}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                   Tambah Karyawan

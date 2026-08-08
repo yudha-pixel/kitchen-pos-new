@@ -24,7 +24,7 @@ interface ProductListModalProps {
   products: Product[];
   productStocks: Map<string, number | null>;
   onStockUpdate?: () => void;
-  userRole?: 'admin' | 'management' | 'cashier';
+  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
   categories?: Array<{ id: string; name: string }>;
 }
 

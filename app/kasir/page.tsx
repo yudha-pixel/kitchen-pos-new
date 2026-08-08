@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { ShoppingCart, Plus, Minus, Trash2, Coffee, Cake, Utensils, GlassWater } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
+import { useCartStore } from '@/src/store/useCartStore';
+import { useAuth } from '@/src/context/AuthContext';
 
 interface Product {
   id: string;
@@ -53,6 +55,7 @@ const categoryIcons: Record<string, any> = {
 };
 
 export default function KasirPage() {
+  const { user } = useAuth();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
@@ -72,6 +75,13 @@ export default function KasirPage() {
     total: number;
     paymentMethod: string;
   } | null>(null);
+
+  // Set cashier ID when user is available
+  useEffect(() => {
+    if (user) {
+      useCartStore.getState().setCashierId(user.id);
+    }
+  }, [user]);
 
   const filteredProducts = selectedCategory === 'Semua' 
     ? mockProducts 
@@ -187,7 +197,7 @@ export default function KasirPage() {
                 className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
                   selectedCategory === category
                     ? 'bg-primary text-on-primary'
-                    : 'bg-surface-alt text-ink-secondary hover:bg-surface'
+                    : 'bg-surface-alt text-ink-secondary hover:bg-surface hover:text-ink'
                 }`}
               >
                 {Icon && <Icon className="h-4 w-4" />}
@@ -254,21 +264,21 @@ export default function KasirPage() {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() => updateQuantity(item.id, -1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface text-ink-secondary hover:bg-surface-alt"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface text-ink-secondary hover:bg-surface-alt hover:text-ink"
                         >
                           <Minus className="h-3 w-3" />
                         </button>
                         <span className="w-6 text-center text-sm font-medium text-ink">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, 1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface text-ink-secondary hover:bg-surface-alt"
+                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-surface text-ink-secondary hover:bg-surface-alt hover:text-ink"
                         >
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
                       <button
                         onClick={() => removeFromCart(item.id)}
-                        className="flex h-7 w-7 items-center justify-center rounded-lg text-danger hover:bg-danger-soft"
+                        className="flex h-7 w-7 items-center justify-center rounded-lg text-danger hover:bg-danger-soft hover:text-danger-600"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>

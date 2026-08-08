@@ -6,7 +6,7 @@ import * as api from '@/src/lib/api';
 type User = {
   id: string;
   username: string;
-  role: 'admin' | 'management' | 'cashier';
+  role: 'admin' | 'management' | 'cashier' | 'owner';
 };
 
 interface AuthContextValue {

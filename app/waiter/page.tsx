@@ -97,9 +97,8 @@ export default function WaiterPage() {
           const { db } = await import('@/src/lib/db');
           const orders = await db.orders
             .where('status')
-            .anyOf(['pending', 'done', 'paid', 'synced'])
+            .anyOf(['pending', 'done', 'paid', 'synced', 'completed', 'cancelled'])
             .reverse()
-            .limit(50)
             .toArray();
 
           // Fetch items for each order from order_items table
@@ -107,7 +106,7 @@ export default function WaiterPage() {
             orders.map(async (order) => {
               const items = await db.order_items
                 .where('order_id')
-                .equals(order.id)
+                .equals(order.id!)
                 .toArray();
 
               // Fetch product details for each item
@@ -392,6 +391,7 @@ export default function WaiterPage() {
         modifiers_applied: item.modifiers,
         discount_item: 0,
         split_group_id: null,
+        status: 'pending' as const,
         created_at: new Date().toISOString(),
       }));
 
@@ -536,7 +536,7 @@ export default function WaiterPage() {
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
               selectedCategory === 'Semua'
                 ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
             }`}
           >
             Semua
@@ -548,7 +548,7 @@ export default function WaiterPage() {
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
                 selectedCategory === cat.id
                   ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
               }`}
             >
               {cat.name}
@@ -644,7 +644,7 @@ export default function WaiterPage() {
               <h2 className="text-lg font-bold">Keranjang</h2>
               <button
                 onClick={() => setIsCartOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-full"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -672,14 +672,14 @@ export default function WaiterPage() {
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
+                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 hover:text-gray-900"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700"
+                          className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 hover:text-white"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -702,7 +702,7 @@ export default function WaiterPage() {
                   <button
                     onClick={handleHoldOrder}
                     disabled={syncInProgress}
-                    className="flex-1 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Clock className="h-5 w-5" />
                     Tahan
@@ -710,7 +710,7 @@ export default function WaiterPage() {
                   <button
                     onClick={handleSendOrder}
                     disabled={syncInProgress}
-                    className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Send className="h-5 w-5" />
                     Kirim
@@ -718,7 +718,7 @@ export default function WaiterPage() {
                   <button
                     onClick={() => setPaymentModalOpen(true)}
                     disabled={syncInProgress || cartItems.length === 0}
-                    className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Printer className="h-5 w-5" />
                     Bayar
@@ -738,7 +738,7 @@ export default function WaiterPage() {
               <h2 className="text-lg font-bold">Pesanan Ditahan</h2>
               <button
                 onClick={() => setIsHeldOrdersOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-full"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -779,7 +779,7 @@ export default function WaiterPage() {
                       </div>
                       <button
                         onClick={() => handleLoadHeldOrder(index)}
-                        className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700"
+                        className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 hover:text-white"
                       >
                         Muat Pesanan
                       </button>
@@ -800,7 +800,7 @@ export default function WaiterPage() {
               <h2 className="text-lg font-bold">Riwayat Pesanan</h2>
               <button
                 onClick={() => setIsHistoryOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-full"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -885,7 +885,7 @@ export default function WaiterPage() {
                       <div className="mt-3 flex gap-2">
                         <button
                           onClick={() => handlePrintReceipt(order)}
-                          className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 transition-colors"
+                          className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                         >
                           <Printer className="w-4 h-4" />
                           Cetak Struk
@@ -927,7 +927,7 @@ export default function WaiterPage() {
               <h3 className="text-xl font-bold">Pilih Metode Pembayaran</h3>
               <button
                 onClick={() => setPaymentModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -977,14 +977,14 @@ export default function WaiterPage() {
             <div className="mt-6 flex gap-3">
               <button
                 onClick={() => setPaymentModalOpen(false)}
-                className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 hover:text-gray-900 active:bg-gray-400 border border-gray-300"
               >
                 Batal
               </button>
               <button
                 onClick={handlePayment}
                 disabled={!selectedPaymentMethod}
-                className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 hover:text-white disabled:opacity-50"
               >
                 Proses Bayar
               </button>

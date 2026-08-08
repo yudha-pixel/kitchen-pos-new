@@ -1,4 +1,5 @@
 import { PaymentTransaction } from '@/src/lib/db';
+import { getToken } from '@/src/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -10,17 +11,19 @@ export interface PaymentTransactionWithOrder extends PaymentTransaction {
   };
 }
 
-// Create payment transaction
+// Create payment transaction. Note: the payment amount is intentionally NOT
+// sent from the client - the server always derives it from the order's own
+// `total_amount` column to prevent payment-amount tampering. See
+// server/routes/payments.ts for the authoritative calculation.
 export async function createPaymentTransaction(
   orderId: string,
   gateway: 'midtrans' | 'xendit',
-  paymentMethod: 'qris' | 'va' | 'ewallet',
-  amount: number
+  paymentMethod: 'qris' | 'va' | 'ewallet'
 ): Promise<PaymentTransactionWithOrder | null> {
   try {
-    console.log('Creating payment transaction:', { orderId, gateway, paymentMethod, amount });
+    console.log('Creating payment transaction:', { orderId, gateway, paymentMethod });
     
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/payments`, {
       method: 'POST',
       headers: {
@@ -31,7 +34,6 @@ export async function createPaymentTransaction(
         order_id: orderId,
         gateway,
         payment_method: paymentMethod,
-        amount,
       }),
     });
 
@@ -55,7 +57,7 @@ export async function createPaymentTransaction(
 // Get payment by ID
 export async function getPaymentById(paymentId: string): Promise<PaymentTransactionWithOrder | null> {
   try {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/payments/${paymentId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -81,7 +83,7 @@ export async function updatePaymentStatus(
   paidAt?: string
 ): Promise<PaymentTransactionWithOrder | null> {
   try {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/payments/${paymentId}/status`, {
       method: 'PATCH',
       headers: {

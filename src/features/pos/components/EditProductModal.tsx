@@ -13,7 +13,7 @@ interface EditProductModalProps {
   onClose: () => void;
   product: Product;
   onSave: (updatedProduct: Partial<Product>) => Promise<void>;
-  userRole?: 'admin' | 'management' | 'cashier';
+  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
 }
 
 interface ModifierOption {

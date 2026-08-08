@@ -51,7 +51,7 @@ export function PayrollSection({ employees }: PayrollSectionProps) {
       // Calculate overtime hours for each employee
       const overtimeMap = new Map<string, number>();
       for (const employee of employees) {
-        if (employee.status !== 'active') continue;
+        if (!employee.is_active) continue;
         const attendance = await getAttendanceByEmployee(employee.id!);
         const monthStart = `${selectedYear}-${monthStr}-01`;
         const monthEnd = `${selectedYear}-${monthStr}-31`;

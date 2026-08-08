@@ -13,11 +13,11 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variants: Record<Variant, string> = {
-  primary: 'bg-primary text-on-primary hover:bg-primary-hover',
-  secondary: 'bg-surface text-ink border border-line-strong hover:bg-surface-alt',
-  ghost: 'bg-transparent text-ink-secondary hover:bg-surface-alt',
-  danger: 'bg-danger text-white hover:bg-red-700',
-  success: 'bg-success text-white hover:bg-green-800',
+  primary: 'bg-primary text-on-primary hover:bg-primary-hover active:bg-primary-active shadow-md font-semibold',
+  secondary: 'bg-surface text-ink border-2 border-line-strong hover:bg-surface-alt hover:text-ink active:bg-surface-active shadow-md font-semibold',
+  ghost: 'bg-surface-alt text-ink border-2 border-line hover:bg-surface hover:text-ink active:bg-surface-active font-semibold',
+  danger: 'bg-danger text-white hover:bg-red-700 active:bg-red-800 shadow-md font-semibold',
+  success: 'bg-success text-white hover:bg-green-800 active:bg-green-900 shadow-md font-semibold',
 };
 
 // All sizes keep a >=44px hit target (touch-target-size)

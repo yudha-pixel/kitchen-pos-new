@@ -177,7 +177,7 @@ export default function TableManagementPage() {
                       {canOrder && (
                         <button
                           onClick={() => handleOpenWaiterOrder(table)}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90 transition-colors"
+                          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90 hover:text-white transition-colors"
                         >
                           <ShoppingCart className="h-4 w-4" />
                           Pesan
@@ -185,7 +185,7 @@ export default function TableManagementPage() {
                       )}
                       <button
                         onClick={() => handleOpenQRCode(table)}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-surface-alt border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-surface transition-colors"
+                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-surface-alt border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-surface hover:text-ink transition-colors"
                         title="Generate QR Code"
                       >
                         <QrCode className="h-4 w-4" />
@@ -227,7 +227,7 @@ export default function TableManagementPage() {
                 className={`flex min-h-12 w-full items-center gap-3 rounded-lg border px-4 text-left transition-colors ${
                   isCurrent
                     ? 'border-primary bg-primary-soft text-primary'
-                    : 'border-line text-ink-secondary hover:bg-surface-alt'
+                    : 'border-line text-ink-secondary hover:bg-surface-alt hover:text-ink'
                 }`}
               >
                 <Icon className="h-5 w-5" aria-hidden="true" />
@@ -280,7 +280,7 @@ export default function TableManagementPage() {
             </div>
             <button
               onClick={downloadQRCode}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 transition-colors"
+              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary/90 hover:text-white transition-colors"
             >
               <Download className="h-4 w-4" />
               Download QR Code

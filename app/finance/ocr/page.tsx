@@ -66,7 +66,7 @@ export default function FinancePage() {
                 <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Owner, Management, dan Admin.</p>
                 <button
                   onClick={() => router.push('/inventory')}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                 >
                   Kembali ke Inventori
                 </button>
@@ -247,21 +247,21 @@ export default function FinancePage() {
               <div className="flex gap-2">
                 <button
                   onClick={handleAddExpense}
-                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                 >
                   <Plus className="h-4 w-4" />
                   Tambah Manual
                 </button>
                 <button
                   onClick={handleExportCSV}
-                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 hover:text-white transition-colors"
                 >
                   <Download className="h-4 w-4" />
                   Export CSV
                 </button>
                 <button
                   onClick={handlePrint}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 hover:text-white transition-colors"
                 >
                   <Printer className="h-4 w-4" />
                   Cetak
@@ -400,13 +400,13 @@ export default function FinancePage() {
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-gray-900"
               >
                 Batal
               </button>
               <button
                 onClick={handleSaveExpense}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white"
               >
                 Simpan
               </button>

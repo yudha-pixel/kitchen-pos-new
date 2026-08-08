@@ -18,14 +18,18 @@ async function main() {
   const adminExists = await prisma.profile.findUnique({ where: { username: 'admin' } });
   if (!adminExists) {
     const passwordHash = await bcrypt.hash('admin', 10);
-    await prisma.profile.create({
-      data: {
-        username: 'admin',
-        role: 'admin',
-        password_hash: passwordHash,
-      },
-    });
-    console.log('✅ Created default admin user (username: admin, password: admin)');
+    // Get admin role ID
+    const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+    if (adminRole) {
+      await prisma.profile.create({
+        data: {
+          username: 'admin',
+          role_id: adminRole.id,
+          password_hash: passwordHash,
+        },
+      });
+      console.log('✅ Created default admin user (username: admin, password: admin)');
+    }
   }
 
   // Create default outlets
@@ -71,27 +75,43 @@ async function main() {
   console.log('✅ Created 3 default outlets (Pusat, Senopati, BSD)');
 
   // Step 2: Create Categories with colors
-  const coffeeCategory = await prisma.category.create({
+  const makananUtamaCategory = await prisma.category.create({
     data: {
       id: randomUUID(),
-      name: 'Coffee',
+      name: 'Makanan Utama',
+      color: 'orange',
+    },
+  });
+
+  const minumanCategory = await prisma.category.create({
+    data: {
+      id: randomUUID(),
+      name: 'Minuman',
+      color: 'blue',
+    },
+  });
+
+  const dessertCategory = await prisma.category.create({
+    data: {
+      id: randomUUID(),
+      name: 'Dessert',
+      color: 'pink',
+    },
+  });
+
+  const kopiCategory = await prisma.category.create({
+    data: {
+      id: randomUUID(),
+      name: 'Kopi',
       color: 'brown',
     },
   });
 
-  const nonCoffeeCategory = await prisma.category.create({
+  const tehCategory = await prisma.category.create({
     data: {
       id: randomUUID(),
-      name: 'Non-Coffee',
+      name: 'Teh',
       color: 'green',
-    },
-  });
-
-  const foodCategory = await prisma.category.create({
-    data: {
-      id: randomUUID(),
-      name: 'Food',
-      color: 'orange',
     },
   });
 
@@ -103,7 +123,7 @@ async function main() {
     },
   });
 
-  console.log('✅ Created 4 categories (Coffee, Non-Coffee, Food, Bakery)');
+  console.log('✅ Created 6 categories (Makanan Utama, Minuman, Dessert, Kopi, Teh, Bakery)');
 
   // Step 3: Create 3 Coffee Modifier Groups
   const temperatureGroup = await prisma.modifierGroup.create({
@@ -292,7 +312,7 @@ async function main() {
       prisma.product.create({
         data: {
           id: randomUUID(),
-          category_id: coffeeCategory.id,
+          category_id: kopiCategory.id,
           name: drink.name,
           description: drink.description,
           sku: drink.sku,
@@ -330,7 +350,7 @@ async function main() {
       prisma.product.create({
         data: {
           id: randomUUID(),
-          category_id: coffeeCategory.id,
+          category_id: kopiCategory.id,
           name: drink.name,
           description: drink.description,
           sku: drink.sku,
@@ -349,18 +369,17 @@ async function main() {
     )
   );
 
-  // Non-Coffee Category
+  // Non-Coffee Category (excluding tea drinks)
   const nonCoffeeDrinks = [
     { name: 'Matcha Latte', sku: 'ML-001', price: 38000, description: 'Japanese green tea with steamed milk', image: 'https://picsum.photos/seed/matchalatte/500/500' },
-    { name: 'Chai Latte', sku: 'CHL-002', price: 36000, description: 'Spiced tea with steamed milk', image: 'https://picsum.photos/seed/chailatte/500/500' },
-    { name: 'Hot Chocolate', sku: 'HC-003', price: 32000, description: 'Rich chocolate drink with milk', image: 'https://picsum.photos/seed/hotchocolate/500/500' },
-    { name: 'Iced Matcha Latte', sku: 'IML-004', price: 40000, description: 'Cold green tea with milk over ice', image: 'https://picsum.photos/seed/icedmatchalatte/500/500' },
-    { name: 'Iced Chai Latte', sku: 'ICL-005', price: 38000, description: 'Cold spiced tea with milk over ice', image: 'https://picsum.photos/seed/icedchailatte/500/500' },
-    { name: 'Iced Lemon Tea', sku: 'ILT-006', price: 28000, description: 'Refreshing tea with lemon over ice', image: 'https://picsum.photos/seed/icedlemontea/500/500' },
-    { name: 'Iced Peach Tea', sku: 'IPT-007', price: 30000, description: 'Fruity peach tea over ice', image: 'https://picsum.photos/seed/icedpeachtea/500/500' },
-    { name: 'Earl Grey Tea', sku: 'EGT-008', price: 28000, description: 'Classic bergamot-infused black tea', image: 'https://picsum.photos/seed/earlgreytea/500/500' },
-    { name: 'Jasmine Tea', sku: 'JT-009', price: 26000, description: 'Fragrant jasmine-scented green tea', image: 'https://picsum.photos/seed/jasminetea/500/500' },
-    { name: 'Thai Milk Tea', sku: 'TMT-010', price: 32000, description: 'Sweet Thai tea with condensed milk', image: 'https://picsum.photos/seed/thaimilktea/500/500' },
+    { name: 'Hot Chocolate', sku: 'HC-002', price: 32000, description: 'Rich chocolate drink with milk', image: 'https://picsum.photos/seed/hotchocolate/500/500' },
+    { name: 'Iced Matcha Latte', sku: 'IML-003', price: 40000, description: 'Cold green tea with milk over ice', image: 'https://picsum.photos/seed/icedmatchalatte/500/500' },
+    { name: 'Thai Milk Tea', sku: 'TMT-004', price: 32000, description: 'Sweet Thai tea with condensed milk', image: 'https://picsum.photos/seed/thaimilktea/500/500' },
+    { name: 'Iced Espresso Tonic', sku: 'IET-005', price: 35000, description: 'Espresso over tonic water with citrus notes', image: 'https://picsum.photos/seed/icedespressotonic/500/500' },
+    { name: 'Lemonade', sku: 'LM-006', price: 15000, description: 'Fresh lemonade', image: 'https://picsum.photos/seed/lemonade/500/500' },
+    { name: 'Coconut Water', sku: 'CW-007', price: 12000, description: 'Fresh coconut water', image: 'https://picsum.photos/seed/coconutwater/500/500' },
+    { name: 'Jus Jeruk Segar', sku: 'JJS-008', price: 12000, description: 'Fresh orange juice', image: 'https://picsum.photos/seed/jusjeruk/500/500' },
+    { name: 'Es Teh Manis', sku: 'ETM-009', price: 5000, description: 'Sweet iced tea', image: 'https://picsum.photos/seed/estehmanis/500/500' },
   ];
 
   const nonCoffeeProducts = await Promise.all(
@@ -368,7 +387,7 @@ async function main() {
       prisma.product.create({
         data: {
           id: randomUUID(),
-          category_id: nonCoffeeCategory.id,
+          category_id: minumanCategory.id,
           name: drink.name,
           description: drink.description,
           sku: drink.sku,
@@ -406,7 +425,7 @@ async function main() {
       prisma.product.create({
         data: {
           id: randomUUID(),
-          category_id: foodCategory.id,
+          category_id: makananUtamaCategory.id,
           name: item.name,
           description: item.description,
           sku: item.sku,
@@ -424,8 +443,8 @@ async function main() {
     )
   );
 
-  // Bakery Category
-  const bakeryItems = [
+  // Dessert Category (bakery items)
+  const dessertItems = [
     { name: 'Croissant Butter', sku: 'CR-001', price: 22000, description: 'Flaky butter croissant', image: 'https://picsum.photos/seed/croissantbutter/500/500' },
     { name: 'Croissant Almond', sku: 'CA-002', price: 28000, description: 'Almond-filled butter croissant', image: 'https://picsum.photos/seed/croissantalmond/500/500' },
     { name: 'Chocolate Muffin', sku: 'CM-003', price: 25000, description: 'Rich chocolate chip muffin', image: 'https://picsum.photos/seed/chocolatemuffin/500/500' },
@@ -438,12 +457,12 @@ async function main() {
     { name: 'Carrot Cake', sku: 'CC-010', price: 32000, description: 'Spiced carrot cake with cream cheese frosting', image: 'https://picsum.photos/seed/carrotcake/500/500' },
   ];
 
-  const bakeryProducts = await Promise.all(
-    bakeryItems.map((item) =>
+  const dessertProducts = await Promise.all(
+    dessertItems.map((item) =>
       prisma.product.create({
         data: {
           id: randomUUID(),
-          category_id: bakeryCategory.id,
+          category_id: dessertCategory.id,
           name: item.name,
           description: item.description,
           sku: item.sku,
@@ -455,9 +474,65 @@ async function main() {
     )
   );
 
+  // Bakery Category (simplified)
+  const bakeryItems = [
+    { name: 'Croissant Butter', sku: 'CRB-001', price: 22000, description: 'Flaky butter croissant', image: 'https://picsum.photos/seed/croissantbutter/500/500' },
+    { name: 'Croissant Almond', sku: 'CRA-002', price: 28000, description: 'Almond-filled butter croissant', image: 'https://picsum.photos/seed/croissantalmond/500/500' },
+  ];
+
+  const bakeryProducts = await Promise.all(
+    bakeryItems.map((item) =>
+      prisma.product.create({
+        data: {
+          id: randomUUID(),
+          category_id: bakeryCategory.id,
+          name: item.name,
+          description: item.description,
+          sku: item.sku,
+          price: item.price,
+          stock_quantity: 30,
+          image_url: item.image,
+        },
+      })
+    )
+  );
+
+  // Teh Category (tea drinks from non-coffee)
+  const tehItems = [
+    { name: 'Chai Latte', sku: 'CHL-001', price: 36000, description: 'Spiced tea with steamed milk', image: 'https://picsum.photos/seed/chailatte/500/500' },
+    { name: 'Iced Chai Latte', sku: 'ICL-002', price: 38000, description: 'Cold spiced tea with milk over ice', image: 'https://picsum.photos/seed/icedchailatte/500/500' },
+    { name: 'Iced Lemon Tea', sku: 'ILT-003', price: 28000, description: 'Refreshing tea with lemon over ice', image: 'https://picsum.photos/seed/icedlemontea/500/500' },
+    { name: 'Iced Peach Tea', sku: 'IPT-004', price: 30000, description: 'Fruity peach tea over ice', image: 'https://picsum.photos/seed/icedpeachtea/500/500' },
+    { name: 'Earl Grey Tea', sku: 'EGT-005', price: 28000, description: 'Classic bergamot-infused black tea', image: 'https://picsum.photos/seed/earlgreytea/500/500' },
+    { name: 'Jasmine Tea', sku: 'JT-006', price: 26000, description: 'Fragrant jasmine-scented green tea', image: 'https://picsum.photos/seed/jasminetea/500/500' },
+  ];
+
+  const tehProducts = await Promise.all(
+    tehItems.map((item) =>
+      prisma.product.create({
+        data: {
+          id: randomUUID(),
+          category_id: tehCategory.id,
+          name: item.name,
+          description: item.description,
+          sku: item.sku,
+          price: item.price,
+          stock_quantity: 60,
+          image_url: item.image,
+          productModifierGroups: {
+            create: [
+              { modifier_group_id: drinkSugarGroup.id },
+              { modifier_group_id: iceGroup.id },
+            ],
+          },
+        },
+      })
+    )
+  );
+
   const totalProducts = coffeeProducts.length + coldCoffeeProducts.length + 
-                        nonCoffeeProducts.length + foodProducts.length + bakeryProducts.length;
-  console.log(`✅ Created ${totalProducts} products (${coffeeProducts.length} coffee, ${coldCoffeeProducts.length} cold coffee, ${nonCoffeeProducts.length} non-coffee, ${foodProducts.length} food, ${bakeryProducts.length} bakery)`);
+                        nonCoffeeProducts.length + foodProducts.length + dessertProducts.length + bakeryProducts.length + tehProducts.length;
+  console.log(`✅ Created ${totalProducts} products (${coffeeProducts.length} coffee, ${coldCoffeeProducts.length} cold coffee, ${nonCoffeeProducts.length} minuman, ${foodProducts.length} makanan utama, ${dessertProducts.length} dessert, ${bakeryProducts.length} bakery, ${tehProducts.length} teh)`);
 
   console.log('🎉 Seeding complete');
 }

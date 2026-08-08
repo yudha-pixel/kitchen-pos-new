@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { auditLogger } from './audit';
 import {
   createCategorySchema,
   updateCategorySchema,
@@ -147,7 +148,7 @@ router.post('/modifiers', ...adminOnly, async (req: Request, res: Response) => {
   res.status(201).json(created);
 });
 
-router.patch('/modifiers/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.put('/modifiers/:id', ...adminOnly, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const data = updateModifierSchema.parse(req.body);
   const updated = await prisma.modifier.update({ where: { id }, data });
@@ -246,7 +247,7 @@ router.post('/products', ...adminOnly, async (req: Request, res: Response) => {
   res.status(201).json(created);
 });
 
-router.patch('/products/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.patch('/products/:id', ...adminOnly, auditLogger('update', 'product'), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const { modifier_group_ids, ...data } = updateProductSchema.parse(req.body);
 
@@ -284,7 +285,7 @@ router.patch('/products/:id', ...adminOnly, async (req: Request, res: Response) 
 });
 
 // Soft delete: keeps the product row so historic order items stay intact.
-router.delete('/products/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.delete('/products/:id', ...adminOnly, auditLogger('delete', 'product'), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   await prisma.product.update({

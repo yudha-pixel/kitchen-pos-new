@@ -21,7 +21,7 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
     employment_type: 'permanent' as 'permanent' | 'freelance',
     hourly_rate: 0,
     join_date: new Date().toISOString().split('T')[0],
-    status: 'active' as 'active' | 'inactive',
+    is_active: true,
   });
 
   useEffect(() => {
@@ -35,7 +35,7 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
         employment_type: editingEmployee.employment_type || 'permanent',
         hourly_rate: editingEmployee.hourly_rate || 0,
         join_date: editingEmployee.join_date.split('T')[0],
-        status: editingEmployee.status,
+        is_active: editingEmployee.is_active,
       });
     } else {
       setFormData({
@@ -47,7 +47,7 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
         employment_type: 'permanent',
         hourly_rate: 0,
         join_date: new Date().toISOString().split('T')[0],
-        status: 'active',
+        is_active: true,
       });
     }
   }, [editingEmployee, isOpen]);
@@ -221,8 +221,8 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
-              value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as 'active' | 'inactive' })}
+              value={formData.is_active ? 'active' : 'inactive'}
+              onChange={(e) => setFormData({ ...formData, is_active: e.target.value === 'active' })}
               className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               <option value="active">Aktif</option>

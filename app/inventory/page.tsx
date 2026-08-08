@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
-import { getIngredientsWithStatus, addIngredient, createStockRequest, createStockWriteOff, getPurchaseDataByPeriod } from '@/src/features/inventory/inventoryService';
+import { getIngredientsWithStatus, addIngredient, createStockRequest, createStockWriteOff, getPurchaseDataByPeriod } from '@/src/features/inventory/recipeApiService';
 import { getSalesDataByPeriod } from '@/src/features/reports/reportsService';
 import { AlertTriangle, Package, TrendingUp, TrendingDown, Plus, X, DollarSign, Filter, ArrowDown, ShoppingCart, Upload, AlertCircle, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -574,7 +574,7 @@ export default function InventoryPage() {
                   </div>
                   <button
                     onClick={() => setShowAnalysis(!showAnalysis)}
-                    className="flex items-center gap-2 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-md hover:bg-purple-200 transition-colors"
+                    className="flex items-center gap-2 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-md hover:bg-purple-200 hover:text-purple-800 transition-colors"
                   >
                     <DollarSign className="h-4 w-4" />
                     {showAnalysis ? 'Sembunyikan Analisis' : 'Tampilkan Analisis'}
@@ -795,7 +795,7 @@ export default function InventoryPage() {
               <h2 className="text-lg font-semibold">Tambah Bahan Baku</h2>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -875,7 +875,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-colors font-bold text-gray-800"
                 >
                   Batal
                 </button>
@@ -903,7 +903,7 @@ export default function InventoryPage() {
               </h2>
               <button
                 onClick={() => setIsStockRequestModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -991,7 +991,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setIsStockRequestModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-colors font-bold text-gray-800"
                 >
                   Batal
                 </button>
@@ -1019,7 +1019,7 @@ export default function InventoryPage() {
               </h2>
               <button
                 onClick={() => setIsWriteOffModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -1153,7 +1153,7 @@ export default function InventoryPage() {
                 <button
                   type="button"
                   onClick={() => setIsWriteOffModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-colors font-bold text-gray-800"
                 >
                   Batal
                 </button>

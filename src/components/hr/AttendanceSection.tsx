@@ -117,7 +117,7 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
     return `${hours.toFixed(1)} jam`;
   };
 
-  const activeEmployees = employees.filter(e => e.status === 'active');
+  const activeEmployees = employees.filter(e => e.is_active);
 
   return (
     <div className="space-y-4">

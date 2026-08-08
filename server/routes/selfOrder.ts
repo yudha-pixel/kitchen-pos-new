@@ -90,14 +90,10 @@ router.get('/tables/id/:tableId', async (req: Request, res: Response) => {
     const { tableId } = req.params;
     const tableIdStr = Array.isArray(tableId) ? tableId[0] : tableId;
 
-    console.log('[DEBUG] Looking up table by ID:', tableIdStr);
-    console.log('[DEBUG] Is valid UUID:', isValidUUID(tableIdStr));
-
     let table;
 
     // Check if parameter is a valid UUID before using findUnique
     if (isValidUUID(tableIdStr)) {
-      console.log('[DEBUG] Parameter is UUID, using findUnique with id');
       table = await prisma.table.findUnique({
         where: { id: tableIdStr },
         include: {
@@ -111,7 +107,6 @@ router.get('/tables/id/:tableId', async (req: Request, res: Response) => {
         },
       });
     } else {
-      console.log('[DEBUG] Parameter is NOT UUID, using findFirst with table_number');
       // For non-UUID parameters, use findFirst with table_number to avoid P2023 error
       table = await prisma.table.findFirst({
         where: { table_number: tableIdStr },
@@ -127,11 +122,6 @@ router.get('/tables/id/:tableId', async (req: Request, res: Response) => {
       });
     }
 
-    console.log('[DEBUG] Table found:', table ? 'YES' : 'NO');
-    if (table) {
-      console.log('[DEBUG] Table details:', { id: table.id, table_number: table.table_number, is_active: table.is_active });
-    }
-
     if (!table) {
       return res.status(404).json({ error: 'Meja tidak ditemukan' });
     }
@@ -142,7 +132,7 @@ router.get('/tables/id/:tableId', async (req: Request, res: Response) => {
 
     res.json(table);
   } catch (error) {
-    console.error('[DEBUG] Error fetching table:', error);
+    console.error('Error fetching table:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -224,7 +214,7 @@ router.post('/orders', async (req: Request, res: Response) => {
       where: { id: { in: productIds } },
     });
 
-    const productMap = new Map(products.map(p => [p.id, p]));
+    const productMap = new Map(products.map((p: any) => [p.id, p]));
 
     let totalAmount = 0;
     const orderItems = data.items.map(item => {
@@ -232,7 +222,7 @@ router.post('/orders', async (req: Request, res: Response) => {
       if (!product) {
         throw new Error(`Product ${item.product_id} not found`);
       }
-      const priceAtTime = product.price;
+      const priceAtTime = (product as any).price;
       totalAmount += priceAtTime * item.quantity;
       return {
         id: randomUUID(),
@@ -244,7 +234,7 @@ router.post('/orders', async (req: Request, res: Response) => {
     });
 
     // Create customer order with items
-    const customerOrder = await prisma.$transaction(async (tx) => {
+    const customerOrder = await prisma.$transaction(async (tx: any) => {
       const newOrder = await tx.customerOrder.create({
         data: {
           id: orderId,

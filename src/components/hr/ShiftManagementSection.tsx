@@ -46,7 +46,7 @@ export function ShiftManagementSection() {
   const loadEmployees = async () => {
     try {
       const data = await getAllEmployees();
-      setEmployees(data.filter(e => e.status === 'active'));
+      setEmployees(data.filter(e => e.is_active));
     } catch (error) {
       console.error('Failed to load employees:', error);
     }

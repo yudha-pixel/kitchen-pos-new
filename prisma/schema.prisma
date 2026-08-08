@@ -10,17 +10,66 @@ datasource db {
 model Profile {
   id            String         @id @default(uuid()) @db.Uuid
   username      String         @unique
-  role          String         @default("cashier")
   password_hash String
+  full_name     String?
+  email         String?        @unique
+  phone         String?
+  is_active     Boolean        @default(true)
   created_at    DateTime       @default(now())
   updated_at    DateTime       @updatedAt
   outlet_id     String?        @db.Uuid
+  role_id       String         @db.Uuid
   void_logs     OrderVoidLog[]
   orders        Order[]
   outlet        Outlet?        @relation(fields: [outlet_id], references: [id])
+  role          Role           @relation(fields: [role_id], references: [id])
+  notifications Notification[]
 
   @@index([outlet_id])
+  @@index([role_id])
   @@map("profiles")
+}
+
+model Role {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique
+  description String?
+  is_system   Boolean          @default(false)
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+  profiles    Profile[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(uuid()) @db.Uuid
+  name        String           @unique
+  description String?
+  module      String
+  action      String
+  created_at  DateTime         @default(now())
+  updated_at  DateTime         @updatedAt
+  roles       RolePermission[]
+
+  @@unique([module, action])
+  @@index([module])
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String     @id @default(uuid()) @db.Uuid
+  role_id      String     @db.Uuid
+  permission_id String    @db.Uuid
+  created_at   DateTime   @default(now())
+  role         Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@unique([role_id, permission_id])
+  @@index([role_id])
+  @@index([permission_id])
+  @@map("role_permissions")
 }
 
 model Category {
@@ -31,6 +80,7 @@ model Category {
   color            String?
   categoryPrinters CategoryPrinter[]
   products         Product[]
+  kitchenStationCategories KitchenStationCategory[]
 
   @@map("categories")
 }
@@ -105,6 +155,7 @@ model Modifier {
 model Order {
   id                     String              @id @default(uuid()) @db.Uuid
   cashier_id             String?             @db.Uuid
+  customer_id            String?             @db.Uuid
   total_amount           Float
   payment_method         String
   status                 String              @default("pending")
@@ -119,11 +170,13 @@ model Order {
   items                  OrderItem[]
   void_logs              OrderVoidLog[]
   cashier                Profile?            @relation(fields: [cashier_id], references: [id])
+  customer               Customer?           @relation("CustomerOrders", fields: [customer_id], references: [id])
   customerOrder          CustomerOrder?      @relation(fields: [customer_order_id], references: [id])
   outlet                 Outlet?             @relation(fields: [outlet_id], references: [id])
   paymentTransaction     PaymentTransaction?
 
   @@index([cashier_id])
+  @@index([customer_id])
   @@index([status])
   @@index([created_at])
   @@index([table_number])
@@ -201,21 +254,42 @@ model CategoryPrinter {
 }
 
 model Outlet {
-  id         String    @id @default(uuid()) @db.Uuid
-  name       String
-  code       String    @unique
-  address    String?
-  phone      String?
-  is_active  Boolean   @default(true)
-  created_at DateTime  @default(now())
-  updated_at DateTime  @updatedAt
-  orders     Order[]
-  products   Product[]
-  profiles   Profile[]
-  tables     Table[]
+  id            String           @id @default(uuid()) @db.Uuid
+  name          String
+  code          String           @unique
+  address       String?
+  phone         String?
+  is_active     Boolean          @default(true)
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @updatedAt
+  orders        Order[]
+  products      Product[]
+  profiles      Profile[]
+  tables        Table[]
+  warehouses    Warehouse[]
+  kitchenStations KitchenStation[]
 
   @@index([code])
   @@map("outlets")
+}
+
+model Warehouse {
+  id          String            @id @default(uuid()) @db.Uuid
+  name        String
+  code        String            @unique
+  outlet_id   String            @db.Uuid
+  address     String?
+  is_active   Boolean           @default(true)
+  created_at  DateTime          @default(now())
+  updated_at  DateTime          @updatedAt
+  outlet      Outlet            @relation(fields: [outlet_id], references: [id])
+  ingredients Ingredient[]
+  transfersFrom StockTransfer[] @relation("WarehouseTransfersFrom")
+  transfersTo   StockTransfer[] @relation("WarehouseTransfersTo")
+
+  @@index([outlet_id])
+  @@index([code])
+  @@map("warehouses")
 }
 
 model Table {
@@ -223,6 +297,7 @@ model Table {
   table_number   String          @unique
   qr_code        String?
   is_active      Boolean         @default(true)
+  status         String          @default("available") // available, occupied, dirty, reserved
   outlet_id      String?         @db.Uuid
   created_at     DateTime        @default(now())
   updated_at     DateTime        @updatedAt
@@ -231,6 +306,7 @@ model Table {
 
   @@index([table_number])
   @@index([outlet_id])
+  @@index([status])
   @@map("tables")
 }
 
@@ -291,35 +367,257 @@ model PaymentTransaction {
 }
 
 model AppSettings {
-  id             String   @id @default(uuid()) @db.Uuid
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
-  card_style     String   @default("rounded")
-  primary_color  String   @default("blue")
-  theme_mode     String   @default("light")
-  card_view      String   @default("grid")
-  cart_position  String   @default("right-sidebar")
-  layout_density String   @default("spacious")
+  id                 String   @id @default(uuid()) @db.Uuid
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  
+  // UI Settings
+  card_style         String   @default("rounded")
+  primary_color      String   @default("blue")
+  theme_mode         String   @default("light")
+  card_view          String   @default("grid")
+  cart_position      String   @default("right-sidebar")
+  layout_density     String   @default("spacious")
+  
+  // Store Settings
+  store_name         String   @default("Kitchen POS Restaurant")
+  store_phone        String   @default("+62 21 1234 5678")
+  store_email        String   @default("info@kitchenpos.com")
+  store_address      String   @default("Jl. Contoh No. 123, Jakarta Selatan")
+  timezone           String   @default("Asia/Jakarta")
+  currency           String   @default("IDR")
+  tax_rate           Float    @default(10)
+  service_charge     Float    @default(0)
+  
+  // Receipt Settings
+  receipt_header     String   @default("TERIMA KASIH")
+  receipt_footer     String   @default("Silakan datang kembali")
+  show_logo          Boolean  @default(true)
+  show_table_number  Boolean  @default(true)
+  show_cashier_name  Boolean  @default(true)
+  printer_type       String   @default("bluetooth")
+  paper_width        String   @default("80")
+  
+  // Shift Settings
+  default_cash_float  Float    @default(500000)
+  require_cash_float  String   @default("yes")
+  require_reconciliation Boolean @default(true)
+  show_cash_comparison Boolean @default(true)
+  auto_report        Boolean  @default(true)
+  
+  // Inventory Settings
+  min_stock_menu      Int      @default(5)
+  min_stock_ingredient Int     @default(10)
+  notify_low_stock   Boolean  @default(true)
+  show_pos_warning   Boolean  @default(true)
+  email_manager      Boolean  @default(true)
+  
+  // Security Settings
+  manager_pin        String   @default("1234")
+  require_pin_void   Boolean  @default(true)
+  require_pin_refund Boolean  @default(true)
+  require_pin_discount Boolean @default(true)
+  require_pin_delete Boolean  @default(true)
+  backup_frequency   String   @default("daily")
+  
+  // Kitchen Settings
+  main_course_route   String   @default("KDS Display 1")
+  beverage_route     String   @default("Bar Station")
+  dessert_route      String   @default("KDS Display 1")
+  sound_notification Boolean  @default(true)
+  auto_refresh       Boolean  @default(true)
+  show_estimation    Boolean  @default(true)
 
   @@map("app_settings")
 }
 
+model Customer {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String
+  phone             String   @unique
+  email             String?
+  tier              String   @default("bronze") // bronze, silver, gold, platinum
+  points            Int      @default(0)
+  total_spent       Float    @default(0)
+  discount_percentage Float  @default(5)
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  orders            Order[]  @relation("CustomerOrders")
+
+  @@index([phone])
+  @@index([tier])
+  @@index([is_active])
+  @@map("customers")
+}
+
+model Voucher {
+  id                String   @id @default(uuid()) @db.Uuid
+  code              String   @unique
+  name              String
+  description       String?
+  discount_type     String   // nominal, percentage
+  discount_value    Float
+  minimum_purchase  Float    @default(0)
+  max_discount      Float?
+  quota             Int      @default(100)
+  used_count        Int      @default(0)
+  valid_from        DateTime @default(now())
+  valid_until       DateTime
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  @@index([code])
+  @@index([is_active])
+  @@index([valid_from])
+  @@index([valid_until])
+  @@map("vouchers")
+}
+
+model Employee {
+  id                String   @id @default(uuid()) @db.Uuid
+  name              String
+  phone             String
+  email             String?
+  position          String   // cashier, chef, waiter, manager, etc.
+  employment_type   String   @default("permanent") // permanent, freelance
+  base_salary       Float    @default(0)
+  hourly_rate       Float    @default(0)
+  join_date         DateTime @default(now())
+  is_active         Boolean  @default(true)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  attendances       Attendance[]
+  payrolls          Payroll[]
+
+  @@index([phone])
+  @@index([position])
+  @@index([is_active])
+  @@map("employees")
+}
+
+model Attendance {
+  id                String   @id @default(uuid()) @db.Uuid
+  employee_id       String   @db.Uuid
+  check_in_time     DateTime @default(now())
+  check_out_time    DateTime?
+  photo_url         String?  // URL to selfie photo
+  location_lat       Float?
+  location_lng      Float?
+  location_address   String?
+  shift_type        String?  // morning, afternoon, night
+  notes             String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  employee          Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  @@index([employee_id])
+  @@index([check_in_time])
+  @@map("attendances")
+}
+
+model Payroll {
+  id                String   @id @default(uuid()) @db.Uuid
+  employee_id       String   @db.Uuid
+  period_start      DateTime
+  period_end        DateTime
+  base_salary       Float    @default(0)
+  overtime_hours    Float    @default(0)
+  overtime_pay      Float    @default(0)
+  bonus             Float    @default(0)
+  deduction         Float    @default(0)
+  total_pay         Float    @default(0)
+  status            String   @default("pending") // pending, approved, paid
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  employee          Employee @relation(fields: [employee_id], references: [id], onDelete: Cascade)
+
+  @@index([employee_id])
+  @@index([period_start])
+  @@index([period_end])
+  @@index([status])
+  @@map("payrolls")
+}
+
 model Ingredient {
-  id            String    @id @default(uuid()) @db.Uuid
-  name          String
-  current_stock Float     @default(0)
-  unit          String
-  min_stock     Float     @default(0)
-  unit_price    Float     @default(0)
-  supplier_id   String?   @db.Uuid
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  supplier      Supplier? @relation(fields: [supplier_id], references: [id])
-  recipes       Recipe[]
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String
+  current_stock   Float           @default(0)
+  unit            String
+  min_stock       Float           @default(0)
+  unit_price      Float           @default(0)
+  supplier_id     String?         @db.Uuid
+  warehouse_id    String?         @db.Uuid
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  supplier        Supplier?       @relation(fields: [supplier_id], references: [id])
+  warehouse       Warehouse?      @relation(fields: [warehouse_id], references: [id])
+  recipes         Recipe[]
+  stockAdjustmentLogs StockAdjustmentLog[]
+  purchaseOrders  PurchaseOrder[]
+  transferItems   StockTransferItem[]
 
   @@index([name])
   @@index([supplier_id])
+  @@index([warehouse_id])
   @@map("ingredients")
+}
+
+model StockTransfer {
+  id              String            @id @default(uuid()) @db.Uuid
+  transfer_number String            @unique
+  from_warehouse_id String          @db.Uuid
+  to_warehouse_id   String          @db.Uuid
+  status          String            @default("pending") // pending, approved, rejected, completed, cancelled
+  requested_by    String            @db.Uuid
+  approved_by     String?
+  approved_at     DateTime?
+  notes           String?
+  created_at      DateTime          @default(now())
+  updated_at      DateTime          @updatedAt
+  from_warehouse  Warehouse         @relation("WarehouseTransfersFrom", fields: [from_warehouse_id], references: [id])
+  to_warehouse    Warehouse         @relation("WarehouseTransfersTo", fields: [to_warehouse_id], references: [id])
+  items           StockTransferItem[]
+
+  @@index([from_warehouse_id])
+  @@index([to_warehouse_id])
+  @@index([status])
+  @@index([transfer_number])
+  @@map("stock_transfers")
+}
+
+model StockTransferItem {
+  id               String        @id @default(uuid()) @db.Uuid
+  transfer_id      String        @db.Uuid
+  ingredient_id    String        @db.Uuid
+  quantity         Float
+  unit             String
+  created_at       DateTime      @default(now())
+  transfer         StockTransfer @relation(fields: [transfer_id], references: [id], onDelete: Cascade)
+  ingredient       Ingredient    @relation(fields: [ingredient_id], references: [id])
+
+  @@index([transfer_id])
+  @@index([ingredient_id])
+  @@map("stock_transfer_items")
+}
+
+model Notification {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String   @db.Uuid
+  type        String   // order_created, order_updated, table_status_changed, stock_low, transfer_requested, etc.
+  title       String
+  message     String
+  data        Json?
+  is_read     Boolean  @default(false)
+  created_at  DateTime @default(now())
+  user        Profile  @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([is_read])
+  @@index([type])
+  @@index([created_at])
+  @@map("notifications")
 }
 
 model Recipe {
@@ -337,15 +635,148 @@ model Recipe {
 }
 
 model Supplier {
-  id          String       @id @default(uuid()) @db.Uuid
-  name        String
-  phone       String
-  email       String?
-  address     String?
-  created_at  DateTime     @default(now())
-  updated_at  DateTime     @updatedAt
-  ingredients Ingredient[]
+  id              String          @id @default(uuid()) @db.Uuid
+  name            String
+  phone           String
+  email           String?
+  address         String?
+  created_at      DateTime        @default(now())
+  updated_at      DateTime        @updatedAt
+  ingredients     Ingredient[]
+  purchaseOrders  PurchaseOrder[]
 
   @@index([name])
   @@map("suppliers")
+}
+
+model PurchaseOrder {
+  id                String   @id @default(uuid()) @db.Uuid
+  supplier_id       String   @db.Uuid
+  ingredient_id     String   @db.Uuid
+  quantity          Float
+  unit_price        Float
+  total_price       Float
+  status            String   @default("pending") // pending, received, cancelled
+  order_date        DateTime @default(now())
+  received_date     DateTime?
+  notes             String?
+  user_id           String?  @db.Uuid
+  created_at        DateTime @default(now()) @db.Timestamptz(6)
+  updated_at        DateTime @updatedAt
+  supplier          Supplier    @relation(fields: [supplier_id], references: [id])
+  ingredient        Ingredient  @relation(fields: [ingredient_id], references: [id])
+
+  @@index([supplier_id])
+  @@index([ingredient_id])
+  @@index([status])
+  @@index([order_date])
+  @@map("purchase_orders")
+}
+
+model StockAdjustmentLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  ingredient_id   String   @db.Uuid
+  previous_stock  Float
+  new_stock       Float
+  adjustment_type String   // 'manual', 'purchase', 'consumption', 'restock', 'void'
+  reason          String?
+  user_id         String?  @db.Uuid
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  ingredient      Ingredient @relation(fields: [ingredient_id], references: [id])
+
+  @@index([ingredient_id])
+  @@index([user_id])
+  @@index([created_at])
+  @@map("stock_adjustment_logs")
+}
+
+// OCR Scan Model for receipt/document scanning
+model OcrScan {
+  id          String   @id @default(uuid()) @db.Uuid
+  scan_type   String   // 'receipt', 'supplier_note', 'menu', 'barcode'
+  image_url   String
+  extracted_text Json?
+  extracted_data Json? // Structured data extracted from OCR
+  status      String   @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  error_message String?
+  user_id     String?  @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@index([user_id])
+  @@index([scan_type])
+  @@index([status])
+  @@index([created_at])
+  @@map("ocr_scans")
+}
+
+// Kitchen Station Model for routing orders to specific stations
+model KitchenStation {
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String
+  code        String   @unique // 'BAR', 'HOT_KITCHEN', 'COLD_KITCHEN', 'DESSERT'
+  description String?
+  is_active   Boolean  @default(true)
+  outlet_id   String?  @db.Uuid
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  outlet      Outlet?  @relation(fields: [outlet_id], references: [id])
+  menuCategories KitchenStationCategory[]
+
+  @@index([outlet_id])
+  @@index([code])
+  @@map("kitchen_stations")
+}
+
+// Junction table for KitchenStation and Category
+model KitchenStationCategory {
+  id                String   @id @default(uuid()) @db.Uuid
+  kitchen_station_id String   @db.Uuid
+  category_id       String   @db.Uuid
+  kitchen_station   KitchenStation @relation(fields: [kitchen_station_id], references: [id], onDelete: Cascade)
+  category          Category     @relation(fields: [category_id], references: [id], onDelete: Cascade)
+
+  @@unique([kitchen_station_id, category_id])
+  @@index([kitchen_station_id])
+  @@index([category_id])
+  @@map("kitchen_station_categories")
+}
+
+// Database Backup Model
+model DatabaseBackup {
+  id          String   @id @default(uuid()) @db.Uuid
+  filename    String
+  file_path   String
+  file_size   BigInt
+  backup_type String   // 'manual', 'scheduled'
+  status      String   @default("completed") // 'pending', 'completed', 'failed'
+  created_by  String?  @db.Uuid
+  created_at  DateTime @default(now())
+  notes       String?
+
+  @@index([backup_type])
+  @@index([status])
+  @@index([created_at])
+  @@map("database_backups")
+}
+
+// Audit Log Model for tracking sensitive operations
+model AuditLog {
+  id          String   @id @default(uuid()) @db.Uuid
+  user_id     String?  @db.Uuid
+  action      String   // 'create', 'update', 'delete', 'void', 'discount', 'price_change'
+  entity_type String   // 'order', 'menu_item', 'ingredient', 'user', etc.
+  entity_id   String?
+  old_value   Json?
+  new_value   Json?
+  ip_address  String?
+  user_agent  String?
+  description String?
+  created_at  DateTime @default(now())
+
+  @@index([user_id])
+  @@index([action])
+  @@index([entity_type])
+  @@index([created_at])
+  @@map("audit_logs")
 }

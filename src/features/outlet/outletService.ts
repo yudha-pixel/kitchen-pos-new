@@ -1,4 +1,5 @@
 import { Outlet } from '@/src/lib/db';
+import { getToken } from '@/src/lib/api';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -15,7 +16,7 @@ export interface OutletWithCounts extends Outlet {
 export async function getOutlets(): Promise<OutletWithCounts[]> {
   try {
     console.log('Fetching outlets...');
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/outlets`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -42,7 +43,7 @@ export async function getOutlets(): Promise<OutletWithCounts[]> {
 // Get outlet by ID
 export async function getOutletById(id: string): Promise<OutletWithCounts | null> {
   try {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/outlets/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -61,7 +62,7 @@ export async function getOutletById(id: string): Promise<OutletWithCounts | null
 // Create outlet
 export async function createOutlet(data: Omit<Outlet, 'id' | 'created_at' | 'updated_at'>): Promise<Outlet | null> {
   try {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/outlets`, {
       method: 'POST',
       headers: {
@@ -83,7 +84,7 @@ export async function createOutlet(data: Omit<Outlet, 'id' | 'created_at' | 'upd
 // Update outlet
 export async function updateOutlet(id: string, data: Partial<Omit<Outlet, 'id' | 'created_at' | 'updated_at'>>): Promise<Outlet | null> {
   try {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/outlets/${id}`, {
       method: 'PATCH',
       headers: {
@@ -105,7 +106,7 @@ export async function updateOutlet(id: string, data: Partial<Omit<Outlet, 'id' |
 // Delete outlet
 export async function deleteOutlet(id: string): Promise<boolean> {
   try {
-    const token = localStorage.getItem('token');
+    const token = getToken();
     const response = await fetch(`${API_BASE}/outlets/${id}`, {
       method: 'DELETE',
       headers: {

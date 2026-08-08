@@ -4,15 +4,22 @@ import { prisma } from '../lib/prisma';
 import { ZodError } from 'zod';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { webhookSignatureMiddleware } from '../middleware/webhookSignature';
 
 const router = Router();
 
 // Validation schemas
+// Note: `amount` is deliberately NOT part of this schema. It used to be
+// taken directly from the client request body, which let anyone with
+// network access (or a modified client) create a payment transaction for
+// any arbitrary amount, completely decoupled from what the order actually
+// totals to - a direct payment-amount manipulation vulnerability. The
+// authoritative amount is now always looked up server-side from
+// `order.total_amount` (see POST /payments below).
 const createPaymentSchema = z.object({
   order_id: z.string().uuid(),
   gateway: z.enum(['midtrans', 'xendit']),
   payment_method: z.enum(['qris', 'va', 'ewallet']),
-  amount: z.number().positive(),
 });
 
 const updatePaymentStatusSchema = z.object({
@@ -22,12 +29,10 @@ const updatePaymentStatusSchema = z.object({
 });
 
 // Create payment transaction
-router.post('/payments', async (req: Request, res: Response) => {
+router.post('/payments', authMiddleware, async (req: Request, res: Response) => {
   try {
     const data = createPaymentSchema.parse(req.body);
     const paymentId = randomUUID();
-
-    console.log('Creating payment for order:', data.order_id);
 
     // Verify order exists
     const order = await prisma.order.findUnique({
@@ -35,11 +40,8 @@ router.post('/payments', async (req: Request, res: Response) => {
     });
 
     if (!order) {
-      console.log('Order not found:', data.order_id);
       return res.status(404).json({ error: 'Order not found', order_id: data.order_id });
     }
-
-    console.log('Order found:', order.id);
 
     // Check if payment already exists for this order
     const existingPayment = await prisma.paymentTransaction.findUnique({
@@ -47,9 +49,14 @@ router.post('/payments', async (req: Request, res: Response) => {
     });
 
     if (existingPayment) {
-      console.log('Payment already exists for order:', data.order_id);
       return res.status(400).json({ error: 'Payment already exists for this order' });
     }
+
+    // Authoritative amount: always the order's own total_amount from the DB.
+    // Never trust an `amount` from the client payload here - this is the
+    // fix for a payment-amount manipulation vulnerability (see schema
+    // comment above).
+    const amount = order.total_amount;
 
     // Create payment transaction
     const payment = await prisma.paymentTransaction.create({
@@ -57,19 +64,17 @@ router.post('/payments', async (req: Request, res: Response) => {
         id: paymentId,
         order_id: data.order_id,
         gateway: data.gateway,
-        amount: data.amount,
+        amount,
         payment_method: data.payment_method,
         status: 'pending',
       },
     });
 
-    console.log('Payment created:', payment.id);
-
     // Generate QR code if payment method is QRIS
     if (data.payment_method === 'qris') {
       // In production, this would call the actual payment gateway API
       // For now, we'll generate a placeholder QR code
-      const qrCode = generatePlaceholderQRCode(data.amount, paymentId);
+      const qrCode = generatePlaceholderQRCode(amount, paymentId);
       const qrExpiry = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes expiry
 
       await prisma.paymentTransaction.update({
@@ -90,11 +95,9 @@ router.post('/payments', async (req: Request, res: Response) => {
       data: { payment_transaction_id: paymentId },
     });
 
-    console.log('Payment linked to order');
     res.status(201).json(payment);
   } catch (error) {
     if (error instanceof ZodError) {
-      console.log('Validation error:', error.issues);
       return res.status(400).json({
         error: 'Validation failed',
         details: error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
@@ -129,8 +132,15 @@ router.get('/payments/:id', authMiddleware, async (req: Request, res: Response) 
   }
 });
 
-// Update payment status (for webhook or manual update)
-router.patch('/payments/:id/status', async (req: Request, res: Response) => {
+// Manual payment status update by an authenticated staff member (e.g. a
+// cashier confirming cash was received offline, or an admin correcting a
+// stuck payment). This is NOT used by the actual payment gateway webhook -
+// that flow is entirely separate (see POST /webhooks/payment below), since
+// gateways authenticate via their own signature scheme, not our JWTs. Both
+// `admin` and `cashier` roles are allowed here (authMiddleware alone, no
+// further requireRole restriction), matching who is already trusted to
+// operate the POS day-to-day.
+router.patch('/payments/:id/status', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     const data = updatePaymentStatusSchema.parse(req.body);
@@ -170,15 +180,11 @@ router.patch('/payments/:id/status', async (req: Request, res: Response) => {
 });
 
 // Webhook endpoint for payment gateway notifications
-router.post('/webhooks/payment', async (req: Request, res: Response) => {
+// This endpoint is protected by signature verification middleware
+// Payment gateways (Midtrans/Xendit) authenticate via their own signature scheme, not our JWTs
+router.post('/webhooks/payment', webhookSignatureMiddleware, async (req: Request, res: Response) => {
   try {
     const { gateway, gateway_tx_id, status, amount } = req.body;
-
-    // Verify webhook signature (in production)
-    // const signature = req.headers['x-signature'];
-    // if (!verifyWebhookSignature(signature, req.body)) {
-    //   return res.status(401).json({ error: 'Invalid signature' });
-    // }
 
     // Find payment by gateway transaction ID
     const payment = await prisma.paymentTransaction.findFirst({

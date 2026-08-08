@@ -85,10 +85,26 @@ export default function KitchenDisplayPage() {
     const initial = setTimeout(() => fetchOrders(true), 0);
     const refresh = setInterval(() => fetchOrders(true), 30000);
     const timerTick = setInterval(() => setTick((t) => t + 1), 30000);
+
+    // Listen for orderCreated events to refresh orders in real-time
+    const handleOrderCreated = () => {
+      console.log('📡 Received orderCreated event, refreshing kitchen orders...');
+      fetchOrders(true);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('orderCreated', handleOrderCreated);
+      console.log('🔍 [Kitchen Page] Listening for orderCreated events');
+    }
+
     return () => {
       clearTimeout(initial);
       clearInterval(refresh);
       clearInterval(timerTick);
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('orderCreated', handleOrderCreated);
+        console.log('🔍 [Kitchen Page] Stopped listening for orderCreated events');
+      }
     };
   }, [fetchOrders]);
 
@@ -170,31 +186,16 @@ export default function KitchenDisplayPage() {
 
     const isKitchenItem = (item: OrderItem) => {
       const categoryName = item.product?.category?.name?.toLowerCase() || '';
-      const kitchenKeywords = [
-        'makanan', 'food', 'main', 'utama', 'bakery',
-        'appetizer', 'starter', 'soup', 'salad',
-        'entree', 'dinner', 'lunch', 'breakfast',
-        'snack', 'dessert', 'cake', 'pastry',
-        'ayam', 'beef', 'pork', 'fish', 'seafood',
-        'nasi', 'mie', 'pasta', 'rice', 'noodle',
-        'burger', 'sandwich', 'pizza', 'steak',
-        'goreng', 'bakar', 'rebus', 'panggang'
-      ];
-      return kitchenKeywords.some(keyword => categoryName.includes(keyword));
+      // Kitchen items: Makanan Utama, Bakery, Dessert
+      const kitchenCategories = ['makanan utama', 'bakery', 'dessert', 'makanan', 'food', 'main', 'utama'];
+      return kitchenCategories.some(cat => categoryName.includes(cat));
     };
 
     const isBarItem = (item: OrderItem) => {
       const categoryName = item.product?.category?.name?.toLowerCase() || '';
-      const barKeywords = [
-        'minuman', 'drink', 'beverage', 'jus', 'kopi', 'tea', 'coffee', 'non-coffee',
-        'cocktail', 'mocktail', 'smoothie', 'shake', 'milkshake',
-        'soda', 'water', 'juice', 'es', 'ice',
-        'latte', 'cappuccino', 'espresso', 'macchiato',
-        'tea', 'matcha', 'green tea', 'black tea',
-        'beer', 'wine', 'spirits', 'liquor',
-        'fresh', 'blend', 'cold', 'hot'
-      ];
-      return barKeywords.some(keyword => categoryName.includes(keyword));
+      // Bar items: Minuman, Kopi, Teh
+      const barCategories = ['minuman', 'kopi', 'teh', 'drink', 'beverage', 'coffee', 'tea'];
+      return barCategories.some(cat => categoryName.includes(cat));
     };
 
     if (filter === 'kitchen') {
@@ -222,7 +223,7 @@ export default function KitchenDisplayPage() {
             <button
               onClick={() => router.back()}
               aria-label="Kembali"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-kds-text-secondary transition-colors hover:bg-kds-surface-alt"
+              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-kds-text-secondary transition-colors hover:bg-kds-surface-alt hover:text-kds-text"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -239,7 +240,7 @@ export default function KitchenDisplayPage() {
                 className={`flex min-h-11 items-center gap-2 rounded-lg px-4 font-medium transition-colors ${
                   filter === key
                     ? 'bg-orange-500 text-white'
-                    : 'bg-kds-surface-alt text-kds-text-secondary hover:bg-slate-600'
+                    : 'bg-kds-surface-alt text-kds-text-secondary hover:bg-slate-600 hover:text-white'
                 }`}
               >
                 {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
@@ -257,7 +258,7 @@ export default function KitchenDisplayPage() {
             <button
               onClick={() => fetchOrders()}
               disabled={refreshing}
-              className="flex min-h-11 items-center gap-2 rounded-lg bg-sky-700 px-4 font-medium text-white transition-colors hover:bg-sky-600 disabled:opacity-50"
+              className="flex min-h-11 items-center gap-2 rounded-lg bg-sky-700 px-4 font-medium text-white transition-colors hover:bg-sky-600 hover:text-white disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
               Refresh
@@ -346,7 +347,7 @@ export default function KitchenDisplayPage() {
                       <button
                         onClick={() => updateItemStatus(item.id, 'preparing')}
                         disabled={busy}
-                        className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-600 font-medium text-white transition-colors hover:bg-yellow-700 active:scale-[0.98] disabled:opacity-50"
+                        className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-yellow-600 font-medium text-white transition-colors hover:bg-yellow-700 hover:text-white active:scale-[0.98] disabled:opacity-50"
                       >
                         {busy ? <Spinner size="sm" /> : <Flame className="h-4 w-4" aria-hidden="true" />}
                         Proses
@@ -355,7 +356,7 @@ export default function KitchenDisplayPage() {
                     <button
                       onClick={() => updateItemStatus(item.id, 'completed')}
                       disabled={busy}
-                      className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 font-medium text-white transition-colors hover:bg-emerald-700 active:scale-[0.98] disabled:opacity-50"
+                      className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-600 font-medium text-white transition-colors hover:bg-emerald-700 hover:text-white active:scale-[0.98] disabled:opacity-50"
                     >
                       {busy ? <Spinner size="sm" /> : <CheckCircle className="h-4 w-4" aria-hidden="true" />}
                       Selesai

@@ -4,10 +4,30 @@ import { useEffect, useState } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
+import { getToken } from '@/src/lib/api';
 import { Plus, Edit, Trash2, Calendar, Tag, Percent, DollarSign, Check, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
-import { db, Voucher } from '@/src/lib/db';
 import { useToast } from '@/src/components/ui/Toast';
+
+interface Voucher {
+  id?: string;
+  code: string;
+  name: string;
+  description?: string;
+  discount_type: 'nominal' | 'percentage';
+  discount_value: number;
+  minimum_purchase: number;
+  max_discount?: number;
+  quota: number;
+  used_count: number;
+  valid_from: string;
+  valid_until: string;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -37,7 +57,20 @@ export default function VouchersPage() {
 
   const loadVouchers = async () => {
     try {
-      const allVouchers = await db.vouchers.toArray();
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/vouchers`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('API Error:', response.status, errorData);
+        throw new Error(`Failed to fetch vouchers: ${response.status}`);
+      }
+
+      const allVouchers = await response.json();
       setVouchers(allVouchers);
     } catch (error) {
       console.error('Failed to load vouchers:', error);
@@ -64,22 +97,24 @@ export default function VouchersPage() {
         return;
       }
 
-      const voucherData: Voucher = {
-        ...formData,
-        id: editingVoucher?.id || crypto.randomUUID(),
-        used_count: editingVoucher?.used_count || 0,
-        created_at: editingVoucher?.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
+      const token = getToken();
+      const url = editingVoucher ? `${API_BASE}/vouchers/${editingVoucher.id}` : `${API_BASE}/vouchers`;
+      const method = editingVoucher ? 'PUT' : 'POST';
 
-      if (editingVoucher) {
-        await db.vouchers.update(editingVoucher.id!, voucherData);
-        toast('success', 'Voucer berhasil diperbarui');
-      } else {
-        await db.vouchers.add(voucherData);
-        toast('success', 'Voucer berhasil ditambahkan');
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save voucher');
       }
 
+      toast('success', editingVoucher ? 'Voucer berhasil diperbarui' : 'Voucer berhasil ditambahkan');
       setShowModal(false);
       setEditingVoucher(null);
       resetForm();
@@ -114,7 +149,18 @@ export default function VouchersPage() {
     }
 
     try {
-      await db.vouchers.delete(id);
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/vouchers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete voucher');
+      }
+
       toast('success', 'Voucer berhasil dihapus');
       loadVouchers();
     } catch (error) {
@@ -125,7 +171,18 @@ export default function VouchersPage() {
 
   const handleToggleActive = async (voucher: Voucher) => {
     try {
-      await db.vouchers.update(voucher.id!, { is_active: !voucher.is_active, updated_at: new Date().toISOString() });
+      const token = getToken();
+      const response = await fetch(`${API_BASE}/vouchers/${voucher.id}/toggle-active`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle voucher status');
+      }
+
       toast('success', `Voucer ${voucher.is_active ? 'dinonaktifkan' : 'diaktifkan'}`);
       loadVouchers();
     } catch (error) {
@@ -205,13 +262,13 @@ export default function VouchersPage() {
                         </button>
                         <button
                           onClick={() => handleEdit(voucher)}
-                          className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 transition-colors"
+                          className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition-colors"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleDelete(voucher.id!)}
-                          className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors"
+                          className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>

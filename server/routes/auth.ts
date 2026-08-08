@@ -10,7 +10,10 @@ const router = Router();
 router.post('/login', async (req: Request, res: Response) => {
   const { username, password } = loginSchema.parse(req.body);
 
-  const user = await prisma.profile.findUnique({ where: { username } });
+  const user = await prisma.profile.findUnique({ 
+    where: { username },
+    include: { role: true }
+  });
   if (!user) {
     res.status(401).json({ error: 'Invalid username or password' });
     return;
@@ -23,14 +26,14 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role },
+    { id: user.id, username: user.username, role: user.role.name },
     getJwtSecret(),
     { expiresIn: '7d' }
   );
 
   res.json({
     token,
-    user: { id: user.id, username: user.username, role: user.role },
+    user: { id: user.id, username: user.username, role: user.role.name },
   });
 });
 
@@ -47,18 +50,30 @@ router.post(
       return;
     }
 
-    const password_hash = await bcrypt.hash(password, 10);
-    const user = await prisma.profile.create({
-      data: { username, password_hash, role },
+    // Get role ID from role name
+    const roleRecord = await prisma.role.findUnique({
+      where: { name: role },
     });
 
-    res.json({ id: user.id, username: user.username, role: user.role });
+    if (!roleRecord) {
+      res.status(400).json({ error: 'Invalid role' });
+      return;
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+    const user = await prisma.profile.create({
+      data: { username, password_hash, role_id: roleRecord.id },
+      include: { role: true }
+    });
+
+    res.json({ id: user.id, username: user.username, role: user.role.name });
   }
 );
 
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   const user = await prisma.profile.findUnique({
     where: { id: req.user!.id },
+    include: { role: true }
   });
 
   if (!user) {
@@ -66,7 +81,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ id: user.id, username: user.username, role: user.role });
+  res.json({ id: user.id, username: user.username, role: user.role.name });
 });
 
 export default router;

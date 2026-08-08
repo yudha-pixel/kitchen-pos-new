@@ -21,6 +21,20 @@ The POS supports dine-in, takeaway, and delivery order workflows with table mana
 - Receipt-optimized print layout.
 - Multi-cashier support with role-based login.
 
+### Inventory Management
+- Ingredient stock tracking with unit and min stock alerts.
+- Recipe-based ingredient consumption on order creation.
+- Stock adjustment logging with audit trail.
+- Supplier management and purchase order tracking.
+- Automatic stock updates on purchase order receipt.
+
+### Security & Infrastructure
+- JWT-based authentication with role-based access control (admin/cashier).
+- Webhook signature verification for payment gateways (Midtrans, Xendit).
+- Rate limiting on sensitive endpoints (login, payments).
+- HTTP security headers via Helmet.
+- Configurable CORS policies for production.
+
 ### Offline-first
 - IndexedDB cache via Dexie.js.
 - Automatic sync to PostgreSQL when online.
@@ -139,11 +153,16 @@ Use the cart panel controls for split bills and table merging.
 
 Base URL: `http://localhost:3001`
 
+### Authentication
 | Method | Path                     | Description                     |
 | ------ | ------------------------ | ------------------------------- |
 | POST   | `/auth/login`            | Login and receive JWT           |
 | POST   | `/auth/register`         | Register a new user (admin)   |
 | GET    | `/auth/me`               | Current user profile            |
+
+### Products & Orders
+| Method | Path                     | Description                     |
+| ------ | ------------------------ | ------------------------------- |
 | GET    | `/health`                | API health check                |
 | GET    | `/categories`            | List categories                 |
 | GET    | `/products`              | List products                   |
@@ -155,6 +174,28 @@ Base URL: `http://localhost:3001`
 | PATCH  | `/orders/:id/status`     | Update order status             |
 | POST   | `/orders/merge-table`    | Merge orders from two tables    |
 | POST   | `/void-logs`             | Record voided items             |
+
+### Inventory & Suppliers
+| Method | Path                     | Description                     |
+| ------ | ------------------------ | ------------------------------- |
+| GET    | `/ingredients`           | List ingredients                |
+| POST   | `/ingredients`           | Create ingredient (admin)      |
+| PUT    | `/ingredients/:id`       | Update ingredient (admin)      |
+| DELETE | `/ingredients/:id`       | Delete ingredient (admin)      |
+| GET    | `/recipes`               | List recipes                   |
+| GET    | `/suppliers`             | List suppliers                  |
+| POST   | `/suppliers`             | Create supplier (admin)         |
+| PUT    | `/suppliers/:id`         | Update supplier (admin)         |
+| DELETE | `/suppliers/:id`         | Delete supplier (admin)         |
+| POST   | `/suppliers/:id/purchase-orders` | Create purchase order (admin) |
+| PATCH  | `/suppliers/:id/purchase-orders/:poId/receive` | Receive PO (admin) |
+
+### Payments
+| Method | Path                     | Description                     |
+| ------ | ------------------------ | ------------------------------- |
+| POST   | `/payments`              | Create payment (auth)           |
+| PATCH  | `/payments/:id/status`   | Update payment status (auth)    |
+| POST   | `/webhooks/payment`      | Payment webhook (signature verified) |
 
 ## Scripts
 
@@ -169,6 +210,43 @@ Base URL: `http://localhost:3001`
 | `npm run build`       | Build the Next.js frontend                |
 | `npm run lint`        | Run ESLint                                |
 | `npx tsc --noEmit`    | Type-check the project                    |
+| `npm test`            | Run test suite (63 tests)                 |
+
+## Testing Guide
+
+The project includes a comprehensive test suite covering business logic, security, and integration tests.
+
+### Running Tests
+
+```bash
+# Run all tests
+npm test
+
+# Run specific test file
+npm test server/__tests__/orders.restore.test.ts
+```
+
+### Test Files
+
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `orders.restore.test.ts` | Order void/cancel and stock restoration | 9 |
+| `orders.stock.test.ts` | Ingredient stock validation on orders | 6 |
+| `payments.security.test.ts` | Payment endpoint security & auth | 8 |
+| `inventory.security.test.ts` | Inventory CRUD & stock adjustment security | 12 |
+| `webhook.security.test.ts` | Webhook signature verification (Midtrans/Xendit) | 8 |
+| `infrastructure.security.test.ts` | Helmet headers, rate limiting, CORS | 8 |
+| `suppliers.test.ts` | Supplier & purchase order integration | 12 |
+
+**Total: 63 tests**
+
+### Test Coverage
+
+- **Authentication & Authorization**: JWT token validation, role-based access control
+- **Inventory Management**: Stock consumption, restoration, adjustment logging
+- **Payment Security**: Amount validation, status updates, webhook verification
+- **Supplier Management**: CRUD operations, purchase order flow, stock updates
+- **Infrastructure**: Security headers, rate limiting, CORS configuration
 
 ## Roadmap
 
@@ -182,32 +260,92 @@ Detailed planning documents are in the `knowledge/` folder:
 - `06-security-backup-testing-training.md` — Security, backups, tests, training.
 - `07-odoo-alternative-and-roadmap.md` — Odoo comparison and phased roadmap.
 
-## Testing
-
-A test suite is not implemented yet. Planned coverage includes:
-
-- Unit tests for pricing and business logic.
-- Integration tests for the Express API.
-- End-to-end tests with Playwright.
-- Offline/online sync tests.
-
 ## Deployment
 
-For local or self-hosted deployment:
+### Local Development
 
-1. Set production environment variables.
-2. Run `npm run build` to build the frontend.
-3. Run `npm run api:start` to start the API.
-4. Place both behind a reverse proxy or use the LAN IP.
+1. Copy `.env.example` to `.env` and configure environment variables
+2. Run `npm run db:migrate` to apply database migrations
+3. Run `npm run db:seed` to seed initial data
+4. Run `npm run dev` to start development servers
 
-For LAN multi-device access, set `NEXT_PUBLIC_API_URL` to the API host's IP before building.
+### Production Deployment
 
-## Security Notes
+1. **Environment Configuration**:
+   ```bash
+   # Copy and configure environment file
+   cp .env.example .env
+   
+   # Generate strong JWT_SECRET
+   openssl rand -base64 32
+   
+   # Set NODE_ENV to production
+   export NODE_ENV=production
+   ```
 
-- Change `JWT_SECRET` to a strong random value in production.
-- Do not commit `.env` or `.env.local`.
-- Keep PostgreSQL behind the firewall; do not expose port 5432 to the internet.
-- Use HTTPS when exposing the API outside the LAN.
+2. **Database Setup**:
+   ```bash
+   # Apply migrations
+   npm run db:migrate
+   
+   # Generate Prisma client
+   npm run db:generate
+   ```
+
+3. **Build & Start**:
+   ```bash
+   # Build Next.js frontend
+   npm run build
+   
+   # Start API server
+   npm run api:start
+   ```
+
+4. **Reverse Proxy** (recommended):
+   - Place behind Nginx or similar reverse proxy
+   - Configure SSL/TLS certificates
+   - Set up proper CORS origins in `CORS_ORIGIN` environment variable
+
+### Security Notes
+
+**Critical Security Configuration:**
+
+1. **JWT_SECRET**:
+   - Must be a strong, random string (minimum 32 characters)
+   - Generate with: `openssl rand -base64 32`
+   - Never use default values in production
+   - Application will refuse to start with weak secrets in production mode
+
+2. **Environment Variables**:
+   - Use `.env.example` as a template
+   - Never commit `.env` or `.env.local` to version control
+   - Required variables: `DATABASE_URL`, `JWT_SECRET`, `PORT`, `CORS_ORIGIN`
+
+3. **CORS Configuration**:
+   - In production, `CORS_ORIGIN` must be set to specific allowed origins
+   - Format: comma-separated list (e.g., `https://yourdomain.com,https://app.yourdomain.com`)
+   - If unset in production, a warning will be logged
+
+4. **Database Security**:
+   - Keep PostgreSQL behind firewall
+   - Do not expose port 5432 to the internet
+   - Use strong database passwords
+   - Enable SSL for database connections in production
+
+5. **Payment Gateway Security**:
+   - Webhook signatures are verified for Midtrans (SHA512) and Xendit (HMAC-SHA256)
+   - Configure `WEBHOOK_SECRET` for signature verification
+   - Never expose server keys in client-side code
+
+6. **Rate Limiting**:
+   - Login endpoint: 100 requests per 15 minutes (configurable)
+   - Payment endpoints: 100 requests per 15 minutes
+   - Rate limiting is disabled in test environment
+
+7. **HTTP Security Headers**:
+   - Helmet middleware applied globally
+   - Content Security Policy configured
+   - X-Frame-Options, X-Content-Type-Options, HSTS enabled
 
 ## Contributing
 

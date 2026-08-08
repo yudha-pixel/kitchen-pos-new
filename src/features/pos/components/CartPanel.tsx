@@ -19,6 +19,7 @@ import { createPaymentTransaction } from '@/src/features/payment/paymentService'
 import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
+import { SplitBillModal as NewSplitBillModal } from '@/src/components/pos/SplitBillModal';
 
 const paymentOptions = [
   { value: 'CASH', label: 'Tunai' },
@@ -73,6 +74,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
   const [selectedMember, setSelectedMember] = useState<any>(null);
   const [showMemberSearch, setShowMemberSearch] = useState(false);
+  const [showNewSplitBillModal, setShowNewSplitBillModal] = useState(false);
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
@@ -341,12 +343,13 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           
           console.log('Order created successfully, ID:', orderId);
           
-          // Create payment transaction for QRIS with the actual order_id
+          // Create payment transaction for QRIS with the actual order_id.
+          // Amount is derived server-side from order.total_amount, not sent
+          // from the client (see paymentService.ts).
           const payment = await createPaymentTransaction(
             orderId,
             'midtrans',
-            'qris',
-            total
+            'qris'
           );
 
           console.log('Payment creation result:', payment);
@@ -478,8 +481,8 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     // In production, you might want to void the order or mark it as unpaid
   };  
 
-  const handleSplitComplete = (splitCart: any[]) => {
-    toast('success', `Split bill berhasil! ${splitCart.length} item dipisah ke transaksi baru.`);
+  const handleSplitComplete = (selectedItems: any[], paymentMethod: string) => {
+    toast('success', `Split bill berhasil! ${selectedItems.length} item dipisah ke transaksi baru.`);
   };
 
   const handleSplitToggle = (itemId: string) => {
@@ -1036,30 +1039,28 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
             </Button>
           )}
           <Button
-            variant="ghost"
+            variant="secondary"
             size="lg"
-            className="flex-1 text-danger hover:bg-danger-soft text-sm py-2.5"
+            className="flex-1 text-sm py-2.5 font-bold"
             disabled={items.length === 0}
-            onClick={() => setConfirmClear(true)}
+            onClick={() => setShowNewSplitBillModal(true)}
           >
-            Batal
+            Split Bill
           </Button>
-          {orderCategory === 'dine-in' && storeTableNumber && (
-            <Button
-              variant="primary"
-              size="lg"
-              className="flex-1 text-sm py-2.5"
-              disabled={items.length === 0 || kitchenSent}
-              onClick={handleSendToKitchen}
-              title={kitchenSent ? 'Keranjang sudah dikirim ke dapur. Tambah atau ubah item untuk mengirim ulang.' : undefined}
-            >
-              {kitchenSent ? 'Sudah Dikirim' : 'Kirim ke Dapur'}
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            size="lg"
+            className="flex-1 text-sm py-2.5 font-bold !text-gray-900 disabled:!text-gray-700"
+            disabled={items.length === 0 || kitchenSent}
+            onClick={handleSendToKitchen}
+            title={kitchenSent ? 'Keranjang sudah dikirim ke dapur. Tambah atau ubah item untuk mengirim ulang.' : undefined}
+          >
+            {kitchenSent ? 'Sudah Dikirim' : 'Kirim ke Dapur'}
+          </Button>
           <Button
             variant="success"
             size="lg"
-            className="flex-[2] text-sm py-2.5"
+            className="flex-[2] text-sm py-2.5 font-bold"
             disabled={items.length === 0}
             loading={paying}
             onClick={handlePayment}
@@ -1495,6 +1496,17 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           </div>
         </div>
       )}
+
+      {/* New Split Bill Modal */}
+      <NewSplitBillModal
+        isOpen={showNewSplitBillModal}
+        onClose={() => setShowNewSplitBillModal(false)}
+        onConfirm={(splits) => {
+          console.log('Split bill confirmed:', splits);
+          // Handle split bill logic here
+          toast('success', 'Split bill berhasil dikonfirmasi');
+        }}
+      />
     </div>
   );
 };

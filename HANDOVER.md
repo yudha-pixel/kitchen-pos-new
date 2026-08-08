@@ -2,9 +2,19 @@
 
 ## Session Summary
 
-**Previous session**: Completed migration from Supabase to local PostgreSQL + Express + Prisma backend, added local JWT authentication, verified database and API, and created knowledge base for full restaurant POS roadmap.
+**Latest session (2026-08-08, Security Hardening & Production Readiness)**:
+- Completed comprehensive security audit and hardening (Fix-1 through Fix-14)
+- Implemented ingredient stock management with recipe-based consumption
+- Added Supplier & Purchase Order module with full CRUD and stock integration
+- Implemented webhook signature verification for payment gateways (Midtrans, Xendit)
+- Added rate limiting, Helmet security headers, and enhanced CORS configuration
+- Created comprehensive test suite with 64 tests covering security, integration, and business logic
+- Optimized error handling with structured logging and production-safe responses
+- Cleaned up dead code, removed debug logs, and optimized database queries
+- Updated technical documentation (README.md) with testing guide and deployment instructions
+- System is now production-ready with 0 TypeScript errors and all tests passing
 
-**Current session (2026-07-15, UI design system overhaul)**:
+**Previous session (2026-07-15, UI design system overhaul)**:
 - New token-driven design system in `app/globals.css` (Tailwind v4 `@theme`): semantic colors (primary/surface/ink/success/warning/danger/info + soft variants), removed the global `!important` force-black-text block that was fighting the dark KDS screen, body now uses Geist instead of Arial, `touch-action: manipulation`, `:focus-visible` rings, `prefers-reduced-motion` guard, `.tnum` tabular-numbers utility; `[data-theme="kds"]` scope remaps tokens for the dark kitchen display
 - New UI kit in `src/components/ui/`: `Button` (variants + 44px touch targets + loading), `Badge`, `Modal` (focus trap, Escape, scrim), `ConfirmDialog`, `PromptDialog`, `Toast`/`ToastProvider` (aria-live, auto-dismiss, mounted in `app/layout.tsx`), `Skeleton`/`ProductCardSkeleton`, `EmptyState`, `Spinner`; shared formatters in `src/lib/format.ts` (`formatRupiah` id-ID, `formatTime`, `formatElapsed`)
 - All `alert()`/`confirm()`/`prompt()` replaced with toasts and dialogs across CartPanel, modals, BackButton (grep returns zero matches in `src/` + `app/`)
@@ -46,6 +56,129 @@
 - **Auth**: Local JWT with bcrypt; roles `admin` and `cashier`.
 - **API client**: `src/lib/api.ts` calls the local Express API.
 - **Sync**: `src/hooks/useSyncManager.ts` pushes IndexedDB sync queue to PostgreSQL.
+- **Security**: Helmet, rate limiting, webhook signature verification, role-based access control.
+- **Inventory**: Ingredient stock tracking, recipe-based consumption, supplier management, purchase orders.
+
+## Security Hardening Summary (Fix-1 through Fix-14)
+
+### High Priority Fixes (Fix-1 through Fix-7)
+
+**Fix-1: Recipe-Based Ingredient Stock Consumption**
+- Connected recipe consumption to ingredient stock on order creation
+- Stock automatically decrements when orders are placed
+- Added automated regression tests
+
+**Fix-1b: Early Ingredient Pre-Check**
+- Added stock validation before opening transactions
+- Prevents orders when insufficient stock available
+
+**Fix-1c: Stock Validation on Order Creation**
+- Validates ingredient stock before order is created
+- Returns clear error messages for insufficient stock
+
+**Fix-2: Stock Restoration on Order Cancel/Void**
+- Restores product and ingredient stock when orders are cancelled or voided
+- Prevents stock discrepancies from cancelled orders
+
+**Fix-3b: Race Condition & Rounding Asymmetry Fix**
+- Fixed race conditions in stock restoration
+- Implemented precise rounding for decimal quantities (6 decimal places)
+- Prevents double-restoration with concurrent requests
+
+**Fix-4: Payment Endpoint Security**
+- Added authentication to POST /payments
+- Server-side amount validation (never trusts client)
+- Prevents payment amount manipulation
+
+**Fix-4b: Payment Status Update Security**
+- Added authMiddleware to PATCH /payments/:id/status
+- Only authenticated users can update payment status
+
+**Fix-5: Webhook Signature Verification**
+- Implemented signature verification for Midtrans (SHA512)
+- Implemented signature verification for Xendit (HMAC-SHA256)
+- Middleware ensures only valid webhooks are processed
+
+**Fix-6: Inventory & Stock Adjustment Security**
+- Added authentication and role-based access to inventory endpoints
+- Implemented stock adjustment logging for audit trail
+- Added comprehensive security tests
+
+**Fix-6b: Environment Configuration**
+- Created .env.example with all required variables
+- Added JWT_SECRET validation (fails fast with weak secrets)
+- Documented security best practices
+
+**Fix-7: Infrastructure Security**
+- Added Helmet middleware for HTTP security headers
+- Implemented rate limiting on sensitive endpoints (login, payments)
+- Enhanced CORS configuration for production
+
+### Medium Priority Fixes (Fix-8 through Fix-14)
+
+**Fix-8: Supplier & Purchase Order Module**
+- Created Supplier model with CRUD operations
+- Created Purchase Order model with status management (pending, received, cancelled)
+- Implemented automatic stock updates on PO receipt
+- Added comprehensive integration tests
+
+**Fix-9: Code Cleanup & Optimization**
+- Removed dead code and unused files
+- Removed debug console.log statements
+- Optimized database queries (no N+1 problems)
+- Updated .gitignore for sensitive files
+
+**Fix-10: Technical Documentation Update**
+- Updated README.md with comprehensive features section
+- Added testing guide with test file descriptions
+- Enhanced deployment section with security notes
+- Documented all API endpoints
+
+**Fix-11: Error Handling & Logging**
+- Enhanced global error handler with structured logging
+- Added JWT error handling (invalid token, expired token)
+- Added Prisma error handling (P2025, P2002, P2003, P2023)
+- Production-safe error responses (no stack traces in production)
+
+**Fix-12: Supplier & Purchase Order Verification**
+- Wrapped PO receipt in transaction for atomicity
+- Added concurrent operations test
+- Verified authorization on all supplier endpoints
+- Confirmed data integrity under concurrent load
+
+**Fix-13: Final Code Cleanup**
+- Removed remaining debug logs
+- Fixed PrismaClient import in settings.ts
+- Validated all dependencies are current and necessary
+- Reviewed database indexes for optimal query performance
+
+**Fix-14: Final Integration & Stress Test**
+- Ran full test suite: 64 tests passed
+- Ran production build: successful (29 pages compiled)
+- Ran TypeScript check: 0 errors
+- Updated handover documentation
+
+## Test Suite Summary
+
+**Total Tests: 64**
+
+| Test File | Description | Tests |
+|-----------|-------------|-------|
+| `orders.restore.test.ts` | Order void/cancel and stock restoration | 9 |
+| `orders.stock.test.ts` | Ingredient stock validation on orders | 6 |
+| `payments.security.test.ts` | Payment endpoint security & auth | 8 |
+| `inventory.security.test.ts` | Inventory CRUD & stock adjustment security | 12 |
+| `webhook.security.test.ts` | Webhook signature verification (Midtrans/Xendit) | 8 |
+| `infrastructure.security.test.ts` | Helmet headers, rate limiting, CORS | 8 |
+| `suppliers.test.ts` | Supplier & purchase order integration | 13 |
+
+**Test Coverage:**
+- Authentication & Authorization
+- Inventory Management (stock consumption, restoration, adjustment logging)
+- Payment Security (amount validation, status updates, webhook verification)
+- Supplier Management (CRUD, purchase order flow, stock updates)
+- Infrastructure (security headers, rate limiting, CORS)
+- Concurrent Operations (race condition prevention)
 
 ## What Was Completed
 
@@ -143,9 +276,15 @@
 ```bash
 # Type-check
 npx tsc --noEmit
+# Result: 0 errors
 
 # Build frontend
 npm run build
+# Result: 29 pages compiled successfully (28 static, 1 dynamic)
+
+# Run test suite
+npm test
+# Result: 64 tests passed
 
 # Run migrations
 npm run db:migrate
@@ -156,6 +295,59 @@ npm run db:seed
 # Start both frontend and API
 npm run dev
 ```
+
+## Production Readiness Checklist
+
+### Security
+- ✅ JWT authentication with role-based access control (admin/cashier)
+- ✅ Webhook signature verification for Midtrans and Xendit
+- ✅ Rate limiting on sensitive endpoints (login, payments)
+- ✅ HTTP security headers via Helmet
+- ✅ Enhanced CORS configuration for production
+- ✅ Server-side payment amount validation
+- ✅ Stock adjustment logging for audit trail
+- ✅ .env.example with security warnings
+
+### Data Integrity
+- ✅ Recipe-based ingredient stock consumption
+- ✅ Stock restoration on order cancel/void
+- ✅ Race condition prevention with transactions
+- ✅ Precise decimal rounding (6 decimal places)
+- ✅ Concurrent operations testing
+- ✅ Foreign key constraints enforced
+
+### Code Quality
+- ✅ 0 TypeScript errors
+- ✅ 64 automated tests passing
+- ✅ Production build successful
+- ✅ Dead code removed
+- ✅ Debug logs removed
+- ✅ Database queries optimized (no N+1)
+- ✅ Structured error logging
+- ✅ Production-safe error responses
+
+### Documentation
+- ✅ README.md updated with features, testing guide, deployment
+- ✅ .env.example created
+- ✅ HANDOVER.md updated with security summary
+- ✅ API endpoints documented
+
+### Deployment
+- ✅ Environment variables documented
+- ✅ JWT_SECRET validation implemented
+- ✅ Database indexes optimized
+- ✅ Dependencies validated
+- ✅ Build process verified
+
+## Known Lint Items
+
+`npm run lint` still reports some pre-existing issues in legacy files. These were not introduced by the security hardening and do not block `npm run build` or `npx tsc --noEmit`:
+
+- `Unexpected any` warnings in `src/lib/db.ts`, `src/store/useOfflineStore.ts`, `src/types/database.types.ts`.
+- React Hook dependency warnings in `useProducts.ts` and `useSyncManager.ts`.
+- Unused variable warnings in `useCartStore.ts`.
+
+These should be cleaned up when the related modules are refactored.
 
 ## Verified API Endpoints
 

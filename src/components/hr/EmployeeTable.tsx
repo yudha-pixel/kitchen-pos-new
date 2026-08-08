@@ -21,7 +21,7 @@ export function EmployeeTable({ employees, onEdit, onDelete, loading = false }: 
       employee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
       employee.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || employee.status === filterStatus;
+    const matchesStatus = filterStatus === 'all' || (filterStatus === 'active' ? employee.is_active : !employee.is_active);
     const matchesType = filterType === 'all' || employee.employment_type === filterType;
     return matchesSearch && matchesStatus && matchesType;
   });
@@ -150,11 +150,11 @@ export function EmployeeTable({ employees, onEdit, onDelete, loading = false }: 
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                    employee.status === 'active' 
+                    employee.is_active 
                       ? 'bg-green-100 text-green-800' 
                       : 'bg-red-100 text-red-800'
                   }`}>
-                    {employee.status === 'active' ? 'Aktif' : 'Non-aktif'}
+                    {employee.is_active ? 'Aktif' : 'Non-aktif'}
                   </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

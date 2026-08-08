@@ -329,7 +329,7 @@ export default function AutomationPage() {
                   <button
                     onClick={handleRunAutoRestock}
                     disabled={isRunningAutoRestock}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <Play className="h-4 w-4 mr-2" />
                     {isRunningAutoRestock ? 'Memproses...' : 'Jalankan Auto-Restock'}
@@ -354,7 +354,7 @@ export default function AutomationPage() {
                     <button
                       onClick={handleCreatePO}
                       disabled={isCreatingPO}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
                     >
                       <ShoppingCart className="h-4 w-4 mr-2" />
                       {isCreatingPO ? 'Membuat PO...' : 'Buat Purchase Order'}
@@ -472,7 +472,7 @@ export default function AutomationPage() {
               </h2>
               <button
                 onClick={() => setEditModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -508,14 +508,14 @@ export default function AutomationPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setEditModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleUpdateMinStock}
                   disabled={isUpdating}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isUpdating ? 'Menyimpan...' : 'Simpan'}
                 </button>
@@ -534,7 +534,7 @@ export default function AutomationPage() {
                 <ShoppingCart className="h-5 w-5 text-blue-600" />
                 Review Draft Purchase Order
               </h2>
-              <button onClick={() => setPoReviewModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-lg">
+              <button onClick={() => setPoReviewModalOpen(false)} className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -612,7 +612,7 @@ export default function AutomationPage() {
               <div className="flex gap-3 pt-4 border-t">
                 <button
                   onClick={() => setPoReviewModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>

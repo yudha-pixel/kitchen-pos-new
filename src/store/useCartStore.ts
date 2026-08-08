@@ -411,6 +411,7 @@ export const useCartStore = create<CartState>()(
           discount_item: 0,
           modifiers_applied: item.modifiers,
           split_group_id: null,
+          status: 'pending' as const,
           is_free: false,
         }));
 
@@ -424,6 +425,7 @@ export const useCartStore = create<CartState>()(
           discount_item: item.price, // Full discount for free items
           modifiers_applied: item.modifiers,
           split_group_id: null,
+          status: 'pending' as const,
           is_free: true,
         }));
 
@@ -995,20 +997,12 @@ export const useCartStore = create<CartState>()(
 
         const orderId = crypto.randomUUID();
 
-        // Convert payment method to database format
-        const paymentMethodMap: Record<string, 'cash' | 'card' | 'qr' | 'transfer'> = {
-          'CASH': 'cash',
-          'QRIS': 'qr',
-          'DEBIT': 'card',
-        };
-        const dbPaymentMethod = paymentMethodMap[state.paymentMethod] || 'cash';
-
         // Prepare order data
         const orderData = {
           id: orderId,
           cashier_id: state.cashierId,
           total_amount: total,
-          payment_method: dbPaymentMethod,
+          payment_method: null, // Set to null to indicate "Belum Bayar" (Pending)
           status: 'pending' as const,
           table_number: state.tableNumber,
           discount_amount: discount,
@@ -1067,22 +1061,11 @@ export const useCartStore = create<CartState>()(
           set({ kitchenSent: true });
           console.log('✅ kitchenSent set to true');
 
-          // Reduce stock based on BOM/Recipe after order is sent
-          try {
-            const stockItems = state.items.map(item => ({
-              product_id: item.productId,
-              quantity: item.quantity
-            }));
-            const stockResult = await reduceStockForOrder(stockItems);
-            console.log('✅ Stock reduced after sendToKitchen:', stockResult);
-
-            // Dispatch event to notify POS page to recalculate menu stock
-            if (typeof window !== 'undefined') {
-              window.dispatchEvent(new CustomEvent('inventoryStockChanged'));
-              console.log('📡 Dispatched inventoryStockChanged event');
-            }
-          } catch (stockError) {
-            console.error('Failed to reduce stock after sendToKitchen:', stockError);
+          // Dispatch event to notify POS page to recalculate menu stock
+          // Backend handles stock reduction in POST /orders transaction
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('inventoryStockChanged'));
+            console.log('📡 Dispatched inventoryStockChanged event');
           }
 
           return {

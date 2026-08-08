@@ -1,14 +1,29 @@
 import { db } from './db';
 
-export const seedDummyData = async () => {
+export const seedDummyData = async (force: boolean = false) => {
   try {
-    console.log('🌱 Starting dummy data seeding...');
+    console.log('🌱 Starting dummy data seeding... force:', force);
 
-    // Check if data already exists
+    // Check if data already exists (unless force is true)
     const existingProducts = await db.products.count();
-    if (existingProducts > 0) {
+    console.log('📊 Existing products count:', existingProducts);
+    
+    if (!force && existingProducts > 0) {
       console.log('✅ Data already exists, skipping seeding');
       return;
+    }
+    
+    if (force) {
+      console.log('⚠️ Force mode enabled, clearing existing data...');
+      await db.products.clear();
+      await db.categories.clear();
+      await db.modifiers.clear();
+      await db.ingredients.clear();
+      await db.recipes.clear();
+      await db.shifts.clear();
+      await db.employees.clear();
+      await db.attendance.clear();
+      console.log('✅ All tables cleared');
     }
 
     // Seed Categories
@@ -566,10 +581,20 @@ export const seedDummyData = async () => {
       },
       {
         id: crypto.randomUUID(),
-        category_id: categories[3].id,
-        name: 'Matcha Latte',
-        sku: 'ML-054',
-        price: 30000,
+        category_id: categories[1].id,
+        name: 'Lemonade',
+        sku: 'LM-054',
+        price: 15000,
+        stock_quantity: 10,
+        image_url: null,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: crypto.randomUUID(),
+        category_id: categories[1].id,
+        name: 'Coconut Water',
+        sku: 'CW-055',
+        price: 12000,
         stock_quantity: 10,
         image_url: null,
         created_at: new Date().toISOString(),
@@ -581,7 +606,7 @@ export const seedDummyData = async () => {
     // Seed Modifiers
     console.log('🔧 Seeding modifiers...');
     const modifiers = [
-      // Modifiers for Nasi Goreng
+      // Modifiers for Nasi Goreng Spesial (Makanan Utama)
       {
         id: crypto.randomUUID(),
         product_id: products[0].id,
@@ -603,7 +628,7 @@ export const seedDummyData = async () => {
         price_extra: 10000,
         created_at: new Date().toISOString(),
       },
-      // Modifiers for Mie Ayam
+      // Modifiers for Mie Goreng (Makanan Utama)
       {
         id: crypto.randomUUID(),
         product_id: products[1].id,
@@ -618,47 +643,47 @@ export const seedDummyData = async () => {
         price_extra: 5000,
         created_at: new Date().toISOString(),
       },
-      // Modifiers for Ayam Bakar
+      // Modifiers for Ayam Bakar (Makanan Utama)
       {
         id: crypto.randomUUID(),
-        product_id: products[2].id,
+        product_id: products[3].id,
         name: 'Sambal Extra',
         price_extra: 2000,
         created_at: new Date().toISOString(),
       },
       {
         id: crypto.randomUUID(),
-        product_id: products[2].id,
+        product_id: products[3].id,
         name: 'Nasi Extra',
         price_extra: 5000,
         created_at: new Date().toISOString(),
       },
-      // Modifiers for Es Teh
+      // Modifiers for Es Teh Manis (Minuman)
       {
         id: crypto.randomUUID(),
-        product_id: products[3].id,
+        product_id: products[11].id,
         name: 'Less Sugar',
         price_extra: 0,
         created_at: new Date().toISOString(),
       },
       {
         id: crypto.randomUUID(),
-        product_id: products[3].id,
+        product_id: products[11].id,
         name: 'Lemon Slice',
         price_extra: 2000,
         created_at: new Date().toISOString(),
       },
-      // Modifiers for Jus Jeruk
+      // Modifiers for Jus Jeruk Segar (Minuman)
       {
         id: crypto.randomUUID(),
-        product_id: products[4].id,
+        product_id: products[12].id,
         name: 'Less Ice',
         price_extra: 0,
         created_at: new Date().toISOString(),
       },
       {
         id: crypto.randomUUID(),
-        product_id: products[4].id,
+        product_id: products[12].id,
         name: 'Extra Orange',
         price_extra: 5000,
         created_at: new Date().toISOString(),

@@ -440,7 +440,7 @@ export default function StockApprovalsPage() {
                   <button
                     onClick={handleBulkApprove}
                     disabled={isBulkProcessing}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <Check className="h-4 w-4 mr-2" />
                     {isBulkProcessing ? 'Memproses...' : 'Setujui Terpilih'}
@@ -448,7 +448,7 @@ export default function StockApprovalsPage() {
                   <button
                     onClick={handleBulkRejectClick}
                     disabled={isBulkProcessing}
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-red-600 hover:bg-red-700 hover:text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
                     <X className="h-4 w-4 mr-2" />
                     {isBulkProcessing ? 'Memproses...' : 'Tolak Terpilih'}
@@ -636,14 +636,14 @@ export default function StockApprovalsPage() {
                               <div className="flex gap-2">
                                 <button
                                   onClick={() => handleApprove(request.id, request.type)}
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700"
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white"
                                 >
                                   <Check className="h-3 w-3 mr-1" />
                                   Approve
                                 </button>
                                 <button
                                   onClick={() => handleRejectClick(request)}
-                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700"
+                                  className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 hover:text-white"
                                 >
                                   <X className="h-3 w-3 mr-1" />
                                   Reject
@@ -673,7 +673,7 @@ export default function StockApprovalsPage() {
               </h2>
               <button
                 onClick={() => setRejectModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -712,13 +712,13 @@ export default function StockApprovalsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setRejectModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleRejectConfirm}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:text-white transition-colors"
                 >
                   Tolak
                 </button>
@@ -739,7 +739,7 @@ export default function StockApprovalsPage() {
               </h2>
               <button
                 onClick={() => setBulkRejectModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -764,7 +764,7 @@ export default function StockApprovalsPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setBulkRejectModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>

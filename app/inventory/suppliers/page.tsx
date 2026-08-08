@@ -131,7 +131,7 @@ export default function SuppliersPage() {
               </div>
               <button
                 onClick={handleAdd}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Tambah Supplier
@@ -235,7 +235,7 @@ export default function SuppliersPage() {
               </h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -284,14 +284,14 @@ export default function SuppliersPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Menyimpan...' : 'Simpan'}
                 </button>
@@ -309,7 +309,7 @@ export default function SuppliersPage() {
               <h2 className="text-lg font-semibold text-red-600">Hapus Supplier</h2>
               <button
                 onClick={() => setDeleteModalOpen(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg"
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -324,14 +324,14 @@ export default function SuppliersPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => setDeleteModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleConfirmDelete}
                   disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:text-white transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
                   {isSubmitting ? 'Menghapus...' : 'Hapus'}
                 </button>

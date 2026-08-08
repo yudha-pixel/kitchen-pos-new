@@ -107,7 +107,7 @@ export default function OutletManagementPage() {
       <div className="mb-4">
         <button
           onClick={() => handleOpenModal()}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
         >
           <Plus className="h-5 w-5" />
           Tambah Outlet
@@ -278,14 +278,14 @@ export default function OutletManagementPage() {
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 hover:text-gray-900 transition-colors"
                 >
                   Batal
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors disabled:opacity-50"
                 >
                   {submitting ? 'Menyimpan...' : 'Simpan'}
                 </button>

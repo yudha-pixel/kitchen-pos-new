@@ -281,7 +281,7 @@ export default function PromotionsPage() {
                 </div>
                 <button
                   onClick={handleAddPromotion}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 hover:text-white flex items-center gap-2"
                 >
                   <Plus className="h-4 w-4" />
                   Tambah Promosi
@@ -342,7 +342,7 @@ export default function PromotionsPage() {
                             {promotion.type === 'quantity' ? (
                               <div>Min. {promotion.min_quantity} item</div>
                             ) : (
-                              <div>Min. {formatRupiah(promotion.min_amount)}</div>
+                              <div>Min. {formatRupiah(promotion.min_amount || 0)}</div>
                             )}
                             {promotion.buy_x_get_y && (
                               <div className="text-xs text-green-600 mt-1">
@@ -587,13 +587,13 @@ export default function PromotionsPage() {
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-gray-900"
               >
                 Batal
               </button>
               <button
                 onClick={handleSavePromotion}
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white"
               >
                 Simpan
               </button>

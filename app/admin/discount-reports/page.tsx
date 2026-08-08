@@ -406,13 +406,13 @@ export default function DiscountReportsPage() {
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={clearFilters}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-gray-900"
                 >
                   Reset Filter
                 </button>
                 <button
                   onClick={exportToCSV}
-                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 flex items-center gap-2"
+                  className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white flex items-center gap-2"
                 >
                   <Download className="h-4 w-4" />
                   Export CSV

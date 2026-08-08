@@ -183,6 +183,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
         modifiers_applied: item.modifiers,
         discount_item: 0,
         split_group_id: null,
+        status: 'pending' as const,
         created_at: new Date().toISOString(),
       }));
 
@@ -363,6 +364,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
         modifiers_applied: item.modifiers,
         discount_item: 0,
         split_group_id: null,
+        status: 'pending' as const,
         created_at: new Date().toISOString(),
       }));
 

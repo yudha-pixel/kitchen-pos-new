@@ -357,7 +357,7 @@ export default function RecipeMappingPage() {
       }
 
       // Update bom_type
-      await db.products.update(selectedProduct, { bom_type });
+      await db.products.update(selectedProduct, { bom_type: bomType as 'manufacture' | 'kit' | 'subcontracting' });
 
       // Reload data
       await loadExistingRecipes();
@@ -590,7 +590,7 @@ export default function RecipeMappingPage() {
                 {(user?.role === 'admin' || user?.role === 'management') && (
                   <button
                     onClick={() => setIsAddModalOpen(true)}
-                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                    className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                   >
                     <Plus className="h-5 w-5" />
                     <span>Tambah Menu</span>
@@ -598,14 +598,14 @@ export default function RecipeMappingPage() {
                 )}
                 <button
                   onClick={handleExport}
-                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors"
+                  className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 hover:text-white transition-colors"
                 >
                   <Download className="h-5 w-5" />
                   <span>Export JSON</span>
                 </button>
                 <button
                   onClick={() => setBulkImportOpen(true)}
-                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                  className="flex items-center gap-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 hover:text-white transition-colors"
                 >
                   <Upload className="h-5 w-5" />
                   <span>Bulk Import</span>
@@ -622,7 +622,7 @@ export default function RecipeMappingPage() {
                     <h2 className="font-semibold">Daftar Menu</h2>
                     <button
                       onClick={() => setListPaneCollapsed(!listPaneCollapsed)}
-                      className="p-1 hover:bg-gray-100 rounded"
+                      className="p-1 hover:bg-gray-100 hover:text-gray-900 rounded"
                       title={listPaneCollapsed ? 'Expand' : 'Collapse'}
                     >
                       {listPaneCollapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
@@ -659,7 +659,7 @@ export default function RecipeMappingPage() {
                     <div
                       key={product.id}
                       className={`p-3 border-b cursor-pointer transition-colors ${
-                        selectedProduct === product.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-gray-50'
+                        selectedProduct === product.id ? 'bg-blue-50 border-l-4 border-l-blue-500' : 'hover:bg-gray-50 hover:text-gray-900'
                       } ${focusedIndex === index ? 'ring-2 ring-blue-500 ring-inset' : ''}`}
                       onClick={() => setSelectedProduct(product.id || '')}
                       onKeyDown={(e) => handleKeyDown(e, index)}
@@ -699,7 +699,7 @@ export default function RecipeMappingPage() {
                   <div className="p-4 border-t">
                     <button
                       onClick={() => setIsAddModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                      className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                     >
                       <Plus className="h-4 w-4" />
                       Tambah Menu
@@ -744,7 +744,7 @@ export default function RecipeMappingPage() {
                         <div
                           key={product.id}
                           className={`p-3 border rounded-lg cursor-pointer transition-colors ${
-                            selectedProduct === product.id ? 'bg-blue-50 border-blue-500' : 'hover:bg-gray-50'
+                            selectedProduct === product.id ? 'bg-blue-50 border-blue-500' : 'hover:bg-gray-50 hover:text-gray-900'
                           }`}
                           onClick={() => setSelectedProduct(product.id || '')}
                         >
@@ -771,7 +771,7 @@ export default function RecipeMappingPage() {
                       <div className="mt-4">
                         <button
                           onClick={() => setIsAddModalOpen(true)}
-                          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                          className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
                         >
                           <Plus className="h-4 w-4" />
                           Tambah Menu
@@ -791,7 +791,7 @@ export default function RecipeMappingPage() {
                 <div className="lg:hidden p-4 border-b flex items-center gap-2">
                   <button
                     onClick={() => setSelectedProduct('')}
-                    className="p-2 hover:bg-gray-100 rounded-lg"
+                    className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
                   >
                     <ArrowLeft className="h-5 w-5" />
                   </button>
