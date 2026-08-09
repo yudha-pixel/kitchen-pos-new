@@ -9,7 +9,7 @@ import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { useOnlineCartStore } from '@/src/store/useOnlineCartStore';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
-import { Loader2, Home, ShoppingCart, User, Menu } from 'lucide-react';
+import { Loader2, Home, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { useRouter } from 'next/navigation';
 
@@ -24,6 +24,7 @@ export default function OnlineOrderPage() {
   const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
   const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
   const [outletName, setOutletName] = useState<string>('');
+  const [showMobileCart, setShowMobileCart] = useState(false);
 
   const cartItemCount = useOnlineCartStore((state: any) => state.items.reduce((sum: number, item: any) => sum + item.quantity, 0));
   const setDeliveryFee = useOnlineCartStore((state: any) => state.setDeliveryFee);
@@ -113,11 +114,11 @@ export default function OnlineOrderPage() {
       <header className="bg-white border-b sticky top-0 z-40">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-ink">Pemesanan Online - {outletName}</h1>
-              <p className="text-sm text-ink-secondary">Pesan dari rumah, kami antar atau siapkan untuk diambil</p>
+            <div className="flex-1">
+              <h1 className="text-xl md:text-2xl font-bold text-ink">Pemesanan Online - {outletName}</h1>
+              <p className="text-xs md:text-sm text-ink-secondary">Pesan dari rumah, kami antar atau siapkan untuk diambil</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
               {/* Navigation Shortcuts */}
               <div className="flex items-center gap-2">
                 <button
@@ -136,13 +137,26 @@ export default function OnlineOrderPage() {
                 </button>
               </div>
               
-              {/* Cart Badge */}
-              <div className="flex items-center gap-2 border-l pl-3">
+              {/* Cart Badge - Desktop */}
+              <div className="hidden md:flex items-center gap-2 border-l pl-3">
                 <span className="text-sm font-medium text-ink-secondary">Keranjang:</span>
                 <span className="bg-primary text-white px-3 py-1 rounded-full text-sm font-bold">
                   {cartItemCount}
                 </span>
               </div>
+
+              {/* Mobile Cart Button */}
+              <button
+                onClick={() => setShowMobileCart(true)}
+                className="md:hidden relative p-2 rounded-lg bg-primary text-white"
+              >
+                <ShoppingCart className="w-5 h-5" />
+                {cartItemCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
+                    {cartItemCount}
+                  </span>
+                )}
+              </button>
             </div>
           </div>
         </div>
@@ -151,10 +165,10 @@ export default function OnlineOrderPage() {
       {/* Category Filter */}
       <div className="bg-white border-b">
         <div className="container mx-auto px-4 py-3">
-          <div className="flex gap-2 overflow-x-auto pb-2">
+          <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
             <button
               onClick={() => setSelectedCategory('all')}
-              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+              className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors text-sm font-medium ${
                 selectedCategory === 'all'
                   ? 'bg-primary text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -166,7 +180,7 @@ export default function OnlineOrderPage() {
               <button
                 key={category.id}
                 onClick={() => setSelectedCategory(category.id)}
-                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors ${
+                className={`px-4 py-2 rounded-lg whitespace-nowrap transition-colors text-sm font-medium ${
                   selectedCategory === category.id
                     ? 'bg-primary text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
@@ -210,14 +224,37 @@ export default function OnlineOrderPage() {
             )}
           </div>
 
-          {/* Cart Panel */}
-          <div className="lg:col-span-1">
+          {/* Cart Panel - Desktop Only */}
+          <div className="hidden lg:block lg:col-span-1">
             <OnlineCartPanel
               onCheckout={() => setIsCheckoutModalOpen(true)}
             />
           </div>
         </div>
       </div>
+
+      {/* Mobile Cart Modal */}
+      {showMobileCart && (
+        <div className="fixed inset-0 z-50 md:hidden">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileCart(false)} />
+          <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
+              <h2 className="text-lg font-bold">Keranjang</h2>
+              <button onClick={() => setShowMobileCart(false)} className="p-2">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-4">
+              <OnlineCartPanel
+                onCheckout={() => {
+                  setShowMobileCart(false);
+                  setIsCheckoutModalOpen(true);
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Checkout Modal */}
       <OnlineCheckoutModal

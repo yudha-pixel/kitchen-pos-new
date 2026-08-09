@@ -42,7 +42,7 @@ export const OnlineCartPanel = ({ onCheckout }: OnlineCartPanelProps) => {
   const total = getTotal();
 
   return (
-    <div className="bg-white rounded-lg shadow-lg p-4 sticky top-24">
+    <div className="bg-white rounded-lg shadow-lg p-4 lg:sticky lg:top-24">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-bold text-ink flex items-center gap-2">
           <ShoppingCart className="w-5 h-5" />

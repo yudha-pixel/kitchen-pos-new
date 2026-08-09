@@ -204,6 +204,16 @@ body {
   overflow-y: auto;
 }
 
+/* Hide scrollbar utility for horizontal scrolling */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 /* Touch behavior: kill 300ms tap delay, keep pinch-zoom available on the page */
 button,
 a,

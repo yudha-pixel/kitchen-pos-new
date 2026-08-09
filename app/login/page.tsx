@@ -43,7 +43,7 @@ export default function LoginPage() {
           <p className="mt-1 text-sm text-ink-muted">Masuk untuk membuka POS</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        <form onSubmit={handleSubmit} className="space-y-4" noValidate suppressHydrationWarning>
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-ink">
               Username
@@ -56,6 +56,7 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               className={inputClass}
               required
+              suppressHydrationWarning
             />
           </div>
 
@@ -72,6 +73,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 className={`${inputClass} pr-12`}
                 required
+                suppressHydrationWarning
               />
               <button
                 type="button"
