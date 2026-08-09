@@ -15,6 +15,8 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isStockRequestModalOpen, setIsStockRequestModalOpen] = useState(false);
+  const [stockRequestError, setStockRequestError] = useState('');
+  const [stockRequestStatus, setStockRequestStatus] = useState('');
   const [isWriteOffModalOpen, setIsWriteOffModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
@@ -181,6 +183,7 @@ export default function InventoryPage() {
   const handleStockRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setStockRequestError('');
 
     try {
       await createStockRequest({
@@ -206,16 +209,18 @@ export default function InventoryPage() {
         proof_file: '',
         proof_file_name: '',
       });
-      alert('Pengajuan penambahan stok berhasil dikirim. Menunggu persetujuan Admin/Manager.');
+      setStockRequestStatus('Pengajuan penambahan stok berhasil dikirim dan menunggu persetujuan.');
     } catch (error) {
       console.error('Failed to create stock request:', error);
-      alert('Gagal mengirim pengajuan penambahan stok');
+      setStockRequestError('Gagal mengirim pengajuan penambahan stok. Silakan coba lagi.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleOpenStockRequest = (ingredient: any) => {
+    setStockRequestError('');
+    setStockRequestStatus('');
     setStockRequestForm({
       ingredient_id: ingredient.id,
       ingredient_name: ingredient.name,
@@ -462,6 +467,11 @@ export default function InventoryPage() {
                 <span>Tambah Bahan</span>
               </button>
             </div>
+            {stockRequestStatus && (
+              <p role="status" className="mb-4 text-sm font-medium text-green-700">
+                {stockRequestStatus}
+              </p>
+            )}
 
             {/* Sales vs Purchase Chart */}
             <div className="bg-white rounded-lg shadow mb-6">
@@ -987,6 +997,11 @@ export default function InventoryPage() {
                   </div>
                 </div>
               </div>
+              {stockRequestError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {stockRequestError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

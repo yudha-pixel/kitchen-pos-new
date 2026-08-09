@@ -7,6 +7,8 @@ import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { getToken } from '@/src/lib/api';
 import { useConfigStore } from '@/src/store/useConfigStore';
+import { API_BASE_URL } from '@/src/config/runtime';
+import { Modal } from '@/src/components/ui/Modal';
 import { 
   Store, 
   Printer, 
@@ -21,8 +23,6 @@ import {
 } from 'lucide-react';
 
 type SettingsTab = 'store' | 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Default settings values
 const defaultStoreSettings = {
@@ -86,6 +86,9 @@ export default function SettingsPage() {
   const { updateFromSettings: updateConfig } = useConfigStore();
   const [activeTab, setActiveTab] = useState<SettingsTab>('store');
   const [saving, setSaving] = useState(false);
+  const [resetDialogOpen, setResetDialogOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState('');
   
   // Store settings state
   const [storeSettings, setStoreSettings] = useState(defaultStoreSettings);
@@ -103,7 +106,7 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/settings`, {
+      const response = await fetch(`${API_BASE_URL}/settings`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -207,7 +210,7 @@ export default function SettingsPage() {
         ...kitchenSettings,
       };
 
-      const response = await fetch(`${API_BASE}/settings`, {
+      const response = await fetch(`${API_BASE_URL}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -239,29 +242,36 @@ export default function SettingsPage() {
   };
 
   const handleReset = async () => {
-    if (confirm('Apakah Anda yakin ingin mereset semua pengaturan ke nilai default?')) {
-      try {
-        const token = getToken();
-        const response = await fetch(`${API_BASE}/settings/reset`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+    setResetting(true);
+    setResetError('');
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/settings/reset`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-        if (!response.ok) {
-          throw new Error('Failed to reset settings');
-        }
-
-        // Reload settings from API
-        await loadSettings();
-        
-        toast('success', 'Pengaturan direset ke nilai default');
-      } catch (error) {
-        console.error('Failed to reset settings:', error);
-        toast('error', 'Gagal mereset pengaturan');
+      if (!response.ok) {
+        throw new Error('Failed to reset settings');
       }
+
+      await loadSettings();
+      setResetDialogOpen(false);
+      toast('success', 'Pengaturan direset ke nilai default');
+    } catch (error) {
+      console.error('Failed to reset settings:', error);
+      setResetError('Gagal mereset pengaturan. Silakan coba lagi.');
+    } finally {
+      setResetting(false);
     }
+  };
+
+  const closeResetDialog = () => {
+    if (resetting) return;
+    setResetDialogOpen(false);
+    setResetError('');
   };
 
   return (
@@ -341,9 +351,12 @@ export default function SettingsPage() {
               <Button 
                 variant="ghost" 
                 className="flex items-center gap-2"
-                onClick={handleReset}
+                onClick={() => {
+                  setResetError('');
+                  setResetDialogOpen(true);
+                }}
               >
-                <RefreshCw className="h-4 w-4" />
+                <RefreshCw className="size-4" aria-hidden="true" />
                 Reset Default
               </Button>
               <Button 
@@ -359,6 +372,36 @@ export default function SettingsPage() {
           </div>
         </main>
       </div>
+
+      <Modal
+        isOpen={resetDialogOpen}
+        onClose={closeResetDialog}
+        title="Reset semua pengaturan?"
+        role="alertdialog"
+        descriptionId="reset-settings-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeResetDialog} disabled={resetting}>
+              Batal
+            </Button>
+            <Button type="button" variant="danger" loading={resetting} onClick={handleReset}>
+              Reset pengaturan
+            </Button>
+          </>
+        }
+      >
+        <p id="reset-settings-description" className="text-pretty text-sm text-ink-secondary">
+          Semua pengaturan sistem akan dikembalikan ke nilai default. Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {resetError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
+            {resetError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

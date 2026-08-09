@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Settings, Save, Loader2, Palette, Sun, Moon, Square, Circle, LayoutGrid, List, Minimize2, Maximize2, Sidebar, PanelBottom } from 'lucide-react';
 import { useToast } from '@/src/components/ui/Toast';
 import { useTheme } from '@/src/context/ThemeContext';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 const colorOptions = [
   { value: 'blue', label: 'Blue', color: 'bg-blue-600', rgb: '59 130 246' },
@@ -46,8 +47,6 @@ export default function SettingsPage() {
   const [localSettings, setLocalSettings] = useState(settings);
   const [saving, setSaving] = useState(false);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   useEffect(() => {
     setLocalSettings(settings);
   }, [settings]);
@@ -57,7 +56,7 @@ export default function SettingsPage() {
 
     setSaving(true);
     try {
-      const response = await fetch(`${API_BASE}/settings`, {
+      const response = await fetch(`${API_BASE_URL}/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

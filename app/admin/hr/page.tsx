@@ -11,6 +11,8 @@ import { AddEmployeeModal } from '@/src/components/hr/AddEmployeeModal';
 import { AttendanceSection } from '@/src/components/hr/AttendanceSection';
 import { PayrollSection } from '@/src/components/hr/PayrollSection';
 import { ShiftManagementSection } from '@/src/components/hr/ShiftManagementSection';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
 import {
   getAllEmployees,
   addEmployee,
@@ -29,6 +31,9 @@ export default function HRPage() {
   const [activeTab, setActiveTab] = useState<'employees' | 'shifts' | 'attendance' | 'payroll'>('employees');
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
+  const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [stats, setStats] = useState({
     totalEmployees: 0,
     activeEmployees: 0,
@@ -39,7 +44,7 @@ export default function HRPage() {
   // RBAC Protection
   if (user && user.role !== 'admin' && user.role !== 'management' && user.role !== 'owner') {
     return (
-      <div className="flex h-screen bg-gray-50">
+      <div className="flex h-dvh bg-gray-50">
         <Sidebar />
         <div className="flex-1 flex flex-col overflow-hidden">
           <Header />
@@ -100,16 +105,32 @@ export default function HRPage() {
   };
 
   const handleDeleteEmployee = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus karyawan ini?')) return;
-
+    setDeleting(true);
+    setDeleteError('');
     try {
       await deleteEmployee(id);
       await loadEmployees();
       await loadStats();
+      setEmployeeToDelete(null);
     } catch (error) {
       console.error('Failed to delete employee:', error);
-      alert('Gagal menghapus karyawan');
+      setDeleteError('Gagal menghapus karyawan. Silakan coba lagi.');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const requestDeleteEmployee = (id: string) => {
+    const employee = employees.find((item) => item.id === id);
+    if (!employee) return;
+    setDeleteError('');
+    setEmployeeToDelete(employee);
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setEmployeeToDelete(null);
+    setDeleteError('');
   };
 
   const handleSaveEmployee = async (employee: Omit<Employee, 'id' | 'created_at' | 'updated_at'>) => {
@@ -142,7 +163,7 @@ export default function HRPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
@@ -249,7 +270,7 @@ export default function HRPage() {
                   <EmployeeTable
                     employees={employees}
                     onEdit={handleEditEmployee}
-                    onDelete={handleDeleteEmployee}
+                    onDelete={requestDeleteEmployee}
                     loading={loading}
                   />
                 )}
@@ -278,6 +299,42 @@ export default function HRPage() {
         onSave={handleSaveEmployee}
         editingEmployee={editingEmployee}
       />
+
+      <Modal
+        isOpen={Boolean(employeeToDelete)}
+        onClose={closeDeleteDialog}
+        title="Hapus karyawan?"
+        role="alertdialog"
+        descriptionId="delete-employee-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={deleting}
+              onClick={() => employeeToDelete?.id && handleDeleteEmployee(employeeToDelete.id)}
+            >
+              Hapus karyawan
+            </Button>
+          </>
+        }
+      >
+        <p id="delete-employee-description" className="text-pretty text-sm text-ink-secondary">
+          Karyawan <strong className="text-ink">{employeeToDelete?.name}</strong> akan dihapus permanen.
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {deleteError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
+            {deleteError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

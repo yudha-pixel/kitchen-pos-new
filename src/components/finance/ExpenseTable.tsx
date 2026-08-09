@@ -8,7 +8,7 @@ interface ExpenseTableProps {
   expenses: Expense[];
   categories: Array<{ value: string; label: string }>;
   onEdit: (expense: Expense) => void;
-  onDelete: (id: string) => void;
+  onDelete: (expense: Expense) => void;
   onPreview: (expense: Expense) => void;
   loading?: boolean;
 }
@@ -132,26 +132,32 @@ export function ExpenseTable({ expenses, categories, onEdit, onDelete, onPreview
                   <div className="flex gap-2">
                     {expense.proof_file && (
                       <button
+                        type="button"
                         onClick={() => onPreview(expense)}
-                        className="text-purple-600 hover:text-purple-900"
+                        className="flex size-11 items-center justify-center text-purple-600 hover:text-purple-900"
+                        aria-label={`Lihat bukti ${expense.description}`}
                         title="Preview Bukti"
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-4 w-4" aria-hidden="true" />
                       </button>
                     )}
                     <button
+                      type="button"
                       onClick={() => onEdit(expense)}
-                      className="text-blue-600 hover:text-blue-900"
+                      className="flex size-11 items-center justify-center text-blue-600 hover:text-blue-900"
+                      aria-label={`Edit ${expense.description}`}
                       title="Edit"
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="h-4 w-4" aria-hidden="true" />
                     </button>
                     <button
-                      onClick={() => onDelete(expense.id!)}
-                      className="text-red-600 hover:text-red-900"
+                      type="button"
+                      onClick={() => onDelete(expense)}
+                      className="flex size-11 items-center justify-center text-red-600 hover:text-red-900"
+                      aria-label={`Hapus ${expense.description}`}
                       title="Hapus"
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" aria-hidden="true" />
                     </button>
                   </div>
                 </td>

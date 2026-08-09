@@ -1,7 +1,6 @@
 import { Outlet } from '@/src/lib/db';
 import { getToken } from '@/src/lib/api';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 export interface OutletWithCounts extends Outlet {
   _count?: {
@@ -17,7 +16,7 @@ export async function getOutlets(): Promise<OutletWithCounts[]> {
   try {
     console.log('Fetching outlets...');
     const token = getToken();
-    const response = await fetch(`${API_BASE}/outlets`, {
+    const response = await fetch(`${API_BASE_URL}/outlets`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
@@ -44,7 +43,7 @@ export async function getOutlets(): Promise<OutletWithCounts[]> {
 export async function getOutletById(id: string): Promise<OutletWithCounts | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/outlets/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/outlets/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -63,7 +62,7 @@ export async function getOutletById(id: string): Promise<OutletWithCounts | null
 export async function createOutlet(data: Omit<Outlet, 'id' | 'created_at' | 'updated_at'>): Promise<Outlet | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/outlets`, {
+    const response = await fetch(`${API_BASE_URL}/outlets`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -85,7 +84,7 @@ export async function createOutlet(data: Omit<Outlet, 'id' | 'created_at' | 'upd
 export async function updateOutlet(id: string, data: Partial<Omit<Outlet, 'id' | 'created_at' | 'updated_at'>>): Promise<Outlet | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/outlets/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/outlets/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -107,7 +106,7 @@ export async function updateOutlet(id: string, data: Partial<Omit<Outlet, 'id' |
 export async function deleteOutlet(id: string): Promise<boolean> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/outlets/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/outlets/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

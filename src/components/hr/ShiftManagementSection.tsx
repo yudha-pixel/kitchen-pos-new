@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Edit, Trash2, Clock, AlertCircle, Users } from 'lucide-react';
+import { Plus, Edit, Trash2, Clock, Users } from 'lucide-react';
 import { Shift, Employee, getAllShifts, addShift, updateShift, deleteShift, initializeDefaultShifts, getAllEmployees, getEmployeeNamesByIds } from '@/src/features/hr/hrService';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
 
 export function ShiftManagementSection() {
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -11,6 +13,10 @@ export function ShiftManagementSection() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [shiftToDelete, setShiftToDelete] = useState<Shift | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [formError, setFormError] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     start_time: '',
@@ -53,6 +59,7 @@ export function ShiftManagementSection() {
   };
 
   const handleAddShift = () => {
+    setFormError('');
     setEditingShift(null);
     setFormData({
       name: '',
@@ -65,6 +72,7 @@ export function ShiftManagementSection() {
   };
 
   const handleEditShift = (shift: Shift) => {
+    setFormError('');
     setEditingShift(shift);
     setFormData({
       name: shift.name,
@@ -77,28 +85,38 @@ export function ShiftManagementSection() {
   };
 
   const handleDeleteShift = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus shift ini?')) return;
-
+    setDeleting(true);
+    setDeleteError('');
     try {
       await deleteShift(id);
       await loadShifts();
+      setShiftToDelete(null);
     } catch (error) {
       console.error('Failed to delete shift:', error);
-      alert('Gagal menghapus shift');
+      setDeleteError('Gagal menghapus shift. Silakan coba lagi.');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setShiftToDelete(null);
+    setDeleteError('');
   };
 
   const handleSaveShift = async () => {
     if (!formData.name || !formData.start_time || !formData.end_time) {
-      alert('Nama, jam mulai, dan jam selesai wajib diisi');
+      setFormError('Nama, jam mulai, dan jam selesai wajib diisi.');
       return;
     }
 
     if (formData.start_time >= formData.end_time) {
-      alert('Jam mulai harus sebelum jam selesai');
+      setFormError('Jam mulai harus sebelum jam selesai.');
       return;
     }
 
+    setFormError('');
     try {
       if (editingShift) {
         await updateShift(editingShift.id!, formData);
@@ -109,7 +127,7 @@ export function ShiftManagementSection() {
       setShowModal(false);
     } catch (error) {
       console.error('Failed to save shift:', error);
-      alert('Gagal menyimpan shift');
+      setFormError('Gagal menyimpan shift. Silakan coba lagi.');
     }
   };
 
@@ -201,18 +219,23 @@ export function ShiftManagementSection() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex gap-2">
                         <button
+                          type="button"
                           onClick={() => handleEditShift(shift)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Edit"
+                          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900"
+                          aria-label={`Edit shift ${shift.name}`}
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="size-4" aria-hidden="true" />
                         </button>
                         <button
-                          onClick={() => handleDeleteShift(shift.id!)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Hapus"
+                          type="button"
+                          onClick={() => {
+                            setDeleteError('');
+                            setShiftToDelete(shift);
+                          }}
+                          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-900"
+                          aria-label={`Hapus shift ${shift.name}`}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="size-4" aria-hidden="true" />
                         </button>
                       </div>
                     </td>
@@ -307,15 +330,25 @@ export function ShiftManagementSection() {
                 />
               </div>
             </div>
+            {formError && (
+              <p role="alert" className="mt-4 text-sm font-medium text-red-600">
+                {formError}
+              </p>
+            )}
             
             <div className="flex justify-end gap-2 mt-6">
               <button
-                onClick={() => setShowModal(false)}
+                type="button"
+                onClick={() => {
+                  setShowModal(false);
+                  setFormError('');
+                }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={handleSaveShift}
                 className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
               >
@@ -325,6 +358,42 @@ export function ShiftManagementSection() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(shiftToDelete)}
+        onClose={closeDeleteDialog}
+        title="Hapus shift?"
+        role="alertdialog"
+        descriptionId="delete-shift-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={deleting}
+              onClick={() => shiftToDelete?.id && handleDeleteShift(shiftToDelete.id)}
+            >
+              Hapus shift
+            </Button>
+          </>
+        }
+      >
+        <p id="delete-shift-description" className="text-pretty text-sm text-ink-secondary">
+          Shift <strong className="text-ink">{shiftToDelete?.name}</strong> akan dihapus permanen.
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {deleteError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
+            {deleteError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

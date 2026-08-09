@@ -8,11 +8,13 @@ interface OCRReviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   ocrResult: OCRResult | null;
-  onSave: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>) => void;
+  onSave: (expense: Omit<Expense, 'id' | 'created_at' | 'updated_at'>) => Promise<void>;
   categories: Array<{ value: string; label: string }>;
 }
 
 export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories }: OCRReviewModalProps) {
+  const [formError, setFormError] = useState('');
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     supplier_name: '',
     date: new Date().toISOString().split('T')[0],
@@ -37,6 +39,7 @@ export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories 
 
   useEffect(() => {
     if (ocrResult) {
+      setFormError('');
       setFormData({
         supplier_name: ocrResult.supplier_name,
         date: ocrResult.date,
@@ -51,10 +54,11 @@ export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories 
 
   const handleAddItem = () => {
     if (!newItem.name || newItem.quantity <= 0 || newItem.unit_price <= 0) {
-      alert('Mohon lengkapi data item');
+      setFormError('Lengkapi nama item, jumlah, dan harga sebelum menambahkan.');
       return;
     }
 
+    setFormError('');
     const total = newItem.quantity * newItem.unit_price;
     setLineItems([...lineItems, { ...newItem, total }]);
     setNewItem({ name: '', quantity: 1, unit_price: 0 });
@@ -68,9 +72,9 @@ export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories 
     return lineItems.reduce((sum, item) => sum + item.total, 0);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.description || formData.amount <= 0) {
-      alert('Deskripsi dan jumlah wajib diisi');
+      setFormError('Deskripsi wajib diisi dan jumlah harus lebih dari nol.');
       return;
     }
 
@@ -81,8 +85,16 @@ export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories 
       line_items: lineItems,
     };
 
-    onSave(expense);
-    onClose();
+    setSaving(true);
+    setFormError('');
+    try {
+      await onSave(expense);
+      onClose();
+    } catch {
+      setFormError('Gagal menyimpan pengeluaran. Silakan coba lagi.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -99,10 +111,12 @@ export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories 
               </p>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+              className="flex size-11 items-center justify-center rounded-full transition-colors hover:bg-gray-100"
+              aria-label="Tutup review OCR"
             >
-              <X className="h-5 w-5 text-gray-500" />
+              <X className="h-5 w-5 text-gray-500" aria-hidden="true" />
             </button>
           </div>
         </div>
@@ -256,19 +270,24 @@ export function OCRReviewModal({ isOpen, onClose, ocrResult, onSave, categories 
           )}
         </div>
 
+        {formError && <p role="alert" className="px-6 pb-2 text-sm font-medium text-red-600">{formError}</p>}
         <div className="sticky bottom-0 bg-white border-t p-6 flex justify-end gap-2">
           <button
+            type="button"
             onClick={onClose}
+            disabled={saving}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
           >
             Batal
           </button>
           <button
+            type="button"
             onClick={handleSave}
+            disabled={saving}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
           >
             <Check className="h-4 w-4" />
-            Simpan Pengeluaran
+            {saving ? 'Menyimpan...' : 'Simpan Pengeluaran'}
           </button>
         </div>
       </div>

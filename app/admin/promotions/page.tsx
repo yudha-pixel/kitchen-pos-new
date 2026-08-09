@@ -5,6 +5,8 @@ import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
 import { Search, Tag, Edit, Trash2, Plus, Calendar, Percent, DollarSign, Package, TrendingUp } from 'lucide-react';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
 
 interface Promotion {
   id?: string;
@@ -32,6 +34,9 @@ export default function PromotionsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
+  const [promotionToDelete, setPromotionToDelete] = useState<Promotion | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
 
@@ -133,16 +138,25 @@ export default function PromotionsPage() {
   };
 
   const handleDeletePromotion = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus promosi ini?')) return;
-
+    setDeleting(true);
+    setDeleteError('');
     try {
       const { db } = await import('@/src/lib/db');
       await db.promotions.delete(id);
       await loadPromotions();
+      setPromotionToDelete(null);
     } catch (error) {
       console.error('Failed to delete promotion:', error);
-      alert('Gagal menghapus promosi');
+      setDeleteError('Gagal menghapus promosi. Silakan coba lagi.');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setPromotionToDelete(null);
+    setDeleteError('');
   };
 
   const handleSavePromotion = async () => {
@@ -221,7 +235,7 @@ export default function PromotionsPage() {
   const amountPromotions = filteredPromotions.filter(p => p.type === 'amount').length;
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
@@ -367,8 +381,9 @@ export default function PromotionsPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-sm">
                             <button
+                              type="button"
                               onClick={() => handleToggleActive(promotion)}
-                              className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              className={`min-h-11 rounded-full px-3 py-1 text-xs font-medium ${
                                 isActive(promotion)
                                   ? 'bg-green-100 text-green-800'
                                   : 'bg-red-100 text-red-800'
@@ -380,16 +395,23 @@ export default function PromotionsPage() {
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                             <div className="flex gap-2">
                               <button
+                                type="button"
                                 onClick={() => handleEditPromotion(promotion)}
-                                className="text-blue-600 hover:text-blue-900"
+                                aria-label={`Edit promosi ${promotion.name}`}
+                                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900"
                               >
-                                <Edit className="h-4 w-4" />
+                                <Edit className="size-4" aria-hidden="true" />
                               </button>
                               <button
-                                onClick={() => handleDeletePromotion(promotion.id!)}
-                                className="text-red-600 hover:text-red-900"
+                                type="button"
+                                onClick={() => {
+                                  setDeleteError('');
+                                  setPromotionToDelete(promotion);
+                                }}
+                                aria-label={`Hapus promosi ${promotion.name}`}
+                                className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-900"
                               >
-                                <Trash2 className="h-4 w-4" />
+                                <Trash2 className="size-4" aria-hidden="true" />
                               </button>
                             </div>
                           </td>
@@ -601,6 +623,42 @@ export default function PromotionsPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(promotionToDelete)}
+        onClose={closeDeleteDialog}
+        title="Hapus promosi?"
+        role="alertdialog"
+        descriptionId="delete-promotion-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={deleting}
+              onClick={() => promotionToDelete?.id && handleDeletePromotion(promotionToDelete.id)}
+            >
+              Hapus promosi
+            </Button>
+          </>
+        }
+      >
+        <p id="delete-promotion-description" className="text-pretty text-sm text-ink-secondary">
+          Promosi <strong className="text-ink">{promotionToDelete?.name}</strong> akan dihapus permanen.
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {deleteError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
+            {deleteError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

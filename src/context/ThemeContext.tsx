@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface AppSettings {
   id: string;
@@ -27,11 +28,9 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
   const fetchSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE}/settings`);
+      const response = await fetch(`${API_BASE_URL}/settings`);
       if (response.ok) {
         const data = await response.json();
         setSettings(data);

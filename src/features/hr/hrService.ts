@@ -4,12 +4,11 @@
  */
 
 import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 // Configuration constants
 export const LATE_TOLERANCE_MINUTES = 15; // 15 minutes tolerance for late detection
 export const OVERTIME_MULTIPLIER = 1.5; // 1.5x hourly rate for overtime
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export interface Employee {
   id?: string;
@@ -71,7 +70,7 @@ export interface Payroll {
 export async function getAllEmployees(): Promise<Employee[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/hr/employees`, {
+    const response = await fetch(`${API_BASE_URL}/hr/employees`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -97,7 +96,7 @@ export async function getAllEmployees(): Promise<Employee[]> {
 export async function addEmployee(employee: Omit<Employee, 'id' | 'created_at'>): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/hr/employees`, {
+    const response = await fetch(`${API_BASE_URL}/hr/employees`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -124,7 +123,7 @@ export async function addEmployee(employee: Omit<Employee, 'id' | 'created_at'>)
 export async function updateEmployee(id: string, employee: Partial<Employee>): Promise<void> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/hr/employees/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/hr/employees/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -148,7 +147,7 @@ export async function updateEmployee(id: string, employee: Partial<Employee>): P
 export async function deleteEmployee(id: string): Promise<void> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/hr/employees/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/hr/employees/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -170,7 +169,7 @@ export async function deleteEmployee(id: string): Promise<void> {
 export async function getAttendanceByDate(date: string): Promise<Attendance[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/attendance?date_from=${date}&date_to=${date}`, {
+    const response = await fetch(`${API_BASE_URL}/attendance?date_from=${date}&date_to=${date}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -203,7 +202,7 @@ export async function getAttendanceByDate(date: string): Promise<Attendance[]> {
 export async function getAttendanceByEmployee(employeeId: string): Promise<Attendance[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/attendance?employee_id=${employeeId}`, {
+    const response = await fetch(`${API_BASE_URL}/attendance?employee_id=${employeeId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -227,7 +226,7 @@ export async function getAttendanceByEmployee(employeeId: string): Promise<Atten
 export async function checkIn(employeeId: string, photo: string, shiftId?: string): Promise<{ status: 'present' | 'late'; isLate: boolean }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/attendance/check-in`, {
+    const response = await fetch(`${API_BASE_URL}/attendance/check-in`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -261,7 +260,7 @@ export async function checkIn(employeeId: string, photo: string, shiftId?: strin
 export async function checkOut(employeeId: string, photo: string): Promise<{ overtimeHours: number }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/attendance/check-out`, {
+    const response = await fetch(`${API_BASE_URL}/attendance/check-out`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -374,7 +373,7 @@ export async function calculatePayroll(month: string, year: number): Promise<Pay
 export async function getHRStatistics() {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/hr/statistics`, {
+    const response = await fetch(`${API_BASE_URL}/hr/statistics`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -567,7 +566,7 @@ export interface PayrollSummary {
 export async function getPayrollSummaryByPeriod(days: number): Promise<PayrollSummary> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/hr/payroll-summary?days=${days}`, {
+    const response = await fetch(`${API_BASE_URL}/hr/payroll-summary?days=${days}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

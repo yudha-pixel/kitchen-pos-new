@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 export type TableStatus = 'available' | 'occupied' | 'dirty' | 'reserved';
 
@@ -33,8 +34,7 @@ export function useTables() {
       setLoading(true);
       setError(null);
       
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_BASE}/tables`);
+      const response = await fetch(`${API_BASE_URL}/tables`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch tables');
@@ -52,8 +52,7 @@ export function useTables() {
 
   const updateTableStatus = async (tableId: string, status: TableStatus) => {
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-      const response = await fetch(`${API_BASE}/tables/${tableId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/tables/${tableId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

@@ -1,6 +1,5 @@
 import { getToken } from '@/src/lib/api';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 export interface Ingredient {
   id: string;
@@ -40,7 +39,7 @@ export async function getIngredientsWithStatus(): Promise<
   Array<Ingredient & { status: 'ok' | 'warning' | 'critical'; supplier_name?: string }>
 > {
   try {
-    const response = await fetch(`${API_URL}/ingredients`);
+    const response = await fetch(`${API_BASE_URL}/ingredients`);
     if (!response.ok) throw new Error('Failed to fetch ingredients');
     
     const ingredients: Ingredient[] = await response.json();
@@ -72,7 +71,7 @@ export async function getRecipesForMenuItem(
   menuItemId: string
 ): Promise<Array<Recipe & { ingredientName?: string }>> {
   try {
-    const response = await fetch(`${API_URL}/recipes/menu/${menuItemId}`);
+    const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`);
     if (!response.ok) throw new Error('Failed to fetch recipes');
     
     const recipes: Recipe[] = await response.json();
@@ -93,7 +92,7 @@ export async function upsertRecipe(
   recipe: Omit<Recipe, 'id' | 'created_at'>
 ): Promise<string> {
   try {
-    const response = await fetch(`${API_URL}/recipes`, {
+    const response = await fetch(`${API_BASE_URL}/recipes`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(recipe),
@@ -112,7 +111,7 @@ export async function upsertRecipe(
 // Delete all recipes for a menu item
 export async function deleteRecipesForMenuItem(menuItemId: string): Promise<void> {
   try {
-    const response = await fetch(`${API_URL}/recipes/menu/${menuItemId}`, {
+    const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`, {
       method: 'DELETE',
     });
     
@@ -184,7 +183,7 @@ export async function addIngredient(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_URL}/ingredients`, {
+    const response = await fetch(`${API_BASE_URL}/ingredients`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -207,7 +206,7 @@ export async function addIngredient(
 export async function createStockRequest(params: any): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_URL}/stock-requests`, {
+    const response = await fetch(`${API_BASE_URL}/stock-requests`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -230,7 +229,7 @@ export async function createStockRequest(params: any): Promise<string> {
 export async function createStockWriteOff(params: any): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_URL}/stock-write-offs`, {
+    const response = await fetch(`${API_BASE_URL}/stock-write-offs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -253,7 +252,7 @@ export async function createStockWriteOff(params: any): Promise<string> {
 export async function getPurchaseDataByPeriod(days: number): Promise<any[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_URL}/reports/purchases?days=${days}`, {
+    const response = await fetch(`${API_BASE_URL}/reports/purchases?days=${days}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },

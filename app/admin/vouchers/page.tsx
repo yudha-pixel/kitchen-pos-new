@@ -8,6 +8,8 @@ import { getToken } from '@/src/lib/api';
 import { Plus, Edit, Trash2, Calendar, Tag, Percent, DollarSign, Check, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
+import { API_BASE_URL } from '@/src/config/runtime';
+import { Modal } from '@/src/components/ui/Modal';
 
 interface Voucher {
   id?: string;
@@ -27,13 +29,14 @@ interface Voucher {
   updated_at?: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
 export default function VouchersPage() {
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingVoucher, setEditingVoucher] = useState<Voucher | null>(null);
+  const [voucherToDelete, setVoucherToDelete] = useState<Voucher | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
 
   // Form state
@@ -58,7 +61,7 @@ export default function VouchersPage() {
   const loadVouchers = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/vouchers`, {
+      const response = await fetch(`${API_BASE_URL}/vouchers`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -98,7 +101,7 @@ export default function VouchersPage() {
       }
 
       const token = getToken();
-      const url = editingVoucher ? `${API_BASE}/vouchers/${editingVoucher.id}` : `${API_BASE}/vouchers`;
+      const url = editingVoucher ? `${API_BASE_URL}/vouchers/${editingVoucher.id}` : `${API_BASE_URL}/vouchers`;
       const method = editingVoucher ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -144,13 +147,11 @@ export default function VouchersPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus voucer ini?')) {
-      return;
-    }
-
+    setDeleting(true);
+    setDeleteError('');
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/vouchers/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/vouchers/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -162,17 +163,26 @@ export default function VouchersPage() {
       }
 
       toast('success', 'Voucer berhasil dihapus');
+      setVoucherToDelete(null);
       loadVouchers();
     } catch (error) {
       console.error('Failed to delete voucher:', error);
-      toast('error', 'Gagal menghapus voucer');
+      setDeleteError('Gagal menghapus voucer. Silakan coba lagi.');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setVoucherToDelete(null);
+    setDeleteError('');
   };
 
   const handleToggleActive = async (voucher: Voucher) => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/vouchers/${voucher.id}/toggle-active`, {
+      const response = await fetch(`${API_BASE_URL}/vouchers/${voucher.id}/toggle-active`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -216,7 +226,7 @@ export default function VouchersPage() {
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
@@ -253,24 +263,33 @@ export default function VouchersPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button
+                          type="button"
                           onClick={() => handleToggleActive(voucher)}
-                          className={`p-2 rounded-lg transition-colors ${
+                          aria-label={`${voucher.is_active ? 'Nonaktifkan' : 'Aktifkan'} voucer ${voucher.name}`}
+                          className={`flex min-h-11 min-w-11 items-center justify-center rounded-lg transition-colors ${
                             voucher.is_active ? 'bg-green-100 text-green-600' : 'bg-gray-100 text-gray-400'
                           }`}
                         >
-                          {voucher.is_active ? <Check className="h-4 w-4" /> : <X className="h-4 w-4" />}
+                          {voucher.is_active ? <Check className="size-4" aria-hidden="true" /> : <X className="size-4" aria-hidden="true" />}
                         </button>
                         <button
+                          type="button"
                           onClick={() => handleEdit(voucher)}
-                          className="p-2 rounded-lg bg-blue-100 text-blue-600 hover:bg-blue-200 hover:text-blue-700 transition-colors"
+                          aria-label={`Edit voucer ${voucher.name}`}
+                          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-blue-100 text-blue-600 transition-colors hover:bg-blue-200 hover:text-blue-700"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="size-4" aria-hidden="true" />
                         </button>
                         <button
-                          onClick={() => handleDelete(voucher.id!)}
-                          className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 hover:text-red-700 transition-colors"
+                          type="button"
+                          onClick={() => {
+                            setDeleteError('');
+                            setVoucherToDelete(voucher);
+                          }}
+                          aria-label={`Hapus voucer ${voucher.name}`}
+                          className="flex min-h-11 min-w-11 items-center justify-center rounded-lg bg-red-100 text-red-600 transition-colors hover:bg-red-200 hover:text-red-700"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="size-4" aria-hidden="true" />
                         </button>
                       </div>
                     </div>
@@ -483,6 +502,42 @@ export default function VouchersPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(voucherToDelete)}
+        onClose={closeDeleteDialog}
+        title="Hapus voucer?"
+        role="alertdialog"
+        descriptionId="delete-voucher-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={deleting}
+              onClick={() => voucherToDelete?.id && handleDelete(voucherToDelete.id)}
+            >
+              Hapus voucer
+            </Button>
+          </>
+        }
+      >
+        <p id="delete-voucher-description" className="text-pretty text-sm text-ink-secondary">
+          Voucer <strong className="text-ink">{voucherToDelete?.name}</strong> akan dihapus permanen.
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {deleteError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
+            {deleteError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

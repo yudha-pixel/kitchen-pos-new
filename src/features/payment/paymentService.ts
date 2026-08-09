@@ -1,7 +1,6 @@
 import { PaymentTransaction } from '@/src/lib/db';
 import { getToken } from '@/src/lib/api';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 export interface PaymentTransactionWithOrder extends PaymentTransaction {
   order?: {
@@ -24,7 +23,7 @@ export async function createPaymentTransaction(
     console.log('Creating payment transaction:', { orderId, gateway, paymentMethod });
     
     const token = getToken();
-    const response = await fetch(`${API_BASE}/payments`, {
+    const response = await fetch(`${API_BASE_URL}/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -58,7 +57,7 @@ export async function createPaymentTransaction(
 export async function getPaymentById(paymentId: string): Promise<PaymentTransactionWithOrder | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/payments/${paymentId}`, {
+    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -84,7 +83,7 @@ export async function updatePaymentStatus(
 ): Promise<PaymentTransactionWithOrder | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE}/payments/${paymentId}/status`, {
+    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

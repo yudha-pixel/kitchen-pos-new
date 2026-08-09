@@ -10,6 +10,8 @@ import { OCRUploadDropzone } from '@/src/components/finance/OCRUploadDropzone';
 import { OCRReviewModal } from '@/src/components/finance/OCRReviewModal';
 import { ExpenseTable } from '@/src/components/finance/ExpenseTable';
 import { ReceiptPreviewModal } from '@/src/components/finance/ReceiptPreviewModal';
+import { Modal } from '@/src/components/ui/Modal';
+import { Button } from '@/src/components/ui/Button';
 import {
   getAllExpenses,
   addExpense,
@@ -30,12 +32,18 @@ export default function FinancePage() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
+  const [ocrProcessingError, setOcrProcessingError] = useState('');
+  const [exportError, setExportError] = useState('');
   const [showOCRModal, setShowOCRModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [expenseFormError, setExpenseFormError] = useState('');
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [ocrResult, setOcrResult] = useState<OCRResult | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [previewExpense, setPreviewExpense] = useState<Expense | null>(null);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [formData, setFormData] = useState({
     category: 'operasional',
@@ -94,6 +102,7 @@ export default function FinancePage() {
   };
 
   const handleAddExpense = () => {
+    setExpenseFormError('');
     setEditingExpense(null);
     setFormData({
       category: 'operasional',
@@ -109,6 +118,7 @@ export default function FinancePage() {
   const handleFileSelect = async (file: File) => {
     setUploadedFile(file);
     setIsProcessingOCR(true);
+    setOcrProcessingError('');
 
     try {
       const result = await simulateOCR(file);
@@ -116,7 +126,7 @@ export default function FinancePage() {
       setShowOCRModal(true);
     } catch (error) {
       console.error('OCR processing failed:', error);
-      alert('Gagal memproses OCR. Silakan coba lagi.');
+      setOcrProcessingError('Gagal memproses OCR. Periksa file lalu coba lagi.');
     } finally {
       setIsProcessingOCR(false);
     }
@@ -147,11 +157,12 @@ export default function FinancePage() {
       setOcrResult(null);
     } catch (error) {
       console.error('Failed to save expense:', error);
-      alert('Gagal menyimpan pengeluaran');
+      throw error;
     }
   };
 
   const handleEditExpense = (expense: Expense) => {
+    setExpenseFormError('');
     setEditingExpense(expense);
     setFormData({
       category: expense.category,
@@ -164,24 +175,35 @@ export default function FinancePage() {
     setShowEditModal(true);
   };
 
-  const handleDeleteExpense = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus pengeluaran ini?')) return;
-
+  const handleDeleteExpense = async () => {
+    if (!expenseToDelete?.id) return;
+    setDeleting(true);
+    setDeleteError('');
     try {
-      await deleteExpense(id);
+      await deleteExpense(expenseToDelete.id);
       await loadExpenses();
+      setExpenseToDelete(null);
     } catch (error) {
       console.error('Failed to delete expense:', error);
-      alert('Gagal menghapus pengeluaran');
+      setDeleteError('Gagal menghapus pengeluaran. Silakan coba lagi.');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setExpenseToDelete(null);
+    setDeleteError('');
   };
 
   const handleSaveExpense = async () => {
     if (!formData.description || formData.amount <= 0) {
-      alert('Deskripsi dan jumlah wajib diisi');
+      setExpenseFormError('Deskripsi wajib diisi dan jumlah harus lebih dari nol.');
       return;
     }
 
+    setExpenseFormError('');
     try {
       const expenseData = {
         ...formData,
@@ -198,7 +220,7 @@ export default function FinancePage() {
       setShowEditModal(false);
     } catch (error) {
       console.error('Failed to save expense:', error);
-      alert('Gagal menyimpan pengeluaran');
+      setExpenseFormError('Gagal menyimpan pengeluaran. Silakan coba lagi.');
     }
   };
 
@@ -208,11 +230,12 @@ export default function FinancePage() {
   };
 
   const handleExportCSV = async () => {
+    setExportError('');
     try {
       await exportExpensesToCSV(expenses);
     } catch (error) {
       console.error('Failed to export CSV:', error);
-      alert('Gagal mengekspor CSV');
+      setExportError('Gagal mengekspor CSV. Silakan coba lagi.');
     }
   };
 
@@ -253,6 +276,7 @@ export default function FinancePage() {
                   Tambah Manual
                 </button>
                 <button
+                  type="button"
                   onClick={handleExportCSV}
                   className="flex items-center gap-2 bg-emerald-600 text-white px-4 py-2 rounded-lg hover:bg-emerald-700 hover:text-white transition-colors"
                 >
@@ -268,6 +292,11 @@ export default function FinancePage() {
                 </button>
               </div>
             </div>
+            {exportError && (
+              <p role="alert" className="mb-4 text-sm font-medium text-red-600">
+                {exportError}
+              </p>
+            )}
 
             {/* Summary Card */}
             <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -291,6 +320,11 @@ export default function FinancePage() {
             <div className="bg-white rounded-lg shadow p-6 mb-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Upload Faktur/Struk (OCR)</h2>
               <OCRUploadDropzone onFileSelect={handleFileSelect} isProcessing={isProcessingOCR} />
+              {ocrProcessingError && (
+                <p role="alert" className="mt-3 text-sm font-medium text-red-600">
+                  {ocrProcessingError}
+                </p>
+              )}
             </div>
 
             {/* Expenses Table */}
@@ -298,7 +332,10 @@ export default function FinancePage() {
               expenses={expenses}
               categories={categories}
               onEdit={handleEditExpense}
-              onDelete={handleDeleteExpense}
+              onDelete={(expense) => {
+                setExpenseToDelete(expense);
+                setDeleteError('');
+              }}
               onPreview={handlePreview}
               loading={loading}
             />
@@ -396,15 +433,25 @@ export default function FinancePage() {
                 </select>
               </div>
             </div>
+            {expenseFormError && (
+              <p role="alert" className="mt-4 text-sm font-medium text-red-600">
+                {expenseFormError}
+              </p>
+            )}
             
             <div className="flex justify-end gap-2 mt-6">
               <button
-                onClick={() => setShowEditModal(false)}
+                type="button"
+                onClick={() => {
+                  setShowEditModal(false);
+                  setExpenseFormError('');
+                }}
                 className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 hover:text-gray-900"
               >
                 Batal
               </button>
               <button
+                type="button"
                 onClick={handleSaveExpense}
                 className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 hover:text-white"
               >
@@ -424,6 +471,29 @@ export default function FinancePage() {
         }}
         expense={previewExpense}
       />
+
+      <Modal
+        isOpen={Boolean(expenseToDelete)}
+        onClose={closeDeleteDialog}
+        title="Hapus pengeluaran?"
+        role="alertdialog"
+        descriptionId="delete-expense-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>Batal</Button>
+            <Button type="button" variant="danger" loading={deleting} onClick={handleDeleteExpense}>Hapus pengeluaran</Button>
+          </>
+        }
+      >
+        <p id="delete-expense-description" className="text-pretty text-sm text-ink-secondary">
+          Pengeluaran <strong className="text-ink">{expenseToDelete?.description}</strong> akan dihapus permanen.
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {deleteError && <p role="alert" className="mt-3 text-sm font-medium text-danger">{deleteError}</p>}
+      </Modal>
     </div>
   );
 }

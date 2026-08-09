@@ -1,4 +1,4 @@
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+import { API_BASE_URL } from '../config/runtime';
 
 const TOKEN_KEY = 'kitchen-pos-token';
 
@@ -38,7 +38,7 @@ async function request<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  const url = `${API_URL}${path}`;
+  const url = `${API_BASE_URL}${path}`;
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   };

@@ -12,6 +12,7 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
   const [dragActive, setDragActive] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState('');
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -46,15 +47,16 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
     const maxSize = 10 * 1024 * 1024; // 10MB
 
     if (!validTypes.includes(file.type)) {
-      alert('Hanya file JPG, PNG, atau PDF yang diperbolehkan');
+      setValidationError('Hanya file JPG, PNG, atau PDF yang diperbolehkan.');
       return;
     }
 
     if (file.size > maxSize) {
-      alert('Ukuran file maksimal 10MB');
+      setValidationError('Ukuran file maksimal 10MB.');
       return;
     }
 
+    setValidationError('');
     setSelectedFile(file);
 
     // Create preview for images
@@ -74,6 +76,7 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
 
   const handleClear = () => {
     setSelectedFile(null);
+    setValidationError('');
     setPreviewUrl(null);
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -107,6 +110,7 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
             accept="image/jpeg,image/png,image/jpg,application/pdf"
             onChange={handleFileInput}
             disabled={isProcessing}
+            aria-describedby={`ocr-upload-help${validationError ? ' ocr-upload-error' : ''}`}
           />
           <label
             htmlFor="file-upload"
@@ -116,10 +120,15 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
             <p className="mt-4 text-sm text-gray-600">
               <span className="font-medium text-blue-600">Klik untuk upload</span> atau drag & drop
             </p>
-            <p className="mt-2 text-xs text-gray-500">
+            <p id="ocr-upload-help" className="mt-2 text-xs text-gray-500">
               JPG, PNG, atau PDF (maks. 10MB)
             </p>
           </label>
+          {validationError && (
+            <p id="ocr-upload-error" role="alert" className="mt-3 text-sm font-medium text-red-600">
+              {validationError}
+            </p>
+          )}
         </div>
       ) : (
         <div className="border-2 border-gray-300 rounded-lg p-4">
@@ -134,11 +143,13 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
               </div>
             </div>
             <button
+              type="button"
               onClick={handleClear}
-              className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+              className="flex size-11 items-center justify-center rounded-full transition-colors hover:bg-gray-100"
               disabled={isProcessing}
+              aria-label={`Hapus file ${selectedFile.name}`}
             >
-              <X className="h-5 w-5 text-gray-500" />
+              <X className="h-5 w-5 text-gray-500" aria-hidden="true" />
             </button>
           </div>
 
@@ -153,6 +164,7 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
           )}
 
           <button
+            type="button"
             onClick={handleProcess}
             disabled={isProcessing}
             className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"

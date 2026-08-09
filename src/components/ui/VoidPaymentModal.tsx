@@ -5,6 +5,7 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface VoidPaymentModalProps {
   isOpen: boolean;
@@ -35,7 +36,7 @@ export const VoidPaymentModal = ({
 
     try {
       const token = getToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/payments/${paymentId}/void`, {
+      const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/void`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

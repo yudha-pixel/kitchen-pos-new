@@ -7,6 +7,9 @@ import { formatRupiah } from '@/src/lib/format';
 import { getToken } from '@/src/lib/api';
 import { Search, UserPlus, Edit, Trash2, Crown, Shield, Star, Gem, Phone, Mail, Calendar, TrendingUp } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
+import { API_BASE_URL } from '@/src/config/runtime';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
 
 interface Member {
   id?: string;
@@ -29,8 +32,6 @@ const TIER_CONFIG = {
   platinum: { color: 'text-purple-600', bg: 'bg-purple-100', icon: Gem, discount: 20, minSpent: 5000000 },
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
-
 export default function CRMPage() {
   const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
@@ -38,6 +39,9 @@ export default function CRMPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingMember, setEditingMember] = useState<Member | null>(null);
+  const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTier, setFilterTier] = useState('');
 
@@ -83,7 +87,7 @@ export default function CRMPage() {
   const loadMembers = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/customers`, {
+      const response = await fetch(`${API_BASE_URL}/customers`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -152,11 +156,11 @@ export default function CRMPage() {
   };
 
   const handleDeleteMember = async (id: string) => {
-    if (!confirm('Apakah Anda yakin ingin menghapus member ini?')) return;
-
+    setDeleting(true);
+    setDeleteError('');
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/customers/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/customers/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -168,10 +172,19 @@ export default function CRMPage() {
       }
 
       await loadMembers();
+      setMemberToDelete(null);
     } catch (error) {
       console.error('Failed to delete member:', error);
-      alert('Gagal menghapus member');
+      setDeleteError('Gagal menghapus member. Silakan coba lagi.');
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleting) return;
+    setMemberToDelete(null);
+    setDeleteError('');
   };
 
   const handleSaveMember = async () => {
@@ -182,7 +195,7 @@ export default function CRMPage() {
 
     try {
       const token = getToken();
-      const url = editingMember ? `${API_BASE}/customers/${editingMember.id}` : `${API_BASE}/customers`;
+      const url = editingMember ? `${API_BASE_URL}/customers/${editingMember.id}` : `${API_BASE_URL}/customers`;
       const method = editingMember ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -209,7 +222,7 @@ export default function CRMPage() {
   const handleToggleActive = async (member: Member) => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE}/customers/${member.id}/toggle-active`, {
+      const response = await fetch(`${API_BASE_URL}/customers/${member.id}/toggle-active`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -255,7 +268,7 @@ export default function CRMPage() {
   const totalRevenue = filteredMembers.reduce((sum, m) => sum + m.total_spent, 0);
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-dvh bg-gray-50">
       <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
         <Header />
@@ -401,8 +414,9 @@ export default function CRMPage() {
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm">
                               <button
+                                type="button"
                                 onClick={() => handleToggleActive(member)}
-                                className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                className={`min-h-11 rounded-full px-3 py-1 text-xs font-medium ${
                                   member.is_active
                                     ? 'bg-green-100 text-green-800'
                                     : 'bg-red-100 text-red-800'
@@ -414,16 +428,23 @@ export default function CRMPage() {
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                               <div className="flex gap-2">
                                 <button
+                                  type="button"
                                   onClick={() => handleEditMember(member)}
-                                  className="text-blue-600 hover:text-blue-900"
+                                  aria-label={`Edit member ${member.name}`}
+                                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900"
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit className="size-4" aria-hidden="true" />
                                 </button>
                                 <button
-                                  onClick={() => handleDeleteMember(member.id!)}
-                                  className="text-red-600 hover:text-red-900"
+                                  type="button"
+                                  onClick={() => {
+                                    setDeleteError('');
+                                    setMemberToDelete(member);
+                                  }}
+                                  aria-label={`Hapus member ${member.name}`}
+                                  className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-900"
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="size-4" aria-hidden="true" />
                                 </button>
                               </div>
                             </td>
@@ -546,6 +567,42 @@ export default function CRMPage() {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(memberToDelete)}
+        onClose={closeDeleteDialog}
+        title="Hapus member?"
+        role="alertdialog"
+        descriptionId="delete-member-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeDeleteDialog} disabled={deleting}>
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              loading={deleting}
+              onClick={() => memberToDelete?.id && handleDeleteMember(memberToDelete.id)}
+            >
+              Hapus member
+            </Button>
+          </>
+        }
+      >
+        <p id="delete-member-description" className="text-pretty text-sm text-ink-secondary">
+          Member <strong className="text-ink">{memberToDelete?.name}</strong> akan dihapus permanen.
+          Tindakan ini tidak dapat dibatalkan.
+        </p>
+        {deleteError && (
+          <p role="alert" className="mt-3 text-sm font-medium text-danger">
+            {deleteError}
+          </p>
+        )}
+      </Modal>
     </div>
   );
 }

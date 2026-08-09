@@ -160,18 +160,20 @@ export function EmployeeTable({ employees, onEdit, onDelete, loading = false }: 
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                   <div className="flex gap-2">
                     <button
+                      type="button"
                       onClick={() => onEdit(employee)}
-                      className="text-blue-600 hover:text-blue-900"
-                      title="Edit"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-blue-600 hover:bg-blue-50 hover:text-blue-900"
+                      aria-label={`Edit karyawan ${employee.name}`}
                     >
-                      <Edit className="h-4 w-4" />
+                      <Edit className="size-4" aria-hidden="true" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => onDelete(employee.id!)}
-                      className="text-red-600 hover:text-red-900"
-                      title="Hapus"
+                      className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-red-600 hover:bg-red-50 hover:text-red-900"
+                      aria-label={`Hapus karyawan ${employee.name}`}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="size-4" aria-hidden="true" />
                     </button>
                   </div>
                 </td>
