@@ -86,7 +86,7 @@ const orderSchema = z.object({
   id: uuid.optional(),
   cashier_id: uuid.nullish(),
   total_amount: z.number().nonnegative(),
-  payment_method: z.string().min(1).max(30),
+  payment_method: z.string().min(1).max(30).nullish(),
   status: z.enum(ORDER_STATUSES).optional(),
   table_number: z.string().max(30).nullish(),
   discount_amount: z.number().nonnegative().optional(),

@@ -1061,6 +1061,10 @@ export const useCartStore = create<CartState>()(
           set({ kitchenSent: true });
           console.log('✅ kitchenSent set to true');
 
+          // Clear cart after successful send to kitchen
+          get().clearCart();
+          console.log('✅ Cart cleared after send to kitchen');
+
           // Dispatch event to notify POS page to recalculate menu stock
           // Backend handles stock reduction in POST /orders transaction
           if (typeof window !== 'undefined') {

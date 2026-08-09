@@ -213,7 +213,37 @@ export const useSyncManager = () => {
           console.log(`Syncing order ${order.id} with ${validOrderItems.length} items`);
           console.log('Order data:', order);
           console.log('Order items data:', validOrderItems);
-          await api.createOrder(order, validOrderItems);
+          
+          // Prepare order data in the format expected by the API
+          const orderData = {
+            id: order.id,
+            cashier_id: order.cashier_id,
+            total_amount: order.total_amount,
+            payment_method: order.payment_method || null,
+            status: order.status || 'pending',
+            table_number: order.table_number || null,
+            discount_amount: order.discount_amount || 0,
+            rounding_amount: order.rounding_amount || 0,
+            notes: order.notes || null,
+            created_at: order.created_at,
+          };
+          
+          const itemsData = validOrderItems.map(item => ({
+            id: item.id,
+            order_id: item.order_id,
+            product_id: item.product_id || null,
+            quantity: item.quantity,
+            price_at_time: item.price_at_time,
+            modifiers_applied: item.modifiers_applied || [],
+            discount_item: item.discount_item || 0,
+            split_group_id: item.split_group_id || null,
+            status: item.status || 'pending',
+          }));
+          
+          console.log('Prepared order data:', orderData);
+          console.log('Prepared items data:', itemsData);
+          
+          await api.createOrder(orderData, itemsData);
           await db.orders.update(order.id!, { sync_status: 'synced' });
           console.log(`✅ Order ${order.id} synced to local API`);
         } catch (error) {

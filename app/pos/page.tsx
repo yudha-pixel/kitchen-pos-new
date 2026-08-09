@@ -787,6 +787,9 @@ export default function POSPage() {
 
       toast('success', `Pembayaran split Rp${calculatedTotal.toLocaleString('id-ID')} berhasil diproses`);
 
+      // Clear cart after successful payment from Transaction History
+      useCartStore.getState().clearCart();
+
       // Close payment modal
       setPaymentModalOpen(false);
       setSelectedOrderForPayment(null);
@@ -868,6 +871,9 @@ export default function POSPage() {
         message += `. Kembalian: Rp${change.toLocaleString('id-ID')}`;
       }
       toast('success', message);
+
+      // Clear cart after successful payment from Transaction History
+      useCartStore.getState().clearCart();
 
       // Close payment modal
       setPaymentModalOpen(false);
