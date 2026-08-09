@@ -20,6 +20,7 @@ describe('Inventory Security Tests', () => {
     const adminUser = await prisma.profile.create({
       data: {
         username: 'inventory_admin_test',
+        full_name: 'Inventory Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
       },
@@ -30,6 +31,7 @@ describe('Inventory Security Tests', () => {
     const cashierUser = await prisma.profile.create({
       data: {
         username: 'inventory_cashier_test',
+        full_name: 'Inventory Cashier Test',
         password_hash: 'hash',
         role_id: cashierRole!.id,
       },

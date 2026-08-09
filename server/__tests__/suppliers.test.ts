@@ -19,6 +19,7 @@ describe('Supplier & Purchase Order Integration Tests', () => {
     const adminUser = await prisma.profile.create({
       data: {
         username: `supplier_admin_test_${Date.now()}`,
+        full_name: 'Supplier Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
       },
@@ -255,6 +256,7 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       const cashier = await prisma.profile.create({
         data: {
           username: 'supplier_cashier_test',
+          full_name: 'Supplier Cashier Test',
           password_hash: 'hash',
           role_id: cashierRole!.id,
         },

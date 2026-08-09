@@ -33,7 +33,7 @@ export function useTables() {
       setLoading(true);
       setError(null);
       
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const response = await fetch(`${API_BASE}/tables`);
       
       if (!response.ok) {
@@ -52,7 +52,7 @@ export function useTables() {
 
   const updateTableStatus = async (tableId: string, status: TableStatus) => {
     try {
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
       const response = await fetch(`${API_BASE}/tables/${tableId}/status`, {
         method: 'PATCH',
         headers: {

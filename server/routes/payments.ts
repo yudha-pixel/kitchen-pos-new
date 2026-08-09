@@ -3,7 +3,7 @@ import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { ZodError } from 'zod';
 import { z } from 'zod';
-import { authMiddleware } from '../middleware/auth';
+import { authMiddleware, requireRole } from '../middleware/auth';
 import { webhookSignatureMiddleware } from '../middleware/webhookSignature';
 
 const router = Router();
@@ -26,6 +26,10 @@ const updatePaymentStatusSchema = z.object({
   status: z.enum(['pending', 'paid', 'failed', 'expired']),
   gateway_tx_id: z.string().optional(),
   paid_at: z.string().optional(),
+});
+
+const voidPaymentSchema = z.object({
+  reason: z.string().min(1).max(500),
 });
 
 // Create payment transaction
@@ -175,6 +179,77 @@ router.patch('/payments/:id/status', authMiddleware, async (req: Request, res: R
     }
 
     console.error('Error updating payment status:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Void payment - requires admin role for authorization
+// This endpoint allows voiding a payment transaction for any order type (Dine-In, Takeaway, Online Order)
+// It updates the payment status and records the void reason and who voided it
+router.post('/payments/:id/void', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params as { id: string };
+    const { reason } = voidPaymentSchema.parse(req.body);
+
+    // Check if payment exists
+    const payment = await prisma.paymentTransaction.findUnique({
+      where: { id },
+      include: {
+        order: true,
+      },
+    });
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    // Check if payment is already voided
+    if (payment.voided_at) {
+      return res.status(400).json({ error: 'Payment is already voided' });
+    }
+
+    // Check if payment is in a state that can be voided
+    if (payment.status !== 'paid') {
+      return res.status(400).json({ error: 'Only paid payments can be voided' });
+    }
+
+    // Void the payment in a transaction
+    const voidedPayment = await prisma.$transaction(async (tx) => {
+      // Update payment transaction
+      const updatedPayment = await tx.paymentTransaction.update({
+        where: { id },
+        data: {
+          status: 'voided',
+          voided_at: new Date(),
+          voided_by: req.user?.id,
+          void_reason: reason,
+        },
+        include: {
+          order: true,
+        },
+      });
+
+      // Update order status back to pending if it was completed
+      if (updatedPayment.order.status === 'completed') {
+        await tx.order.update({
+          where: { id: updatedPayment.order_id },
+          data: { status: 'pending' },
+        });
+      }
+
+      return updatedPayment;
+    });
+
+    res.json(voidedPayment);
+  } catch (error) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+      });
+    }
+
+    console.error('Error voiding payment:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });

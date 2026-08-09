@@ -1,7 +1,7 @@
 import { app } from './app';
 import { prisma } from './lib/prisma';
 
-const PORT = Number(process.env.PORT || 3001);
+const PORT = Number(process.env.PORT || 3000);
 const API_HOST = process.env.API_HOST || '0.0.0.0';
 
 const server = app.listen(PORT, API_HOST, () => {

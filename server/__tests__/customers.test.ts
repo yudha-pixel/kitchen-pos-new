@@ -17,6 +17,7 @@ describe('Customers API', () => {
     const adminUser = await prisma.profile.create({
       data: {
         username: `customer_admin_test_${Date.now()}`,
+        full_name: 'Customer Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
       },

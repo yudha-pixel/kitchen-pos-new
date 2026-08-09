@@ -24,6 +24,7 @@ async function main() {
       await prisma.profile.create({
         data: {
           username: 'admin',
+          full_name: 'System Administrator',
           role_id: adminRole.id,
           password_hash: passwordHash,
         },

@@ -18,6 +18,7 @@ async function main() {
     update: {},
     create: {
       username: 'admin',
+      full_name: 'System Administrator',
       password_hash: hashedPassword,
       role_id: adminRole.id,
     },

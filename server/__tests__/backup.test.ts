@@ -17,6 +17,7 @@ describe('Backup & Restore API', () => {
       await prisma.profile.create({
         data: {
           username: 'admin',
+          full_name: 'Admin User',
           password_hash: passwordHash,
           role_id: adminRole.id,
         },
@@ -55,6 +56,7 @@ describe('Backup & Restore API', () => {
         const cashier = await prisma.profile.create({
           data: {
             username: 'test-cashier-backup',
+            full_name: 'Test Cashier Backup',
             password_hash: passwordHash,
             role_id: cashierRole.id,
           },
@@ -103,6 +105,7 @@ describe('Backup & Restore API', () => {
         const cashier = await prisma.profile.create({
           data: {
             username: 'test-cashier-backup2',
+            full_name: 'Test Cashier Backup 2',
             password_hash: passwordHash,
             role_id: cashierRole.id,
           },

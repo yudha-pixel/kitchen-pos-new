@@ -17,6 +17,7 @@ describe('Audit Trail API', () => {
       await prisma.profile.create({
         data: {
           username: 'admin',
+          full_name: 'Admin User',
           password_hash: passwordHash,
           role_id: adminRole.id,
         },
@@ -55,6 +56,7 @@ describe('Audit Trail API', () => {
         const cashier = await prisma.profile.create({
           data: {
             username: 'test-cashier-audit',
+            full_name: 'Test Cashier Audit',
             password_hash: passwordHash,
             role_id: cashierRole.id,
           },
@@ -138,6 +140,7 @@ describe('Audit Trail API', () => {
         const cashier = await prisma.profile.create({
           data: {
             username: 'test-cashier-audit2',
+            full_name: 'Test Cashier Audit 2',
             password_hash: passwordHash,
             role_id: cashierRole.id,
           },

@@ -66,6 +66,7 @@ describe('Stock Transfer API', () => {
       await prisma.profile.create({
         data: {
           username: 'admin',
+          full_name: 'Admin User',
           password_hash: passwordHash,
           role_id: adminRole.id,
         },

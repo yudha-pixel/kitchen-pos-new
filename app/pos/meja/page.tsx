@@ -8,6 +8,7 @@ import { Badge } from '@/src/components/ui/Badge';
 import { Users, CheckCircle, UserRound, CalendarClock, Sparkles, LucideIcon, ShoppingCart, QrCode, Download, X } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import WaiterOrderModal from '@/src/components/pos/WaiterOrderModal';
+import { useConfigStore } from '@/src/store/useConfigStore';
 
 type TableStatus = 'available' | 'occupied' | 'reserved' | 'dirty';
 
@@ -70,21 +71,16 @@ export default function TableManagementPage() {
     { id: 'be6c07ca-b2bd-4baa-8086-9c092cb8f924', table_number: 'Meja 5', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.001Z', updated_at: '2026-08-07T11:43:52.001Z', outlet: null, status: 'reserved', capacity: 8 },
     { id: '0a1100e2-c405-4104-81a4-b00cfe9615a6', table_number: 'Meja 6', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.008Z', updated_at: '2026-08-07T11:43:52.008Z', outlet: null, status: 'available', capacity: 4 },
     { id: '9d9c2463-edf4-4087-8115-ce7a1f0bfb03', table_number: 'Meja 7', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.011Z', updated_at: '2026-08-07T11:43:52.011Z', outlet: null, status: 'occupied', capacity: 4 },
-    { id: 'e7834981-9a90-4d14-806b-64234a429e88', table_number: 'Meja 8', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.013Z', updated_at: '2026-08-07T11:43:52.013Z', outlet: null, status: 'available', capacity: 6 },
-    { id: '400a2163-3cb3-4e7f-abd1-320ef7b5c277', table_number: 'Meja 9', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.015Z', updated_at: '2026-08-07T11:43:52.015Z', outlet: null, status: 'available', capacity: 10 },
-    { id: 'd38fe75d-bc3a-4e81-8cca-70dc9e789a8c', table_number: 'Meja 10', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.018Z', updated_at: '2026-08-07T11:43:52.018Z', outlet: null, status: 'reserved', capacity: 4 },
-    { id: '7b499df1-cbe1-4aae-971c-fe690ff2046d', table_number: 'Meja 11', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.020Z', updated_at: '2026-08-07T11:43:52.020Z', outlet: null, status: 'available', capacity: 2 },
-    { id: '3006efdb-850b-4921-83d5-a2732552a7ac', table_number: 'Meja 12', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.023Z', updated_at: '2026-08-07T11:43:52.023Z', outlet: null, status: 'available', capacity: 4 },
   ]);
-  const [activeTable, setActiveTable] = useState<Table | null>(null);
-  const [waiterOrderModalOpen, setWaiterOrderModalOpen] = useState(false);
-  const [selectedTableForOrder, setSelectedTableForOrder] = useState<Table | null>(null);
-  const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [selectedTableForOrder, setSelectedTableForOrder] = useState<Table | null>(null);
+  const [waiterOrderModalOpen, setWaiterOrderModalOpen] = useState(false);
+  const [activeTable, setActiveTable] = useState<Table | null>(null);
+  const getWebBaseUrl = useConfigStore((state) => state.getWebBaseUrl);
 
   const setStatus = (tableId: string, status: TableStatus) => {
     setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status } : t)));
-    setActiveTable(null);
   };
 
   const handleOpenWaiterOrder = (table: Table) => {
@@ -98,7 +94,7 @@ export default function TableManagementPage() {
   };
 
   const getQRCodeURL = (tableId: string) => {
-    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const baseUrl = getWebBaseUrl();
     return `${baseUrl}/order/${tableId}`;
   };
 

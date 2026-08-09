@@ -20,6 +20,7 @@ describe('Kitchen Routing API', () => {
       await prisma.profile.create({
         data: {
           username: 'admin',
+          full_name: 'Admin User',
           password_hash: passwordHash,
           role_id: adminRole.id,
         },
@@ -92,6 +93,7 @@ describe('Kitchen Routing API', () => {
         const cashier = await prisma.profile.create({
           data: {
             username: 'test-cashier',
+            full_name: 'Test Cashier',
             password_hash: passwordHash,
             role_id: cashierRole.id,
           },

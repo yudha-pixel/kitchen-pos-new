@@ -23,6 +23,7 @@ import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, Histor
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
 import { PaymentModal } from '@/src/components/pos/PaymentModal';
+import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
 
@@ -57,6 +58,8 @@ export default function POSPage() {
   const [productListModalOpen, setProductListModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any>(null);
+  const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
+  const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -915,6 +918,50 @@ export default function POSPage() {
     }
   };
 
+  const handleVoidPayment = (paymentId: string, amount: number) => {
+    // Check if user has admin role
+    if (user?.role !== 'admin') {
+      toast('error', 'Hanya admin yang dapat void pembayaran');
+      return;
+    }
+    setSelectedPaymentForVoid({ id: paymentId, amount });
+    setVoidPaymentModalOpen(true);
+  };
+
+  const handleVoidPaymentComplete = () => {
+    setVoidPaymentModalOpen(false);
+    setSelectedPaymentForVoid(null);
+    // Refresh transaction history after void
+    const fetchTransactionHistory = async () => {
+      try {
+        const { db } = await import('@/src/lib/db');
+        const orders = await db.orders
+          .where('status')
+          .anyOf(['completed', 'pending', 'done', 'paid', 'cancelled'])
+          .reverse()
+          .toArray();
+
+        const ordersWithItems = await Promise.all(
+          orders.map(async (order) => {
+            if (!order.id) {
+              return { ...order, items: [] };
+            }
+            const items = await db.order_items
+              .where('order_id')
+              .equals(order.id)
+              .toArray();
+            return { ...order, items };
+          })
+        );
+
+        setTransactionHistory(ordersWithItems);
+      } catch (error) {
+        console.error('Failed to refresh transaction history:', error);
+      }
+    };
+    fetchTransactionHistory();
+  };
+
   const handleClearCache = async () => {
     try {
       console.log('🔄 Starting cache clear and re-seed...');
@@ -972,7 +1019,7 @@ export default function POSPage() {
 
   return (
     <div 
-      className="flex h-dvh flex-col bg-background"
+      className="flex min-h-screen w-full flex-col bg-background overflow-x-hidden"
       data-card-view={settings?.card_view || 'grid'}
       data-cart-position={settings?.cart_position || 'right-sidebar'}
     >
@@ -994,7 +1041,7 @@ export default function POSPage() {
           )}
           <button
             onClick={handleRecalculateStock}
-            className="hidden rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:inline-flex items-center gap-2"
+            className="inline-flex rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:inline-flex items-center gap-2"
             title="Sinkronkan stok menu dengan inventori"
           >
             <RefreshCw className="h-4 w-4" />
@@ -1002,7 +1049,7 @@ export default function POSPage() {
           </button>
           <button
             onClick={handleOpenProductListModal}
-            className="hidden rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 sm:inline-flex items-center gap-2"
+            className="inline-flex rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 sm:inline-flex items-center gap-2"
             title="Lihat daftar produk dan stok"
           >
             <RefreshCw className="h-4 w-4" />
@@ -1278,6 +1325,23 @@ export default function POSPage() {
                           >
                             <CreditCard className="w-4 h-4" />
                             Bayar
+                          </button>
+                        )}
+                        {/* Void Payment button - only show for completed/paid orders and admin users */}
+                        {(order.status === 'completed' || order.status === 'paid') && user?.role === 'admin' && order.payment_method && (
+                          <button
+                            onClick={() => {
+                              const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+                                const price = Number(item.price_at_time) || 0;
+                                return sum + (price * item.quantity);
+                              }, 0) || 0;
+                              // Use order ID as payment ID for now - in production this should be the actual payment transaction ID
+                              handleVoidPayment(order.id, calculatedTotal);
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            Void Pembayaran
                           </button>
                         )}
                         <button
@@ -1628,6 +1692,20 @@ export default function POSPage() {
           order={selectedOrderForPayment}
           onPaymentComplete={handlePaymentComplete}
           onSplitBillComplete={handleSplitBillComplete}
+        />
+      )}
+
+      {/* Void Payment Modal */}
+      {selectedPaymentForVoid && (
+        <VoidPaymentModal
+          isOpen={voidPaymentModalOpen}
+          onClose={() => {
+            setVoidPaymentModalOpen(false);
+            setSelectedPaymentForVoid(null);
+          }}
+          paymentId={selectedPaymentForVoid.id}
+          paymentAmount={selectedPaymentForVoid.amount}
+          onVoided={handleVoidPaymentComplete}
         />
       )}
 

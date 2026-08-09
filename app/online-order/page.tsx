@@ -5,21 +5,44 @@ import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
 import { OnlineCartPanel } from '@/src/features/online-order/components/OnlineCartPanel';
 import { OnlineCheckoutModal } from '@/src/features/online-order/components/OnlineCheckoutModal';
+import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { useOnlineCartStore } from '@/src/store/useOnlineCartStore';
+import { useAuth } from '@/src/context/AuthContext';
+import { useToast } from '@/src/components/ui/Toast';
 import { Loader2, Home, ShoppingCart, User, Menu } from 'lucide-react';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { useRouter } from 'next/navigation';
 
 export default function OnlineOrderPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const { toast } = useToast();
   const { products, loading: productsLoading, error: productsError } = useProducts();
   const { categories, loading: categoriesLoading } = useCategories();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
+  const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
+  const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
   const [outletName, setOutletName] = useState<string>('');
 
-  const cartItemCount = useOnlineCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
+  const cartItemCount = useOnlineCartStore((state: any) => state.items.reduce((sum: number, item: any) => sum + item.quantity, 0));
   const setDeliveryFee = useOnlineCartStore((state: any) => state.setDeliveryFee);
+
+  const handleVoidPayment = (paymentId: string, amount: number) => {
+    // Check if user has admin role
+    if (user?.role !== 'admin') {
+      toast('error', 'Hanya admin yang dapat void pembayaran');
+      return;
+    }
+    setSelectedPaymentForVoid({ id: paymentId, amount });
+    setVoidPaymentModalOpen(true);
+  };
+
+  const handleVoidPaymentComplete = () => {
+    setVoidPaymentModalOpen(false);
+    setSelectedPaymentForVoid(null);
+    toast('success', 'Pembayaran berhasil di-void');
+  };
 
   // Transform API modifier groups to UI format
   const getProductModifiers = (product: any): UIModifierGroup[] => {
@@ -202,6 +225,20 @@ export default function OnlineOrderPage() {
         onClose={() => setIsCheckoutModalOpen(false)}
         outletName={outletName}
       />
+
+      {/* Void Payment Modal */}
+      {selectedPaymentForVoid && (
+        <VoidPaymentModal
+          isOpen={voidPaymentModalOpen}
+          onClose={() => {
+            setVoidPaymentModalOpen(false);
+            setSelectedPaymentForVoid(null);
+          }}
+          paymentId={selectedPaymentForVoid.id}
+          paymentAmount={selectedPaymentForVoid.amount}
+          onVoided={handleVoidPaymentComplete}
+        />
+      )}
     </div>
   );
 }

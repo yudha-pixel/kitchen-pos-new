@@ -1,5 +1,18 @@
 import { db } from './db';
 
+// Browser-compatible UUID generator
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 export const seedDummyData = async (force: boolean = false) => {
   try {
     console.log('🌱 Starting dummy data seeding... force:', force);
@@ -29,12 +42,12 @@ export const seedDummyData = async (force: boolean = false) => {
     // Seed Categories
     console.log('📁 Seeding categories...');
     const categories = [
-      { id: crypto.randomUUID(), name: 'Makanan Utama', created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), name: 'Minuman', created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), name: 'Dessert', created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), name: 'Kopi', created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), name: 'Teh', created_at: new Date().toISOString() },
-      { id: crypto.randomUUID(), name: 'Bakery', created_at: new Date().toISOString() },
+      { id: generateUUID(), name: 'Makanan Utama', created_at: new Date().toISOString() },
+      { id: generateUUID(), name: 'Minuman', created_at: new Date().toISOString() },
+      { id: generateUUID(), name: 'Dessert', created_at: new Date().toISOString() },
+      { id: generateUUID(), name: 'Kopi', created_at: new Date().toISOString() },
+      { id: generateUUID(), name: 'Teh', created_at: new Date().toISOString() },
+      { id: generateUUID(), name: 'Bakery', created_at: new Date().toISOString() },
     ];
     await db.categories.bulkAdd(categories);
     console.log(`✅ Added ${categories.length} categories`);
@@ -44,7 +57,7 @@ export const seedDummyData = async (force: boolean = false) => {
     const products = [
       // Makanan Utama
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Nasi Goreng Spesial',
         sku: 'NG-001',
@@ -54,7 +67,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Mie Goreng',
         sku: 'MG-002',
@@ -64,7 +77,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Mie Goreng Jawa',
         sku: 'MGJ-003',
@@ -74,7 +87,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Ayam Bakar',
         sku: 'AB-004',
@@ -84,7 +97,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Beef Lasagna',
         sku: 'BL-005',
@@ -94,7 +107,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Burger Cheese',
         sku: 'BC-006',
@@ -104,7 +117,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Caesar Salad',
         sku: 'CS-007',
@@ -114,7 +127,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Chicken Sandwich',
         sku: 'CHS-008',
@@ -124,7 +137,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Fish and Chips',
         sku: 'FC-009',
@@ -134,7 +147,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Sate Ayam',
         sku: 'SA-010',
@@ -144,7 +157,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[0].id,
         name: 'Spaghetti Carbonara',
         sku: 'SC-011',
@@ -155,7 +168,7 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Minuman
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Es Teh Manis',
         sku: 'ETM-012',
@@ -165,7 +178,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Jus Jeruk Segar',
         sku: 'JJS-013',
@@ -175,7 +188,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Hot Chocolate',
         sku: 'HC-014',
@@ -185,7 +198,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Thai Milk Tea',
         sku: 'TMT-015',
@@ -196,7 +209,7 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Dessert
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Banana Bread',
         sku: 'BB-016',
@@ -206,7 +219,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Blueberry Muffin',
         sku: 'BM-017',
@@ -216,7 +229,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Brownie',
         sku: 'BR-018',
@@ -226,7 +239,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Carrot Cake',
         sku: 'CC-019',
@@ -236,7 +249,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Cheesecake Slice',
         sku: 'CSL-020',
@@ -246,7 +259,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Chocolate Muffin',
         sku: 'CM-021',
@@ -256,7 +269,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Cinnamon Roll',
         sku: 'CR-022',
@@ -266,7 +279,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[2].id,
         name: 'Red Velvet Cake',
         sku: 'RVC-023',
@@ -277,7 +290,7 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Kopi
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Affogato',
         sku: 'AF-024',
@@ -287,7 +300,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Americano',
         sku: 'AM-025',
@@ -297,7 +310,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Caffe Latte',
         sku: 'CL-026',
@@ -307,7 +320,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Cappuccino',
         sku: 'CP-027',
@@ -317,7 +330,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Caramel Macchiato',
         sku: 'CM-028',
@@ -327,7 +340,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Cold Brew',
         sku: 'CB-029',
@@ -337,7 +350,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Espresso',
         sku: 'ES-030',
@@ -347,7 +360,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Flat White',
         sku: 'FW-031',
@@ -357,7 +370,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Iced Americano',
         sku: 'IAM-032',
@@ -367,7 +380,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Iced Cappuccino',
         sku: 'ICP-033',
@@ -377,7 +390,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Iced Caramel Macchiato',
         sku: 'ICM-034',
@@ -387,7 +400,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Iced Flat White',
         sku: 'IFW-035',
@@ -397,7 +410,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Iced Latte',
         sku: 'IL-036',
@@ -407,7 +420,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Iced Mocha',
         sku: 'IM-037',
@@ -417,7 +430,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Irish Coffee',
         sku: 'IRC-038',
@@ -427,7 +440,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Latte',
         sku: 'LT-039',
@@ -437,7 +450,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Mocha',
         sku: 'MC-040',
@@ -447,7 +460,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Nitro Cold Brew',
         sku: 'NCB-041',
@@ -457,7 +470,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Vienna Coffee',
         sku: 'VC-042',
@@ -467,7 +480,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[3].id,
         name: 'Vietnamese Iced Coffee',
         sku: 'VIC-043',
@@ -478,7 +491,7 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Teh
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[4].id,
         name: 'Chai Latte',
         sku: 'CHL-044',
@@ -488,7 +501,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[4].id,
         name: 'Earl Grey Tea',
         sku: 'EGT-045',
@@ -498,7 +511,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[4].id,
         name: 'Iced Chai Latte',
         sku: 'ICL-046',
@@ -508,7 +521,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[4].id,
         name: 'Iced Lemon Tea',
         sku: 'ILT-047',
@@ -518,7 +531,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[4].id,
         name: 'Iced Peach Tea',
         sku: 'IPT-048',
@@ -528,7 +541,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[4].id,
         name: 'Jasmine Tea',
         sku: 'JT-049',
@@ -539,7 +552,7 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Bakery
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[5].id,
         name: 'Croissant Almond',
         sku: 'CA-050',
@@ -549,7 +562,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[5].id,
         name: 'Croissant Butter',
         sku: 'CB-051',
@@ -560,7 +573,7 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Additional drinks
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Iced Matcha Latte',
         sku: 'IML-052',
@@ -570,7 +583,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Iced Espresso Tonic',
         sku: 'IET-053',
@@ -580,7 +593,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Lemonade',
         sku: 'LM-054',
@@ -590,7 +603,7 @@ export const seedDummyData = async (force: boolean = false) => {
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         category_id: categories[1].id,
         name: 'Coconut Water',
         sku: 'CW-055',
@@ -608,21 +621,21 @@ export const seedDummyData = async (force: boolean = false) => {
     const modifiers = [
       // Modifiers for Nasi Goreng Spesial (Makanan Utama)
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[0].id,
         name: 'Level Pedas',
         price_extra: 0,
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[0].id,
         name: 'Ekstra Telur',
         price_extra: 5000,
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[0].id,
         name: 'Ekstra Ayam',
         price_extra: 10000,
@@ -630,14 +643,14 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Modifiers for Mie Goreng (Makanan Utama)
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[1].id,
         name: 'Pangsit Goreng',
         price_extra: 3000,
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[1].id,
         name: 'Bakso Extra',
         price_extra: 5000,
@@ -645,14 +658,14 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Modifiers for Ayam Bakar (Makanan Utama)
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[3].id,
         name: 'Sambal Extra',
         price_extra: 2000,
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[3].id,
         name: 'Nasi Extra',
         price_extra: 5000,
@@ -660,14 +673,14 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Modifiers for Es Teh Manis (Minuman)
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[11].id,
         name: 'Less Sugar',
         price_extra: 0,
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[11].id,
         name: 'Lemon Slice',
         price_extra: 2000,
@@ -675,14 +688,14 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Modifiers for Jus Jeruk Segar (Minuman)
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[12].id,
         name: 'Less Ice',
         price_extra: 0,
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         product_id: products[12].id,
         name: 'Extra Orange',
         price_extra: 5000,
@@ -696,7 +709,7 @@ export const seedDummyData = async (force: boolean = false) => {
     console.log('📦 Seeding ingredients...');
     const ingredients = [
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         name: 'Beras',
         current_stock: 2.0, // 10 portions × 0.2 kg = 2 kg
         unit: 'kg',
@@ -706,7 +719,7 @@ export const seedDummyData = async (force: boolean = false) => {
         updated_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         name: 'Daging Ayam',
         current_stock: 1.0, // 10 portions × 0.1 kg = 1 kg
         unit: 'kg',
@@ -716,7 +729,7 @@ export const seedDummyData = async (force: boolean = false) => {
         updated_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         name: 'Minyak Goreng',
         current_stock: 0.5, // 10 portions × 0.05 liter = 0.5 liter
         unit: 'liter',
@@ -726,7 +739,7 @@ export const seedDummyData = async (force: boolean = false) => {
         updated_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         name: 'Bumbu Dasar',
         current_stock: 0.3, // 10 portions × 0.03 kg = 0.3 kg
         unit: 'kg',
@@ -744,28 +757,28 @@ export const seedDummyData = async (force: boolean = false) => {
     const recipes = [
       // Nasi Goreng Spesial (products[0])
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[0].id,
         ingredient_id: ingredients[0].id, // Beras
         quantity_required: 0.2, // 0.2 kg per portion
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[0].id,
         ingredient_id: ingredients[1].id, // Daging Ayam
         quantity_required: 0.1, // 0.1 kg per portion
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[0].id,
         ingredient_id: ingredients[2].id, // Minyak Goreng
         quantity_required: 0.05, // 0.05 liter per portion
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[0].id,
         ingredient_id: ingredients[3].id, // Bumbu Dasar
         quantity_required: 0.03, // 0.03 kg per portion
@@ -773,21 +786,21 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Mie Ayam Bakso (products[1])
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[1].id,
         ingredient_id: ingredients[1].id, // Daging Ayam
         quantity_required: 0.1, // 0.1 kg per portion
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[1].id,
         ingredient_id: ingredients[2].id, // Minyak Goreng
         quantity_required: 0.05, // 0.05 liter per portion
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[1].id,
         ingredient_id: ingredients[3].id, // Bumbu Dasar
         quantity_required: 0.03, // 0.03 kg per portion
@@ -795,21 +808,21 @@ export const seedDummyData = async (force: boolean = false) => {
       },
       // Ayam Bakar Madu (products[2])
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[2].id,
         ingredient_id: ingredients[1].id, // Daging Ayam
         quantity_required: 0.15, // 0.15 kg per portion (more chicken)
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[2].id,
         ingredient_id: ingredients[2].id, // Minyak Goreng
         quantity_required: 0.05, // 0.05 liter per portion
         created_at: new Date().toISOString(),
       },
       {
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         menu_item_id: products[2].id,
         ingredient_id: ingredients[3].id, // Bumbu Dasar
         quantity_required: 0.04, // 0.04 kg per portion (more seasoning)

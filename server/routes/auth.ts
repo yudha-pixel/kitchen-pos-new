@@ -62,11 +62,11 @@ router.post(
 
     const password_hash = await bcrypt.hash(password, 10);
     const user = await prisma.profile.create({
-      data: { username, password_hash, role_id: roleRecord.id },
+      data: { username, full_name: username, password_hash, role_id: roleRecord.id },
       include: { role: true }
     });
 
-    res.json({ id: user.id, username: user.username, role: user.role.name });
+    res.json({ id: user.id, username: user.username, role: user.role?.name });
   }
 );
 

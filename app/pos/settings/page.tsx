@@ -46,7 +46,7 @@ export default function SettingsPage() {
   const [localSettings, setLocalSettings] = useState(settings);
   const [saving, setSaving] = useState(false);
 
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
   useEffect(() => {
     setLocalSettings(settings);

@@ -17,6 +17,7 @@ describe('Vouchers API', () => {
     const adminUser = await prisma.profile.create({
       data: {
         username: `voucher_admin_test_${Date.now()}`,
+        full_name: 'Voucher Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
       },

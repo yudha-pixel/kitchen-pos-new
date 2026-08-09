@@ -9,7 +9,7 @@ import { getToken } from '@/src/lib/api';
 export const LATE_TOLERANCE_MINUTES = 15; // 15 minutes tolerance for late detection
 export const OVERTIME_MULTIPLIER = 1.5; // 1.5x hourly rate for overtime
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export interface Employee {
   id?: string;

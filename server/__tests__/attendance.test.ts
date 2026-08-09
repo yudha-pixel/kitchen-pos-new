@@ -18,6 +18,7 @@ describe('Attendance API', () => {
     const adminUser = await prisma.profile.create({
       data: {
         username: `attendance_admin_test_${Date.now()}`,
+        full_name: 'Attendance Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
       },

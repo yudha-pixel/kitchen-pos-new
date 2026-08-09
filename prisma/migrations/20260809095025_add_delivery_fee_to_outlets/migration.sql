@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "outlets" ADD COLUMN     "delivery_fee" DOUBLE PRECISION NOT NULL DEFAULT 15000;

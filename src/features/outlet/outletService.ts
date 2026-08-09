@@ -1,7 +1,7 @@
 import { Outlet } from '@/src/lib/db';
 import { getToken } from '@/src/lib/api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export interface OutletWithCounts extends Outlet {
   _count?: {

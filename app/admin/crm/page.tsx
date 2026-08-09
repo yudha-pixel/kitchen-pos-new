@@ -29,7 +29,7 @@ const TIER_CONFIG = {
   platinum: { color: 'text-purple-600', bg: 'bg-purple-100', icon: Gem, discount: 20, minSpent: 5000000 },
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 export default function CRMPage() {
   const { user } = useAuth();

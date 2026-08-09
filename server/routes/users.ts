@@ -121,7 +121,7 @@ router.post('/', async (req: Request, res: Response) => {
       data: {
         username: data.username,
         password_hash,
-        full_name: data.full_name,
+        full_name: data.full_name || data.username,
         email: data.email,
         phone: data.phone,
         role_id: finalRoleId,

@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { ShoppingCart, Plus, Minus, Trash2, Coffee, Cake, Utensils, GlassWater } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
+import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { useCartStore } from '@/src/store/useCartStore';
 import { useAuth } from '@/src/context/AuthContext';
+import { useToast } from '@/src/components/ui/Toast';
 
 interface Product {
   id: string;
@@ -56,9 +58,12 @@ const categoryIcons: Record<string, any> = {
 
 export default function KasirPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
+  const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
   const [orderData, setOrderData] = useState<{
     orderId: string;
     tableNumber: string;
@@ -173,6 +178,22 @@ export default function KasirPage() {
     setIsReceiptModalOpen(false);
     setOrderData(null);
     setCart([]);
+  };
+
+  const handleVoidPayment = (paymentId: string, amount: number) => {
+    // Check if user has admin role
+    if (user?.role !== 'admin') {
+      toast('error', 'Hanya admin yang dapat void pembayaran');
+      return;
+    }
+    setSelectedPaymentForVoid({ id: paymentId, amount });
+    setVoidPaymentModalOpen(true);
+  };
+
+  const handleVoidPaymentComplete = () => {
+    setVoidPaymentModalOpen(false);
+    setSelectedPaymentForVoid(null);
+    toast('success', 'Pembayaran berhasil di-void');
   };
 
   return (
@@ -322,6 +343,20 @@ export default function KasirPage() {
           total={orderData.total}
           paymentMethod={orderData.paymentMethod}
           cashierName="Kasir"
+        />
+      )}
+
+      {/* Void Payment Modal */}
+      {selectedPaymentForVoid && (
+        <VoidPaymentModal
+          isOpen={voidPaymentModalOpen}
+          onClose={() => {
+            setVoidPaymentModalOpen(false);
+            setSelectedPaymentForVoid(null);
+          }}
+          paymentId={selectedPaymentForVoid.id}
+          paymentAmount={selectedPaymentForVoid.amount}
+          onVoided={handleVoidPaymentComplete}
         />
       )}
     </div>

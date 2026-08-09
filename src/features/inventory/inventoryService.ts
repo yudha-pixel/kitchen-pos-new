@@ -1,6 +1,19 @@
 import { db, Recipe, Ingredient, StockRequest, StockWriteOff } from '@/src/lib/db';
 import { comprehensiveIngredients, createRecipesForProduct } from './recipeData';
 
+// Browser-compatible UUID generator
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 /**
  * Inventory Service for managing stock levels
  * This service handles stock reduction when orders are completed
@@ -218,7 +231,7 @@ export async function addIngredient(
   try {
     const { db } = await import('@/src/lib/db');
     
-    const id = crypto.randomUUID();
+    const id = generateUUID();
     const now = new Date().toISOString();
     
     await db.ingredients.add({
@@ -280,7 +293,7 @@ export async function upsertRecipe(
       return existing.id!;
     } else {
       // Add new recipe
-      const id = crypto.randomUUID();
+      const id = generateUUID();
       await db.recipes.add({
         ...recipe,
         id,
@@ -601,7 +614,7 @@ export async function seedSampleInventoryData() {
     
     // Seed comprehensive ingredients for all 51 menu items from recipeData.ts
     const ingredients = comprehensiveIngredients.map(ing => ({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       ...ing,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -638,7 +651,7 @@ export async function seedSampleInventoryData() {
       // Add complete recipe objects with IDs and timestamps
       for (const recipe of productRecipes) {
         recipes.push({
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           menu_item_id: product.id,
           ingredient_id: recipe.ingredient_id,
           quantity_required: recipe.quantity_required,
@@ -723,7 +736,7 @@ export async function forceReseedInventoryData() {
     
     // Seed comprehensive ingredients for all 51 menu items from recipeData.ts
     const ingredients = comprehensiveIngredients.map(ing => ({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       ...ing,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
@@ -758,7 +771,7 @@ export async function forceReseedInventoryData() {
       // Add complete recipe objects with IDs and timestamps
       for (const recipe of productRecipes) {
         recipes.push({
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           menu_item_id: product.id,
           ingredient_id: recipe.ingredient_id,
           quantity_required: recipe.quantity_required,
@@ -817,7 +830,7 @@ export async function createStockRequest(
   try {
     const { db } = await import('@/src/lib/db');
     
-    const id = crypto.randomUUID();
+    const id = generateUUID();
     const now = new Date().toISOString();
     
     await db.stock_requests.add({
@@ -1000,7 +1013,7 @@ export async function createStockWriteOff(
   try {
     const { db } = await import('@/src/lib/db');
     
-    const id = crypto.randomUUID();
+    const id = generateUUID();
     const now = new Date().toISOString();
     
     await db.stock_write_offs.add({
@@ -1616,7 +1629,7 @@ export async function saveRecipeHistory(
       .toArray();
     
     // Create history record
-    const historyId = crypto.randomUUID();
+    const historyId = generateUUID();
     await db.recipe_history.add({
       id: historyId,
       menu_item_id: menuItemId,
@@ -1706,7 +1719,7 @@ export async function restoreRecipeFromHistory(historyId: string): Promise<{ suc
     
     // Restore recipes
     for (const recipe of history.recipes) {
-      const id = crypto.randomUUID();
+      const id = generateUUID();
       await db.recipes.add({
         id,
         menu_item_id: history.menu_item_id,
@@ -1719,7 +1732,7 @@ export async function restoreRecipeFromHistory(historyId: string): Promise<{ suc
     
     // Restore kit components
     for (const component of history.kit_components) {
-      const id = crypto.randomUUID();
+      const id = generateUUID();
       await db.kit_components.add({
         id,
         menu_item_id: history.menu_item_id,
@@ -1788,7 +1801,7 @@ export async function createAffogatoRecipe(): Promise<{ success: boolean; messag
       console.log('Affogato product already exists, updating recipe...');
     } else {
       // Create Affogato product
-      productId = crypto.randomUUID();
+      productId = generateUUID();
       await db.products.add({
         id: productId,
         name: 'Affogato',
@@ -1820,7 +1833,7 @@ export async function createAffogatoRecipe(): Promise<{ success: boolean; messag
     // Add recipe components
     // Affogato: Biji Kopi (18 g), Susu (50 ml), Es Krim Vanila (50 g)
     await db.recipes.add({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       menu_item_id: productId,
       ingredient_id: bijiKopi.id!,
       quantity_required: 0.018, // 18g
@@ -1829,7 +1842,7 @@ export async function createAffogatoRecipe(): Promise<{ success: boolean; messag
     });
     
     await db.recipes.add({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       menu_item_id: productId,
       ingredient_id: susu.id!,
       quantity_required: 0.05, // 50ml
@@ -1838,7 +1851,7 @@ export async function createAffogatoRecipe(): Promise<{ success: boolean; messag
     });
     
     await db.recipes.add({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       menu_item_id: productId,
       ingredient_id: esKrim.id!,
       quantity_required: 0.05, // 50g
@@ -1871,7 +1884,7 @@ export async function addSupplier(
   try {
     const { db } = await import('@/src/lib/db');
     
-    const id = crypto.randomUUID();
+    const id = generateUUID();
     const now = new Date().toISOString();
     
     await db.suppliers.add({

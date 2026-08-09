@@ -22,7 +22,7 @@ import {
 
 type SettingsTab = 'store' | 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
 // Default settings values
 const defaultStoreSettings = {
@@ -30,6 +30,7 @@ const defaultStoreSettings = {
   store_phone: '+62 21 1234 5678',
   store_email: 'info@kitchenpos.com',
   store_address: 'Jl. Contoh No. 123, Jakarta Selatan',
+  web_base_url: 'http://localhost:3000',
   timezone: 'Asia/Jakarta',
   currency: 'IDR',
   tax_rate: 10,
@@ -120,6 +121,7 @@ export default function SettingsPage() {
         store_phone: settings.store_phone || defaultStoreSettings.store_phone,
         store_email: settings.store_email || defaultStoreSettings.store_email,
         store_address: settings.store_address || defaultStoreSettings.store_address,
+        web_base_url: settings.web_base_url || defaultStoreSettings.web_base_url,
         timezone: settings.timezone || defaultStoreSettings.timezone,
         currency: settings.currency || defaultStoreSettings.currency,
         tax_rate: settings.tax_rate || defaultStoreSettings.tax_rate,
@@ -218,8 +220,12 @@ export default function SettingsPage() {
         throw new Error('Failed to save settings');
       }
       
-      // Sync tax and service charge rates with global config store
-      updateConfig({ taxRate: storeSettings.tax_rate, serviceCharge: storeSettings.service_charge });
+      // Sync tax, service charge rates, and web base URL with global config store
+      updateConfig({ 
+        taxRate: storeSettings.tax_rate, 
+        serviceCharge: storeSettings.service_charge,
+        webBaseUrl: storeSettings.web_base_url 
+      });
       
       toast('success', 'Pengaturan berhasil disimpan');
     } catch (error) {
@@ -463,6 +469,23 @@ function StoreProfileSettings({ settings, onChange }: StoreSettingsProps) {
               <option value="USD">USD - US Dollar</option>
               <option value="SGD">SGD - Singapore Dollar</option>
             </select>
+          </div>
+
+          <div>
+            <label htmlFor="web-base-url" className="mb-1.5 block text-sm font-medium text-ink">
+              Web Base URL
+            </label>
+            <input
+              id="web-base-url"
+              type="url"
+              value={settings.web_base_url}
+              onChange={(e) => handleChange('web_base_url', e.target.value)}
+              placeholder="http://192.168.1.36:3000"
+              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+            />
+            <p className="mt-1 text-xs text-ink-secondary">
+              URL dasar untuk QR code dan akses dari perangkat lain (contoh: http://192.168.1.36:3000)
+            </p>
           </div>
         </div>
       </div>

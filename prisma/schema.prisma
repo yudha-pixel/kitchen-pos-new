@@ -8,21 +8,22 @@ datasource db {
 }
 
 model Profile {
-  id            String         @id @default(uuid()) @db.Uuid
-  username      String         @unique
+  id            String           @id @default(uuid()) @db.Uuid
+  username      String           @unique
+  full_name     String
+  email         String?          @unique
   password_hash String
-  full_name     String?
-  email         String?        @unique
   phone         String?
-  is_active     Boolean        @default(true)
-  created_at    DateTime       @default(now())
-  updated_at    DateTime       @updatedAt
-  outlet_id     String?        @db.Uuid
-  role_id       String         @db.Uuid
+  is_active     Boolean          @default(true)
+  outlet_id     String?          @db.Uuid
+  role_id       String           @db.Uuid
+  created_at    DateTime         @default(now())
+  updated_at    DateTime         @updatedAt
   void_logs     OrderVoidLog[]
+  voided_payments PaymentTransaction[]
   orders        Order[]
-  outlet        Outlet?        @relation(fields: [outlet_id], references: [id])
-  role          Role           @relation(fields: [role_id], references: [id])
+  outlet        Outlet?          @relation(fields: [outlet_id], references: [id])
+  role          Role             @relation(fields: [role_id], references: [id])
   notifications Notification[]
 
   @@index([outlet_id])
@@ -357,13 +358,18 @@ model PaymentTransaction {
   qr_code        String?
   qr_expiry      DateTime?
   paid_at        DateTime?
+  voided_at      DateTime?
+  voided_by      String?   @db.Uuid
+  void_reason    String?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
   order          Order     @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  voided_by_user Profile?  @relation(fields: [voided_by], references: [id])
 
   @@index([order_id])
   @@index([gateway_tx_id])
   @@index([status])
+  @@index([voided_by])
   @@map("payment_transactions")
 }
 
@@ -385,6 +391,7 @@ model AppSettings {
   store_phone        String   @default("+62 21 1234 5678")
   store_email        String   @default("info@kitchenpos.com")
   store_address      String   @default("Jl. Contoh No. 123, Jakarta Selatan")
+  web_base_url       String?  @default("http://localhost:3000")
   timezone           String   @default("Asia/Jakarta")
   currency           String   @default("IDR")
   tax_rate           Float    @default(10)

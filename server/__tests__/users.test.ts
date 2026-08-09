@@ -164,6 +164,7 @@ describe('User Management API', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           username: 'TEST-delete-user',
+          full_name: 'Test Delete User',
           password: 'password123',
         });
 

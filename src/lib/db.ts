@@ -168,6 +168,7 @@ export interface Outlet {
   address?: string;
   phone?: string;
   is_active: boolean;
+  delivery_fee?: number;
   created_at: string;
   updated_at: string;
 }

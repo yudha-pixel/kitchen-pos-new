@@ -16,6 +16,7 @@ export default function OutletManagementPage() {
     address: '',
     phone: '',
     is_active: true,
+    delivery_fee: 15000,
   });
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export default function OutletManagementPage() {
         address: outlet.address || '',
         phone: outlet.phone || '',
         is_active: outlet.is_active,
+        delivery_fee: outlet.delivery_fee || 15000,
       });
     } else {
       setEditingOutlet(null);
@@ -42,6 +44,7 @@ export default function OutletManagementPage() {
         address: '',
         phone: '',
         is_active: true,
+        delivery_fee: 15000,
       });
     }
     setShowModal(true);
@@ -56,6 +59,7 @@ export default function OutletManagementPage() {
       address: '',
       phone: '',
       is_active: true,
+      delivery_fee: 15000,
     });
   };
 
@@ -260,6 +264,21 @@ export default function OutletManagementPage() {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Nomor telepon"
                   />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Biaya Antar (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.delivery_fee}
+                    onChange={(e) => setFormData({ ...formData, delivery_fee: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="15000"
+                    min="0"
+                    step="1000"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Biaya antar untuk pesanan online (Rp)</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <input
