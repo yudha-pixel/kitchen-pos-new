@@ -1,2 +1,3 @@
-export const getRootDestination = (isAuthenticated: boolean): '/login' | '/pos' =>
-  isAuthenticated ? '/pos' : '/login';
+export const getRootDestination = (isAuthenticated: boolean): '/login' | '/apps' =>
+  isAuthenticated ? '/apps' : '/login';
+

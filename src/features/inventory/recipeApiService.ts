@@ -39,7 +39,10 @@ export async function getIngredientsWithStatus(): Promise<
   Array<Ingredient & { status: 'ok' | 'warning' | 'critical'; supplier_name?: string }>
 > {
   try {
-    const response = await fetch(`${API_BASE_URL}/ingredients`);
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/ingredients`, { headers });
     if (!response.ok) throw new Error('Failed to fetch ingredients');
     
     const ingredients: Ingredient[] = await response.json();
@@ -71,7 +74,10 @@ export async function getRecipesForMenuItem(
   menuItemId: string
 ): Promise<Array<Recipe & { ingredientName?: string }>> {
   try {
-    const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`);
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`, { headers });
     if (!response.ok) throw new Error('Failed to fetch recipes');
     
     const recipes: Recipe[] = await response.json();
@@ -92,9 +98,12 @@ export async function upsertRecipe(
   recipe: Omit<Recipe, 'id' | 'created_at'>
 ): Promise<string> {
   try {
+    const token = getToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const response = await fetch(`${API_BASE_URL}/recipes`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify(recipe),
     });
     
@@ -111,8 +120,12 @@ export async function upsertRecipe(
 // Delete all recipes for a menu item
 export async function deleteRecipesForMenuItem(menuItemId: string): Promise<void> {
   try {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
     const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`, {
       method: 'DELETE',
+      headers,
     });
     
     if (!response.ok) throw new Error('Failed to delete recipes');

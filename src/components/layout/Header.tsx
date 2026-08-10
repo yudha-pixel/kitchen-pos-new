@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Search, LogOut, ArrowLeft, Users, User } from 'lucide-react';
+import { Search, LogOut, ArrowLeft, Users, User, LayoutGrid, Menu } from 'lucide-react';
+import Link from 'next/link';
 import { TableMergeModal } from './TableMergeModal';
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
@@ -10,9 +11,10 @@ import { useAuth } from '@/src/context/AuthContext';
 interface HeaderProps {
   title?: string;
   onSearch?: (query: string) => void;
+  onToggleMobileSidebar?: () => void;
 }
 
-export const Header = ({ title = 'Kitchen POS', onSearch }: HeaderProps) => {
+export const Header = ({ title = 'Kitchen POS', onSearch, onToggleMobileSidebar }: HeaderProps) => {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
@@ -41,11 +43,27 @@ export const Header = ({ title = 'Kitchen POS', onSearch }: HeaderProps) => {
     router.push('/login');
   };
 
+  const handleToggleSidebar = () => {
+    if (onToggleMobileSidebar) {
+      onToggleMobileSidebar();
+    } else {
+      window.dispatchEvent(new CustomEvent('toggle-mobile-sidebar'));
+    }
+  };
+
   return (
-    <header className="relative z-50 border-b border-line bg-surface px-4 py-2 sm:px-6">
+    <header className="relative z-40 border-b border-line bg-surface px-4 py-2 sm:px-6">
       <div className="flex items-center justify-between gap-4">
-        {/* Left: Back Button, Title and Search */}
-        <div className="flex flex-1 items-center gap-3">
+        {/* Left: Hamburger, Back Button, Title and Search */}
+        <div className="flex flex-1 items-center gap-2 sm:gap-3">
+          <button
+            onClick={handleToggleSidebar}
+            aria-label="Buka menu navigasi"
+            title="Buka Menu"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
           <button
             onClick={() => router.back()}
             aria-label="Kembali"
@@ -53,6 +71,14 @@ export const Header = ({ title = 'Kitchen POS', onSearch }: HeaderProps) => {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
+          <Link
+            href="/apps"
+            aria-label="Kembali ke Launcher Aplikasi"
+            title="Launcher Aplikasi (/apps)"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt hover:text-primary"
+          >
+            <LayoutGrid className="h-5 w-5" />
+          </Link>
           <h1 className="hidden text-xl font-bold text-ink sm:block">{title}</h1>
 
           {onSearch && (

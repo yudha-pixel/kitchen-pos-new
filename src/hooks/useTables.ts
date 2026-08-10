@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { getToken } from '@/src/lib/api';
 
 export type TableStatus = 'available' | 'occupied' | 'dirty' | 'reserved';
 
@@ -33,18 +34,26 @@ export function useTables() {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await fetch(`${API_BASE_URL}/tables`);
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch tables');
+
+      const token = getToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
       }
-      
+
+      const response = await fetch(`${API_BASE_URL}/tables`, { headers });
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch tables (${response.status})`);
+      }
+
       const data = await response.json();
       setTables(data);
     } catch (err) {
       console.error('Error fetching tables:', err);
       setError(err instanceof Error ? err.message : 'Unknown error');
+      // Graceful fallback: keep existing tables or empty array
+      setTables((prev) => prev.length > 0 ? prev : []);
     } finally {
       setLoading(false);
     }
@@ -52,10 +61,12 @@ export function useTables() {
 
   const updateTableStatus = async (tableId: string, status: TableStatus) => {
     try {
+      const token = getToken();
       const response = await fetch(`${API_BASE_URL}/tables/${tableId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ status }),
       });
@@ -65,7 +76,7 @@ export function useTables() {
       }
 
       // Update local state
-      setTables(prev => prev.map(t => 
+      setTables(prev => prev.map(t =>
         t.id === tableId ? { ...t, status } : t
       ));
 

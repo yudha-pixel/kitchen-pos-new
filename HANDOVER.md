@@ -2,7 +2,13 @@
 
 ## Session Summary
 
-**Latest session (2026-08-10, /waiter navigation decision — turned out to need a real fix first, not just a link)**:
+**Latest session (2026-08-10, Bug Fix: Hydration Mismatch & useTables Auth)**:
+- Fixed hydration mismatch in `ConnectionIndicator.tsx`: Deferred `isOnline` read to `useEffect` mount to prevent SSR/client text divergence (`Online` vs `Offline`).
+- Fixed `useTables.ts` fetch error: Injected `Authorization: Bearer <token>` header into `fetchTables` and `updateTableStatus`. Added graceful fallback to preserve existing table state on fetch failure.
+- `npx tsc --noEmit`: 0 errors.
+- Git remains fully read-only — files are modified/new in working tree, not committed.
+
+**Previous session (2026-08-10, /waiter navigation decision — turned out to need a real fix first, not just a link)**:
 - Reading `app/waiter/page.tsx` before wiring it into navigation surfaced that it wasn't just missing a link — it had its own genuine bugs, presented to the user before touching anything:
   1. Its "Bayar" (pay) flow (`handlePayment`) wrote orders straight to `db.orders`/`db.order_items` (Dexie) via its own bespoke implementation, never calling the real order-creation API — the same disease as every split-source bug fixed earlier this session, just baked directly into this page instead of routed through a shared service.
   2. Its "Kirim ke Dapur" (Send to Kitchen) button called `useCartStore`'s `processPayment()` directly — the same method that finalizes a real paid order elsewhere in the app — without ever collecting a payment method first, duplicating (and short-circuiting) what "Bayar" was supposed to do.

@@ -1,1235 +1,458 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
-import { getIngredientsWithStatus, addIngredient, createStockRequest, createStockWriteOff, getPurchaseDataByPeriod } from '@/src/features/inventory/recipeApiService';
-import { getSalesDataByPeriod } from '@/src/features/reports/reportsService';
-import { useAuth } from '@/src/context/AuthContext';
-import { AlertTriangle, Package, TrendingUp, TrendingDown, Plus, X, DollarSign, Filter, ArrowDown, ShoppingCart, Upload, AlertCircle, FileText } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState } from 'react';
+import Link from 'next/link';
+import {
+  LayoutGrid,
+  Search,
+  Filter,
+  Plus,
+  Columns,
+  Download,
+  RotateCw,
+  Box,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  DollarSign,
+  ChevronRight,
+  Edit,
+  X,
+  Boxes,
+  CheckSquare,
+  Tags,
+  Sliders,
+  ArrowRightLeft,
+  Truck,
+  Zap,
+  ChevronLeft,
+} from 'lucide-react';
 
-const AVAILABLE_UNITS = ['kg', 'gram', 'pcs', 'liter', 'ml', 'lusin', 'box', 'pack'];
+import { OutletSelector } from '@/src/components/outlet/OutletSelector';
+import { useAuth } from '@/src/context/AuthContext';
+import { useToast } from '@/src/components/ui/Toast';
+
+const INVENTORY_NAV_ITEMS = [
+  { id: 'all', label: 'All Items', icon: Boxes, active: true },
+  { id: 'approvals', label: 'Stock Approvals', icon: CheckSquare, active: false },
+  { id: 'categories', label: 'Categories', icon: Tags, active: false },
+  { id: 'adjustments', label: 'Stock Adjustments', icon: Sliders, active: false },
+  { id: 'transfers', label: 'Stock Transfers', icon: ArrowRightLeft, active: false },
+  { id: 'suppliers', label: 'Suppliers', icon: Truck, active: false },
+  { id: 'automation', label: 'Automation', icon: Zap, active: false },
+];
+
+const MOCK_ITEMS = [
+  {
+    id: '1',
+    name: 'Chicken Breast',
+    sku: 'CHB-001',
+    category: 'Protein',
+    onHand: '45 kg',
+    status: 'In Stock',
+    unitCost: 'Rp 45.000',
+    unit: 'kg',
+    barcode: '8991234567890',
+    supplier: 'PT. Sentosa Food',
+    sellingPrice: 'Rp 85.000',
+    reorderPoint: '10 kg',
+    description: 'Premium chicken breast, skinless.',
+    committed: '8 kg',
+    available: '37 kg',
+    lastUpdated: '10 Aug 2024, 03:15 by admin',
+  },
+  {
+    id: '2',
+    name: 'Beef Tenderloin',
+    sku: 'BFT-002',
+    category: 'Protein',
+    onHand: '12 kg',
+    status: 'Low Stock',
+    unitCost: 'Rp 120.000',
+    unit: 'kg',
+    barcode: '8991234567891',
+    supplier: 'PT. Sentosa Food',
+    sellingPrice: 'Rp 220.000',
+    reorderPoint: '15 kg',
+    description: 'Fresh Australian beef tenderloin.',
+    committed: '2 kg',
+    available: '10 kg',
+    lastUpdated: '10 Aug 2024, 01:20 by admin',
+  },
+  {
+    id: '3',
+    name: 'Cheddar Cheese',
+    sku: 'CHS-003',
+    category: 'Dairy',
+    onHand: '2 kg',
+    status: 'Low Stock',
+    unitCost: 'Rp 85.000',
+    unit: 'kg',
+    barcode: '8991234567892',
+    supplier: 'Dairy Master Ltd',
+    sellingPrice: 'Rp 130.000',
+    reorderPoint: '5 kg',
+    description: 'Aged cheddar cheese blocks.',
+    committed: '0 kg',
+    available: '2 kg',
+    lastUpdated: '9 Aug 2024, 16:40 by admin',
+  },
+  {
+    id: '4',
+    name: 'Cooking Oil 1L',
+    sku: 'COL-004',
+    category: 'Pantry',
+    onHand: '0 pcs',
+    status: 'Out of Stock',
+    unitCost: 'Rp 22.000',
+    unit: 'pcs',
+    barcode: '8991234567893',
+    supplier: 'Minyak Utama PT',
+    sellingPrice: 'Rp 28.000',
+    reorderPoint: '20 pcs',
+    description: 'Refined palm cooking oil 1 liter bottle.',
+    committed: '0 pcs',
+    available: '0 pcs',
+    lastUpdated: '9 Aug 2024, 12:00 by kasir_01',
+  },
+  {
+    id: '5',
+    name: 'Tomato Sauce 1kg',
+    sku: 'TSA-005',
+    category: 'Pantry',
+    onHand: '18 pcs',
+    status: 'In Stock',
+    unitCost: 'Rp 28.000',
+    unit: 'pcs',
+    barcode: '8991234567894',
+    supplier: 'Saus Nusantara',
+    sellingPrice: 'Rp 40.000',
+    reorderPoint: '5 pcs',
+    description: 'Rich tomato pasta sauce pouch.',
+    committed: '2 pcs',
+    available: '16 pcs',
+    lastUpdated: '9 Aug 2024, 09:30 by admin',
+  },
+];
 
 export default function InventoryPage() {
+  const { toast } = useToast();
   const { user } = useAuth();
-  const [ingredients, setIngredients] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isStockRequestModalOpen, setIsStockRequestModalOpen] = useState(false);
-  const [stockRequestError, setStockRequestError] = useState('');
-  const [stockRequestStatus, setStockRequestStatus] = useState('');
-  const [isWriteOffModalOpen, setIsWriteOffModalOpen] = useState(false);
-  const [addIngredientError, setAddIngredientError] = useState('');
-  const [fileError, setFileError] = useState('');
-  const [writeOffQuantityError, setWriteOffQuantityError] = useState('');
-  const [writeOffError, setWriteOffError] = useState('');
-  const [writeOffStatus, setWriteOffStatus] = useState('');
-  const [formData, setFormData] = useState({
-    name: '',
-    current_stock: 0,
-    unit: 'kg',
-    min_stock: 0,
-    unit_price: 0,
-  });
-  const [stockRequestForm, setStockRequestForm] = useState({
-    ingredient_id: '',
-    ingredient_name: '',
-    quantity_requested: 0,
-    unit: 'kg',
-    notes: '',
-    supplier_name: '',
-    proof_file: '',
-    proof_file_name: '',
-  });
-  const [writeOffForm, setWriteOffForm] = useState({
-    ingredient_id: '',
-    ingredient_name: '',
-    quantity_written_off: 0,
-    unit: 'kg',
-    reason: '',
-    notes: '',
-    proof_file: '',
-    proof_file_name: '',
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [filterStatus, setFilterStatus] = useState<'all' | 'critical' | 'warning' | 'ok'>('all');
-  const [showAnalysis, setShowAnalysis] = useState(false);
-  const [isDragging, setIsDragging] = useState(false);
-  const [availableStock, setAvailableStock] = useState(0);
-  const [chartPeriod, setChartPeriod] = useState<number>(7);
-  const [salesData, setSalesData] = useState<any[]>([]);
-  const [purchaseData, setPurchaseData] = useState<any[]>([]);
-  const [loadingChart, setLoadingChart] = useState(false);
+  const [selectedItemId, setSelectedItemId] = useState<string>('1');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [detailTab, setDetailTab] = useState<'details' | 'activity'>('details');
 
-  useEffect(() => {
-    loadIngredients();
-    loadChartData();
-  }, []);
+  const selectedItem = MOCK_ITEMS.find((i) => i.id === selectedItemId) || MOCK_ITEMS[0];
 
-  useEffect(() => {
-    loadChartData();
-  }, [chartPeriod]);
-
-  const loadChartData = async () => {
-    setLoadingChart(true);
-    try {
-      const [sales, purchases] = await Promise.all([
-        getSalesDataByPeriod(chartPeriod),
-        getPurchaseDataByPeriod(chartPeriod),
-      ]);
-      setSalesData(sales);
-      setPurchaseData(purchases);
-    } catch (error) {
-      console.error('Failed to load chart data:', error);
-    } finally {
-      setLoadingChart(false);
-    }
-  };
-
-  const mergeChartData = () => {
-    const allDates = new Set([
-      ...salesData.map(d => d.date),
-      ...purchaseData.map(d => d.date),
-    ]);
-
-    return Array.from(allDates).map(date => {
-      const salesItem = salesData.find(d => d.date === date);
-      const purchaseItem = purchaseData.find(d => d.date === date);
-      return {
-        date,
-        sales: salesItem?.total || 0,
-        purchase: purchaseItem?.total || 0,
-      };
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const loadIngredients = async () => {
-    try {
-      const data = await getIngredientsWithStatus();
-      setIngredients(data);
-    } catch (error) {
-      console.error('Failed to load ingredients:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'critical':
-        return 'bg-red-100 text-red-800 border-red-300';
-      case 'warning':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'ok':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'critical':
-        return <AlertTriangle className="h-4 w-4" />;
-      case 'warning':
-        return <TrendingDown className="h-4 w-4" />;
-      case 'ok':
-        return <TrendingUp className="h-4 w-4" />;
-      default:
-        return <Package className="h-4 w-4" />;
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'critical':
-        return 'Kritis';
-      case 'warning':
-        return 'Peringatan';
-      case 'ok':
-        return 'Aman';
-      default:
-        return 'Unknown';
-    }
-  };
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'current_stock' || name === 'min_stock' || name === 'unit_price' 
-        ? parseFloat(value) || 0 
-        : value,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setAddIngredientError('');
-
-    try {
-      await addIngredient(formData);
-      setIsModalOpen(false);
-      setFormData({
-        name: '',
-        current_stock: 0,
-        unit: 'kg',
-        min_stock: 0,
-        unit_price: 0,
-      });
-      await loadIngredients();
-    } catch (error) {
-      console.error('Failed to add ingredient:', error);
-      setAddIngredientError('Gagal menambahkan bahan baku. Silakan coba lagi.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleStockRequestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setStockRequestError('');
-
-    try {
-      await createStockRequest({
-        ingredient_id: stockRequestForm.ingredient_id,
-        ingredient_name: stockRequestForm.ingredient_name,
-        quantity_requested: stockRequestForm.quantity_requested,
-        unit: stockRequestForm.unit,
-        notes: stockRequestForm.notes,
-        supplier_name: stockRequestForm.supplier_name,
-        proof_file: stockRequestForm.proof_file,
-        proof_file_name: stockRequestForm.proof_file_name,
-        requested_by: user?.id,
-        requested_by_name: user?.username,
-      });
-      setIsStockRequestModalOpen(false);
-      setStockRequestForm({
-        ingredient_id: '',
-        ingredient_name: '',
-        quantity_requested: 0,
-        unit: 'kg',
-        notes: '',
-        supplier_name: '',
-        proof_file: '',
-        proof_file_name: '',
-      });
-      setStockRequestStatus('Pengajuan penambahan stok berhasil dikirim dan menunggu persetujuan.');
-    } catch (error) {
-      console.error('Failed to create stock request:', error);
-      setStockRequestError('Gagal mengirim pengajuan penambahan stok. Silakan coba lagi.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleOpenStockRequest = (ingredient: any) => {
-    setStockRequestError('');
-    setStockRequestStatus('');
-    setFileError('');
-    setStockRequestForm({
-      ingredient_id: ingredient.id,
-      ingredient_name: ingredient.name,
-      quantity_requested: 0,
-      unit: ingredient.unit,
-      notes: '',
-      supplier_name: '',
-      proof_file: '',
-      proof_file_name: '',
-    });
-    setIsStockRequestModalOpen(true);
-  };
-
-  const handleOpenWriteOff = (ingredient: any) => {
-    setAvailableStock(ingredient.current_stock);
-    setFileError('');
-    setWriteOffQuantityError('');
-    setWriteOffError('');
-    setWriteOffForm({
-      ingredient_id: ingredient.id,
-      ingredient_name: ingredient.name,
-      quantity_written_off: 0,
-      unit: ingredient.unit,
-      reason: '',
-      notes: '',
-      proof_file: '',
-      proof_file_name: '',
-    });
-    setIsWriteOffModalOpen(true);
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, formType: 'request' | 'writeOff') => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    processFile(file, formType);
-  };
-
-  const processFile = (file: File, formType: 'request' | 'writeOff') => {
-    setFileError('');
-
-    // Check file type
-    const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
-    if (!validTypes.includes(file.type)) {
-      setFileError('Format file tidak valid. Gunakan JPG, PNG, atau PDF.');
-      return;
-    }
-
-    // Check file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setFileError('Ukuran file terlalu besar. Maksimal 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      
-      if (formType === 'request') {
-        setStockRequestForm(prev => ({
-          ...prev,
-          proof_file: base64,
-          proof_file_name: file.name,
-        }));
-      } else {
-        setWriteOffForm(prev => ({
-          ...prev,
-          proof_file: base64,
-          proof_file_name: file.name,
-        }));
-      }
-    };
-    reader.onerror = (error) => {
-      console.error('FileReader error:', error);
-      setFileError('Gagal membaca file. Silakan coba lagi.');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e: React.DragEvent, formType: 'request' | 'writeOff') => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processFile(file, formType);
-    }
-  };
-
-  const handleRemoveFile = (formType: 'request' | 'writeOff') => {
-    if (formType === 'request') {
-      setStockRequestForm({
-        ...stockRequestForm,
-        proof_file: '',
-        proof_file_name: '',
-      });
-    } else {
-      setWriteOffForm({
-        ...writeOffForm,
-        proof_file: '',
-        proof_file_name: '',
-      });
-    }
-  };
-
-  const isImageFile = (fileName: string) => {
-    const imageExtensions = ['.jpg', '.jpeg', '.png'];
-    return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext));
-  };
-
-  const handleQuantityChange = (value: string) => {
-    const numValue = parseFloat(value);
-    setWriteOffQuantityError('');
-    
-    // Reject empty or invalid values
-    if (value === '' || isNaN(numValue)) {
-      setWriteOffForm({ ...writeOffForm, quantity_written_off: 0 });
-      return;
-    }
-    
-    // Reject negative values
-    if (numValue < 0) {
-      setWriteOffQuantityError('Jumlah tidak boleh negatif');
-      return;
-    }
-    
-    // Reject values exceeding available stock
-    if (numValue > availableStock) {
-      setWriteOffQuantityError(`Jumlah tidak boleh melebihi stok tersedia (${availableStock} ${writeOffForm.unit})`);
-      return;
-    }
-    
-    setWriteOffForm({ ...writeOffForm, quantity_written_off: numValue });
-  };
-
-  const handleWriteOffSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-    setWriteOffError('');
-
-    if (!writeOffForm.proof_file) {
-      setWriteOffError('Wajib melampirkan foto bukti kerusakan/kehilangan');
-      setIsSubmitting(false);
-      return;
-    }
-
-    try {
-      await createStockWriteOff({
-        ingredient_id: writeOffForm.ingredient_id,
-        ingredient_name: writeOffForm.ingredient_name,
-        quantity_written_off: writeOffForm.quantity_written_off,
-        unit: writeOffForm.unit,
-        reason: writeOffForm.reason,
-        notes: writeOffForm.notes,
-        proof_file: writeOffForm.proof_file,
-        proof_file_name: writeOffForm.proof_file_name,
-        requested_by: user?.id,
-        requested_by_name: user?.username,
-      });
-      setIsWriteOffModalOpen(false);
-      setWriteOffForm({
-        ingredient_id: '',
-        ingredient_name: '',
-        quantity_written_off: 0,
-        unit: 'kg',
-        reason: '',
-        notes: '',
-        proof_file: '',
-        proof_file_name: '',
-      });
-      setWriteOffStatus('Laporan barang rusak/hilang berhasil dikirim. Menunggu persetujuan Admin/Manager.');
-    } catch (error) {
-      console.error('Failed to create stock write-off:', error);
-      setWriteOffError('Gagal mengirim laporan barang rusak/hilang. Silakan coba lagi.');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Calculate restock cost for items that need restock
-  const calculateRestockCost = () => {
-    const itemsNeedingRestock = ingredients.filter(
-      (i) => i.status === 'critical' || i.status === 'warning'
-    );
-    
-    let totalCost = 0;
-    const restockDetails = itemsNeedingRestock.map((item) => {
-      const shortage = Math.max(0, item.min_stock - item.current_stock);
-      const cost = shortage * item.unit_price;
-      totalCost += cost;
-      return {
-        name: item.name,
-        currentStock: item.current_stock,
-        minStock: item.min_stock,
-        shortage,
-        unitPrice: item.unit_price,
-        cost,
-        unit: item.unit,
-      };
-    });
-
-    return { totalCost, restockDetails };
-  };
-
-  // Get critical ingredients sorted by shortage (largest shortage first)
-  const getCriticalIngredients = () => {
-    return ingredients
-      .filter((i) => i.status === 'critical' || i.status === 'warning')
-      .map((item) => ({
-        ...item,
-        shortage: item.min_stock - item.current_stock,
-      }))
-      .sort((a, b) => b.shortage - a.shortage);
-  };
-
-  // Filter ingredients based on status
-  const getFilteredIngredients = () => {
-    if (filterStatus === 'all') return ingredients;
-    return ingredients.filter((i) => i.status === filterStatus);
-  };
-
-  const { totalCost, restockDetails } = calculateRestockCost();
-  const criticalIngredients = getCriticalIngredients();
+  const filteredItems = MOCK_ITEMS.filter(
+    (i) =>
+      i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      i.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      i.category.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar />
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">
-            <div className="mb-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900">Inventaris Bahan Baku</h1>
-                <p className="text-gray-600 mt-1">Kelola dan pantau stok bahan baku restoran</p>
-              </div>
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-              >
-                <Plus className="h-5 w-5" />
-                <span>Tambah Bahan</span>
+    <div className="flex h-screen w-full flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
+      {/* Top Header Bar */}
+      <header className="flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-6 py-2 shadow-xs shrink-0 z-20">
+        <div className="flex items-center gap-3">
+          <Link href="/apps" className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs hover:bg-violet-700">
+            <LayoutGrid className="h-5 w-5" />
+          </Link>
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <span className="text-slate-400">Inventory</span>
+            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
+            <span className="font-semibold text-slate-900">All Items</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <OutletSelector />
+          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-700 text-xs font-bold text-white uppercase">
+              {user?.username?.charAt(0) || 'A'}
+            </div>
+            <span className="text-xs font-semibold text-slate-800 hidden sm:block">{user?.username || 'admin'}</span>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Content Area: Left Rail + Table Workspace + Right Detail Panel */}
+      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
+        {/* Scoped Inventory Sub-Nav Rail */}
+        <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between shrink-0 hidden lg:flex">
+          <div className="p-3">
+            <div className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-violet-700">
+              <Boxes className="h-5 w-5" />
+              <span>Inventory</span>
+            </div>
+            <nav className="mt-2 space-y-1">
+              {INVENTORY_NAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <div
+                    key={item.id}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
+                      item.active
+                        ? 'bg-violet-50 text-violet-700 font-semibold'
+                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                    }`}
+                  >
+                    <Icon className={`h-4 w-4 ${item.active ? 'text-violet-600' : 'text-slate-400'}`} />
+                    <span className="text-xs">{item.label}</span>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
+
+          <div className="p-4 border-t border-slate-100">
+            <button className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-800">
+              <ChevronLeft className="h-4 w-4" />
+              <span>Collapse</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* Central Workspace: KPIs + Search/Filter + Table */}
+        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 bg-slate-50/70">
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">All Items</h1>
+          </div>
+
+          {/* KPI Header Stats Row (Matching Wireframe 02) */}
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+              <span className="text-xs text-slate-500 block">Total Items</span>
+              <span className="text-2xl font-bold text-slate-900 block mt-1">1,248</span>
+              <span className="text-[11px] text-emerald-600 font-medium block mt-1">Active</span>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+              <span className="text-xs text-slate-500 block">Low Stock</span>
+              <span className="text-2xl font-bold text-slate-900 block mt-1">28</span>
+              <span className="text-[11px] text-amber-600 font-medium block mt-1">Warning</span>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+              <span className="text-xs text-slate-500 block">Out of Stock</span>
+              <span className="text-2xl font-bold text-slate-900 block mt-1">9</span>
+              <span className="text-[11px] text-red-600 font-medium block mt-1">Danger</span>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
+              <span className="text-xs text-slate-500 block">Total Value</span>
+              <span className="text-xl font-bold text-slate-900 block mt-1">Rp 125.450.000</span>
+              <span className="text-[11px] text-blue-600 font-medium block mt-1">On Hand</span>
+            </div>
+          </div>
+
+          {/* Search, Filter, and Action Bar */}
+          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search items..."
+                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-xs text-slate-800 focus:border-violet-500 focus:outline-hidden"
+              />
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
+                <Filter className="h-3.5 w-3.5 text-slate-400" />
+                <span>Filters</span>
+              </button>
+              <button className="flex items-center gap-1.5 rounded-xl bg-violet-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-violet-800 shadow-2xs">
+                <Plus className="h-4 w-4" />
+                <span>New Item</span>
               </button>
             </div>
-            {stockRequestStatus && (
-              <p role="status" className="mb-4 text-sm font-medium text-green-700">
-                {stockRequestStatus}
-              </p>
-            )}
-            {writeOffStatus && (
-              <p role="status" className="mb-4 text-sm font-medium text-green-700">
-                {writeOffStatus}
-              </p>
-            )}
+          </div>
 
-            {/* Sales vs Purchase Chart */}
-            <div className="bg-white rounded-lg shadow mb-6">
-              <div className="p-6 border-b">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-blue-600" />
-                      Analisis Penjualan vs Pengadaan
-                    </h2>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Perbandingan tren penjualan dan pengadaan bahan baku
-                    </p>
-                  </div>
-                  <select
-                    value={chartPeriod}
-                    onChange={(e) => setChartPeriod(Number(e.target.value))}
-                    className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value={7}>7 Hari Terakhir</option>
-                    <option value={30}>30 Hari Terakhir</option>
-                    <option value={90}>90 Hari Terakhir</option>
-                  </select>
-                </div>
-              </div>
-              <div className="p-6">
-                {loadingChart ? (
-                  <div className="text-center text-gray-500 py-8">Memuat data grafik...</div>
-                ) : salesData.length === 0 && purchaseData.length === 0 ? (
-                  <div className="text-center text-gray-500 py-8">Tidak ada data untuk ditampilkan</div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <LineChart data={mergeChartData()}>
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="date" />
-                      <YAxis />
-                      <Tooltip formatter={(value: any) => `Rp ${value?.toLocaleString('id-ID') || 0}`} />
-                      <Legend />
-                      <Line type="monotone" dataKey="sales" stroke="#3b82f6" name="Penjualan" strokeWidth={2} />
-                      <Line type="monotone" dataKey="purchase" stroke="#10b981" name="Pengadaan" strokeWidth={2} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Total Bahan Baku</p>
-                    <p className="text-2xl font-bold text-gray-900">{ingredients.length}</p>
-                  </div>
-                  <Package className="h-8 w-8 text-blue-600" />
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Stok Kritis</p>
-                    <p className="text-2xl font-bold text-red-600">
-                      {ingredients.filter((i) => i.status === 'critical').length}
-                    </p>
-                  </div>
-                  <AlertTriangle className="h-8 w-8 text-red-600" />
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Perlu Restock</p>
-                    <p className="text-2xl font-bold text-yellow-600">
-                      {ingredients.filter((i) => i.status === 'warning').length}
-                    </p>
-                  </div>
-                  <TrendingDown className="h-8 w-8 text-yellow-600" />
-                </div>
-              </div>
-              <div className="bg-white rounded-lg shadow p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Estimasi Biaya Restock</p>
-                    <p className="text-2xl font-bold text-green-600">
-                      Rp {totalCost.toLocaleString('id-ID')}
-                    </p>
-                  </div>
-                  <DollarSign className="h-8 w-8 text-green-600" />
-                </div>
-              </div>
-            </div>
-
-            {/* Ingredients Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">Daftar Bahan Baku</h2>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4 text-gray-500" />
-                    <select
-                      value={filterStatus}
-                      onChange={(e) => setFilterStatus(e.target.value as any)}
-                      className="text-sm border border-gray-300 rounded-md px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          {/* Dense Items Data Table */}
+          <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden flex-1">
+            <table className="w-full text-left text-xs text-slate-700">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                <tr>
+                  <th className="py-3 px-4 w-8">
+                    <input type="checkbox" className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
+                  </th>
+                  <th className="py-3 px-4">Item Name</th>
+                  <th className="py-3 px-4">SKU</th>
+                  <th className="py-3 px-4">Category</th>
+                  <th className="py-3 px-4">On Hand</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Unit Cost</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredItems.map((item) => {
+                  const isSelected = item.id === selectedItemId;
+                  return (
+                    <tr
+                      key={item.id}
+                      onClick={() => setSelectedItemId(item.id)}
+                      className={`cursor-pointer transition-colors ${
+                        isSelected ? 'bg-violet-50/70 font-medium' : 'hover:bg-slate-50/60'
+                      }`}
                     >
-                      <option value="all">Semua Status</option>
-                      <option value="critical">Kritis</option>
-                      <option value="warning">Peringatan</option>
-                      <option value="ok">Aman</option>
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => setShowAnalysis(!showAnalysis)}
-                    className="flex items-center gap-2 text-sm bg-purple-100 text-purple-700 px-3 py-1.5 rounded-md hover:bg-purple-200 hover:text-purple-800 transition-colors"
-                  >
-                    <DollarSign className="h-4 w-4" />
-                    {showAnalysis ? 'Sembunyikan Analisis' : 'Tampilkan Analisis'}
-                  </button>
-                </div>
-              </div>
-              
-              {loading ? (
-                <div className="p-6 text-center text-gray-500">Memuat data...</div>
-              ) : ingredients.length === 0 ? (
-                <div className="p-6 text-center text-gray-500">
-                  Belum ada data bahan baku. Tambahkan bahan baku untuk memulai.
-                </div>
-              ) : (
-                <>
-                  {/* Stock Analysis Section */}
-                  {showAnalysis && (
-                    <div className="border-b border-gray-200 bg-purple-50 p-6">
-                      <h3 className="text-lg font-semibold text-purple-900 mb-4 flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
-                        Analisis Stok & Estimasi Biaya Restock
-                      </h3>
-                      
-                      {restockDetails.length === 0 ? (
-                        <div className="text-center text-gray-600 py-4">
-                          Semua stok dalam kondisi aman. Tidak ada item yang perlu restock.
-                        </div>
-                      ) : (
-                        <div className="space-y-4">
-                          <div className="bg-white rounded-lg p-4">
-                            <h4 className="font-medium text-gray-900 mb-3">Rincian Restock yang Diperlukan</h4>
-                            <div className="overflow-x-auto">
-                              <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nama Bahan</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Stok Saat Ini</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Min. Stok</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Kekurangan</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Harga Satuan</th>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Biaya Restock</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-200">
-                                  {restockDetails.map((detail, index) => (
-                                    <tr key={index} className="hover:bg-gray-50">
-                                      <td className="px-4 py-2 text-sm font-medium text-gray-900">{detail.name}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-600">{detail.currentStock} {detail.unit}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-600">{detail.minStock} {detail.unit}</td>
-                                      <td className="px-4 py-2 text-sm font-medium text-red-600">{detail.shortage} {detail.unit}</td>
-                                      <td className="px-4 py-2 text-sm text-gray-600">Rp {detail.unitPrice.toLocaleString('id-ID')}</td>
-                                      <td className="px-4 py-2 text-sm font-medium text-green-600">Rp {detail.cost.toLocaleString('id-ID')}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          </div>
-                          
-                          <div className="bg-green-100 border border-green-300 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                              <div>
-                                <h4 className="font-medium text-green-900">Total Estimasi Biaya Restock</h4>
-                                <p className="text-sm text-green-700">Untuk semua item yang memerlukan restock</p>
-                              </div>
-                              <div className="text-2xl font-bold text-green-900">
-                                Rp {totalCost.toLocaleString('id-ID')}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          {criticalIngredients.length > 0 && (
-                            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                              <h4 className="font-medium text-red-900 mb-3 flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" />
-                                Bahan Baku Paling Kritis (Diurutkan berdasarkan kekurangan)
-                              </h4>
-                              <div className="space-y-2">
-                                {criticalIngredients.slice(0, 5).map((item, index) => (
-                                  <div key={item.id} className="flex items-center justify-between bg-white p-2 rounded">
-                                    <div className="flex items-center gap-3">
-                                      <span className="text-sm font-medium text-gray-900">{index + 1}. {item.name}</span>
-                                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(item.status)}`}>
-                                        {getStatusIcon(item.status)}
-                                        <span className="ml-1">{getStatusLabel(item.status)}</span>
-                                      </span>
-                                    </div>
-                                    <div className="text-sm text-red-600 font-medium">
-                                      Kekurangan: {item.shortage} {item.unit}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="overflow-x-auto">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Nama Bahan
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Stok Saat Ini
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Satuan
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Min. Stok
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Harga Satuan
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                            Aksi
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {getFilteredIngredients().map((ingredient) => (
-                          <tr key={ingredient.id} className="hover:bg-gray-50">
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm font-medium text-gray-900">{ingredient.name}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{ingredient.current_stock}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{ingredient.unit}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">{ingredient.min_stock}</div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="text-sm text-gray-900">
-                                Rp {ingredient.unit_price.toLocaleString('id-ID')}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span
-                                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                                  ingredient.status
-                                )}`}
-                              >
-                                {getStatusIcon(ingredient.status)}
-                                <span className="ml-1">{getStatusLabel(ingredient.status)}</span>
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <div className="flex gap-2">
-                                <button
-                                  onClick={() => handleOpenStockRequest(ingredient)}
-                                  className="text-blue-600 hover:text-blue-900 text-sm font-medium"
-                                >
-                                  + Restock
-                                </button>
-                                <button
-                                  onClick={() => handleOpenWriteOff(ingredient)}
-                                  className="text-red-600 hover:text-red-900 text-sm font-medium"
-                                >
-                                  - Write-Off
-                                </button>
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Legend */}
-            <div className="mt-6 bg-white rounded-lg shadow p-4">
-              <h3 className="text-sm font-medium text-gray-900 mb-3">Keterangan Status</h3>
-              <div className="flex gap-6">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border bg-green-100 text-green-800 border-green-300">
-                    <TrendingUp className="h-4 w-4" />
-                    <span className="ml-1">Aman</span>
-                  </span>
-                  <span className="text-sm text-gray-600">Stok di atas minimum</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border bg-yellow-100 text-yellow-800 border-yellow-300">
-                    <TrendingDown className="h-4 w-4" />
-                    <span className="ml-1">Peringatan</span>
-                  </span>
-                  <span className="text-sm text-gray-600">Stok mendekati minimum</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border bg-red-100 text-red-800 border-red-300">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span className="ml-1">Kritis</span>
-                  </span>
-                  <span className="text-sm text-gray-600">Stok di bawah minimum</span>
-                </div>
-              </div>
-            </div>
+                      <td className="py-3 px-4">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}}
+                          className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                        />
+                      </td>
+                      <td className="py-3 px-4 font-semibold text-slate-900">{item.name}</td>
+                      <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{item.sku}</td>
+                      <td className="py-3 px-4 text-slate-600">{item.category}</td>
+                      <td className="py-3 px-4 font-semibold text-slate-800">{item.onHand}</td>
+                      <td className="py-3 px-4">
+                        {item.status === 'In Stock' && (
+                          <span className="inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                            In Stock
+                          </span>
+                        )}
+                        {item.status === 'Low Stock' && (
+                          <span className="inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+                            Low Stock
+                          </span>
+                        )}
+                        {item.status === 'Out of Stock' && (
+                          <span className="inline-block rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-800">
+                            Out of Stock
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right font-medium text-slate-800">{item.unitCost}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         </main>
-      </div>
 
-      {/* Add Ingredient Modal */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold">Tambah Bahan Baku</h2>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Bahan</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Contoh: Beras"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stok Saat Ini</label>
-                <input
-                  type="number"
-                  name="current_stock"
-                  value={formData.current_stock}
-                  onChange={handleInputChange}
-                  required
-                  min="0"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Satuan (UoM)</label>
-                <select
-                  name="unit"
-                  value={formData.unit}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="kg">kg</option>
-                  <option value="gram">gram</option>
-                  <option value="ml">ml</option>
-                  <option value="liter">liter</option>
-                  <option value="pcs">pcs</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Stok Minimum (Buffer)</label>
-                <input
-                  type="number"
-                  name="min_stock"
-                  value={formData.min_stock}
-                  onChange={handleInputChange}
-                  required
-                  min="0"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Harga Satuan</label>
-                <input
-                  type="number"
-                  name="unit_price"
-                  value={formData.unit_price}
-                  onChange={handleInputChange}
-                  required
-                  min="0"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
-              </div>
-              {addIngredientError && (
-                <p role="alert" className="text-sm font-medium text-red-600">
-                  {addIngredientError}
-                </p>
-              )}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-colors font-bold text-gray-800"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Menyimpan...' : 'Simpan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* Stock Request Modal */}
-      {isStockRequestModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <ShoppingCart className="h-5 w-5" />
-                Pengajuan Penambahan Stok
-              </h2>
-              <button
-                onClick={() => setIsStockRequestModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleStockRequestSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Bahan</label>
-                <input
-                  type="text"
-                  value={stockRequestForm.ingredient_name}
-                  disabled
-                  className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah yang Ditambahkan *</label>
-                <input
-                  type="number"
-                  value={stockRequestForm.quantity_requested}
-                  onChange={(e) => setStockRequestForm({ ...stockRequestForm, quantity_requested: parseFloat(e.target.value) || 0 })}
-                  required
-                  min="0.01"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
-                <input
-                  type="text"
-                  value={stockRequestForm.unit}
-                  disabled
-                  className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan / Nomor Nota</label>
-                <input
-                  type="text"
-                  value={stockRequestForm.notes}
-                  onChange={(e) => setStockRequestForm({ ...stockRequestForm, notes: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Contoh: INV-2024-001"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Supplier (Opsional)</label>
-                <input
-                  type="text"
-                  value={stockRequestForm.supplier_name}
-                  onChange={(e) => setStockRequestForm({ ...stockRequestForm, supplier_name: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Contoh: PT. Sumber Makmur"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unggah Foto Nota / Surat Jalan</label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors">
-                  <div className="space-y-1 text-center">
-                    <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                    <div className="flex text-sm text-gray-600">
-                      <label htmlFor="proof-file-request" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500 focus-within:outline-none">
-                        <span>Pilih file</span>
-                        <input
-                          id="proof-file-request"
-                          type="file"
-                          className="sr-only"
-                          accept="image/jpeg,image/png,image/jpg,application/pdf"
-                          onChange={(e) => handleFileUpload(e, 'request')}
-                        />
-                      </label>
-                      <p className="pl-1">atau drag & drop</p>
+        {/* Right Details Panel (Matching Wireframe 02) */}
+        <aside className="w-96 border-l border-slate-200 bg-white p-6 overflow-y-auto hidden xl:flex xl:flex-col justify-between shrink-0">
+          {selectedItem && (
+            <div className="space-y-6">
+              {/* Thumbnail + Title Header */}
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-14 w-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
+                    <Box className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base font-bold text-slate-900">{selectedItem.name}</h2>
+                      <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
+                        {selectedItem.status}
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-500">JPG, PNG, atau PDF (maks. 5MB)</p>
-                    {stockRequestForm.proof_file_name && (
-                      <p className="text-sm text-green-600 font-medium mt-2">
-                        ✓ {stockRequestForm.proof_file_name}
-                      </p>
-                    )}
+                    <span className="text-xs text-slate-400 font-mono block">SKU: {selectedItem.sku}</span>
+                    <span className="text-xs text-slate-500 block">Category: {selectedItem.category}</span>
                   </div>
                 </div>
               </div>
-              {fileError && (
-                <p role="alert" className="text-sm font-medium text-red-600 mt-2">
-                  {fileError}
-                </p>
-              )}
-              {stockRequestError && (
-                <p role="alert" className="text-sm font-medium text-red-600">
-                  {stockRequestError}
-                </p>
-              )}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsStockRequestModalOpen(false)}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-colors font-bold text-gray-800"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Mengirim...' : 'Kirim Pengajuan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
 
-      {/* Write-Off Modal */}
-      {isWriteOffModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg w-full max-w-md">
-            <div className="flex items-center justify-between p-4 border-b">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-red-600" />
-                Laporan Barang Rusak/Hilang
-              </h2>
-              <button
-                onClick={() => setIsWriteOffModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={handleWriteOffSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nama Bahan</label>
-                <input
-                  type="text"
-                  value={writeOffForm.ingredient_name}
-                  disabled
-                  className="w-full px-3 py-2 border rounded-lg bg-gray-50 focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Jumlah yang Berkurang *</label>
-                <input
-                  type="number"
-                  value={writeOffForm.quantity_written_off || ''}
-                  onChange={(e) => handleQuantityChange(e.target.value)}
-                  required
-                  min="0.01"
-                  step="0.01"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="0"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Stok tersedia: {availableStock} {writeOffForm.unit}
-                </p>
-                {writeOffQuantityError && (
-                  <p role="alert" className="text-sm font-medium text-red-600 mt-1">
-                    {writeOffQuantityError}
-                  </p>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
-                <select
-                  value={writeOffForm.unit}
-                  onChange={(e) => setWriteOffForm({ ...writeOffForm, unit: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  {AVAILABLE_UNITS.map((unit) => (
-                    <option key={unit} value={unit}>
-                      {unit}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Alasan *</label>
-                <select
-                  value={writeOffForm.reason}
-                  onChange={(e) => setWriteOffForm({ ...writeOffForm, reason: e.target.value })}
-                  required
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                >
-                  <option value="">Pilih alasan</option>
-                  <option value="damaged">Rusak</option>
-                  <option value="lost">Hilang</option>
-                  <option value="expired">Kedaluwarsa</option>
-                  <option value="spoiled">Basi/Membusuk</option>
-                  <option value="other">Lainnya</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Keterangan Tambahan</label>
-                <textarea
-                  value={writeOffForm.notes}
-                  onChange={(e) => setWriteOffForm({ ...writeOffForm, notes: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-                  placeholder="Jelaskan detail kerusakan/kehilangan..."
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Unggah Foto Bukti *</label>
-                <div
-                  className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-lg transition-colors ${
-                    isDragging ? 'border-red-500 bg-red-50' : 'border-gray-300 hover:border-red-400'
+              {/* Sub-Tabs */}
+              <div className="border-b border-slate-100 flex gap-6 text-xs font-medium text-slate-500">
+                <button
+                  onClick={() => setDetailTab('details')}
+                  className={`pb-2 transition-colors border-b-2 ${
+                    detailTab === 'details' ? 'border-violet-600 text-violet-700 font-bold' : 'border-transparent'
                   }`}
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, 'writeOff')}
                 >
-                  {writeOffForm.proof_file ? (
-                    <div className="w-full">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium text-gray-900">{writeOffForm.proof_file_name}</p>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveFile('writeOff')}
-                          className="text-red-600 hover:text-red-800 text-sm font-medium"
-                        >
-                          Hapus
-                        </button>
-                      </div>
-                      {isImageFile(writeOffForm.proof_file_name) ? (
-                        <div className="mt-2 relative">
-                          <img
-                            src={writeOffForm.proof_file}
-                            alt="Preview"
-                            className="max-h-48 mx-auto rounded-lg border border-gray-200"
-                          />
-                        </div>
-                      ) : (
-                        <div className="mt-2 flex items-center justify-center p-4 bg-gray-50 rounded-lg">
-                          <FileText className="h-12 w-12 text-gray-400" />
-                          <span className="ml-2 text-sm text-gray-600">File PDF</span>
-                        </div>
-                      )}
+                  Details
+                </button>
+                <button
+                  onClick={() => setDetailTab('activity')}
+                  className={`pb-2 transition-colors border-b-2 ${
+                    detailTab === 'activity' ? 'border-violet-600 text-violet-700 font-bold' : 'border-transparent'
+                  }`}
+                >
+                  Activity
+                </button>
+              </div>
+
+              {/* Item Information Grid */}
+              <div className="space-y-3 text-xs">
+                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                  <span className="font-bold text-slate-900">Item Information</span>
+                  <button className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-800">
+                    <Edit className="h-3 w-3" />
+                    <span>Edit</span>
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-y-2 text-slate-600">
+                  <span>Unit:</span>
+                  <span className="font-semibold text-slate-900 text-right">{selectedItem.unit}</span>
+                  <span>Barcode:</span>
+                  <span className="font-mono text-slate-900 text-right">{selectedItem.barcode}</span>
+                  <span>Supplier:</span>
+                  <span className="font-semibold text-slate-900 text-right">{selectedItem.supplier}</span>
+                  <span>Unit Cost:</span>
+                  <span className="font-semibold text-slate-900 text-right">{selectedItem.unitCost}</span>
+                  <span>Selling Price:</span>
+                  <span className="font-semibold text-slate-900 text-right">{selectedItem.sellingPrice}</span>
+                  <span>Reorder Point:</span>
+                  <span className="font-semibold text-slate-900 text-right">{selectedItem.reorderPoint}</span>
+                </div>
+                <p className="text-[11px] text-slate-500 pt-1">{selectedItem.description}</p>
+              </div>
+
+              {/* Stock Information */}
+              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
+                <span className="font-bold text-slate-900 block">Stock Information</span>
+                <div className="grid grid-cols-2 gap-y-1.5 text-slate-600">
+                  <span>On Hand:</span>
+                  <span className="font-bold text-slate-900 text-right">{selectedItem.onHand}</span>
+                  <span>Committed:</span>
+                  <span className="font-semibold text-slate-700 text-right">{selectedItem.committed}</span>
+                  <span>Available:</span>
+                  <span className="font-bold text-emerald-700 text-right">{selectedItem.available}</span>
+                </div>
+                <span className="text-[10px] text-slate-400 block pt-1">
+                  Last Updated: {selectedItem.lastUpdated}
+                </span>
+              </div>
+
+              {/* Audit Timeline */}
+              <div className="space-y-3 text-xs">
+                <span className="font-bold text-slate-900 block">Audit Timeline</span>
+                <div className="space-y-2 border-l-2 border-slate-200 pl-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-semibold text-slate-800 block text-[11px]">Stock In</span>
+                      <span className="text-[10px] text-slate-400">10 Aug 2024, 02.10 by admin</span>
                     </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                      <div className="flex text-sm text-gray-600">
-                        <label htmlFor="proof-file-writeoff" className="relative cursor-pointer bg-white rounded-md font-medium text-red-600 hover:text-red-500 focus-within:outline-none">
-                          <span>Pilih file</span>
-                          <input
-                            id="proof-file-writeoff"
-                            type="file"
-                            className="sr-only"
-                            accept="image/jpeg,image/png,image/jpg,application/pdf"
-                            onChange={(e) => handleFileUpload(e, 'writeOff')}
-                            required
-                          />
-                        </label>
-                        <p className="pl-1">atau drag & drop</p>
-                      </div>
-                      <p className="text-xs text-gray-500">JPG, PNG, atau PDF (maks. 5MB) - Wajib</p>
+                    <span className="font-bold text-emerald-600 text-xs">+50 kg</span>
+                  </div>
+
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-semibold text-slate-800 block text-[11px]">Stock Out</span>
+                      <span className="text-[10px] text-slate-400">9 Aug 2024, 18.45 by kasir_01</span>
                     </div>
-                  )}
+                    <span className="font-bold text-amber-600 text-xs">-5 kg</span>
+                  </div>
+
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-semibold text-slate-800 block text-[11px]">Adjustment</span>
+                      <span className="text-[10px] text-slate-400">9 Aug 2024, 11.30 by admin</span>
+                    </div>
+                    <span className="font-bold text-blue-600 text-xs">+2 kg</span>
+                  </div>
                 </div>
               </div>
-              {fileError && (
-                <p role="alert" className="text-sm font-medium text-red-600 mt-2">
-                  {fileError}
-                </p>
-              )}
-              {writeOffError && (
-                <p role="alert" className="text-sm font-medium text-red-600">
-                  {writeOffError}
-                </p>
-              )}
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setIsWriteOffModalOpen(false)}
-                  className="flex-1 px-4 py-2 border-2 border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 transition-colors font-bold text-gray-800"
-                >
-                  Batal
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Mengirim...' : 'Kirim Laporan'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+            </div>
+          )}
+        </aside>
+      </div>
     </div>
   );
 }

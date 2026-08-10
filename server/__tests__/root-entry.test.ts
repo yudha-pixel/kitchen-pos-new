@@ -7,7 +7,7 @@ describe('getRootDestination', () => {
     expect(getRootDestination(false)).toBe('/login');
   });
 
-  it('sends authenticated staff to the existing POS entry', () => {
-    expect(getRootDestination(true)).toBe('/pos');
+  it('sends authenticated staff to the /apps launcher', () => {
+    expect(getRootDestination(true)).toBe('/apps');
   });
 });
