@@ -5,29 +5,11 @@ import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { Modal } from '@/src/components/ui/Modal';
 import { Badge } from '@/src/components/ui/Badge';
-import { Users, CheckCircle, UserRound, CalendarClock, Sparkles, LucideIcon, ShoppingCart, QrCode, Download, X } from 'lucide-react';
+import { CheckCircle, UserRound, CalendarClock, Sparkles, LucideIcon, ShoppingCart, QrCode, Download, AlertCircle, RefreshCw } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import WaiterOrderModal from '@/src/components/pos/WaiterOrderModal';
 import { useConfigStore } from '@/src/store/useConfigStore';
-
-type TableStatus = 'available' | 'occupied' | 'reserved' | 'dirty';
-
-interface Table {
-  id: string;
-  table_number: string;
-  qr_code: string | null;
-  is_active: boolean;
-  outlet_id: string | null;
-  created_at: string;
-  updated_at: string;
-  outlet: {
-    id: string;
-    name: string;
-    code: string;
-  } | null;
-  status: TableStatus;
-  capacity?: number; // Optional for display purposes
-}
+import { useTables, type Table, type TableStatus } from '@/src/hooks/useTables';
 
 // Status model per knowledge/02: available -> occupied -> billed -> dirty -> available
 const statusConfig: Record<
@@ -63,24 +45,26 @@ const statusConfig: Record<
 const statusOrder: TableStatus[] = ['available', 'occupied', 'reserved', 'dirty'];
 
 export default function TableManagementPage() {
-  const [tables, setTables] = useState<Table[]>([
-    { id: 'c9e0936a-9599-4ec4-aa14-3f5023e1be6b', table_number: 'Meja 1', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:51.962Z', updated_at: '2026-08-07T11:43:51.962Z', outlet: null, status: 'available', capacity: 4 },
-    { id: '6d27b093-4349-4c79-a8e9-c354dd3aa6da', table_number: 'Meja 2', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:51.982Z', updated_at: '2026-08-07T11:43:51.982Z', outlet: null, status: 'available', capacity: 4 },
-    { id: '705d1321-9f34-4182-9d06-1223f4da7e37', table_number: 'Meja 3', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:51.991Z', updated_at: '2026-08-07T11:43:51.991Z', outlet: null, status: 'occupied', capacity: 6 },
-    { id: 'a6563062-d502-4861-877d-bfceda529cc3', table_number: 'Meja 4', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:51.996Z', updated_at: '2026-08-07T11:43:51.996Z', outlet: null, status: 'available', capacity: 2 },
-    { id: 'be6c07ca-b2bd-4baa-8086-9c092cb8f924', table_number: 'Meja 5', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.001Z', updated_at: '2026-08-07T11:43:52.001Z', outlet: null, status: 'reserved', capacity: 8 },
-    { id: '0a1100e2-c405-4104-81a4-b00cfe9615a6', table_number: 'Meja 6', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.008Z', updated_at: '2026-08-07T11:43:52.008Z', outlet: null, status: 'available', capacity: 4 },
-    { id: '9d9c2463-edf4-4087-8115-ce7a1f0bfb03', table_number: 'Meja 7', qr_code: null, is_active: true, outlet_id: null, created_at: '2026-08-07T11:43:52.011Z', updated_at: '2026-08-07T11:43:52.011Z', outlet: null, status: 'occupied', capacity: 4 },
-  ]);
+  const { tables, loading, error, refetch, updateTableStatus } = useTables();
   const [selectedTableForQR, setSelectedTableForQR] = useState<Table | null>(null);
   const [qrModalOpen, setQrModalOpen] = useState(false);
   const [selectedTableForOrder, setSelectedTableForOrder] = useState<Table | null>(null);
   const [waiterOrderModalOpen, setWaiterOrderModalOpen] = useState(false);
   const [activeTable, setActiveTable] = useState<Table | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [savingStatus, setSavingStatus] = useState(false);
   const getWebBaseUrl = useConfigStore((state) => state.getWebBaseUrl);
 
-  const setStatus = (tableId: string, status: TableStatus) => {
-    setTables((prev) => prev.map((t) => (t.id === tableId ? { ...t, status } : t)));
+  const setStatus = async (tableId: string, status: TableStatus) => {
+    setSavingStatus(true);
+    setStatusError(null);
+    const ok = await updateTableStatus(tableId, status);
+    setSavingStatus(false);
+    if (ok) {
+      setActiveTable(null);
+    } else {
+      setStatusError('Status meja gagal disimpan. Periksa koneksi lalu coba lagi.');
+    }
   };
 
   const handleOpenWaiterOrder = (table: Table) => {
@@ -95,7 +79,7 @@ export default function TableManagementPage() {
 
   const getQRCodeURL = (tableId: string, tableNumber: string) => {
     const baseUrl = getWebBaseUrl();
-    return `${baseUrl}/order/${tableId}?table=${tableNumber}`;
+    return `${baseUrl}/order/${tableId}?table=${encodeURIComponent(tableNumber)}`;
   };
 
   const downloadQRCode = () => {
@@ -134,7 +118,7 @@ export default function TableManagementPage() {
           {/* Header */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-ink sm:text-3xl">Manajemen Meja</h1>
-            <p className="mt-1 text-ink-muted">Kelola status dan kapasitas meja restoran</p>
+            <p className="mt-1 text-ink-muted">Kelola status meja dan QR Code pemesanan</p>
           </div>
 
           {/* Legend */}
@@ -150,49 +134,89 @@ export default function TableManagementPage() {
           </div>
 
           {/* Table Grid */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {tables.map((table) => {
-              const { label, Icon, card } = statusConfig[table.status];
-              const canOrder = table.status === 'available' || table.status === 'occupied';
-              return (
-                <div
-                  key={table.id}
-                  className={`rounded-xl border-2 p-5 text-left transition-all duration-150 hover:shadow-md ${card}`}
-                >
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="text-xl font-bold">{table.table_number}</div>
-                    <div className="flex items-center gap-1 text-sm opacity-90">
-                      <Users className="h-4 w-4" aria-hidden="true" />
-                      <span className="tnum">{table.capacity} orang</span>
-                    </div>
-                    <div className="flex items-center gap-1 rounded-full bg-surface/60 px-3 py-1 text-xs font-semibold">
-                      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                      {label}
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      {canOrder && (
-                        <button
-                          onClick={() => handleOpenWaiterOrder(table)}
-                          className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-primary px-3 py-2 text-xs font-medium text-white hover:bg-primary/90 hover:text-white transition-colors"
-                        >
-                          <ShoppingCart className="h-4 w-4" />
-                          Pesan
-                        </button>
-                      )}
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4" aria-busy="true" aria-label="Memuat meja">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-44 animate-pulse rounded-xl border-2 border-line bg-surface-alt" />
+              ))}
+            </div>
+          ) : error ? (
+            <div role="alert" className="rounded-lg border border-danger/30 bg-danger-soft p-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-danger" aria-hidden="true" />
+                <div>
+                  <h3 className="font-semibold text-danger">Daftar meja gagal dimuat</h3>
+                  <p className="mt-1 text-sm text-danger">{error}</p>
+                  <button
+                    onClick={refetch}
+                    className="mt-3 flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-on-primary hover:bg-primary/90"
+                  >
+                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                    Coba lagi
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : tables.length === 0 ? (
+            <div className="rounded-lg border border-line bg-surface-alt p-6 text-center">
+              <p className="font-medium text-ink">Belum ada meja terdaftar</p>
+              <p className="mt-1 text-sm text-ink-muted">
+                Tambahkan meja lebih dulu agar status dan QR Code pemesanan dapat digunakan.
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+              {tables.map((table) => {
+                const { label, Icon, card } = statusConfig[table.status];
+                const canOrder = table.status === 'available' || table.status === 'occupied';
+                return (
+                  <div
+                    key={table.id}
+                    className={`rounded-xl border-2 p-4 text-left transition-all duration-150 hover:shadow-md ${card}`}
+                  >
+                    <div className="flex flex-col items-center gap-2">
                       <button
-                        onClick={() => handleOpenQRCode(table)}
-                        className="flex-1 flex items-center justify-center gap-2 rounded-lg bg-surface-alt border border-line px-3 py-2 text-xs font-medium text-ink hover:bg-surface hover:text-ink transition-colors"
-                        title="Generate QR Code"
+                        onClick={() => {
+                          setStatusError(null);
+                          setActiveTable(table);
+                        }}
+                        className="flex w-full flex-col items-center gap-2 rounded-lg py-1 transition-colors hover:bg-surface/40"
+                        aria-label={`Ubah status ${table.table_number}, saat ini ${label}`}
                       >
-                        <QrCode className="h-4 w-4" />
-                        QR
+                        <span className="text-xl font-bold">{table.table_number}</span>
+                        <span className="flex items-center gap-1 rounded-full bg-surface/60 px-3 py-1 text-xs font-semibold">
+                          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                          {label}
+                        </span>
                       </button>
+                      {table.hasActiveOrders && (
+                        <span className="text-xs font-medium opacity-90">Ada pesanan aktif</span>
+                      )}
+                      <div className="mt-1 flex w-full gap-2">
+                        {canOrder && (
+                          <button
+                            onClick={() => handleOpenWaiterOrder(table)}
+                            className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-3 text-xs font-medium text-on-primary transition-colors hover:bg-primary/90"
+                          >
+                            <ShoppingCart className="h-4 w-4" aria-hidden="true" />
+                            Pesan
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenQRCode(table)}
+                          className="flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface-alt px-3 text-xs font-medium text-ink transition-colors hover:bg-surface"
+                          aria-label={`QR Code ${table.table_number}`}
+                        >
+                          <QrCode className="h-4 w-4" aria-hidden="true" />
+                          QR
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
 
           {/* Instructions */}
           <div className="mt-8 rounded-lg border border-info/30 bg-info-soft p-4">
@@ -212,6 +236,11 @@ export default function TableManagementPage() {
         size="sm"
       >
         <div className="space-y-2">
+          {statusError && (
+            <p role="alert" className="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger">
+              {statusError}
+            </p>
+          )}
           {statusOrder.map((status) => {
             const { label, Icon } = statusConfig[status];
             const isCurrent = activeTable?.status === status;
@@ -219,6 +248,7 @@ export default function TableManagementPage() {
               <button
                 key={status}
                 onClick={() => activeTable && setStatus(activeTable.id, status)}
+                disabled={savingStatus}
                 aria-pressed={isCurrent}
                 className={`flex min-h-12 w-full items-center gap-3 rounded-lg border px-4 text-left transition-colors ${
                   isCurrent

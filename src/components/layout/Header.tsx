@@ -97,7 +97,7 @@ export const Header = ({ title = 'Kitchen POS', onSearch, onToggleMobileSidebar 
         </div>
 
         {/* Right: Time and User Actions */}
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex min-w-0 shrink items-center gap-1.5 sm:gap-4">
           {/* Current Time */}
           {currentTime && (
             <div className="hidden text-right md:block">

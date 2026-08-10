@@ -1,8 +1,11 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { SELF_ORDER_PAYMENT_METHODS } from '../../src/features/self-order/paymentMethods';
 
 const router = Router();
+
+const SELF_ORDER_PAYMENT_METHOD_IDS = Object.keys(SELF_ORDER_PAYMENT_METHODS);
 
 // GET /api/settings - Get app settings
 router.get('/', async (req, res) => {
@@ -114,7 +117,35 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
       if (data.cashier_count !== undefined) updateData.cashier_count = data.cashier_count;
       if (data.waiter_count !== undefined) updateData.waiter_count = data.waiter_count;
       if (data.require_2fa !== undefined) updateData.require_2fa = data.require_2fa;
-      
+
+      // Self-Order Settings — store ids only, and only ones we actually know about.
+      // An unknown id here would silently disappear at render time; rejecting it at
+      // the boundary makes the misconfiguration visible instead.
+      if (data.selforder_payment_methods !== undefined) {
+        if (!Array.isArray(data.selforder_payment_methods)) {
+          return res.status(400).json({ error: 'selforder_payment_methods must be an array of method ids' });
+        }
+        const unknown = data.selforder_payment_methods.filter(
+          (id: unknown) => typeof id !== 'string' || !SELF_ORDER_PAYMENT_METHOD_IDS.includes(id)
+        );
+        if (unknown.length > 0) {
+          return res.status(400).json({
+            error: `Unknown payment method id(s): ${unknown.join(', ')}. Allowed: ${SELF_ORDER_PAYMENT_METHOD_IDS.join(', ')}`,
+          });
+        }
+        if (data.selforder_payment_methods.length === 0) {
+          return res.status(400).json({ error: 'At least one self-order payment method must be enabled' });
+        }
+        updateData.selforder_payment_methods = data.selforder_payment_methods;
+      }
+
+      if (data.selforder_routing !== undefined) {
+        if (!['review', 'auto'].includes(data.selforder_routing)) {
+          return res.status(400).json({ error: "selforder_routing must be 'review' or 'auto'" });
+        }
+        updateData.selforder_routing = data.selforder_routing;
+      }
+
       settings = await prisma.appSettings.update({
         where: { id: settings.id },
         data: updateData,

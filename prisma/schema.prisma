@@ -317,7 +317,9 @@ model CustomerOrder {
   table_id       String              @db.Uuid
   customer_name  String?
   total_amount   Float
+  // pending (awaiting staff) -> accepted (converted to Order, see `orders` below) -> cancelled
   status         String              @default("pending")
+  // one of src/features/self-order/paymentMethods.ts's ids ('cashier', 'qris', ...)
   payment_method String?
   payment_status String              @default("unpaid")
   created_at     DateTime            @default(now())
@@ -448,6 +450,17 @@ model AppSettings {
   cashier_count      Int      @default(2)
   waiter_count       Int      @default(3)
   require_2fa        Boolean  @default(false)
+
+  // Self-Order Settings
+  // Which payment methods the QR self-order flow offers. Ids only — each method's
+  // type (counter vs online) is fixed in src/features/self-order/paymentMethods.ts
+  // because it governs whether a guest can settle their own order.
+  selforder_payment_methods Json?  @default("[\"cashier\"]")
+  // 'review' = guest request sits in the staff queue until a cashier accepts it
+  // into the kitchen (see POST /self-order/orders/:id/accept). 'auto' = accepted
+  // immediately on submission and both cashier and kitchen are notified at once —
+  // for busy periods where the manual review step is itself the bottleneck.
+  selforder_routing         String @default("review")
 
   @@map("app_settings")
 }
