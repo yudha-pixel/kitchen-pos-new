@@ -7,6 +7,7 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
+import { generateUUID } from '@/src/lib/utils';
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -89,7 +90,7 @@ export const EditProductModal = ({
       setModifierGroups(prev => [
         ...prev,
         {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           name: newGroupName,
           type: newGroupType,
           options: [],
@@ -117,7 +118,7 @@ export const EditProductModal = ({
         group.id === groupId 
           ? { 
               ...group, 
-              options: [...group.options, { id: crypto.randomUUID(), name: optionName, price: optionPrice }]
+              options: [...group.options, { id: generateUUID(), name: optionName, price: optionPrice }]
             } 
           : group
       ));

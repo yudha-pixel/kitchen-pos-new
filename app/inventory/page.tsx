@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   LayoutGrid,
@@ -16,7 +16,6 @@ import {
   XCircle,
   DollarSign,
   ChevronRight,
-  Edit,
   X,
   Boxes,
   CheckSquare,
@@ -25,12 +24,14 @@ import {
   ArrowRightLeft,
   Truck,
   Zap,
-  ChevronLeft,
+  Upload,
 } from 'lucide-react';
 
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
+import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
+import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
 
 const INVENTORY_NAV_ITEMS = [
   { id: 'all', label: 'All Items', icon: Boxes, active: true },
@@ -42,7 +43,26 @@ const INVENTORY_NAV_ITEMS = [
   { id: 'automation', label: 'Automation', icon: Zap, active: false },
 ];
 
-const MOCK_ITEMS = [
+interface InventoryItem {
+  id: string;
+  name: string;
+  sku?: string;
+  category?: string;
+  onHand: string;
+  status: 'In Stock' | 'Low Stock' | 'Out of Stock';
+  unitCost: string;
+  unit: string;
+  barcode?: string;
+  supplier?: string;
+  sellingPrice: string;
+  reorderPoint: string;
+  description?: string;
+  committed: string;
+  available: string;
+  lastUpdated: string;
+}
+
+const MOCK_ITEMS: InventoryItem[] = [
   {
     id: '1',
     name: 'Chicken Breast',
@@ -99,27 +119,27 @@ const MOCK_ITEMS = [
   },
   {
     id: '4',
-    name: 'Cooking Oil 1L',
-    sku: 'COL-004',
-    category: 'Pantry',
-    onHand: '0 pcs',
+    name: 'Olive Oil',
+    sku: 'OIL-004',
+    category: 'Oil',
+    onHand: '0 L',
     status: 'Out of Stock',
-    unitCost: 'Rp 22.000',
-    unit: 'pcs',
+    unitCost: 'Rp 150.000',
+    unit: 'L',
     barcode: '8991234567893',
-    supplier: 'Minyak Utama PT',
-    sellingPrice: 'Rp 28.000',
-    reorderPoint: '20 pcs',
-    description: 'Refined palm cooking oil 1 liter bottle.',
-    committed: '0 pcs',
-    available: '0 pcs',
-    lastUpdated: '9 Aug 2024, 12:00 by kasir_01',
+    supplier: 'Mediterranean Imports',
+    sellingPrice: 'Rp 250.000',
+    reorderPoint: '10 L',
+    description: 'Extra virgin olive oil.',
+    committed: '0 L',
+    available: '0 L',
+    lastUpdated: '9 Aug 2024, 09:30 by admin',
   },
   {
     id: '5',
-    name: 'Tomato Sauce 1kg',
-    sku: 'TSA-005',
-    category: 'Pantry',
+    name: 'Tomato Sauce',
+    sku: 'TMS-005',
+    category: 'Sauces',
     onHand: '18 pcs',
     status: 'In Stock',
     unitCost: 'Rp 28.000',
@@ -131,24 +151,181 @@ const MOCK_ITEMS = [
     description: 'Rich tomato pasta sauce pouch.',
     committed: '2 pcs',
     available: '16 pcs',
-    lastUpdated: '9 Aug 2024, 09:30 by admin',
+    lastUpdated: '9 Aug 2024, 14:20 by admin',
   },
 ];
 
 export default function InventoryPage() {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [selectedItemId, setSelectedItemId] = useState<string>('1');
+  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [detailTab, setDetailTab] = useState<'details' | 'activity'>('details');
+  const [items, setItems] = useState<InventoryItem[]>(MOCK_ITEMS);
+  const [loading, setLoading] = useState(false);
+  const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState<StockAdjustmentType>('add');
+  const [adjustmentQuantity, setAdjustmentQuantity] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [adjustmentHistory, setAdjustmentHistory] = useState<StockAdjustment[]>([]);
+  const [processing, setProcessing] = useState(false);
 
-  const selectedItem = MOCK_ITEMS.find((i) => i.id === selectedItemId) || MOCK_ITEMS[0];
+  const selectedItem = items.find((i) => i.id === selectedItemId) || items[0];
 
-  const filteredItems = MOCK_ITEMS.filter(
-    (i) =>
-      i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      i.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      i.category.toLowerCase().includes(searchQuery.toLowerCase())
+  // Load inventory data from IndexedDB
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        const ingredients = await db.ingredients.toArray();
+        const suppliers = await db.suppliers.toArray();
+        
+        const inventoryItems: InventoryItem[] = ingredients.map(ing => {
+          const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
+          const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+                        ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
+          
+          return {
+            id: ing.id!,
+            name: ing.name,
+            sku: ing.sku,
+            category: ing.category,
+            onHand: `${ing.current_stock} ${ing.unit}`,
+            status,
+            unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+            unit: ing.unit,
+            barcode: ing.sku,
+            supplier: supplier?.name || 'Unknown',
+            sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+            reorderPoint: `${ing.min_stock} ${ing.unit}`,
+            description: '',
+            committed: '0',
+            available: `${ing.current_stock} ${ing.unit}`,
+            lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+          };
+        });
+        
+        setItems(inventoryItems);
+      } catch (error) {
+        console.error('Failed to load inventory data:', error);
+        toast('error', 'Gagal memuat data inventaris');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    loadData();
+  }, []);
+
+  const loadAdjustmentHistory = async (ingredientId: string) => {
+    try {
+      const history = await getStockAdjustmentHistory(ingredientId, 10);
+      setAdjustmentHistory(history);
+    } catch (error) {
+      console.error('Failed to load adjustment history:', error);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const result = await exportInventoryData();
+      if (result.success && result.data) {
+        const blob = new Blob([result.data], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `inventory-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        toast('success', 'Inventory data exported successfully');
+      } else {
+        toast('error', result.message || 'Failed to export data');
+      }
+    } catch (error) {
+      console.error('Export error:', error);
+      toast('error', 'Failed to export inventory data');
+    }
+  };
+
+  const handleImport = async () => {
+    const fileInput = document.getElementById('csvFile') as HTMLInputElement;
+    const typeSelect = document.getElementById('importType') as HTMLSelectElement;
+    const file = fileInput.files?.[0];
+    
+    if (!file) {
+      toast('error', 'Please select a CSV file');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const csvData = await file.text();
+      const importType = typeSelect.value as 'ingredients' | 'suppliers' | 'all';
+      const result = await importInventoryData(
+        csvData,
+        importType,
+        user?.id || 'system',
+        user?.username || 'System'
+      );
+      
+      if (result.success) {
+        toast('success', `Imported ${result.imported} records successfully`);
+        window.location.reload();
+        setImportModalOpen(false);
+      } else {
+        toast('error', result.message || 'Failed to import data');
+      }
+      
+      if (result.errors.length > 0) {
+        console.warn('Import errors:', result.errors);
+      }
+    } catch (error) {
+      console.error('Import error:', error);
+      toast('error', 'Failed to import inventory data');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleStockAdjustment = async () => {
+    if (!selectedItem || !adjustmentQuantity) return;
+    
+    setProcessing(true);
+    try {
+      const quantity = parseFloat(adjustmentQuantity);
+      const result = await recordStockAdjustment(
+        selectedItem.id,
+        selectedItem.name,
+        adjustmentType,
+        quantity,
+        adjustmentReason || 'Manual adjustment',
+        user?.id || 'system',
+        user?.username || 'System'
+      );
+      
+      if (result.success) {
+        toast('success', 'Stock adjustment recorded successfully');
+        window.location.reload();
+        setAdjustmentModalOpen(false);
+        setAdjustmentQuantity('');
+        setAdjustmentReason('');
+      } else {
+        toast('error', result.message || 'Failed to record adjustment');
+      }
+    } catch (error) {
+      console.error('Adjustment error:', error);
+      toast('error', 'Failed to record stock adjustment');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const filteredItems = items.filter(item =>
+    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    item.sku?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -161,298 +338,461 @@ export default function InventoryPage() {
           </Link>
           <div className="flex items-center gap-2 text-xs text-slate-500">
             <span className="text-slate-400">Inventory</span>
-            <ChevronRight className="h-3.5 w-3.5 text-slate-300" />
-            <span className="font-semibold text-slate-900">All Items</span>
+            <ChevronRight className="h-3 w-3 text-slate-400" />
+            <span className="text-slate-900 font-medium">All Items</span>
           </div>
         </div>
-
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <OutletSelector />
-          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-700 text-xs font-bold text-white uppercase">
-              {user?.username?.charAt(0) || 'A'}
+          <div className="flex items-center gap-2 text-xs text-slate-500">
+            <div className="h-8 w-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-medium">
+              {user?.username?.charAt(0).toUpperCase() || 'U'}
             </div>
-            <span className="text-xs font-semibold text-slate-800 hidden sm:block">{user?.username || 'admin'}</span>
+            <span className="text-slate-700">{user?.username || 'User'}</span>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area: Left Rail + Table Workspace + Right Detail Panel */}
-      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-        {/* Scoped Inventory Sub-Nav Rail */}
-        <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between shrink-0 hidden lg:flex">
-          <div className="p-3">
-            <div className="flex items-center gap-2 px-3 py-2 text-sm font-bold text-violet-700">
-              <Boxes className="h-5 w-5" />
-              <span>Inventory</span>
-            </div>
-            <nav className="mt-2 space-y-1">
-              {INVENTORY_NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
-                      item.active
-                        ? 'bg-violet-50 text-violet-700 font-semibold'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
-                  >
-                    <Icon className={`h-4 w-4 ${item.active ? 'text-violet-600' : 'text-slate-400'}`} />
-                    <span className="text-xs">{item.label}</span>
-                  </div>
-                );
-              })}
-            </nav>
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Navigation Rail */}
+        <nav className="w-56 bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto">
+          <div className="p-3 space-y-1">
+            {INVENTORY_NAV_ITEMS.map((item) => (
+              <button
+                key={item.id}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  item.active
+                    ? 'bg-violet-50 text-violet-700'
+                    : 'text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.label}
+              </button>
+            ))}
           </div>
+        </nav>
 
-          <div className="p-4 border-t border-slate-100">
-            <button className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-800">
-              <ChevronLeft className="h-4 w-4" />
-              <span>Collapse</span>
-            </button>
-          </div>
-        </aside>
-
-        {/* Central Workspace: KPIs + Search/Filter + Table */}
-        <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 bg-slate-50/70">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">All Items</h1>
-          </div>
-
-          {/* KPI Header Stats Row (Matching Wireframe 02) */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-6">
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-              <span className="text-xs text-slate-500 block">Total Items</span>
-              <span className="text-2xl font-bold text-slate-900 block mt-1">1,248</span>
-              <span className="text-[11px] text-emerald-600 font-medium block mt-1">Active</span>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-              <span className="text-xs text-slate-500 block">Low Stock</span>
-              <span className="text-2xl font-bold text-slate-900 block mt-1">28</span>
-              <span className="text-[11px] text-amber-600 font-medium block mt-1">Warning</span>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-              <span className="text-xs text-slate-500 block">Out of Stock</span>
-              <span className="text-2xl font-bold text-slate-900 block mt-1">9</span>
-              <span className="text-[11px] text-red-600 font-medium block mt-1">Danger</span>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-2xs">
-              <span className="text-xs text-slate-500 block">Total Value</span>
-              <span className="text-xl font-bold text-slate-900 block mt-1">Rp 125.450.000</span>
-              <span className="text-[11px] text-blue-600 font-medium block mt-1">On Hand</span>
+        {/* Main Content Area */}
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {/* KPI Header Stats */}
+          <div className="bg-white border-b border-slate-200 px-6 py-4 shrink-0">
+            <div className="grid grid-cols-4 gap-4">
+              <div className="bg-slate-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <Box className="h-4 w-4 text-slate-500" />
+                  <span className="text-xs font-medium text-slate-500">Total Items</span>
+                </div>
+                <div className="text-2xl font-bold text-slate-900">{items.length}</div>
+              </div>
+              <div className="bg-amber-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-500" />
+                  <span className="text-xs font-medium text-amber-700">Low Stock</span>
+                </div>
+                <div className="text-2xl font-bold text-amber-900">
+                  {items.filter((i) => i.status === 'Low Stock').length}
+                </div>
+              </div>
+              <div className="bg-red-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <XCircle className="h-4 w-4 text-red-500" />
+                  <span className="text-xs font-medium text-red-700">Out of Stock</span>
+                </div>
+                <div className="text-2xl font-bold text-red-900">
+                  {items.filter((i) => i.status === 'Out of Stock').length}
+                </div>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <DollarSign className="h-4 w-4 text-green-500" />
+                  <span className="text-xs font-medium text-green-700">Total Value</span>
+                </div>
+                <div className="text-2xl font-bold text-green-900">Rp 12.5M</div>
+              </div>
             </div>
           </div>
 
           {/* Search, Filter, and Action Bar */}
-          <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
-            <div className="relative flex-1 min-w-[200px] max-w-md">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search items..."
-                className="w-full rounded-xl border border-slate-200 bg-white py-2 pl-10 pr-4 text-xs text-slate-800 focus:border-violet-500 focus:outline-hidden"
-              />
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50">
-                <Filter className="h-3.5 w-3.5 text-slate-400" />
-                <span>Filters</span>
-              </button>
-              <button className="flex items-center gap-1.5 rounded-xl bg-violet-700 px-3.5 py-2 text-xs font-semibold text-white hover:bg-violet-800 shadow-2xs">
-                <Plus className="h-4 w-4" />
-                <span>New Item</span>
-              </button>
+          <div className="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
+            <div className="flex items-center justify-between gap-4">
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search items by name or SKU..."
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-violet-500 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  <Filter className="h-4 w-4" />
+                  Filter
+                </button>
+                <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  <Columns className="h-4 w-4" />
+                  Columns
+                </button>
+                <button onClick={handleExport} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  <Download className="h-4 w-4" />
+                  Export
+                </button>
+                <button onClick={() => setImportModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  <Upload className="h-4 w-4" />
+                  Import
+                </button>
+                <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                  <RotateCw className="h-4 w-4" />
+                  Refresh
+                </button>
+                <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700">
+                  <Plus className="h-4 w-4" />
+                  Add Item
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Dense Items Data Table */}
-          <div className="rounded-xl border border-slate-200 bg-white shadow-2xs overflow-hidden flex-1">
-            <table className="w-full text-left text-xs text-slate-700">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                <tr>
-                  <th className="py-3 px-4 w-8">
-                    <input type="checkbox" className="rounded border-slate-300 text-violet-600 focus:ring-violet-500" />
-                  </th>
-                  <th className="py-3 px-4">Item Name</th>
-                  <th className="py-3 px-4">SKU</th>
-                  <th className="py-3 px-4">Category</th>
-                  <th className="py-3 px-4">On Hand</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4 text-right">Unit Cost</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredItems.map((item) => {
-                  const isSelected = item.id === selectedItemId;
-                  return (
+          {/* Items Data Table */}
+          <div className="flex-1 overflow-auto p-6">
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Item Name</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">SKU</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">On-Hand</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Unit Cost</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200">
+                  {filteredItems.map((item) => (
                     <tr
                       key={item.id}
                       onClick={() => setSelectedItemId(item.id)}
-                      className={`cursor-pointer transition-colors ${
-                        isSelected ? 'bg-violet-50/70 font-medium' : 'hover:bg-slate-50/60'
+                      className={`cursor-pointer hover:bg-slate-50 ${
+                        selectedItemId === item.id ? 'bg-violet-50' : ''
                       }`}
                     >
-                      <td className="py-3 px-4">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => {}}
-                          className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
-                        />
+                      <td className="px-4 py-3 text-sm font-medium text-slate-900">{item.name}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{item.sku}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{item.category}</td>
+                      <td className="px-4 py-3 text-sm text-slate-900 font-medium">{item.onHand}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                            item.status === 'In Stock'
+                              ? 'bg-green-100 text-green-700'
+                              : item.status === 'Low Stock'
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {item.status === 'In Stock' && <CheckCircle className="h-3 w-3 mr-1" />}
+                          {item.status === 'Low Stock' && <AlertTriangle className="h-3 w-3 mr-1" />}
+                          {item.status === 'Out of Stock' && <XCircle className="h-3 w-3 mr-1" />}
+                          {item.status}
+                        </span>
                       </td>
-                      <td className="py-3 px-4 font-semibold text-slate-900">{item.name}</td>
-                      <td className="py-3 px-4 text-slate-500 font-mono text-[11px]">{item.sku}</td>
-                      <td className="py-3 px-4 text-slate-600">{item.category}</td>
-                      <td className="py-3 px-4 font-semibold text-slate-800">{item.onHand}</td>
-                      <td className="py-3 px-4">
-                        {item.status === 'In Stock' && (
-                          <span className="inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                            In Stock
-                          </span>
-                        )}
-                        {item.status === 'Low Stock' && (
-                          <span className="inline-block rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-                            Low Stock
-                          </span>
-                        )}
-                        {item.status === 'Out of Stock' && (
-                          <span className="inline-block rounded-md bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-800">
-                            Out of Stock
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4 text-right font-medium text-slate-800">{item.unitCost}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{item.unitCost}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </main>
 
-        {/* Right Details Panel (Matching Wireframe 02) */}
-        <aside className="w-96 border-l border-slate-200 bg-white p-6 overflow-y-auto hidden xl:flex xl:flex-col justify-between shrink-0">
-          {selectedItem && (
-            <div className="space-y-6">
-              {/* Thumbnail + Title Header */}
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="h-14 w-14 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-                    <Box className="h-7 w-7" />
+        {/* Right Details Panel */}
+        {selectedItem && (
+          <aside className="w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 overflow-y-auto hidden lg:block">
+            <div className="p-4 border-b border-slate-200">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-slate-900">Item Details</h2>
+                <button
+                  onClick={() => setSelectedItemId(null)}
+                  className="p-1 rounded hover:bg-slate-100"
+                >
+                  <X className="h-4 w-4 text-slate-400" />
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Item Name</label>
+                  <div className="text-sm font-medium text-slate-900">{selectedItem.name}</div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-slate-500">SKU</label>
+                    <div className="text-sm text-slate-600">{selectedItem.sku}</div>
                   </div>
                   <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base font-bold text-slate-900">{selectedItem.name}</h2>
-                      <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-                        {selectedItem.status}
-                      </span>
-                    </div>
-                    <span className="text-xs text-slate-400 font-mono block">SKU: {selectedItem.sku}</span>
-                    <span className="text-xs text-slate-500 block">Category: {selectedItem.category}</span>
+                    <label className="text-xs font-medium text-slate-500">Category</label>
+                    <div className="text-sm text-slate-600">{selectedItem.category}</div>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-slate-500">Status</label>
+                  <div className="mt-1">
+                    <span
+                      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                        selectedItem.status === 'In Stock'
+                          ? 'bg-green-100 text-green-700'
+                          : selectedItem.status === 'Low Stock'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-red-100 text-red-700'
+                      }`}
+                    >
+                      {selectedItem.status}
+                    </span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Sub-Tabs */}
-              <div className="border-b border-slate-100 flex gap-6 text-xs font-medium text-slate-500">
+            {/* Detail Tabs */}
+            <div className="flex flex-col flex-1 overflow-hidden">
+              <div className="flex border-b border-slate-200">
                 <button
                   onClick={() => setDetailTab('details')}
-                  className={`pb-2 transition-colors border-b-2 ${
-                    detailTab === 'details' ? 'border-violet-600 text-violet-700 font-bold' : 'border-transparent'
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 ${
+                    detailTab === 'details'
+                      ? 'border-violet-600 text-violet-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   Details
                 </button>
                 <button
-                  onClick={() => setDetailTab('activity')}
-                  className={`pb-2 transition-colors border-b-2 ${
-                    detailTab === 'activity' ? 'border-violet-600 text-violet-700 font-bold' : 'border-transparent'
+                  onClick={() => {
+                    setDetailTab('activity');
+                    if (selectedItem) loadAdjustmentHistory(selectedItem.id);
+                  }}
+                  className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 ${
+                    detailTab === 'activity'
+                      ? 'border-violet-600 text-violet-600'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
                   }`}
                 >
                   Activity
                 </button>
               </div>
 
-              {/* Item Information Grid */}
-              <div className="space-y-3 text-xs">
-                <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-                  <span className="font-bold text-slate-900">Item Information</span>
-                  <button className="flex items-center gap-1 text-[11px] font-semibold text-violet-600 hover:text-violet-800">
-                    <Edit className="h-3 w-3" />
-                    <span>Edit</span>
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-y-2 text-slate-600">
-                  <span>Unit:</span>
-                  <span className="font-semibold text-slate-900 text-right">{selectedItem.unit}</span>
-                  <span>Barcode:</span>
-                  <span className="font-mono text-slate-900 text-right">{selectedItem.barcode}</span>
-                  <span>Supplier:</span>
-                  <span className="font-semibold text-slate-900 text-right">{selectedItem.supplier}</span>
-                  <span>Unit Cost:</span>
-                  <span className="font-semibold text-slate-900 text-right">{selectedItem.unitCost}</span>
-                  <span>Selling Price:</span>
-                  <span className="font-semibold text-slate-900 text-right">{selectedItem.sellingPrice}</span>
-                  <span>Reorder Point:</span>
-                  <span className="font-semibold text-slate-900 text-right">{selectedItem.reorderPoint}</span>
-                </div>
-                <p className="text-[11px] text-slate-500 pt-1">{selectedItem.description}</p>
-              </div>
-
-              {/* Stock Information */}
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2 text-xs">
-                <span className="font-bold text-slate-900 block">Stock Information</span>
-                <div className="grid grid-cols-2 gap-y-1.5 text-slate-600">
-                  <span>On Hand:</span>
-                  <span className="font-bold text-slate-900 text-right">{selectedItem.onHand}</span>
-                  <span>Committed:</span>
-                  <span className="font-semibold text-slate-700 text-right">{selectedItem.committed}</span>
-                  <span>Available:</span>
-                  <span className="font-bold text-emerald-700 text-right">{selectedItem.available}</span>
-                </div>
-                <span className="text-[10px] text-slate-400 block pt-1">
-                  Last Updated: {selectedItem.lastUpdated}
-                </span>
-              </div>
-
-              {/* Audit Timeline */}
-              <div className="space-y-3 text-xs">
-                <span className="font-bold text-slate-900 block">Audit Timeline</span>
-                <div className="space-y-2 border-l-2 border-slate-200 pl-3">
-                  <div className="flex justify-between items-start">
+              <div className="p-4 space-y-4 overflow-y-auto">
+                {detailTab === 'details' ? (
+                  <>
                     <div>
-                      <span className="font-semibold text-slate-800 block text-[11px]">Stock In</span>
-                      <span className="text-[10px] text-slate-400">10 Aug 2024, 02.10 by admin</span>
+                      <label className="text-xs font-medium text-slate-500">Unit</label>
+                      <div className="text-sm text-slate-600">{selectedItem.unit}</div>
                     </div>
-                    <span className="font-bold text-emerald-600 text-xs">+50 kg</span>
-                  </div>
-
-                  <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-semibold text-slate-800 block text-[11px]">Stock Out</span>
-                      <span className="text-[10px] text-slate-400">9 Aug 2024, 18.45 by kasir_01</span>
+                      <label className="text-xs font-medium text-slate-500">Barcode</label>
+                      <div className="text-sm text-slate-600">{selectedItem.barcode}</div>
                     </div>
-                    <span className="font-bold text-amber-600 text-xs">-5 kg</span>
-                  </div>
-
-                  <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-semibold text-slate-800 block text-[11px]">Adjustment</span>
-                      <span className="text-[10px] text-slate-400">9 Aug 2024, 11.30 by admin</span>
+                      <label className="text-xs font-medium text-slate-500">Supplier</label>
+                      <div className="text-sm text-slate-600">{selectedItem.supplier}</div>
                     </div>
-                    <span className="font-bold text-blue-600 text-xs">+2 kg</span>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Unit Cost</label>
+                        <div className="text-sm text-slate-600">{selectedItem.unitCost}</div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-medium text-slate-500">Selling Price</label>
+                        <div className="text-sm text-slate-600">{selectedItem.sellingPrice}</div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">Reorder Point</label>
+                      <div className="text-sm text-slate-600">{selectedItem.reorderPoint}</div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-slate-500">Description</label>
+                      <div className="text-sm text-slate-600">{selectedItem.description}</div>
+                    </div>
+
+                    {/* Stock Information */}
+                    <div className="border-t border-slate-200 pt-4 mt-4">
+                      <h3 className="text-sm font-medium text-slate-900 mb-3">Stock Information</h3>
+                      <div className="space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-500">On-Hand</span>
+                          <span className="text-sm font-medium text-slate-900">{selectedItem.onHand}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-500">Committed</span>
+                          <span className="text-sm text-slate-600">{selectedItem.committed}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-500">Available</span>
+                          <span className="text-sm font-medium text-slate-900">{selectedItem.available}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-500">Last Updated</span>
+                          <span className="text-xs text-slate-600">{selectedItem.lastUpdated}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Stock Adjustment Button */}
+                    <button
+                      onClick={() => setAdjustmentModalOpen(true)}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
+                    >
+                      <Sliders className="h-4 w-4" />
+                      Adjust Stock
+                    </button>
+                  </>
+                ) : (
+                  <div className="space-y-3">
+                    <h3 className="text-sm font-medium text-slate-900">Audit Timeline</h3>
+                    {adjustmentHistory.length === 0 ? (
+                      <p className="text-xs text-slate-500">No adjustment history found.</p>
+                    ) : (
+                      adjustmentHistory.map((adj) => (
+                        <div key={adj.id} className="border-l-2 border-slate-200 pl-3">
+                          <div className="text-xs font-medium text-slate-900">{adj.adjustmentType}</div>
+                          <div className="text-xs text-slate-600">
+                            {adj.adjustmentQuantity > 0 ? '+' : ''}{adj.adjustmentQuantity} {adj.previousStock} → {adj.newStock}
+                          </div>
+                          <div className="text-xs text-slate-400">{new Date(adj.adjustedAt).toLocaleString()}</div>
+                        </div>
+                      ))
+                    )}
                   </div>
-                </div>
+                )}
               </div>
             </div>
-          )}
-        </aside>
+          </aside>
+        )}
       </div>
+
+      {/* Stock Adjustment Modal */}
+      {adjustmentModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Adjust Stock</h2>
+              <button
+                onClick={() => setAdjustmentModalOpen(false)}
+                className="p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Adjustment Type</label>
+                <select
+                  value={adjustmentType}
+                  onChange={(e) => setAdjustmentType(e.target.value as StockAdjustmentType)}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="add">Add Stock</option>
+                  <option value="subtract">Subtract Stock</option>
+                  <option value="audit">Audit</option>
+                  <option value="damage">Damage</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Quantity</label>
+                <input
+                  type="number"
+                  value={adjustmentQuantity}
+                  onChange={(e) => setAdjustmentQuantity(e.target.value)}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter quantity"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Reason</label>
+                <textarea
+                  value={adjustmentReason}
+                  onChange={(e) => setAdjustmentReason(e.target.value)}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  rows={3}
+                  placeholder="Enter reason for adjustment"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setAdjustmentModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStockAdjustment}
+                  disabled={processing}
+                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {processing ? 'Processing...' : 'Save Adjustment'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Import Inventory Data</h2>
+              <button
+                onClick={() => setImportModalOpen(false)}
+                className="p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Import Type</label>
+                <select
+                  id="importType"
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="ingredients">Ingredients Only</option>
+                  <option value="suppliers">Suppliers Only</option>
+                  <option value="all">All Data</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">CSV File</label>
+                <input
+                  id="csvFile"
+                  type="file"
+                  accept=".csv"
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setImportModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImport}
+                  disabled={processing}
+                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {processing ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

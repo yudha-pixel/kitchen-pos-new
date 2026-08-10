@@ -34,9 +34,35 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
+      } else {
+        console.warn('Settings endpoint returned non-OK status:', response.status);
+        // Set default settings when API is unavailable
+        setSettings({
+          id: 'default',
+          primary_color: 'violet',
+          theme_mode: 'light',
+          card_style: 'rounded',
+          layout_density: 'comfortable',
+          card_view: 'grid',
+          cart_position: 'right',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
       }
     } catch (error) {
-      console.error('Failed to fetch settings:', error);
+      console.warn('Failed to fetch settings, using defaults:', error);
+      // Set default settings when API is unavailable
+      setSettings({
+        id: 'default',
+        primary_color: 'violet',
+        theme_mode: 'light',
+        card_style: 'rounded',
+        layout_density: 'comfortable',
+        card_view: 'grid',
+        cart_position: 'right',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      });
     } finally {
       setLoading(false);
     }

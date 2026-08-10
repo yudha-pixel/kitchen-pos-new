@@ -8,6 +8,7 @@ import { db } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
 import { reduceStockForOrder, restoreStockForOrder } from '@/src/features/inventory/inventoryService';
 import { addCustomerPoints } from '@/src/features/crm/customerService';
+import { generateUUID } from '@/src/lib/utils';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -236,7 +237,7 @@ export const useCartStore = create<CartState>()(
         promotionDiscountAmount: 0
       }),
       addFreeItem: (item) => set((state) => ({
-        freeItems: [...state.freeItems, { ...item, id: crypto.randomUUID() }]
+        freeItems: [...state.freeItems, { ...item, id: generateUUID() }]
       })),
       removeFreeItem: (id) => set((state) => ({
         freeItems: state.freeItems.filter((item) => item.id !== id)
@@ -271,7 +272,7 @@ export const useCartStore = create<CartState>()(
 
           // Add new item with UUID
           return { 
-            items: [...state.items, { ...item, id: crypto.randomUUID() }] 
+            items: [...state.items, { ...item, id: generateUUID() }] 
           };
         });
       },
@@ -322,6 +323,11 @@ export const useCartStore = create<CartState>()(
           return { success: false, message: 'Keranjang kosong' };
         }
 
+        // Prevent duplicate payment: check if cart is already being processed
+        if (state.kitchenSent) {
+          return { success: false, message: 'Pesanan ini sedang diproses atau sudah dikirim ke dapur' };
+        }
+
         // Validate required fields based on category
         if (orderCategory === 'dine-in' && !state.tableNumber) {
           return { success: false, message: 'Mohon isi nomor meja terlebih dahulu' };
@@ -346,7 +352,7 @@ export const useCartStore = create<CartState>()(
         const discount = state.getDiscount();
         const globalDiscount = state.getGlobalDiscount();
         const total = state.getTotal();
-        const orderId = crypto.randomUUID();
+        const orderId = generateUUID();
         const paymentMethod = state.paymentMethod;
 
         // Calculate rounding
@@ -404,7 +410,7 @@ export const useCartStore = create<CartState>()(
 
         // Create order items (regular items)
         const orderItems = state.items.map((item) => ({
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           order_id: orderId,
           product_id: item.productId,
           quantity: item.quantity,
@@ -418,7 +424,7 @@ export const useCartStore = create<CartState>()(
 
         // Create order items for free items
         const freeOrderItems = state.freeItems.map((item) => ({
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           order_id: orderId,
           product_id: item.productId,
           quantity: item.quantity,
@@ -718,7 +724,7 @@ export const useCartStore = create<CartState>()(
           const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
           const voidLog = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             order_id: orderId,
             product_id: productId,
             quantity,
@@ -947,7 +953,7 @@ export const useCartStore = create<CartState>()(
         const globalDiscount = state.getGlobalDiscount();
         const total = state.getTotal();
 
-        const orderId = crypto.randomUUID();
+        const orderId = generateUUID();
 
         // Prepare order data
         const orderData = {
@@ -967,7 +973,7 @@ export const useCartStore = create<CartState>()(
         // Prepare order items
         const allOrderItems = [
           ...state.items.map(item => ({
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             order_id: orderId,
             product_id: item.productId,
             quantity: item.quantity,
@@ -978,7 +984,7 @@ export const useCartStore = create<CartState>()(
             status: 'pending' as const,
           })),
           ...state.freeItems.map(item => ({
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             order_id: orderId,
             product_id: item.productId,
             quantity: item.quantity,

@@ -115,6 +115,8 @@ export interface SyncQueueItem {
 export interface Ingredient {
   id?: string; // UUID
   name: string;
+  sku?: string; // SKU code
+  category?: string; // Category name
   current_stock: number;
   unit: string; // e.g., kg, gram, ml, pcs
   min_stock: number; // buffer stock threshold
@@ -379,11 +381,29 @@ export interface Promotion {
 export interface Supplier {
   id?: string; // UUID
   name: string; // Nama supplier
+  contact_person?: string; // Contact person name
   phone: string; // Kontak/Telepon
   email?: string; // Email
   address?: string; // Alamat
   created_at: string;
   updated_at: string;
+}
+
+export type StockAdjustmentType = 'add' | 'subtract' | 'audit' | 'transfer' | 'damage' | 'expired';
+
+export interface StockAdjustment {
+  id?: string; // UUID
+  ingredientId: string; // UUID - connects to ingredients table
+  ingredientName: string; // Denormalized for easier display
+  adjustmentType: StockAdjustmentType;
+  previousStock: number;
+  adjustmentQuantity: number;
+  newStock: number;
+  reason: string;
+  adjustedBy: string; // User ID who made the adjustment
+  adjustedByName: string; // Denormalized for easier display
+  adjustedAt: string;
+  referenceId?: string; // For transfer or order reference
 }
 
 // Dexie database class for IndexedDB
@@ -415,6 +435,7 @@ export class KitchenPOSDB extends Dexie {
   customer_orders!: DexieTable<CustomerOrder>;
   customer_order_items!: DexieTable<CustomerOrderItem>;
   payment_transactions!: DexieTable<PaymentTransaction>;
+  stock_adjustments!: DexieTable<StockAdjustment>;
 
   constructor() {
     super('KitchenPOSDB');
@@ -678,6 +699,12 @@ export class KitchenPOSDB extends Dexie {
         customer_orders: 'id, table_id, status, payment_status, created_at',
         customer_order_items: 'id, order_id, product_id',
         payment_transactions: 'id, order_id, gateway, status, created_at',
+      });
+
+    // v19: Add stock_adjustments table for inventory audit trail
+    this.version(19)
+      .stores({
+        stock_adjustments: 'id, ingredientId, adjustmentType, adjustedAt',
       });
 
   }

@@ -758,6 +758,14 @@ export default function POSPage() {
       const order = selectedOrderForPayment;
       if (!order) return;
 
+      // Prevent duplicate payment: check if order is already paid
+      if (order.status === 'completed' || order.status === 'paid') {
+        toast('warning', 'Pesanan ini sudah dibayar sebelumnya');
+        setPaymentModalOpen(false);
+        setSelectedOrderForPayment(null);
+        return;
+      }
+
       // Calculate total for selected items
       const calculatedTotal = selectedItems.reduce((sum: number, item: any) => {
         const price = Number(item.price_at_time) || 0;
@@ -796,6 +804,65 @@ export default function POSPage() {
       // Close payment modal
       setPaymentModalOpen(false);
       setSelectedOrderForPayment(null);
+
+      // Refresh table orders to remove the paid order
+      if (showTableOrders) {
+        const fetchTableOrders = async () => {
+          try {
+            const { db } = await import('@/src/lib/db');
+            const orders = await db.orders
+              .where('status')
+              .anyOf(['pending', 'done'])
+              .reverse()
+              .toArray();
+
+            const ordersWithItems = await Promise.all(
+              orders.map(async (order) => {
+                if (!order.id) {
+                  return { ...order, items: [] };
+                }
+                const items = await db.order_items
+                  .where('order_id')
+                  .equals(order.id)
+                  .toArray();
+                const itemsWithProducts = await Promise.all(
+                  items.map(async (item) => {
+                    const product = await db.products.get(item.product_id);
+                    return { ...item, product };
+                  })
+                );
+                return {
+                  ...order,
+                  items: itemsWithProducts,
+                };
+              })
+            );
+
+            setTableOrders(ordersWithItems);
+
+            // Update table status to available if this was a dine-in order and no more pending orders
+            if (order.table_number && order.order_category === 'dine-in') {
+              const remainingOrders = await db.orders
+                .where('table_number')
+                .equals(order.table_number)
+                .and(order => ['pending', 'done'].includes(order.status))
+                .count();
+
+              if (remainingOrders === 0) {
+                try {
+                  await updateTableStatus(order.table_number, 'available');
+                  console.log(`✅ Table ${order.table_number} status updated to available after split payment`);
+                } catch (tableError) {
+                  console.error('Failed to update table status:', tableError);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Failed to refresh table orders:', error);
+          }
+        };
+        fetchTableOrders();
+      }
 
       // Refresh transaction history
       const fetchTransactionHistory = async () => {
@@ -837,6 +904,14 @@ export default function POSPage() {
     try {
       const order = selectedOrderForPayment;
       if (!order) return;
+
+      // Prevent duplicate payment: check if order is already paid
+      if (order.status === 'completed' || order.status === 'paid') {
+        toast('warning', 'Pesanan ini sudah dibayar sebelumnya');
+        setPaymentModalOpen(false);
+        setSelectedOrderForPayment(null);
+        return;
+      }
 
       // Calculate total from order items
       const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
@@ -881,6 +956,65 @@ export default function POSPage() {
       // Close payment modal
       setPaymentModalOpen(false);
       setSelectedOrderForPayment(null);
+
+      // Refresh table orders to remove the paid order
+      if (showTableOrders) {
+        const fetchTableOrders = async () => {
+          try {
+            const { db } = await import('@/src/lib/db');
+            const orders = await db.orders
+              .where('status')
+              .anyOf(['pending', 'done'])
+              .reverse()
+              .toArray();
+
+            const ordersWithItems = await Promise.all(
+              orders.map(async (order) => {
+                if (!order.id) {
+                  return { ...order, items: [] };
+                }
+                const items = await db.order_items
+                  .where('order_id')
+                  .equals(order.id)
+                  .toArray();
+                const itemsWithProducts = await Promise.all(
+                  items.map(async (item) => {
+                    const product = await db.products.get(item.product_id);
+                    return { ...item, product };
+                  })
+                );
+                return {
+                  ...order,
+                  items: itemsWithProducts,
+                };
+              })
+            );
+
+            setTableOrders(ordersWithItems);
+
+            // Update table status to available if this was a dine-in order and no more pending orders
+            if (order.table_number && order.order_category === 'dine-in') {
+              const remainingOrders = await db.orders
+                .where('table_number')
+                .equals(order.table_number)
+                .and(order => ['pending', 'done'].includes(order.status))
+                .count();
+
+              if (remainingOrders === 0) {
+                try {
+                  await updateTableStatus(order.table_number, 'available');
+                  console.log(`✅ Table ${order.table_number} status updated to available`);
+                } catch (tableError) {
+                  console.error('Failed to update table status:', tableError);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Failed to refresh table orders:', error);
+          }
+        };
+        fetchTableOrders();
+      }
 
       // Refresh transaction history
       const fetchTransactionHistory = async () => {
@@ -1155,19 +1289,30 @@ export default function POSPage() {
                       <div className="mb-3 flex items-center justify-between">
                         <div>
                           <h3 className="font-bold text-lg">Meja {order.table_number || '-'}</h3>
-                          <p className="text-sm text-ink-muted">
+                          {order.customer_name && (
+                            <p className="text-sm font-medium text-ink">{order.customer_name}</p>
+                          )}
+                          <p className="text-xs text-ink-muted">
                             {new Date(order.created_at).toLocaleString('id-ID')}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
+                          {/* Kitchen Status Badge */}
                           <Badge tone={
-                            order.status === 'done' ? 'success' :
-                            order.status === 'pending' ? 'warning' :
+                            order.status === 'done' || order.status === 'ready' || order.status === 'served' ? 'success' :
+                            order.status === 'preparing' ? 'warning' :
                             'neutral'
                           }>
-                            {order.status === 'done' ? 'Siap Bayar' :
-                             order.status === 'pending' ? 'Belum Bayar' :
+                            {order.status === 'done' || order.status === 'ready' || order.status === 'served' ? 'Selesai Masak' :
+                             order.status === 'preparing' ? 'Sedang Masak' :
+                             order.status === 'pending' ? 'Menunggu' :
                              order.status || '-'}
+                          </Badge>
+                          {/* Payment Status Badge */}
+                          <Badge tone={
+                            order.payment_method ? 'success' : 'warning'
+                          }>
+                            {order.payment_method ? 'Lunas' : 'Belum Bayar'}
                           </Badge>
                           <button
                             onClick={() => {
@@ -1181,6 +1326,14 @@ export default function POSPage() {
                           </button>
                         </div>
                       </div>
+
+                      {/* Notes Section */}
+                      {order.notes && (
+                        <div className="mb-3 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-xs text-amber-800 font-medium">Catatan:</p>
+                          <p className="text-sm text-amber-900">{order.notes}</p>
+                        </div>
+                      )}
 
                       <div className="mb-3 space-y-1 text-sm">
                         {order.items && order.items.length > 0 ? (

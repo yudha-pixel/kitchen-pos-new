@@ -5,6 +5,7 @@
 
 import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { generateUUID } from '@/src/lib/utils';
 
 // Configuration constants
 export const LATE_TOLERANCE_MINUTES = 15; // 15 minutes tolerance for late detection
@@ -428,7 +429,7 @@ export async function addShift(shift: Omit<Shift, 'id' | 'created_at' | 'updated
   try {
     const { db } = await import('@/src/lib/db');
     const now = new Date().toISOString();
-    const id = crypto.randomUUID();
+    const id = generateUUID();
     const shiftData = {
       ...shift,
       id,
