@@ -88,9 +88,16 @@ export const APPS_REGISTRY: AppDefinition[] = [
     categoryLabel: 'Produk & Inventori',
     iconName: 'ShoppingBag',
     route: '/inventory/suppliers',
-    keywords: ['pembelian', 'supplier', 'pemasok', 'order', 'po', 'pembayaran'],
+    keywords: ['pembelian', 'supplier', 'pemasok', 'order', 'po', 'pembayaran', 'quotation', 'invoice', 'grn'],
     subLinks: [
-      { label: 'Manajemen Supplier', href: '/inventory/suppliers' },
+      { label: 'Manajemen Supplier', href: '/inventory-suppliers' },
+      { label: 'Persetujuan Stok', href: '/inventory/stock-approvals' },
+      { label: 'Permintaan Penawaran', href: '/inventory/quotation-requests' },
+      { label: 'Penawaran Supplier', href: '/inventory/quotations' },
+      { label: 'Purchase Order', href: '/inventory/purchase-orders' },
+      { label: 'Goods Received Note', href: '/inventory/goods-received-notes' },
+      { label: 'Invoice Supplier', href: '/inventory/invoices' },
+      { label: 'Pembayaran Supplier', href: '/inventory/supplier-payments' },
     ],
   },
   {

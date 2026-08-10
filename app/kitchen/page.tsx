@@ -63,7 +63,9 @@ export default function KitchenDisplayPage() {
   const [filter, setFilter] = useState<'all' | 'kitchen' | 'bar'>('all');
   const [newOrderCount, setNewOrderCount] = useState(0);
   const [showNotification, setShowNotification] = useState(false);
+  const [newOrderIds, setNewOrderIds] = useState<Set<string>>(new Set());
   const previousOrderCountRef = useRef(0);
+  const previousOrderIdsRef = useRef<Set<string>>(new Set());
   // Ticks every 30s so elapsed times and urgency colors stay current
   const [, setTick] = useState(0);
 
@@ -109,13 +111,21 @@ export default function KitchenDisplayPage() {
       const data = await api.fetchActiveOrders();
       const newOrders = data as Order[];
       
-      // Check for new orders (compare with previous count)
-      const currentOrderCount = newOrders.length;
-      const previousCount = previousOrderCountRef.current;
+      // Check for new orders by comparing order IDs
+      const currentOrderIds = new Set(newOrders.map(o => o.id));
+      const previousOrderIds = previousOrderIdsRef.current;
       
-      if (currentOrderCount > previousCount && previousCount > 0) {
-        const newOrdersCount = currentOrderCount - previousCount;
-        setNewOrderCount(newOrdersCount);
+      // Find newly added orders
+      const newlyAddedIds = new Set<string>();
+      currentOrderIds.forEach(id => {
+        if (!previousOrderIds.has(id)) {
+          newlyAddedIds.add(id);
+        }
+      });
+      
+      if (newlyAddedIds.size > 0 && previousOrderIds.size > 0) {
+        setNewOrderCount(newlyAddedIds.size);
+        setNewOrderIds(newlyAddedIds);
         setShowNotification(true);
         
         // Auto-hide notification after 5 seconds
@@ -125,11 +135,17 @@ export default function KitchenDisplayPage() {
         
         // Play notification sound
         playNotificationSound();
+        
+        // Clear new order highlight after 10 seconds
+        setTimeout(() => {
+          setNewOrderIds(new Set());
+        }, 10000);
       }
       
       setOrders(newOrders);
       setLastRefreshed(new Date());
-      previousOrderCountRef.current = currentOrderCount;
+      previousOrderCountRef.current = newOrders.length;
+      previousOrderIdsRef.current = currentOrderIds;
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       toast('error', 'Gagal memuat order. Coba refresh.');
@@ -141,7 +157,7 @@ export default function KitchenDisplayPage() {
 
   useEffect(() => {
     const initial = setTimeout(() => fetchOrders(true), 0);
-    const refresh = setInterval(() => fetchOrders(true), 30000);
+    const refresh = setInterval(() => fetchOrders(true), 5000); // Poll every 5 seconds
     const timerTick = setInterval(() => setTick((t) => t + 1), 30000);
 
     // Listen for orderCreated events to refresh orders in real-time
@@ -265,7 +281,14 @@ export default function KitchenDisplayPage() {
 
     return order.items.map(item => ({ ...item, order }));
   }).sort((a, b) => {
-    // Sort chronologically by order creation time (oldest first for queue management)
+    // Sort: new orders first, then chronologically by order creation time
+    const isNewA = newOrderIds.has(a.order.id);
+    const isNewB = newOrderIds.has(b.order.id);
+    
+    if (isNewA && !isNewB) return -1; // A is new, B is not - A comes first
+    if (!isNewA && isNewB) return 1;  // B is new, A is not - B comes first
+    
+    // Both are new or both are old - sort by creation time (oldest first for queue management)
     const timeA = new Date(a.order.created_at).getTime();
     const timeB = new Date(b.order.created_at).getTime();
     return timeA - timeB;
@@ -301,7 +324,7 @@ export default function KitchenDisplayPage() {
               </div>
               <h1 className="text-2xl font-bold">Kitchen Display</h1>
               {showNotification && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white animate-pulse">
+                <div className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white animate-pulse shadow-lg">
                   <Bell className="h-4 w-4" />
                   {newOrderCount} order baru
                 </div>
@@ -360,11 +383,12 @@ export default function KitchenDisplayPage() {
               const urgency = getUrgency(order.created_at);
               const { border, chip, label } = urgencyStyles[urgency];
               const busy = updatingOrderId === order.id;
+              const isNewOrder = newOrderIds.has(order.id);
 
               return (
                 <div
                   key={`${order.id}-${item.id}`}
-                  className={`overflow-hidden rounded-lg border border-kds-border border-l-4 bg-kds-surface ${border}`}
+                  className={`overflow-hidden rounded-lg border border-kds-border border-l-4 bg-kds-surface ${border} ${isNewOrder ? 'ring-2 ring-green-500 ring-offset-2 ring-offset-kds-bg animate-pulse' : ''}`}
                 >
                   {/* Order Header */}
                   <div className="flex items-center justify-between bg-kds-surface-alt p-4">

@@ -228,12 +228,22 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       // Create a new pending PO
       const newPO = await prisma.purchaseOrder.create({
         data: {
+          po_number: `PO-${Date.now()}`,
           supplier_id: supplierId,
-          ingredient_id: ingredientId,
-          quantity: 50,
-          unit_price: 50,
-          total_price: 2500,
+          subtotal: 2500,
+          tax: 0,
+          total: 2500,
           status: 'pending',
+          items: {
+            create: {
+              ingredient_id: ingredientId,
+              ingredient_name: 'Test Ingredient',
+              quantity: 50,
+              unit: 'kg',
+              unit_price: 50,
+              total_price: 2500,
+            },
+          },
         },
       });
 
@@ -289,23 +299,43 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       // Create multiple pending POs
       const po1 = await prisma.purchaseOrder.create({
         data: {
+          po_number: `PO-${Date.now()}-1`,
           supplier_id: supplierId,
-          ingredient_id: ingredientId,
-          quantity: 25,
-          unit_price: 50,
-          total_price: 1250,
+          subtotal: 1250,
+          tax: 0,
+          total: 1250,
           status: 'pending',
+          items: {
+            create: {
+              ingredient_id: ingredientId,
+              ingredient_name: 'Test Ingredient',
+              quantity: 25,
+              unit: 'kg',
+              unit_price: 50,
+              total_price: 1250,
+            },
+          },
         },
       });
 
       const po2 = await prisma.purchaseOrder.create({
         data: {
+          po_number: `PO-${Date.now()}-2`,
           supplier_id: supplierId,
-          ingredient_id: ingredientId,
-          quantity: 30,
-          unit_price: 50,
-          total_price: 1500,
+          subtotal: 1500,
+          tax: 0,
+          total: 1500,
           status: 'pending',
+          items: {
+            create: {
+              ingredient_id: ingredientId,
+              ingredient_name: 'Test Ingredient',
+              quantity: 30,
+              unit: 'kg',
+              unit_price: 50,
+              total_price: 1500,
+            },
+          },
         },
       });
 

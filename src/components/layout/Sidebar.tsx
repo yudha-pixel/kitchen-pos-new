@@ -32,6 +32,11 @@ import {
   Smartphone,
   X,
   Bell,
+  Star,
+  Send,
+  CheckSquare,
+  DollarSign,
+  CreditCard,
 } from 'lucide-react';
 
 export interface SidebarProps {
@@ -62,8 +67,7 @@ const dashboardSubLinks = [
   { href: '/inventory', label: 'Inventori', icon: Boxes },
   { href: '/inventory/mapping', label: 'Mapping Resep', icon: ClipboardList },
   { href: '/inventory/automation', label: 'Otomatisasi Pengadaan', icon: Boxes },
-  { href: '/inventory/suppliers', label: 'Manajemen Supplier', icon: Building2 },
-  { href: '/inventory/stock-approvals', label: 'Persetujuan Stok', icon: Check },
+  { href: '/inventory-suppliers', label: 'Manajemen Supplier', icon: Building2 },
   { href: '/admin/discount-reports', label: 'Laporan Diskon', icon: Percent },
   { href: '/admin/vouchers', label: 'Manajemen Voucer', icon: Tag },
   { href: '/admin/crm', label: 'Pelanggan & CRM', icon: UserPlus },

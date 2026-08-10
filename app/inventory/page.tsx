@@ -25,6 +25,11 @@ import {
   Truck,
   Zap,
   Upload,
+  FileText as FileTextIcon,
+  Star,
+  Send,
+  Package,
+  Wallet,
 } from 'lucide-react';
 
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
@@ -34,13 +39,19 @@ import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/
 import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
 
 const INVENTORY_NAV_ITEMS = [
-  { id: 'all', label: 'All Items', icon: Boxes, active: true },
-  { id: 'approvals', label: 'Stock Approvals', icon: CheckSquare, active: false },
-  { id: 'categories', label: 'Categories', icon: Tags, active: false },
-  { id: 'adjustments', label: 'Stock Adjustments', icon: Sliders, active: false },
-  { id: 'transfers', label: 'Stock Transfers', icon: ArrowRightLeft, active: false },
-  { id: 'suppliers', label: 'Suppliers', icon: Truck, active: false },
-  { id: 'automation', label: 'Automation', icon: Zap, active: false },
+  { id: 'all', label: 'All Items', icon: Boxes, href: '/inventory', active: true },
+  { id: 'approvals', label: 'Stock Approvals', icon: CheckSquare, href: '/inventory/stock-approvals', active: false },
+  { id: 'quotation-requests', label: 'Quotation Requests', icon: FileTextIcon, href: '/inventory/quotation-requests', active: false },
+  { id: 'quotations', label: 'Quotations', icon: Star, href: '/inventory/quotations', active: false },
+  { id: 'purchase-orders', label: 'Purchase Orders', icon: Send, href: '/inventory/purchase-orders', active: false },
+  { id: 'grn', label: 'Goods Received Notes', icon: Package, href: '/inventory/goods-received-notes', active: false },
+  { id: 'invoices', label: 'Invoices', icon: DollarSign, href: '/inventory/invoices', active: false },
+  { id: 'supplier-payments', label: 'Supplier Payments', icon: Wallet, href: '/inventory/supplier-payments', active: false },
+  { id: 'categories', label: 'Categories', icon: Tags, href: '/inventory/categories', active: false },
+  { id: 'adjustments', label: 'Stock Adjustments', icon: Sliders, href: '/inventory/adjustments', active: false },
+  { id: 'transfers', label: 'Stock Transfers', icon: ArrowRightLeft, href: '/inventory/transfers', active: false },
+  { id: 'suppliers', label: 'Suppliers', icon: Truck, href: '/inventory-suppliers', active: false },
+  { id: 'automation', label: 'Automation', icon: Zap, href: '/inventory/automation', active: false },
 ];
 
 interface InventoryItem {
@@ -165,11 +176,26 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(false);
   const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [columnsModalOpen, setColumnsModalOpen] = useState(false);
+  const [addItemModalOpen, setAddItemModalOpen] = useState(false);
   const [adjustmentType, setAdjustmentType] = useState<StockAdjustmentType>('add');
   const [adjustmentQuantity, setAdjustmentQuantity] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
   const [adjustmentHistory, setAdjustmentHistory] = useState<StockAdjustment[]>([]);
   const [processing, setProcessing] = useState(false);
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(['name', 'sku', 'category', 'onHand', 'status', 'unitCost']);
+  const [newItem, setNewItem] = useState({
+    name: '',
+    sku: '',
+    category: '',
+    unit: '',
+    unitPrice: '',
+    minStock: '',
+    supplierId: '',
+  });
 
   const selectedItem = items.find((i) => i.id === selectedItemId) || items[0];
 
@@ -308,25 +334,178 @@ export default function InventoryPage() {
       
       if (result.success) {
         toast('success', 'Stock adjustment recorded successfully');
-        window.location.reload();
         setAdjustmentModalOpen(false);
         setAdjustmentQuantity('');
         setAdjustmentReason('');
+        // Reload data
+        const ingredients = await db.ingredients.toArray();
+        const suppliers = await db.suppliers.toArray();
+        
+        const inventoryItems: InventoryItem[] = ingredients.map(ing => {
+          const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
+          const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+                        ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
+          
+          return {
+            id: ing.id!,
+            name: ing.name,
+            sku: ing.sku,
+            category: ing.category,
+            onHand: `${ing.current_stock} ${ing.unit}`,
+            status,
+            unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+            unit: ing.unit,
+            barcode: ing.sku,
+            supplier: supplier?.name || 'Unknown',
+            sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+            reorderPoint: `${ing.min_stock} ${ing.unit}`,
+            description: '',
+            committed: '0',
+            available: `${ing.current_stock} ${ing.unit}`,
+            lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+          };
+        });
+        
+        setItems(inventoryItems);
+        await loadAdjustmentHistory(selectedItem.id);
       } else {
         toast('error', result.message || 'Failed to record adjustment');
       }
     } catch (error) {
-      console.error('Adjustment error:', error);
+      console.error('Stock adjustment error:', error);
       toast('error', 'Failed to record stock adjustment');
     } finally {
       setProcessing(false);
     }
   };
 
-  const filteredItems = items.filter(item =>
-    item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.sku?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleRefresh = async () => {
+    setLoading(true);
+    try {
+      const ingredients = await db.ingredients.toArray();
+      const suppliers = await db.suppliers.toArray();
+      
+      const inventoryItems: InventoryItem[] = ingredients.map(ing => {
+        const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
+        const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+                      ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
+        
+        return {
+          id: ing.id!,
+          name: ing.name,
+          sku: ing.sku,
+          category: ing.category,
+          onHand: `${ing.current_stock} ${ing.unit}`,
+          status,
+          unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+          unit: ing.unit,
+          barcode: ing.sku,
+          supplier: supplier?.name || 'Unknown',
+          sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+          reorderPoint: `${ing.min_stock} ${ing.unit}`,
+          description: '',
+          committed: '0',
+          available: `${ing.current_stock} ${ing.unit}`,
+          lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+        };
+      });
+      
+      setItems(inventoryItems);
+      toast('success', 'Inventory data refreshed');
+    } catch (error) {
+      console.error('Refresh error:', error);
+      toast('error', 'Failed to refresh inventory data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddItem = async () => {
+    setAddItemModalOpen(true);
+  };
+
+  const handleSaveNewItem = async () => {
+    if (!newItem.name || !newItem.unit || !newItem.unitPrice) {
+      toast('error', 'Please fill in required fields');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const ingredient: Omit<Ingredient, 'id'> = {
+        name: newItem.name,
+        sku: newItem.sku || undefined,
+        category: newItem.category || undefined,
+        unit: newItem.unit,
+        unit_price: parseFloat(newItem.unitPrice),
+        current_stock: 0,
+        min_stock: parseFloat(newItem.minStock) || 0,
+        supplier_id: newItem.supplierId || undefined,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+
+      const id = await db.ingredients.add(ingredient);
+      toast('success', 'Item added successfully');
+      setAddItemModalOpen(false);
+      setNewItem({
+        name: '',
+        sku: '',
+        category: '',
+        unit: '',
+        unitPrice: '',
+        minStock: '',
+        supplierId: '',
+      });
+      
+      // Reload data
+      const ingredients = await db.ingredients.toArray();
+      const suppliers = await db.suppliers.toArray();
+      
+      const inventoryItems: InventoryItem[] = ingredients.map(ing => {
+        const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
+        const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+                      ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
+        
+        return {
+          id: ing.id!,
+          name: ing.name,
+          sku: ing.sku,
+          category: ing.category,
+          onHand: `${ing.current_stock} ${ing.unit}`,
+          status,
+          unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+          unit: ing.unit,
+          barcode: ing.sku,
+          supplier: supplier?.name || 'Unknown',
+          sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+          reorderPoint: `${ing.min_stock} ${ing.unit}`,
+          description: '',
+          committed: '0',
+          available: `${ing.current_stock} ${ing.unit}`,
+          lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+        };
+      });
+      
+      setItems(inventoryItems);
+    } catch (error) {
+      console.error('Add item error:', error);
+      toast('error', 'Failed to add item');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const filteredItems = items.filter((item) => {
+    const matchesSearch = 
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.sku && item.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
+    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
+    
+    return matchesSearch && matchesStatus && matchesCategory;
+  });
 
   return (
     <div className="flex h-screen w-full flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -358,8 +537,9 @@ export default function InventoryPage() {
         <nav className="w-56 bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto">
           <div className="p-3 space-y-1">
             {INVENTORY_NAV_ITEMS.map((item) => (
-              <button
+              <Link
                 key={item.id}
+                href={item.href}
                 className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                   item.active
                     ? 'bg-violet-50 text-violet-700'
@@ -368,7 +548,7 @@ export default function InventoryPage() {
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
-              </button>
+              </Link>
             ))}
           </div>
         </nav>
@@ -427,11 +607,11 @@ export default function InventoryPage() {
                 />
               </div>
               <div className="flex items-center gap-2">
-                <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                <button onClick={() => setFilterModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
                   <Filter className="h-4 w-4" />
                   Filter
                 </button>
-                <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
+                <button onClick={() => setColumnsModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
                   <Columns className="h-4 w-4" />
                   Columns
                 </button>
@@ -443,11 +623,11 @@ export default function InventoryPage() {
                   <Upload className="h-4 w-4" />
                   Import
                 </button>
-                <button className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
-                  <RotateCw className="h-4 w-4" />
+                <button onClick={handleRefresh} disabled={loading} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                  <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
-                <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700">
+                <button onClick={handleAddItem} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700">
                   <Plus className="h-4 w-4" />
                   Add Item
                 </button>
@@ -787,6 +967,216 @@ export default function InventoryPage() {
                   className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
                 >
                   {processing ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter Modal */}
+      {filterModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Filter Items</h2>
+              <button
+                onClick={() => setFilterModalOpen(false)}
+                className="p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Status</label>
+                <select
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="all">All Status</option>
+                  <option value="In Stock">In Stock</option>
+                  <option value="Low Stock">Low Stock</option>
+                  <option value="Out of Stock">Out of Stock</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Category</label>
+                <select
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="all">All Categories</option>
+                  {Array.from(new Set(items.map(i => i.category).filter(Boolean))).map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => {
+                    setFilterStatus('all');
+                    setFilterCategory('all');
+                    setFilterModalOpen(false);
+                  }}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={() => setFilterModalOpen(false)}
+                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
+                >
+                  Apply
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Columns Modal */}
+      {columnsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Select Columns</h2>
+              <button
+                onClick={() => setColumnsModalOpen(false)}
+                className="p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-2">
+              {[
+                { key: 'name', label: 'Item Name' },
+                { key: 'sku', label: 'SKU' },
+                { key: 'category', label: 'Category' },
+                { key: 'onHand', label: 'On-Hand' },
+                { key: 'status', label: 'Status' },
+                { key: 'unitCost', label: 'Unit Cost' },
+              ].map(col => (
+                <label key={col.key} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns.includes(col.key)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setVisibleColumns([...visibleColumns, col.key]);
+                      } else {
+                        setVisibleColumns(visibleColumns.filter(c => c !== col.key));
+                      }
+                    }}
+                    className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  <span className="text-sm text-slate-700">{col.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setColumnsModalOpen(false)}
+                className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Item Modal */}
+      {addItemModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Add New Item</h2>
+              <button
+                onClick={() => setAddItemModalOpen(false)}
+                className="p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Name *</label>
+                <input
+                  type="text"
+                  value={newItem.name}
+                  onChange={(e) => setNewItem({ ...newItem, name: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter item name"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">SKU</label>
+                <input
+                  type="text"
+                  value={newItem.sku}
+                  onChange={(e) => setNewItem({ ...newItem, sku: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter SKU"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Category</label>
+                <input
+                  type="text"
+                  value={newItem.category}
+                  onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter category"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Unit *</label>
+                  <input
+                    type="text"
+                    value={newItem.unit}
+                    onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
+                    className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="e.g., kg, pcs"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-700">Unit Price *</label>
+                  <input
+                    type="number"
+                    value={newItem.unitPrice}
+                    onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })}
+                    className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Min Stock</label>
+                <input
+                  type="number"
+                  value={newItem.minStock}
+                  onChange={(e) => setNewItem({ ...newItem, minStock: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="0"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setAddItemModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSaveNewItem}
+                  disabled={processing}
+                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {processing ? 'Saving...' : 'Save Item'}
                 </button>
               </div>
             </div>

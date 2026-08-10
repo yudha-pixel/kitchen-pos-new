@@ -585,14 +585,15 @@ model Ingredient {
   warehouse_id    String?         @db.Uuid
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
-  supplier        Supplier?       @relation(fields: [supplier_id], references: [id])
+  supplier        Supplier?       @relation("IngredientSupplier", fields: [supplier_id], references: [id])
   warehouse       Warehouse?      @relation(fields: [warehouse_id], references: [id])
   recipes         Recipe[]
   stockAdjustmentLogs StockAdjustmentLog[]
-  purchaseOrders  PurchaseOrder[]
+  purchaseOrderItems PurchaseOrderItem[]
   transferItems   StockTransferItem[]
   stockRequests   StockRequest[]
   stockWriteOffs  StockWriteOff[]
+  grnItems        GoodsReceivedNoteItem[]
 
   @@index([name])
   @@index([supplier_id])
@@ -639,30 +640,58 @@ model StockTransferItem {
 }
 
 model StockRequest {
-  id                 String    @id @default(uuid()) @db.Uuid
-  ingredient_id      String    @db.Uuid
-  ingredient_name    String
-  quantity_requested Float
-  unit               String
-  notes              String?
-  supplier_name      String?
-  proof_file         String?
-  proof_file_name    String?
-  status             String    @default("pending") // pending, approved, rejected
-  requested_by       String    @db.Uuid
-  requested_by_name  String
-  approved_by        String?   @db.Uuid
-  approved_by_name   String?
-  rejected_by        String?   @db.Uuid
-  rejected_by_name   String?
+  id                  String   @id @default(uuid()) @db.Uuid
+  ingredient_id       String   @db.Uuid
+  ingredient_name     String
+  quantity_requested  Float
+  unit                String
+  notes               String?
+  supplier_id         String?  @db.Uuid  // Preferred supplier
+  proof_file          String?
+  proof_file_name     String?
+  
+  // Multi-level approval fields
+  status              String   @default("pending_supervisor") // pending_supervisor, pending_manager, pending_finance, approved, rejected, cancelled
+  approval_level      Int      @default(1) // 1=supervisor, 2=manager, 3=finance
+  
+  // Supervisor approval
+  supervisor_id       String?  @db.Uuid
+  supervisor_name     String?
+  supervisor_approved_at   DateTime?
+  supervisor_notes   String?
+  
+  // Manager approval
+  manager_id          String?  @db.Uuid
+  manager_name        String?
+  manager_approved_at     DateTime?
+  manager_notes       String?
+  
+  // Finance approval
+  finance_id          String?  @db.Uuid
+  finance_name        String?
+  finance_approved_at     DateTime?
+  finance_notes       String?
+  
+  // Rejection
+  rejected_by         String?  @db.Uuid
+  rejected_by_name    String?
+  rejected_at         DateTime?
   rejection_reason   String?
-  requested_at       DateTime  @default(now())
-  approved_at        DateTime?
-  rejected_at        DateTime?
-  ingredient         Ingredient @relation(fields: [ingredient_id], references: [id])
-
-  @@index([ingredient_id])
+  rejection_level     Int?     // Which level rejected
+  
+  // Original fields
+  requested_by        String   @db.Uuid
+  requested_by_name   String
+  requested_at        DateTime @default(now())
+  
+  // Relations
+  quotation_requests  QuotationRequest[]
+  ingredient          Ingredient @relation(fields: [ingredient_id], references: [id])
+  supplier            Supplier? @relation("StockRequestSupplier", fields: [supplier_id], references: [id])
+  
   @@index([status])
+  @@index([approval_level])
+  @@index([requested_by])
   @@map("stock_requests")
 }
 
@@ -697,9 +726,11 @@ model StockWriteOff {
 model Notification {
   id          String   @id @default(uuid()) @db.Uuid
   user_id     String   @db.Uuid
-  type        String   // order_created, order_updated, table_status_changed, stock_low, transfer_requested, etc.
+  type        String   // order_created, order_updated, table_status_changed, stock_low, transfer_requested, stock_request_approval, po_review, payment_due, etc.
   title       String
   message     String
+  entity_id   String?  // Related entity ID
+  entity_type String?  // stock_request, purchase_order, invoice
   data        Json?
   is_read     Boolean  @default(false)
   created_at  DateTime @default(now())
@@ -732,37 +763,261 @@ model Supplier {
   phone           String
   email           String?
   address         String?
+  payment_terms   String?        @default("net 30") // Default payment terms
+  tax_id          String?        // NPWP for Indonesia
+  is_active       Boolean        @default(true)
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
-  ingredients     Ingredient[]
+  ingredients     Ingredient[]   @relation("IngredientSupplier")
   purchaseOrders  PurchaseOrder[]
+  quotations      Quotation[]
+  invoices        Invoice[]
+  stockRequests   StockRequest[] @relation("StockRequestSupplier")
+  goodsReceivedNotes GoodsReceivedNote[]
 
   @@index([name])
+  @@index([is_active])
   @@map("suppliers")
 }
 
 model PurchaseOrder {
   id                String   @id @default(uuid()) @db.Uuid
+  po_number         String   @unique
+  quotation_id      String?  @db.Uuid  // Link to selected quotation
   supplier_id       String   @db.Uuid
-  ingredient_id     String   @db.Uuid
-  quantity          Float
-  unit_price        Float
-  total_price       Float
-  status            String   @default("pending") // pending, received, cancelled
+  status            String   @default("draft") // draft, sent, acknowledged, partially_received, received, cancelled
+  
+  // PO details
   order_date        DateTime @default(now())
-  received_date     DateTime?
+  expected_delivery DateTime?
+  payment_terms     String?  // net 30, net 60, etc.
+  subtotal          Float
+  tax               Float    @default(0)
+  total             Float
   notes             String?
-  user_id           String?  @db.Uuid
-  created_at        DateTime @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime @updatedAt
-  supplier          Supplier    @relation(fields: [supplier_id], references: [id])
-  ingredient        Ingredient  @relation(fields: [ingredient_id], references: [id])
-
-  @@index([supplier_id])
-  @@index([ingredient_id])
+  
+  // Review & Send
+  reviewed_by       String?  @db.Uuid
+  reviewed_at       DateTime?
+  sent_at           DateTime?
+  acknowledged_at   DateTime?
+  
+  // Items
+  items             PurchaseOrderItem[]
+  
+  // Relations
+  quotation         Quotation? @relation(fields: [quotation_id], references: [id])
+  supplier          Supplier @relation(fields: [supplier_id], references: [id])
+  goodsReceivedNotes GoodsReceivedNote[]
+  
   @@index([status])
-  @@index([order_date])
+  @@index([po_number])
+  @@index([supplier_id])
   @@map("purchase_orders")
+}
+
+// Purchase Order Items (support multiple items per PO)
+model PurchaseOrderItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  purchase_order_id String  @db.Uuid
+  ingredient_id   String   @db.Uuid
+  ingredient_name String
+  quantity        Float
+  unit            String
+  unit_price      Float
+  total_price     Float
+  
+  purchase_order  PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  ingredient      Ingredient    @relation(fields: [ingredient_id], references: [id])
+  
+  @@index([purchase_order_id])
+  @@index([ingredient_id])
+  @@map("purchase_order_items")
+}
+
+// Quotation Request
+model QuotationRequest {
+  id              String   @id @default(uuid()) @db.Uuid
+  stock_request_id String  @db.Uuid
+  status          String   @default("open") // open, closed, cancelled
+  sent_at         DateTime @default(now())
+  closed_at       DateTime?
+  notes           String?
+  
+  stock_request   StockRequest @relation(fields: [stock_request_id], references: [id])
+  quotations      Quotation[]
+  
+  @@index([status])
+  @@index([stock_request_id])
+  @@map("quotation_requests")
+}
+
+// Quotation from Supplier
+model Quotation {
+  id                  String   @id @default(uuid()) @db.Uuid
+  quotation_request_id String  @db.Uuid
+  supplier_id         String   @db.Uuid
+  status              String   @default("received") // received, selected, rejected
+  
+  // Quotation details
+  quoted_price        Float
+  quoted_unit         String
+  delivery_date       DateTime?
+  payment_terms       String?  // net 30, net 60, etc.
+  valid_until         DateTime?
+  notes               String?
+  received_at         DateTime @default(now())
+  
+  // Selection
+  selected_at         DateTime?
+  selected_by         String?  @db.Uuid
+  selected_by_name    String?
+  
+  quotation_request   QuotationRequest @relation(fields: [quotation_request_id], references: [id])
+  supplier            Supplier @relation(fields: [supplier_id], references: [id])
+  purchaseOrders      PurchaseOrder[]
+  
+  @@index([status])
+  @@index([quotation_request_id])
+  @@index([supplier_id])
+  @@map("quotations")
+}
+
+// Goods Received Note
+model GoodsReceivedNote {
+  id              String   @id @default(uuid()) @db.Uuid
+  grn_number      String   @unique
+  purchase_order_id String  @db.Uuid
+  supplier_id     String   @db.Uuid
+  status          String   @default("pending") // pending, quality_check, completed, cancelled
+  
+  // Receiving details
+  received_date   DateTime @default(now())
+  received_by     String   @db.Uuid
+  received_by_name String
+  delivery_note   String?  // Supplier's delivery note number
+  
+  // Quality check
+  quality_checked_by String?  @db.Uuid
+  quality_checked_at DateTime?
+  quality_notes   String?
+  
+  // Items
+  items           GoodsReceivedNoteItem[]
+  
+  // Relations
+  purchase_order  PurchaseOrder @relation(fields: [purchase_order_id], references: [id])
+  supplier        Supplier @relation(fields: [supplier_id], references: [id])
+  invoices        Invoice[]
+  
+  @@index([status])
+  @@index([grn_number])
+  @@index([purchase_order_id])
+  @@map("goods_received_notes")
+}
+
+// GRN Items with quality check
+model GoodsReceivedNoteItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  grn_id          String   @db.Uuid
+  ingredient_id   String   @db.Uuid
+  ingredient_name String
+  
+  // Ordered vs Received
+  ordered_qty     Float
+  received_qty    Float
+  unit            String
+  
+  // Quality check
+  quality_status  String   @default("pending") // pending, approved, rejected
+  rejection_reason String?
+  batch_number    String?
+  expiry_date     DateTime?
+  
+  // Stock update
+  stock_updated   Boolean  @default(false)
+  
+  grn             GoodsReceivedNote @relation(fields: [grn_id], references: [id])
+  ingredient      Ingredient @relation(fields: [ingredient_id], references: [id])
+  
+  @@index([grn_id])
+  @@index([ingredient_id])
+  @@map("grn_items")
+}
+
+// Supplier Invoice
+model Invoice {
+  id              String   @id @default(uuid()) @db.Uuid
+  invoice_number  String   @unique
+  grn_id          String   @db.Uuid
+  supplier_id     String   @db.Uuid
+  status          String   @default("pending") // pending, verified, partially_paid, paid, overdue
+  
+  // Invoice details
+  invoice_date    DateTime
+  due_date        DateTime
+  subtotal        Float
+  tax             Float    @default(0)
+  total           Float
+  payment_terms   String?  // net 30, net 60, etc.
+  notes           String?
+  
+  // Verification
+  verified_by     String?  @db.Uuid
+  verified_at     DateTime?
+  
+  // Relations
+  grn             GoodsReceivedNote @relation(fields: [grn_id], references: [id])
+  supplier        Supplier @relation(fields: [supplier_id], references: [id])
+  payments        Payment[]
+  
+  @@index([status])
+  @@index([invoice_number])
+  @@index([supplier_id])
+  @@index([due_date])
+  @@map("invoices")
+}
+
+// Payment
+model Payment {
+  id              String   @id @default(uuid()) @db.Uuid
+  invoice_id      String   @db.Uuid
+  supplier_id     String   @db.Uuid
+  status          String   @default("pending") // pending, completed, cancelled
+  
+  // Payment details
+  payment_date    DateTime
+  amount          Float
+  payment_method  String   // transfer, cash, check
+  reference_number String?
+  notes           String?
+  
+  // Processing
+  processed_by    String?  @db.Uuid
+  processed_at    DateTime?
+  
+  // Relations
+  invoice         Invoice @relation(fields: [invoice_id], references: [id])
+  
+  @@index([status])
+  @@index([invoice_id])
+  @@index([supplier_id])
+  @@index([payment_date])
+  @@map("payments")
+}
+
+// Approval Workflow Configuration
+model ApprovalWorkflow {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  level           Int      // 1, 2, 3
+  role_id         String   @db.Uuid
+  role_name       String
+  is_active       Boolean  @default(true)
+  
+  @@index([level])
+  @@index([role_id])
+  @@map("approval_workflows")
 }
 
 model StockAdjustmentLog {

@@ -31,9 +31,6 @@ router.get('/:id', async (req: Request, res: Response) => {
       include: {
         ingredients: true,
         purchaseOrders: {
-          include: {
-            ingredient: true,
-          },
           orderBy: {
             order_date: 'desc',
           },
@@ -114,20 +111,33 @@ router.post('/:id/purchase-orders', authMiddleware, requireRole('admin'), async 
     const supplierId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     
     const total_price = quantity * unit_price;
-    
+
     const purchaseOrder = await prisma.purchaseOrder.create({
       data: {
+        po_number: `PO-${Date.now()}`,
         supplier_id: supplierId,
-        ingredient_id,
-        quantity,
-        unit_price,
-        total_price,
+        subtotal: total_price,
+        tax: 0,
+        total: total_price,
         notes: notes || null,
-        user_id: userId,
+        items: {
+          create: {
+            ingredient_id,
+            ingredient_name: '', // Will be filled from ingredient lookup
+            quantity,
+            unit: 'kg', // Default unit
+            unit_price,
+            total_price,
+          },
+        },
       },
       include: {
         supplier: true,
-        ingredient: true,
+        items: {
+          include: {
+            ingredient: true,
+          },
+        },
       },
     });
     
@@ -217,9 +227,6 @@ router.get('/:id/purchase-orders', async (req: Request, res: Response) => {
     
     const purchaseOrders = await prisma.purchaseOrder.findMany({
       where: { supplier_id: supplierId },
-      include: {
-        ingredient: true,
-      },
       orderBy: {
         order_date: 'desc',
       },

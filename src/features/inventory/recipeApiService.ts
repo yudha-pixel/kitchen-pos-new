@@ -222,20 +222,49 @@ export interface StockRequest {
   quantity_requested: number;
   unit: string;
   notes?: string;
+  supplier_id?: string;
   supplier_name?: string;
   proof_file?: string;
   proof_file_name?: string;
-  status: 'pending' | 'approved' | 'rejected';
-  requested_by: string;
-  requested_by_name: string;
-  approved_by?: string;
-  approved_by_name?: string;
+  status: 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
+  approval_level: number;
+  // Supervisor approval
+  supervisor_id?: string;
+  supervisor_name?: string;
+  supervisor_approved_at?: string;
+  supervisor_notes?: string;
+  // Manager approval
+  manager_id?: string;
+  manager_name?: string;
+  manager_approved_at?: string;
+  manager_notes?: string;
+  // Finance approval
+  finance_id?: string;
+  finance_name?: string;
+  finance_approved_at?: string;
+  finance_notes?: string;
+  // Rejection
   rejected_by?: string;
   rejected_by_name?: string;
-  rejection_reason?: string;
-  requested_at: string;
-  approved_at?: string;
   rejected_at?: string;
+  rejection_reason?: string;
+  rejection_level?: number;
+  // Original fields
+  requested_by: string;
+  requested_by_name: string;
+  requested_at: string;
+  // Relations
+  ingredient?: {
+    id: string;
+    name: string;
+    current_stock: number;
+    unit: string;
+  };
+  supplier?: {
+    id: string;
+    name: string;
+    phone: string;
+  };
 }
 
 // Create stock request
@@ -278,7 +307,7 @@ export async function getStockRequests(): Promise<StockRequest[]> {
 
 // Get stock requests filtered by status
 export async function getStockRequestsByStatus(
-  status: 'pending' | 'approved' | 'rejected'
+  status: 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled'
 ): Promise<StockRequest[]> {
   try {
     const token = getToken();
@@ -293,27 +322,82 @@ export async function getStockRequestsByStatus(
   }
 }
 
-// Approve a stock request (admin only); server adds the quantity to ingredient stock
-export async function approveStockRequest(
-  requestId: string
+// Supervisor approval
+export async function approveStockRequestSupervisor(
+  requestId: string,
+  notes?: string
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve`, {
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve-supervisor`, {
       method: 'PATCH',
-      headers: { 'Authorization': `Bearer ${token}` },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ notes }),
     });
     if (!response.ok) {
       const body = await response.json().catch(() => ({}));
       return { success: false, message: body.error || 'Failed to approve stock request' };
     }
-    return { success: true, message: 'Stock request approved successfully' };
+    return { success: true, message: 'Stock request approved by supervisor' };
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : 'Failed to approve stock request' };
   }
 }
 
-// Reject a stock request (admin only)
+// Manager approval
+export async function approveStockRequestManager(
+  requestId: string,
+  notes?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve-manager`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ notes }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to approve stock request' };
+    }
+    return { success: true, message: 'Stock request approved by manager' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to approve stock request' };
+  }
+}
+
+// Finance director approval
+export async function approveStockRequestFinance(
+  requestId: string,
+  notes?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve-finance`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ notes }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to approve stock request' };
+    }
+    return { success: true, message: 'Stock request approved by finance director' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to approve stock request' };
+  }
+}
+
+// Reject a stock request (at any level)
 export async function rejectStockRequest(
   requestId: string,
   rejectionReason?: string
@@ -335,6 +419,852 @@ export async function rejectStockRequest(
     return { success: true, message: 'Stock request rejected successfully' };
   } catch (error) {
     return { success: false, message: error instanceof Error ? error.message : 'Failed to reject stock request' };
+  }
+}
+
+// Recall a stock request (by requester)
+export async function recallStockRequest(
+  requestId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/recall`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to recall stock request' };
+    }
+    return { success: true, message: 'Stock request recalled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to recall stock request' };
+  }
+}
+
+// Cancel a stock request (by requester)
+export async function cancelStockRequest(
+  requestId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to cancel stock request' };
+    }
+    return { success: true, message: 'Stock request cancelled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to cancel stock request' };
+  }
+}
+
+// Legacy approve function (for backward compatibility)
+export async function approveStockRequest(
+  requestId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to approve stock request' };
+    }
+    return { success: true, message: 'Stock request approved successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to approve stock request' };
+  }
+}
+
+// Quotation Request interfaces
+export interface QuotationRequest {
+  id: string;
+  stock_request_id: string;
+  status: 'open' | 'closed' | 'cancelled';
+  sent_at: string;
+  closed_at?: string;
+  notes?: string;
+  stock_request?: {
+    id: string;
+    ingredient_name: string;
+    quantity_requested: number;
+    unit: string;
+  };
+  quotations?: Quotation[];
+}
+
+export interface Quotation {
+  id: string;
+  quotation_request_id: string;
+  supplier_id: string;
+  status: 'received' | 'selected' | 'rejected';
+  quoted_price: number;
+  quoted_unit: string;
+  delivery_date?: string;
+  payment_terms?: string;
+  valid_until?: string;
+  notes?: string;
+  received_at: string;
+  selected_at?: string;
+  selected_by?: string;
+  selected_by_name?: string;
+  supplier?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+  };
+}
+
+// Get all quotation requests
+export async function getQuotationRequests(): Promise<QuotationRequest[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotation-requests`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get quotation requests');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get quotation requests:', error);
+    return [];
+  }
+}
+
+// Get quotation requests by status
+export async function getQuotationRequestsByStatus(
+  status: 'open' | 'closed' | 'cancelled'
+): Promise<QuotationRequest[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotation-requests?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get quotation requests');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get quotation requests by status:', error);
+    return [];
+  }
+}
+
+// Create quotation request from stock request
+export async function createQuotationRequest(
+  stockRequestId: string,
+  notes?: string
+): Promise<string> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotation-requests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ stock_request_id: stockRequestId, notes }),
+    });
+    if (!response.ok) throw new Error('Failed to create quotation request');
+    const result = await response.json();
+    return result.id;
+  } catch (error) {
+    console.error('Failed to create quotation request:', error);
+    throw error;
+  }
+}
+
+// Close quotation request
+export async function closeQuotationRequest(
+  requestId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotation-requests/${requestId}/close`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to close quotation request' };
+    }
+    return { success: true, message: 'Quotation request closed successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to close quotation request' };
+  }
+}
+
+// Cancel quotation request
+export async function cancelQuotationRequest(
+  requestId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotation-requests/${requestId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to cancel quotation request' };
+    }
+    return { success: true, message: 'Quotation request cancelled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to cancel quotation request' };
+  }
+}
+
+// Get quotations for a quotation request
+export async function getQuotations(quotationRequestId: string): Promise<Quotation[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotation-requests/${quotationRequestId}/quotations`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get quotations');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get quotations:', error);
+    return [];
+  }
+}
+
+// Get all quotations
+export async function getAllQuotations(): Promise<Quotation[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotations`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get quotations');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get quotations:', error);
+    return [];
+  }
+}
+
+// Select quotation
+export async function selectQuotation(
+  quotationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotations/${quotationId}/select`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to select quotation' };
+    }
+    return { success: true, message: 'Quotation selected successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to select quotation' };
+  }
+}
+
+// Reject quotation
+export async function rejectQuotation(
+  quotationId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/quotations/${quotationId}/reject`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to reject quotation' };
+    }
+    return { success: true, message: 'Quotation rejected successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to reject quotation' };
+  }
+}
+
+// Purchase Order interfaces
+export interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  quotation_id?: string;
+  supplier_id: string;
+  status: 'draft' | 'reviewed' | 'sent' | 'acknowledged' | 'cancelled';
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes?: string;
+  reviewed_at?: string;
+  reviewed_by?: string;
+  reviewed_by_name?: string;
+  sent_at?: string;
+  acknowledged_at?: string;
+  cancelled_at?: string;
+  created_at: string;
+  updated_at: string;
+  supplier?: {
+    id: string;
+    name: string;
+    phone: string;
+    email?: string;
+  };
+  quotation?: {
+    id: string;
+    supplier_id: string;
+    quoted_price: number;
+  };
+  items?: PurchaseOrderItem[];
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  purchase_order_id: string;
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity: number;
+  unit: string;
+  unit_price: number;
+  total_price: number;
+  ingredient?: {
+    id: string;
+    name: string;
+    current_stock: number;
+    unit: string;
+  };
+}
+
+// Get all purchase orders
+export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/purchase-orders`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get purchase orders');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get purchase orders:', error);
+    return [];
+  }
+}
+
+// Get purchase orders by status
+export async function getPurchaseOrdersByStatus(
+  status: 'draft' | 'reviewed' | 'sent' | 'acknowledged' | 'cancelled'
+): Promise<PurchaseOrder[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/purchase-orders?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get purchase orders');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get purchase orders by status:', error);
+    return [];
+  }
+}
+
+// Create purchase order from quotation
+export async function createPurchaseOrder(
+  quotationId: string,
+  notes?: string
+): Promise<string> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/purchase-orders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ quotation_id: quotationId, notes }),
+    });
+    if (!response.ok) throw new Error('Failed to create purchase order');
+    const result = await response.json();
+    return result.id;
+  } catch (error) {
+    console.error('Failed to create purchase order:', error);
+    throw error;
+  }
+}
+
+// Review purchase order
+export async function reviewPurchaseOrder(
+  orderId: string,
+  notes?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/purchase-orders/${orderId}/review`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ notes }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to review purchase order' };
+    }
+    return { success: true, message: 'Purchase order reviewed successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to review purchase order' };
+  }
+}
+
+// Send purchase order to supplier
+export async function sendPurchaseOrder(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/purchase-orders/${orderId}/send`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to send purchase order' };
+    }
+    return { success: true, message: 'Purchase order sent successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to send purchase order' };
+  }
+}
+
+// Cancel purchase order
+export async function cancelPurchaseOrder(
+  orderId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/purchase-orders/${orderId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to cancel purchase order' };
+    }
+    return { success: true, message: 'Purchase order cancelled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to cancel purchase order' };
+  }
+}
+
+// Goods Received Note interfaces
+export interface GoodsReceivedNote {
+  id: string;
+  purchase_order_id: string;
+  grn_number: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  received_date: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
+  purchase_order?: {
+    id: string;
+    po_number: string;
+    supplier_id: string;
+    supplier?: {
+      id: string;
+      name: string;
+      phone: string;
+    };
+  };
+  items?: GoodsReceivedNoteItem[];
+}
+
+export interface GoodsReceivedNoteItem {
+  id: string;
+  grn_id: string;
+  purchase_order_item_id: string;
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity_ordered: number;
+  quantity_received: number;
+  unit: string;
+  unit_price: number;
+  total_price: number;
+  quality_status: 'accepted' | 'rejected' | 'partial';
+  quality_notes?: string;
+  ingredient?: {
+    id: string;
+    name: string;
+    current_stock: number;
+    unit: string;
+  };
+}
+
+// Get all goods received notes
+export async function getGoodsReceivedNotes(): Promise<GoodsReceivedNote[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/goods-received-notes`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get goods received notes');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get goods received notes:', error);
+    return [];
+  }
+}
+
+// Get goods received notes by status
+export async function getGoodsReceivedNotesByStatus(
+  status: 'pending' | 'completed' | 'cancelled'
+): Promise<GoodsReceivedNote[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/goods-received-notes?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get goods received notes');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get goods received notes by status:', error);
+    return [];
+  }
+}
+
+// Create goods received note from purchase order
+export async function createGoodsReceivedNote(
+  purchaseOrderId: string,
+  notes?: string
+): Promise<string> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/goods-received-notes`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ purchase_order_id: purchaseOrderId, notes }),
+    });
+    if (!response.ok) throw new Error('Failed to create goods received note');
+    const result = await response.json();
+    return result.id;
+  } catch (error) {
+    console.error('Failed to create goods received note:', error);
+    throw error;
+  }
+}
+
+// Complete goods received note (update stock)
+export async function completeGoodsReceivedNote(
+  grnId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/goods-received-notes/${grnId}/complete`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to complete goods received note' };
+    }
+    return { success: true, message: 'Goods received note completed successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to complete goods received note' };
+  }
+}
+
+// Cancel goods received note
+export async function cancelGoodsReceivedNote(
+  grnId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/goods-received-notes/${grnId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to cancel goods received note' };
+    }
+    return { success: true, message: 'Goods received note cancelled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to cancel goods received note' };
+  }
+}
+
+// Invoice interfaces
+export interface Invoice {
+  id: string;
+  grn_id: string;
+  invoice_number: string;
+  status: 'pending' | 'verified' | 'paid' | 'cancelled';
+  invoice_date: string;
+  due_date?: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  notes?: string;
+  verified_at?: string;
+  verified_by?: string;
+  verified_by_name?: string;
+  paid_at?: string;
+  cancelled_at?: string;
+  created_at: string;
+  updated_at: string;
+  grn?: {
+    id: string;
+    grn_number: string;
+    purchase_order?: {
+      id: string;
+      po_number: string;
+      supplier?: {
+        id: string;
+        name: string;
+        phone: string;
+      };
+    };
+  };
+}
+
+// Get all invoices
+export async function getInvoices(): Promise<Invoice[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/invoices`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get invoices');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get invoices:', error);
+    return [];
+  }
+}
+
+// Get invoices by status
+export async function getInvoicesByStatus(
+  status: 'pending' | 'verified' | 'paid' | 'cancelled'
+): Promise<Invoice[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/invoices?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get invoices');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get invoices by status:', error);
+    return [];
+  }
+}
+
+// Create invoice from GRN
+export async function createInvoice(
+  grnId: string,
+  dueDate?: string,
+  notes?: string
+): Promise<string> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/invoices`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ grn_id: grnId, due_date: dueDate, notes }),
+    });
+    if (!response.ok) throw new Error('Failed to create invoice');
+    const result = await response.json();
+    return result.id;
+  } catch (error) {
+    console.error('Failed to create invoice:', error);
+    throw error;
+  }
+}
+
+// Verify invoice
+export async function verifyInvoice(
+  invoiceId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/verify`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to verify invoice' };
+    }
+    return { success: true, message: 'Invoice verified successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to verify invoice' };
+  }
+}
+
+// Cancel invoice
+export async function cancelInvoice(
+  invoiceId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to cancel invoice' };
+    }
+    return { success: true, message: 'Invoice cancelled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to cancel invoice' };
+  }
+}
+
+// Supplier Payment interfaces
+export interface SupplierPayment {
+  id: string;
+  invoice_id: string;
+  payment_number: string;
+  status: 'pending' | 'completed' | 'cancelled';
+  payment_date: string;
+  amount: number;
+  payment_method: 'cash' | 'transfer' | 'check' | 'other';
+  reference_number?: string;
+  notes?: string;
+  processed_at?: string;
+  processed_by?: string;
+  processed_by_name?: string;
+  cancelled_at?: string;
+  created_at: string;
+  updated_at: string;
+  invoice?: {
+    id: string;
+    invoice_number: string;
+    total: number;
+    grn?: {
+      purchase_order?: {
+        supplier?: {
+          id: string;
+          name: string;
+          phone: string;
+        };
+      };
+    };
+  };
+}
+
+// Get all supplier payments
+export async function getSupplierPayments(): Promise<SupplierPayment[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/supplier-payments`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get supplier payments');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get supplier payments:', error);
+    return [];
+  }
+}
+
+// Get supplier payments by status
+export async function getSupplierPaymentsByStatus(
+  status: 'pending' | 'completed' | 'cancelled'
+): Promise<SupplierPayment[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/supplier-payments?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get supplier payments');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get supplier payments by status:', error);
+    return [];
+  }
+}
+
+// Create supplier payment from invoice
+export async function createSupplierPayment(
+  invoiceId: string,
+  paymentMethod: 'cash' | 'transfer' | 'check' | 'other',
+  amount: number,
+  referenceNumber?: string,
+  notes?: string
+): Promise<string> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/supplier-payments`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ 
+        invoice_id: invoiceId, 
+        payment_method: paymentMethod,
+        amount,
+        reference_number: referenceNumber,
+        notes 
+      }),
+    });
+    if (!response.ok) throw new Error('Failed to create supplier payment');
+    const result = await response.json();
+    return result.id;
+  } catch (error) {
+    console.error('Failed to create supplier payment:', error);
+    throw error;
+  }
+}
+
+// Process supplier payment
+export async function processSupplierPayment(
+  paymentId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/supplier-payments/${paymentId}/process`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to process supplier payment' };
+    }
+    return { success: true, message: 'Supplier payment processed successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to process supplier payment' };
+  }
+}
+
+// Cancel supplier payment
+export async function cancelSupplierPayment(
+  paymentId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/supplier-payments/${paymentId}/cancel`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to cancel supplier payment' };
+    }
+    return { success: true, message: 'Supplier payment cancelled successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to cancel supplier payment' };
   }
 }
 
