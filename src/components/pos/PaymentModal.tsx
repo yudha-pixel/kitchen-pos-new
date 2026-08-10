@@ -8,6 +8,7 @@ import { formatRupiah } from '@/src/lib/format';
 import { CreditCard, QrCode, Banknote, Divide } from 'lucide-react';
 import { QRISPaymentModal } from './QRISPaymentModal';
 import { CardPaymentModal } from './CardPaymentModal';
+import { TransferPaymentModal } from './TransferPaymentModal';
 
 interface PaymentModalProps {
   isOpen: boolean;
@@ -21,14 +22,14 @@ const paymentMethods = [
   { value: 'CASH', label: 'Tunai', icon: Banknote },
   { value: 'QRIS', label: 'QRIS', icon: QrCode },
   { value: 'DEBIT', label: 'Debit/Kartu', icon: CreditCard },
-  { value: 'EWALLET', label: 'E-Wallet', icon: QrCode },
+  { value: 'TRANSFER', label: 'Transfer', icon: CreditCard },
 ];
 
 const splitPaymentMethods = [
   { value: 'CASH', label: 'Tunai' },
   { value: 'QRIS', label: 'QRIS' },
   { value: 'DEBIT', label: 'Debit/Kartu' },
-  { value: 'EWALLET', label: 'E-Wallet' },
+  { value: 'TRANSFER', label: 'Transfer' },
 ];
 
 export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSplitBillComplete }: PaymentModalProps) => {
@@ -36,12 +37,14 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
   const [cashAmount, setCashAmount] = useState<string>('');
   const [qrisModalOpen, setQrisModalOpen] = useState(false);
   const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [transferModalOpen, setTransferModalOpen] = useState(false);
   const [showSplitBill, setShowSplitBill] = useState(false);
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [splitPaymentMethod, setSplitPaymentMethod] = useState<string>('');
   const [splitCashAmount, setSplitCashAmount] = useState<string>('');
   const [splitQrisModalOpen, setSplitQrisModalOpen] = useState(false);
   const [splitCardModalOpen, setSplitCardModalOpen] = useState(false);
+  const [splitTransferModalOpen, setSplitTransferModalOpen] = useState(false);
   const [isProcessingSplit, setIsProcessingSplit] = useState(false);
   const { toast } = useToast();
 
@@ -77,8 +80,8 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
       setQrisModalOpen(true);
     } else if (selectedPaymentMethod === 'DEBIT') {
       setCardModalOpen(true);
-    } else if (selectedPaymentMethod === 'EWALLET') {
-      setQrisModalOpen(true);
+    } else if (selectedPaymentMethod === 'TRANSFER') {
+      setTransferModalOpen(true);
     }
   };
 
@@ -109,6 +112,15 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
 
   const handleCardClose = () => {
     setCardModalOpen(false);
+  };
+
+  const handleTransferComplete = () => {
+    onPaymentComplete('TRANSFER');
+    setTransferModalOpen(false);
+  };
+
+  const handleTransferClose = () => {
+    setTransferModalOpen(false);
   };
 
   // Split Bill handlers
@@ -174,17 +186,20 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
     setSplitCashAmount('');
     setSplitQrisModalOpen(false);
     setSplitCardModalOpen(false);
+    setSplitTransferModalOpen(false);
   };
 
   const handleSplitPaymentMethodSelect = (method: string) => {
     if (isProcessingSplit) return;
     setSplitPaymentMethod(method);
-    if (method === 'QRIS') {
+    if (method === 'CASH') {
+      // For cash, show inline input
+    } else if (method === 'QRIS') {
       setSplitQrisModalOpen(true);
     } else if (method === 'DEBIT') {
       setSplitCardModalOpen(true);
-    } else if (method === 'EWALLET') {
-      setSplitQrisModalOpen(true);
+    } else if (method === 'TRANSFER') {
+      setSplitTransferModalOpen(true);
     }
   };
 
@@ -210,6 +225,16 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
 
   const handleSplitCardClose = () => {
     setSplitCardModalOpen(false);
+    setSplitPaymentMethod('');
+  };
+
+  const handleSplitTransferComplete = () => {
+    setSplitTransferModalOpen(false);
+    handleConfirmSplit();
+  };
+
+  const handleSplitTransferClose = () => {
+    setSplitTransferModalOpen(false);
     setSplitPaymentMethod('');
   };
 
@@ -272,15 +297,15 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                 >
                   Batal
                 </Button>
-                <Button 
-                  size="lg" 
-                  className="flex-1" 
+                <Button
+                  size="lg"
+                  className="flex-1"
                   disabled={
-                    selectedItemIds.length === 0 || 
-                    !splitPaymentMethod || 
+                    selectedItemIds.length === 0 ||
+                    !splitPaymentMethod ||
                     isProcessingSplit ||
                     (splitPaymentMethod === 'CASH' && (!splitCashAmount || Number(splitCashAmount) < selectedTotal))
-                  } 
+                  }
                   onClick={splitPaymentMethod === 'CASH' ? handleConfirmSplit : undefined}
                 >
                   {isProcessingSplit ? 'Memproses...' : 'Bayar Split'}
@@ -303,7 +328,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                 disabled={!selectedPaymentMethod || (selectedPaymentMethod === 'CASH' && (!cashAmount || Number(cashAmount) < total))}
                 onClick={handlePayment}
               >
-                {selectedPaymentMethod === 'CASH' ? 'Bayar' : selectedPaymentMethod === 'QRIS' || selectedPaymentMethod === 'EWALLET' || selectedPaymentMethod === 'DEBIT' ? 'Lanjut' : 'Bayar'}
+                {selectedPaymentMethod === 'CASH' ? 'Bayar' : 'Lanjut'}
               </Button>
             </div>
           )
@@ -375,7 +400,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                     placeholder="Masukkan jumlah uang"
                     className="w-full p-3 border-2 rounded-lg focus:border-primary focus:outline-none"
                   />
-                  
+
                   {/* Quick Amount Buttons */}
                   <div className="grid grid-cols-3 gap-2">
                     {[total, total * 2, total * 3].map((amount, index) => (
@@ -489,7 +514,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                       className="w-full p-3 border-2 rounded-lg focus:border-primary focus:outline-none"
                       disabled={isProcessingSplit}
                     />
-                    
+
                     {/* Quick Amount Buttons */}
                     <div className="grid grid-cols-3 gap-2">
                       {[selectedTotal, selectedTotal * 2, selectedTotal * 3].map((amount, index) => (
@@ -551,6 +576,22 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
         onClose={handleSplitCardClose}
         order={order}
         onPaymentComplete={handleSplitCardComplete}
+      />
+
+      {/* Transfer Payment Modal */}
+      <TransferPaymentModal
+        isOpen={transferModalOpen}
+        onClose={handleTransferClose}
+        order={order}
+        onPaymentComplete={handleTransferComplete}
+      />
+
+      {/* Split Bill Transfer Payment Modal */}
+      <TransferPaymentModal
+        isOpen={splitTransferModalOpen}
+        onClose={handleSplitTransferClose}
+        order={order}
+        onPaymentComplete={handleSplitTransferComplete}
       />
     </>
   );

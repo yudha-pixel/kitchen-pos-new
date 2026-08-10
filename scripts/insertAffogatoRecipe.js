@@ -1,8 +1,8 @@
 /**
  * Browser Console Script to Insert Affogato Recipe
- * 
+ *
  * CRITICAL: Run this script to insert Affogato recipe data permanently to database
- * 
+ *
  * Instructions:
  * 1. Open the Kitchen POS application in browser
  * 2. Navigate to: http://localhost:3000/inventory/mapping
@@ -13,6 +13,18 @@
  * 7. Refresh the page (F5)
  * 8. Select "Affogato" from the product list to verify
  */
+
+// UUID generator for browser console
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
 
 (async function insertAffogatoRecipe() {
   console.log('🔄 STARTING AFFOGATO RECIPE INSERTION...');
@@ -37,7 +49,7 @@
     if (!affogatoProduct) {
       console.log('📝 Creating Affogato product...');
       // Create Affogato product
-      const productId = crypto.randomUUID();
+      const productId = generateUUID();
       await db.products.add({
         id: productId,
         name: 'Affogato',
@@ -92,7 +104,7 @@
     console.log('➕ Inserting recipe components...');
     
     await db.recipes.add({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       menu_item_id: productId,
       ingredient_id: bijiKopi.id,
       quantity_required: 0.018, // 18g
@@ -102,7 +114,7 @@
     console.log('   ✅ Biji Kopi: 0.018 kg');
     
     await db.recipes.add({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       menu_item_id: productId,
       ingredient_id: esKrim.id,
       quantity_required: 0.05, // 50g
@@ -112,7 +124,7 @@
     console.log('   ✅ Es Krim Vanila: 0.05 kg');
     
     await db.recipes.add({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       menu_item_id: productId,
       ingredient_id: susu.id,
       quantity_required: 0.05, // 50ml

@@ -13,7 +13,6 @@ import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
 import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, X, List, History, Printer } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
-import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 
 interface CartItem {
   productId: string;
@@ -32,14 +31,8 @@ export default function WaiterPage() {
   const [selectedTable, setSelectedTable] = useState<string>('');
   const [guestCount, setGuestCount] = useState<number>(1);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [isHeldOrdersOpen, setIsHeldOrdersOpen] = useState(false);
-  const [heldOrders, setHeldOrders] = useState<any[]>([]);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [orderHistory, setOrderHistory] = useState<any[]>([]);
-  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
-  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<any>(null);
-  const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
   const [selectedProductForModifier, setSelectedProductForModifier] = useState<any>(null);
 
@@ -75,19 +68,6 @@ export default function WaiterPage() {
   useEffect(() => {
     if (syncError) toast('error', syncError);
   }, [syncError, toast]);
-
-  // Load held orders from localStorage when modal opens
-  useEffect(() => {
-    if (isHeldOrdersOpen) {
-      try {
-        const orders = JSON.parse(localStorage.getItem('heldOrders') || '[]');
-        setHeldOrders(orders);
-      } catch (error) {
-        console.error('Failed to load held orders:', error);
-        setHeldOrders([]);
-      }
-    }
-  }, [isHeldOrdersOpen]);
 
   // Load order history from IndexedDB when modal opens
   useEffect(() => {
@@ -231,152 +211,7 @@ export default function WaiterPage() {
     setSelectedProductForModifier(null);
   };
 
-  const handleHoldOrder = async () => {
-    if (cartItems.length === 0) {
-      toast('error', 'Keranjang kosong');
-      return;
-    }
-    if (!selectedTable) {
-      toast('error', 'Silakan pilih nomor meja');
-      return;
-    }
 
-    try {
-      // Store the held order in local storage or IndexedDB for later retrieval
-      const heldOrder = {
-        table: selectedTable,
-        guestCount,
-        items: cartItems,
-        timestamp: new Date().toISOString(),
-      };
-
-      const heldOrders = JSON.parse(localStorage.getItem('heldOrders') || '[]');
-      heldOrders.push(heldOrder);
-      localStorage.setItem('heldOrders', JSON.stringify(heldOrders));
-
-      clearCart();
-      toast('success', `Pesanan untuk meja ${selectedTable} ditahan`);
-      setSelectedTable('');
-      setGuestCount(1);
-    } catch (error) {
-      toast('error', 'Gagal menahan pesanan');
-    }
-  };
-
-  const handleLoadHeldOrder = (index: number) => {
-    try {
-      const order = heldOrders[index];
-      
-      // Clear current cart
-      clearCart();
-      
-      // Set table and guest count
-      setSelectedTable(order.table);
-      setGuestCount(order.guestCount);
-      
-      // Add items to cart
-      order.items.forEach((item: any) => {
-        addToCart({
-          productId: item.productId,
-          name: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          modifiers: item.modifiers || [],
-        });
-      });
-      
-      // Remove from localStorage
-      const updatedHeldOrders = heldOrders.filter((_, i) => i !== index);
-      localStorage.setItem('heldOrders', JSON.stringify(updatedHeldOrders));
-      setHeldOrders(updatedHeldOrders);
-      
-      toast('success', `Pesanan meja ${order.table} dimuat kembali`);
-      setIsHeldOrdersOpen(false);
-    } catch (error) {
-      toast('error', 'Gagal memuat pesanan');
-    }
-  };
-
-  const handleDeleteHeldOrder = (index: number) => {
-    try {
-      const updatedHeldOrders = heldOrders.filter((_, i) => i !== index);
-      localStorage.setItem('heldOrders', JSON.stringify(updatedHeldOrders));
-      setHeldOrders(updatedHeldOrders);
-      toast('success', 'Pesanan dihapus');
-    } catch (error) {
-      toast('error', 'Gagal menghapus pesanan');
-    }
-  };
-
-  const handlePrintReceipt = (order: any) => {
-    const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
-      const price = Number(item.price_at_time) || 0;
-      return sum + (price * item.quantity);
-    }, 0) || 0;
-
-    setSelectedOrderForReceipt({
-      orderId: order.id,
-      tableNumber: order.table_number || '-',
-      items: order.items?.map((item: any) => ({
-        name: item.product?.name || 'Unknown',
-        quantity: item.quantity,
-        price: Number(item.price_at_time) || 0,
-        modifiers: item.modifiers_applied && Array.isArray(item.modifiers_applied)
-          ? item.modifiers_applied.map((m: any) => m.name || m)
-          : [],
-      })) || [],
-      subtotal: calculatedTotal,
-      tax: 0,
-      discount: 0,
-      roundingAmount: 0,
-      total: calculatedTotal,
-      paymentMethod: 'cash',
-      cashierName: (user as any)?.name || 'Waiter',
-      notes: order.notes,
-    });
-    setReceiptModalOpen(true);
-  };
-
-  const handlePayment = async () => {
-    if (!selectedPaymentMethod) {
-      toast('error', 'Pilih metode pembayaran terlebih dahulu');
-      return;
-    }
-
-    // The cart store only supports these three; map the modal's options onto them.
-    const methodMap: Record<string, 'CASH' | 'QRIS' | 'DEBIT'> = {
-      cash: 'CASH',
-      qr: 'QRIS',
-      card: 'DEBIT',
-    };
-    const mappedMethod = methodMap[selectedPaymentMethod];
-    if (!mappedMethod) {
-      toast('error', 'Metode pembayaran tidak didukung');
-      return;
-    }
-
-    useCartStore.getState().setTableNumber(selectedTable);
-    useCartStore.getState().setNotes(`Guest count: ${guestCount}`);
-    useCartStore.getState().setPaymentMethod(mappedMethod);
-
-    // Goes through the same order-creation path as the main POS (API + IndexedDB,
-    // stock checks, member points) instead of writing straight to IndexedDB.
-    const result = await processPayment();
-
-    if (!result.success) {
-      toast('error', result.message);
-      return;
-    }
-
-    setSelectedOrderForReceipt(result.receiptData);
-    setPaymentModalOpen(false);
-    setReceiptModalOpen(true);
-    setIsCartOpen(false);
-    setSelectedTable('');
-    setGuestCount(1);
-    setSelectedPaymentMethod('');
-    toast('success', 'Pembayaran berhasil');
-  };
 
   const cartTotal = cartItems.reduce((sum, item) => {
     const itemTotal = item.price * item.quantity;
@@ -404,7 +239,16 @@ export default function WaiterPage() {
       <header className="bg-white shadow-sm sticky top-0 z-30">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
-            <h1 className="text-xl font-bold text-gray-900">Waiter POS</h1>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/')}
+                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                title="Kembali"
+              >
+                <X className="h-5 w-5 text-gray-600" />
+              </button>
+              <h1 className="text-xl font-bold text-gray-900">Waiter POS</h1>
+            </div>
             <ConnectionIndicator />
           </div>
 
@@ -543,14 +387,6 @@ export default function WaiterPage() {
         )}
       </button>
 
-      {/* Held Orders Button */}
-      <button
-        onClick={() => setIsHeldOrdersOpen(true)}
-        className="fixed bottom-4 left-4 z-40 bg-orange-500 text-white rounded-full p-4 shadow-lg"
-      >
-        <List className="h-6 w-6" />
-      </button>
-
       {/* History Button */}
       <button
         onClick={() => setIsHistoryOpen(true)}
@@ -563,14 +399,21 @@ export default function WaiterPage() {
       {isCartOpen && (
         <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-bold">Keranjang</h2>
-              <button
-                onClick={() => setIsCartOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
+            <div className="p-4 border-b">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-lg font-bold">Keranjang</h2>
+                <button
+                  onClick={() => setIsCartOpen(false)}
+                  className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              {selectedTable && (
+                <div className="text-sm text-gray-600">
+                  Meja: <span className="font-semibold">{selectedTable}</span>
+                </div>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
@@ -623,86 +466,28 @@ export default function WaiterPage() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={handleHoldOrder}
-                    disabled={syncInProgress}
-                    className="flex-1 py-3 bg-orange-500 text-white rounded-lg font-medium hover:bg-orange-600 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Clock className="h-5 w-5" />
-                    Tahan
-                  </button>
-                  <button
-                    onClick={() => setPaymentModalOpen(true)}
+                    onClick={async () => {
+                      useCartStore.getState().setTableNumber(selectedTable);
+                      useCartStore.getState().setNotes(`Guest count: ${guestCount}`);
+                      const result = await useCartStore.getState().sendToKitchen();
+                      if (result.success) {
+                        toast('success', result.message);
+                        clearCart();
+                        setSelectedTable('');
+                        setGuestCount(1);
+                      } else {
+                        toast('error', result.message);
+                      }
+                    }}
                     disabled={syncInProgress || cartItems.length === 0}
-                    className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Printer className="h-5 w-5" />
-                    Bayar
+                    Kirim
                   </button>
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* Held Orders Modal */}
-      {isHeldOrdersOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-bold">Pesanan Ditahan</h2>
-              <button
-                onClick={() => setIsHeldOrdersOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              {heldOrders.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <Clock className="h-12 w-12 mx-auto mb-2 text-gray-300" />
-                  <p>Tidak ada pesanan ditahan</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {heldOrders.map((order, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
-                          <h4 className="font-bold text-gray-900">Meja {order.table}</h4>
-                          <p className="text-xs text-gray-500">{order.guestCount} tamu</p>
-                          <p className="text-xs text-gray-400">
-                            {new Date(order.timestamp).toLocaleString('id-ID')}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => handleDeleteHeldOrder(index)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="text-sm text-gray-600 mb-3">
-                        {order.items.map((item: any, i: number) => (
-                          <div key={i} className="flex justify-between">
-                            <span>{item.quantity}x {item.name}</span>
-                            <span>Rp {(item.price * item.quantity).toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => handleLoadHeldOrder(index)}
-                        className="w-full py-2 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 hover:text-white"
-                      >
-                        Muat Pesanan
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}
@@ -734,26 +519,44 @@ export default function WaiterPage() {
                       <div className="flex justify-between items-start mb-2">
                         <div>
                           <h4 className="font-bold text-gray-900">Meja {order.table_number || '-'}</h4>
+                          {order.customer_name && (
+                            <p className="text-sm font-medium text-gray-700">{order.customer_name}</p>
+                          )}
                           <p className="text-xs text-gray-500">
                             {new Date(order.created_at).toLocaleString('id-ID')}
                           </p>
                         </div>
-                        <Badge
-                          tone={
-                            order.status === 'paid'
-                              ? 'success'
-                              : order.status === 'done'
-                              ? 'success'
-                              : order.status === 'cooking'
-                              ? 'warning'
-                              : order.status === 'confirmed'
-                              ? 'info'
-                              : 'neutral'
-                          }
-                        >
-                          {order.status === 'paid' ? 'Lunas' : order.status === 'done' ? 'Done' : order.status === 'preparing' ? 'Diproses' : order.status || 'Pending'}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          {/* Kitchen Status Badge */}
+                          <Badge
+                            tone={
+                              order.status === 'done' || order.status === 'ready' || order.status === 'served' ? 'success' :
+                              order.status === 'preparing' || order.status === 'cooking' ? 'warning' :
+                              'neutral'
+                            }
+                          >
+                            {order.status === 'done' || order.status === 'ready' || order.status === 'served' ? 'Selesai Masak' :
+                             order.status === 'preparing' || order.status === 'cooking' ? 'Sedang Masak' :
+                             order.status === 'pending' || order.status === 'confirmed' ? 'Menunggu' :
+                             order.status || '-'}
+                          </Badge>
+                          {/* Payment Status Badge */}
+                          <Badge
+                            tone={
+                              order.payment_method ? 'success' : 'warning'
+                            }
+                          >
+                            {order.payment_method ? 'Lunas' : 'Belum Bayar'}
+                          </Badge>
+                        </div>
                       </div>
+                      {/* Notes Section */}
+                      {order.notes && (
+                        <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+                          <p className="text-xs text-amber-800 font-medium">Catatan:</p>
+                          <p className="text-sm text-amber-900">{order.notes}</p>
+                        </div>
+                      )}
                       <div className="text-sm text-gray-600">
                         {order.items && order.items.length > 0 ? (
                           <>
@@ -797,102 +600,21 @@ export default function WaiterPage() {
                           Metode Pembayaran: {order.payment_method}
                         </div>
                       )}
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          onClick={() => handlePrintReceipt(order)}
-                          className="flex-1 flex items-center justify-center gap-2 bg-indigo-600 text-white py-2 px-4 rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
-                        >
-                          <Printer className="w-4 h-4" />
-                          Cetak Struk
-                        </button>
+                      <div className="mt-2 flex gap-2">
+                        <Badge tone={
+                          order.status === 'completed' || order.status === 'paid' ? 'success' :
+                          order.status === 'cancelled' ? 'danger' :
+                          'warning'
+                        }>
+                          {order.status === 'completed' || order.status === 'paid' ? 'Lunas' :
+                           order.status === 'cancelled' ? 'Batal' :
+                           'Belum Bayar'}
+                        </Badge>
                       </div>
                     </div>
                   ))}
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Receipt Modal */}
-      {selectedOrderForReceipt && (
-        <ReceiptModal
-          isOpen={receiptModalOpen}
-          onClose={() => setReceiptModalOpen(false)}
-          orderId={selectedOrderForReceipt.orderId}
-          tableNumber={selectedOrderForReceipt.tableNumber}
-          items={selectedOrderForReceipt.items}
-          subtotal={selectedOrderForReceipt.subtotal}
-          tax={selectedOrderForReceipt.tax}
-          discount={selectedOrderForReceipt.discount}
-          roundingAmount={selectedOrderForReceipt.roundingAmount}
-          total={selectedOrderForReceipt.total}
-          paymentMethod={selectedOrderForReceipt.paymentMethod}
-          cashierName={selectedOrderForReceipt.cashierName}
-          notes={selectedOrderForReceipt.notes}
-        />
-      )}
-
-      {/* Payment Method Modal */}
-      {paymentModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-xl font-bold">Pilih Metode Pembayaran</h3>
-              <button
-                onClick={() => setPaymentModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <button
-                onClick={() => setSelectedPaymentMethod('cash')}
-                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                  selectedPaymentMethod === 'cash'
-                    ? 'border-green-600 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                Tunai
-              </button>
-              <button
-                onClick={() => setSelectedPaymentMethod('qr')}
-                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                  selectedPaymentMethod === 'qr'
-                    ? 'border-green-600 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                QRIS
-              </button>
-              <button
-                onClick={() => setSelectedPaymentMethod('card')}
-                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                  selectedPaymentMethod === 'card'
-                    ? 'border-green-600 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                Debit/Kartu
-              </button>
-            </div>
-            <div className="mt-6 flex gap-3">
-              <button
-                onClick={() => setPaymentModalOpen(false)}
-                className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 hover:text-gray-900 active:bg-gray-400 border border-gray-300"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handlePayment}
-                disabled={!selectedPaymentMethod}
-                className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 hover:text-white disabled:opacity-50"
-              >
-                Proses Bayar
-              </button>
             </div>
           </div>
         </div>

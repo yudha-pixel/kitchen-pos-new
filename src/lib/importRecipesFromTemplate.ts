@@ -1,4 +1,5 @@
 import { db } from './db';
+import { generateUUID } from './utils';
 
 interface RecipeTemplateIngredient {
   ingredient_name: string;
@@ -43,7 +44,7 @@ export const importRecipesFromTemplate = async (templateData: RecipeTemplate[]) 
         if (!ingredient) {
           // Create new ingredient with default values
           ingredient = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             name: ingredientTemplate.ingredient_name,
             current_stock: 0,
             unit: ingredientTemplate.unit,
@@ -67,7 +68,7 @@ export const importRecipesFromTemplate = async (templateData: RecipeTemplate[]) 
 
         // Create recipe
         await db.recipes.add({
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           menu_item_id: product.id,
           ingredient_id: ingredient.id,
           quantity_required: ingredientTemplate.quantity,

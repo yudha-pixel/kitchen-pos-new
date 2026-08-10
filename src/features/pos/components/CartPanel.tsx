@@ -8,6 +8,7 @@ import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
+import { generateUUID } from '@/src/lib/utils';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { reduceStockForOrder } from '@/src/features/inventory/inventoryService';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
@@ -22,7 +23,6 @@ import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
 import { SplitBillModal as NewSplitBillModal } from '@/src/components/pos/SplitBillModal';
-import { generateUUID } from '@/src/lib/utils';
 
 const paymentOptions = [
   { value: 'CASH', label: 'Tunai' },
@@ -460,7 +460,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   };
 
   const handleStartSplit = () => {
-    setCurrentSplitGroup(crypto.randomUUID());
+    setCurrentSplitGroup(generateUUID());
     setSplitMode(true);
   };
 

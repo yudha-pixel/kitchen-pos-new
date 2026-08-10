@@ -1,11 +1,23 @@
 // Copy and paste this script into the browser console on any page of the Kitchen POS app
 // This will import recipes from recipes_template.json and provide complete verification
 
+// UUID generator for browser console
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
 (async function importRecipesWithVerification() {
   try {
     console.log('🚀 Starting complete recipe import with verification...');
     console.log('='.repeat(60));
-    
+
     // Step 1: Read the template file
     console.log('📄 Step 1: Reading recipes_template.json...');
     const response = await fetch('/recipes_template.json');
@@ -15,7 +27,7 @@
     const templateData = await response.json();
     console.log(`✅ Template loaded with ${templateData.length} menu entries`);
     console.log('Template data:', templateData);
-    
+
     // Step 2: Get database
     console.log('\n📦 Step 2: Connecting to database...');
     const { db } = await import('/src/lib/db.ts');

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { generateUUID } from '@/src/lib/utils';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
@@ -11,7 +12,7 @@ import { EmptyState } from '@/src/components/ui/EmptyState';
 import { Search, Plus, Minus, Clock, Send, X, Printer, Trash2, Scissors } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
-import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
+import { PaymentModal } from '@/src/components/pos/PaymentModal';
 
 interface WaiterOrderModalProps {
   isOpen: boolean;
@@ -27,10 +28,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
   const [searchQuery, setSearchQuery] = useState('');
   const [guestCount, setGuestCount] = useState<number>(1);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [receiptModalOpen, setReceiptModalOpen] = useState(false);
-  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<any>(null);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
   const [selectedProductForModifier, setSelectedProductForModifier] = useState<any>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
@@ -134,6 +132,12 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
       // Process payment (this will sync to server if online, or queue if offline)
       await processPayment();
 
+      // Dispatch event to notify KDS of new order
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('orderCreated'));
+        console.log('📡 Dispatched orderCreated event from WaiterOrderModal');
+      }
+
       toast('success', 'Pesanan dikirim ke dapur');
       clearCart();
       onClose();
@@ -142,12 +146,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
     }
   };
 
-  const handlePayment = async () => {
-    if (!selectedPaymentMethod) {
-      toast('error', 'Pilih metode pembayaran terlebih dahulu');
-      return;
-    }
-
+  const handlePaymentComplete = async (paymentMethod: string, amount?: number) => {
     // Validate required fields based on category
     if (orderCategory === 'takeaway' && !customerName) {
       toast('error', 'Mohon isi nama pelanggan terlebih dahulu');
@@ -160,7 +159,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
 
     try {
       const { db } = await import('@/src/lib/db');
-      const orderId = crypto.randomUUID();
+      const orderId = generateUUID();
 
       // Generate receipt number
       const generatedReceiptNumber = await generateReceiptNumber(orderCategory);
@@ -175,7 +174,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
 
       // Prepare order items
       const orderItems = cartItems.map(item => ({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         order_id: orderId,
         product_id: item.productId,
         quantity: item.quantity,
@@ -191,9 +190,9 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
       const order = {
         id: orderId,
         table_number: orderCategory === 'dine-in' ? tableNumber : null,
-        status: 'completed' as const,
+        status: 'pending' as const,
         total_amount: calculatedTotal,
-        payment_method: selectedPaymentMethod as 'cash' | 'card' | 'qr' | 'transfer',
+        payment_method: paymentMethod.toLowerCase() as 'cash' | 'card' | 'qr' | 'transfer',
         notes: '',
         created_at: new Date().toISOString(),
         sync_status: 'pending' as const,
@@ -238,30 +237,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
         // Don't block payment if stock reduction fails
       }
 
-      // Prepare receipt data
-      const receiptData = {
-        orderId,
-        tableNumber: orderCategory === 'dine-in' ? tableNumber : 'Direct',
-        items: cartItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          modifiers: item.modifiers.map(m => m.name),
-        })),
-        subtotal: calculatedTotal,
-        tax: 0,
-        discount: 0,
-        roundingAmount: 0,
-        total: calculatedTotal,
-        paymentMethod: selectedPaymentMethod,
-        cashierName: (user as any)?.name || 'Waiter',
-        notes: '',
-        receiptNumber: generatedReceiptNumber,
-      };
-
-      setSelectedOrderForReceipt(receiptData);
       setPaymentModalOpen(false);
-      setReceiptModalOpen(true);
 
       // Clear cart
       clearCart();
@@ -272,11 +248,6 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
       console.error('Payment failed:', error);
       toast('error', 'Gagal memproses pembayaran');
     }
-  };
-
-  const handlePrintReceipt = (order: any) => {
-    setSelectedOrderForReceipt(order);
-    setReceiptModalOpen(true);
   };
 
   const handleCancelOrder = async () => {
@@ -322,6 +293,11 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
     setSplitBillOpen(true);
   };
 
+  const handleSplitBillComplete = async (selectedItems: any[], paymentMethod: string) => {
+    // Split bill not implemented for waiter flow
+    toast('info', 'Split bill tidak tersedia di modul waiter');
+  };
+
   const toggleItemForSplit = (itemId: string) => {
     setSelectedItemsForSplit(prev => {
       const newSet = new Set(prev);
@@ -342,7 +318,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
 
     try {
       const { db } = await import('@/src/lib/db');
-      const orderId = crypto.randomUUID();
+      const orderId = generateUUID();
 
       // Filter selected items
       const splitItems = cartItems.filter(item => selectedItemsForSplit.has(item.id));
@@ -356,7 +332,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
 
       // Prepare order items
       const orderItems = splitItems.map(item => ({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         order_id: orderId,
         product_id: item.productId,
         quantity: item.quantity,
@@ -777,79 +753,24 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
           </div>
         </div>
 
-        {/* Payment Method Modal */}
-        {paymentModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Pilih Metode Pembayaran</h3>
-                <button
-                  onClick={() => setPaymentModalOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="space-y-3">
-                <button
-                  onClick={() => setSelectedPaymentMethod('cash')}
-                  className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                    selectedPaymentMethod === 'cash'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Tunai
-                </button>
-                <button
-                  onClick={() => setSelectedPaymentMethod('qr')}
-                  className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                    selectedPaymentMethod === 'qr'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  QRIS
-                </button>
-                <button
-                  onClick={() => setSelectedPaymentMethod('card')}
-                  className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                    selectedPaymentMethod === 'card'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Debit/Kartu
-                </button>
-                <button
-                  onClick={() => setSelectedPaymentMethod('transfer')}
-                  className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                    selectedPaymentMethod === 'transfer'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Transfer
-                </button>
-              </div>
-              <div className="mt-6 flex gap-3">
-                <button
-                  onClick={() => setPaymentModalOpen(false)}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
-                >
-                  Batal
-                </button>
-                <button
-                  onClick={handlePayment}
-                  disabled={!selectedPaymentMethod}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
-                >
-                  Proses Bayar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Payment Modal */}
+        <PaymentModal
+          isOpen={paymentModalOpen}
+          onClose={() => setPaymentModalOpen(false)}
+          order={{
+            items: cartItems.map(item => ({
+              id: item.productId,
+              product_id: item.productId,
+              name: item.name,
+              price_at_time: item.price,
+              quantity: item.quantity,
+              modifiers_applied: item.modifiers,
+            })),
+            total_amount: cartTotal,
+          }}
+          onPaymentComplete={handlePaymentComplete}
+          onSplitBillComplete={handleSplitBillComplete}
+        />
 
         {/* Modifier Modal */}
         {selectedProductForModifier && (
@@ -863,25 +784,6 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
             onConfirm={handleModifierConfirm}
             productName={selectedProductForModifier.name}
             basePrice={selectedProductForModifier.price}
-          />
-        )}
-
-        {/* Receipt Modal */}
-        {selectedOrderForReceipt && (
-          <ReceiptModal
-            isOpen={receiptModalOpen}
-            onClose={() => setReceiptModalOpen(false)}
-            orderId={selectedOrderForReceipt.orderId}
-            tableNumber={selectedOrderForReceipt.tableNumber}
-            items={selectedOrderForReceipt.items}
-            subtotal={selectedOrderForReceipt.subtotal}
-            tax={selectedOrderForReceipt.tax}
-            discount={selectedOrderForReceipt.discount}
-            roundingAmount={selectedOrderForReceipt.roundingAmount}
-            total={selectedOrderForReceipt.total}
-            paymentMethod={selectedOrderForReceipt.paymentMethod}
-            cashierName={selectedOrderForReceipt.cashierName}
-            notes={selectedOrderForReceipt.notes}
           />
         )}
 

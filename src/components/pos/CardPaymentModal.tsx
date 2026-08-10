@@ -16,11 +16,7 @@ interface CardPaymentModalProps {
 
 export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: CardPaymentModalProps) => {
   const [status, setStatus] = useState<'input' | 'processing' | 'success' | 'failed'>('input');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiryDate, setExpiryDate] = useState('');
-  const [cvv, setCvv] = useState('');
-  const [approvalCode, setApprovalCode] = useState('');
-  const [cardType, setCardType] = useState<'debit' | 'credit'>('debit');
+  const [referenceNumber, setReferenceNumber] = useState('');
   const { toast } = useToast();
 
   const calculateTotal = () => {
@@ -30,39 +26,9 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
     }, 0) || 0;
   };
 
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 16);
-    const formatted = value.replace(/(\d{4})(?=\d)/g, '$1 ');
-    setCardNumber(formatted);
-  };
-
-  const handleExpiryDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 4);
-    if (value.length >= 2) {
-      setExpiryDate(value.slice(0, 2) + '/' + value.slice(2));
-    } else {
-      setExpiryDate(value);
-    }
-  };
-
-  const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '').slice(0, 3);
-    setCvv(value);
-  };
-
   const handleSubmit = () => {
-    if (!cardNumber || !expiryDate || !cvv) {
-      toast('warning', 'Mohon lengkapi semua data kartu');
-      return;
-    }
-
-    if (cardNumber.replace(/\s/g, '').length < 16) {
-      toast('warning', 'Nomor kartu tidak valid');
-      return;
-    }
-
-    if (cvv.length < 3) {
-      toast('warning', 'CVV tidak valid');
+    if (!referenceNumber.trim()) {
+      toast('warning', 'Masukkan nomor referensi dari mesin EDC');
       return;
     }
 
@@ -71,32 +37,16 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
     // Simulate payment processing
     setTimeout(() => {
       setStatus('success');
-      // Generate a mock approval code
-      setApprovalCode(Math.random().toString(36).substring(2, 10).toUpperCase());
-    }, 2000);
-  };
-
-  const handleComplete = () => {
-    onPaymentComplete();
-    onClose();
-    // Reset form
-    setCardNumber('');
-    setExpiryDate('');
-    setCvv('');
-    setApprovalCode('');
-    setCardType('debit');
-    setStatus('input');
+      toast('success', 'Pembayaran kartu berhasil diverifikasi');
+      setTimeout(() => {
+        onPaymentComplete();
+      }, 1000);
+    }, 1500);
   };
 
   const handleClose = () => {
-    // Always allow closing the modal regardless of status
     onClose();
-    // Reset form
-    setCardNumber('');
-    setExpiryDate('');
-    setCvv('');
-    setApprovalCode('');
-    setCardType('debit');
+    setReferenceNumber('');
     setStatus('input');
   };
 
@@ -135,7 +85,7 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
             <Button
               size="lg"
               className="flex-1"
-              onClick={handleComplete}
+              onClick={handleClose}
             >
               Selesai
             </Button>
@@ -170,70 +120,23 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
               <CreditCard className="w-6 h-6 text-gray-600" />
-              <h3 className="font-medium text-gray-700">Detail Kartu</h3>
+              <h3 className="font-medium text-gray-700">Konfirmasi Pembayaran Kartu</h3>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Kartu</label>
-              <div className="flex gap-4">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="debit"
-                    checked={cardType === 'debit'}
-                    onChange={(e) => setCardType(e.target.value as 'debit' | 'credit')}
-                    className="accent-[var(--primary)]"
-                  />
-                  <span className="text-sm">Debit</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    value="credit"
-                    checked={cardType === 'credit'}
-                    onChange={(e) => setCardType(e.target.value as 'debit' | 'credit')}
-                    className="accent-[var(--primary)]"
-                  />
-                  <span className="text-sm">Kredit</span>
-                </label>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Kartu</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Nomor Referensi EDC
+              </label>
               <input
                 type="text"
-                value={cardNumber}
-                onChange={handleCardNumberChange}
-                placeholder="1234 5678 9012 3456"
-                className="w-full p-3 border-2 rounded-lg focus:border-primary focus:outline-none"
-                maxLength={19}
+                value={referenceNumber}
+                onChange={(e) => setReferenceNumber(e.target.value)}
+                placeholder="Masukkan nomor referensi dari mesin EDC"
+                className="w-full p-3 border-2 rounded-lg focus:border-blue-500 focus:outline-none"
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Masa Berlaku (MM/YY)</label>
-                <input
-                  type="text"
-                  value={expiryDate}
-                  onChange={handleExpiryDateChange}
-                  placeholder="MM/YY"
-                  className="w-full p-3 border-2 rounded-lg focus:border-primary focus:outline-none"
-                  maxLength={5}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">CVV</label>
-                <input
-                  type="password"
-                  value={cvv}
-                  onChange={handleCvvChange}
-                  placeholder="123"
-                  className="w-full p-3 border-2 rounded-lg focus:border-primary focus:outline-none"
-                  maxLength={3}
-                />
-              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                Masukkan nomor referensi yang muncul pada mesin EDC setelah kartu diproses
+              </p>
             </div>
           </div>
         )}
@@ -257,13 +160,7 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
             </div>
             <div className="text-center">
               <p className="text-xl font-bold text-green-600 mb-2">Pembayaran Berhasil!</p>
-              <p className="text-sm text-gray-600 mb-2">Pembayaran kartu telah diterima</p>
-              {approvalCode && (
-                <div className="bg-gray-50 rounded-lg p-3 mt-3">
-                  <p className="text-xs text-gray-500 mb-1">Kode Persetujuan</p>
-                  <p className="font-mono font-bold text-lg">{approvalCode}</p>
-                </div>
-              )}
+              <p className="text-sm text-gray-600">Pembayaran kartu telah diverifikasi</p>
             </div>
           </div>
         )}

@@ -16,12 +16,15 @@ export default function ProductManagementPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { products, loading, refetch } = useProducts();
-  const { categories } = useCategories();
+  const { categories, refetch: refetchCategories } = useCategories();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [productStocks, setProductStocks] = useState<Map<string, number | null>>(new Map());
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [categoryName, setCategoryName] = useState('');
 
   // Load stocks when products change
   useEffect(() => {
@@ -73,6 +76,33 @@ export default function ProductManagementPage() {
     } catch (error) {
       console.error('Failed to update product:', error);
       toast('error', 'Gagal memperbarui produk');
+    }
+  };
+
+  const handleEditCategory = (category: any) => {
+    setEditingCategory(category);
+    setCategoryName(category.name);
+    setIsCategoryModalOpen(true);
+  };
+
+  const handleCategoryUpdate = async () => {
+    if (!editingCategory || !categoryName.trim()) {
+      toast('warning', 'Nama kategori tidak boleh kosong');
+      return;
+    }
+
+    try {
+      const { updateCategory } = await import('@/src/lib/api');
+      await updateCategory(editingCategory.id, { name: categoryName.trim() });
+      toast('success', 'Kategori berhasil diperbarui');
+      refetchCategories();
+      refetch(); // Refresh products to reflect category name changes
+      setIsCategoryModalOpen(false);
+      setEditingCategory(null);
+      setCategoryName('');
+    } catch (error) {
+      console.error('Failed to update category:', error);
+      toast('error', 'Gagal memperbarui kategori');
     }
   };
 
@@ -136,6 +166,30 @@ export default function ProductManagementPage() {
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Category Management Section */}
+          <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">Manajemen Kategori</h2>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {categories.map(category => (
+                <div
+                  key={category.id}
+                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  <span className="text-sm font-medium text-gray-700">{category.name}</span>
+                  <button
+                    onClick={() => handleEditCategory(category)}
+                    className="text-green-600 hover:text-green-900 flex items-center gap-1 transition-colors"
+                  >
+                    <Edit className="h-4 w-4" />
+                    Edit
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -227,6 +281,43 @@ export default function ProductManagementPage() {
           onSave={handleProductUpdated}
           userRole="admin"
         />
+      )}
+
+      {/* Edit Category Modal */}
+      {isCategoryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Edit Kategori</h3>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Kategori</label>
+              <input
+                type="text"
+                value={categoryName}
+                onChange={(e) => setCategoryName(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                placeholder="Masukkan nama kategori"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setIsCategoryModalOpen(false);
+                  setEditingCategory(null);
+                  setCategoryName('');
+                }}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleCategoryUpdate}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                Simpan
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

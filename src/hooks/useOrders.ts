@@ -4,6 +4,7 @@ import { NetworkError } from '@/src/lib/api';
 import { db, Order as DBOrder, OrderItem as DBOrderItem } from '@/src/lib/db';
 import { Order, OrderItem, OrderInsert, OrderItemInsert } from '@/src/types/database.types';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
+import { generateUUID } from '@/src/lib/utils';
 
 /**
  * useOrders Hook with Offline-First Support
@@ -122,8 +123,8 @@ export const useOrders = (cashierId?: string | null) => {
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
       
       // Generate temporary UUID for offline use
-      const tempId = crypto.randomUUID();
-      
+      const tempId = generateUUID();
+
       const newOrder: Order = {
         ...orderData,
         id: tempId,
@@ -139,7 +140,7 @@ export const useOrders = (cashierId?: string | null) => {
       // Create order items with temporary IDs
       const newOrderItems: OrderItem[] = orderItems.map((item) => ({
         ...item,
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         order_id: tempId,
         discount_item: item.discount_item ?? 0,
         modifiers_applied: item.modifiers_applied ?? [],

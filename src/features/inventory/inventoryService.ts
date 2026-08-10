@@ -1,18 +1,6 @@
-import { db, Recipe, Ingredient } from '@/src/lib/db';
+import { db, Recipe, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
 import { comprehensiveIngredients, createRecipesForProduct } from './recipeData';
-
-// Browser-compatible UUID generator
-const generateUUID = () => {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  // Fallback for older browsers
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-};
+import { generateUUID } from '@/src/lib/utils';
 
 /**
  * Inventory Service for managing stock levels
@@ -1369,6 +1357,332 @@ export async function getLatestRecipeHistory(menuItemId: string): Promise<any | 
   }
 }
 
+
+/**
+ * Record a stock adjustment with audit trail
+ * This function logs all manual stock changes for audit purposes
+ */
+export async function recordStockAdjustment(
+  ingredientId: string,
+  ingredientName: string,
+  adjustmentType: StockAdjustmentType,
+  adjustmentQuantity: number,
+  reason: string,
+  adjustedBy: string,
+  adjustedByName: string,
+  referenceId?: string
+): Promise<{ success: boolean; message: string; adjustment?: StockAdjustment }> {
+  try {
+    const { db } = await import('@/src/lib/db');
+    
+    // Get current stock
+    const ingredient = await db.ingredients.get(ingredientId);
+    if (!ingredient) {
+      return { success: false, message: 'Ingredient not found' };
+    }
+    
+    const previousStock = ingredient.current_stock;
+    let newStock = previousStock;
+    
+    // Calculate new stock based on adjustment type
+    switch (adjustmentType) {
+      case 'add':
+        newStock = previousStock + adjustmentQuantity;
+        break;
+      case 'subtract':
+        newStock = Math.max(0, previousStock - adjustmentQuantity);
+        break;
+      case 'audit':
+        // Stock opname - set to actual counted value
+        newStock = adjustmentQuantity;
+        break;
+      case 'damage':
+        newStock = Math.max(0, previousStock - adjustmentQuantity);
+        break;
+      case 'expired':
+        newStock = Math.max(0, previousStock - adjustmentQuantity);
+        break;
+      case 'transfer':
+        // Transfer handled separately with two records
+        newStock = previousStock - adjustmentQuantity;
+        break;
+    }
+    
+    // Update ingredient stock
+    await db.ingredients.update(ingredientId, {
+      current_stock: newStock,
+      updated_at: new Date().toISOString(),
+    });
+    
+    // Create audit trail record
+    const adjustment: StockAdjustment = {
+      id: generateUUID(),
+      ingredientId,
+      ingredientName,
+      adjustmentType,
+      previousStock,
+      adjustmentQuantity,
+      newStock,
+      reason,
+      adjustedBy,
+      adjustedByName,
+      adjustedAt: new Date().toISOString(),
+      referenceId,
+    };
+    
+    await db.stock_adjustments.add(adjustment);
+    
+    console.log(`✅ Stock adjustment recorded: ${adjustmentType} ${adjustmentQuantity} for ${ingredientName}`);
+    return { success: true, message: 'Stock adjustment recorded successfully', adjustment };
+  } catch (error) {
+    console.error('Failed to record stock adjustment:', error);
+    return { success: false, message: 'Failed to record stock adjustment' };
+  }
+}
+
+/**
+ * Get stock adjustment history for an ingredient
+ */
+export async function getStockAdjustmentHistory(
+  ingredientId: string,
+  limit: number = 50
+): Promise<StockAdjustment[]> {
+  try {
+    const { db } = await import('@/src/lib/db');
+    
+    const adjustments = await db.stock_adjustments
+      .where('ingredientId')
+      .equals(ingredientId)
+      .reverse()
+      .sortBy('adjustedAt');
+    
+    return adjustments.slice(0, limit);
+  } catch (error) {
+    console.error('Failed to get stock adjustment history:', error);
+    return [];
+  }
+}
+
+/**
+ * Get all stock adjustments (for admin audit)
+ */
+export async function getAllStockAdjustments(
+  startDate?: string,
+  endDate?: string,
+  adjustmentType?: StockAdjustmentType
+): Promise<StockAdjustment[]> {
+  try {
+    const { db } = await import('@/src/lib/db');
+    
+    let adjustments = await db.stock_adjustments.toArray();
+    
+    // Filter by date range if provided
+    if (startDate) {
+      adjustments = adjustments.filter((adj: StockAdjustment) => adj.adjustedAt >= startDate);
+    }
+    if (endDate) {
+      adjustments = adjustments.filter((adj: StockAdjustment) => adj.adjustedAt <= endDate);
+    }
+    
+    // Filter by adjustment type if provided
+    if (adjustmentType) {
+      adjustments = adjustments.filter((adj: StockAdjustment) => adj.adjustmentType === adjustmentType);
+    }
+    
+    // Sort by date (newest first)
+    return adjustments.sort((a: StockAdjustment, b: StockAdjustment) => 
+      new Date(b.adjustedAt).getTime() - new Date(a.adjustedAt).getTime()
+    );
+  } catch (error) {
+    console.error('Failed to get all stock adjustments:', error);
+    return [];
+  }
+}
+
+/**
+ * Export inventory data to CSV
+ * Includes ingredients, suppliers, and stock adjustments
+ */
+export async function exportInventoryData(): Promise<{ success: boolean; message: string; data?: string }> {
+  try {
+    const { db } = await import('@/src/lib/db');
+    
+    const ingredients = await db.ingredients.toArray();
+    const suppliers = await db.suppliers.toArray();
+    const adjustments = await db.stock_adjustments.toArray();
+    
+    // Build CSV content
+    let csvContent = 'INVENTORY EXPORT\n';
+    csvContent += `Export Date,${new Date().toISOString()}\n\n`;
+    
+    // Ingredients section
+    csvContent += 'INGREDIENTS\n';
+    csvContent += 'ID,Name,SKU,Category,Unit,Current Stock,Min Stock,Unit Price,Supplier ID,Created At,Updated At\n';
+    ingredients.forEach(ing => {
+      csvContent += `${ing.id},"${ing.name}","${ing.sku || ''}","${ing.category || ''}",${ing.unit},${ing.current_stock},${ing.min_stock},${ing.unit_price || 0},${ing.supplier_id || ''},${ing.created_at},${ing.updated_at}\n`;
+    });
+    
+    // Suppliers section
+    csvContent += '\nSUPPLIERS\n';
+    csvContent += 'ID,Name,Contact Person,Phone,Email,Address,Created At\n';
+    suppliers.forEach(sup => {
+      csvContent += `${sup.id},"${sup.name}","${sup.contact_person || ''}","${sup.phone || ''}","${sup.email || ''}","${sup.address || ''}",${sup.created_at}\n`;
+    });
+    
+    // Stock Adjustments section
+    csvContent += '\nSTOCK ADJUSTMENTS\n';
+    csvContent += 'ID,Ingredient ID,Ingredient Name,Type,Previous Stock,Adjustment Quantity,New Stock,Reason,Adjusted By,Adjusted By Name,Adjusted At\n';
+    adjustments.forEach((adj: StockAdjustment) => {
+      csvContent += `${adj.id},${adj.ingredientId},"${adj.ingredientName}",${adj.adjustmentType},${adj.previousStock},${adj.adjustmentQuantity},${adj.newStock},"${adj.reason}",${adj.adjustedBy},"${adj.adjustedByName}",${adj.adjustedAt}\n`;
+    });
+    
+    return { success: true, message: 'Inventory data exported successfully', data: csvContent };
+  } catch (error) {
+    console.error('Failed to export inventory data:', error);
+    return { success: false, message: 'Failed to export inventory data' };
+  }
+}
+
+/**
+ * Import inventory data from CSV
+ * Supports importing ingredients and suppliers
+ */
+export async function importInventoryData(
+  csvData: string,
+  importType: 'ingredients' | 'suppliers' | 'all',
+  userId: string,
+  userName: string
+): Promise<{ success: boolean; message: string; imported: number; errors: string[] }> {
+  try {
+    const { db } = await import('@/src/lib/db');
+    
+    const lines = csvData.split('\n').filter(line => line.trim());
+    const errors: string[] = [];
+    let imported = 0;
+    
+    if (importType === 'ingredients' || importType === 'all') {
+      // Parse ingredients section
+      const ingredientsStart = lines.findIndex(line => line === 'INGREDIENTS');
+      if (ingredientsStart >= 0) {
+        const headerLine = lines[ingredientsStart + 1];
+        const headers = headerLine.split(',');
+        
+        for (let i = ingredientsStart + 2; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line || line.startsWith('SUPPLIERS') || line.startsWith('STOCK')) break;
+          
+          try {
+            const values = line.split(',');
+            const ingredient: any = {
+              id: generateUUID(),
+              name: values[1]?.replace(/"/g, '') || '',
+              sku: values[2]?.replace(/"/g, '') || '',
+              category: values[3]?.replace(/"/g, '') || '',
+              unit: values[4] || 'pcs',
+              current_stock: parseFloat(values[5]) || 0,
+              min_stock: parseFloat(values[6]) || 0,
+              unit_price: parseFloat(values[7]) || 0,
+              supplier_id: values[8] || null,
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            
+            // Check if ingredient with same SKU exists
+            const existing = await db.ingredients.where('sku').equals(ingredient.sku).first();
+            if (existing) {
+              // Update existing
+              await db.ingredients.update(existing.id!, {
+                ...ingredient,
+                id: existing.id,
+                created_at: existing.created_at,
+              });
+              
+              // Record adjustment if stock changed
+              if (existing.current_stock !== ingredient.current_stock) {
+                await recordStockAdjustment(
+                  existing.id!,
+                  ingredient.name,
+                  'audit',
+                  ingredient.current_stock,
+                  'Import from CSV',
+                  userId,
+                  userName
+                );
+              }
+            } else {
+              // Add new
+              await db.ingredients.add(ingredient);
+            }
+            
+            imported++;
+          } catch (err) {
+            errors.push(`Failed to import ingredient at line ${i}: ${err}`);
+          }
+        }
+      }
+    }
+    
+    if (importType === 'suppliers' || importType === 'all') {
+      // Parse suppliers section
+      const suppliersStart = lines.findIndex(line => line === 'SUPPLIERS');
+      if (suppliersStart >= 0) {
+        const headerLine = lines[suppliersStart + 1];
+        
+        for (let i = suppliersStart + 2; i < lines.length; i++) {
+          const line = lines[i];
+          if (!line || line.startsWith('STOCK')) break;
+          
+          try {
+            const values = line.split(',');
+            const supplier: any = {
+              id: generateUUID(),
+              name: values[1]?.replace(/"/g, '') || '',
+              contact_person: values[2]?.replace(/"/g, '') || '',
+              phone: values[3]?.replace(/"/g, '') || '',
+              email: values[4]?.replace(/"/g, '') || '',
+              address: values[5]?.replace(/"/g, '') || '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+            };
+            
+            // Check if supplier with same name exists
+            const existing = await db.suppliers.where('name').equals(supplier.name).first();
+            if (existing) {
+              // Update existing
+              await db.suppliers.update(existing.id!, {
+                ...supplier,
+                id: existing.id,
+                created_at: existing.created_at,
+              });
+            } else {
+              // Add new
+              await db.suppliers.add(supplier);
+            }
+            
+            imported++;
+          } catch (err) {
+            errors.push(`Failed to import supplier at line ${i}: ${err}`);
+          }
+        }
+      }
+    }
+    
+    return { 
+      success: true, 
+      message: `Imported ${imported} records successfully`, 
+      imported,
+      errors 
+    };
+  } catch (error) {
+    console.error('Failed to import inventory data:', error);
+    return { 
+      success: false, 
+      message: 'Failed to import inventory data', 
+      imported: 0, 
+      errors: [error instanceof Error ? error.message : 'Unknown error'] 
+    };
+  }
+}
 
 /**
  * Create Affogato product with recipe
