@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { generateUUID } from '@/src/lib/utils';
 
 export interface ModifierOption {
   id: string;
@@ -23,7 +24,7 @@ interface OnlineCartState {
   customerName: string;
   customerPhone: string;
   customerAddress: string;
-  paymentMethod: 'QRIS' | 'TRANSFER' | 'EWALLET';
+  paymentMethod: 'CASH' | 'QRIS' | 'TRANSFER' | 'EWALLET';
   notes: string;
   deliveryFee: number;
   addItem: (item: Omit<OnlineCartItem, 'id'>) => void;
@@ -35,7 +36,7 @@ interface OnlineCartState {
   setCustomerName: (name: string) => void;
   setCustomerPhone: (phone: string) => void;
   setCustomerAddress: (address: string) => void;
-  setPaymentMethod: (method: 'QRIS' | 'TRANSFER' | 'EWALLET') => void;
+  setPaymentMethod: (method: 'CASH' | 'QRIS' | 'TRANSFER' | 'EWALLET') => void;
   setNotes: (notes: string) => void;
   setDeliveryFee: (fee: number) => void;
   getSubtotal: () => number;
@@ -71,7 +72,7 @@ export const useOnlineCartStore = create<OnlineCartState>()(
           });
         } else {
           set({
-            items: [...get().items, { ...item, id: crypto.randomUUID() }],
+            items: [...get().items, { ...item, id: generateUUID() }],
           });
         }
       },
@@ -117,7 +118,7 @@ export const useOnlineCartStore = create<OnlineCartState>()(
       setCustomerName: (name) => set({ customerName: name }),
       setCustomerPhone: (phone) => set({ customerPhone: phone }),
       setCustomerAddress: (address) => set({ customerAddress: address }),
-      setPaymentMethod: (method) => set({ paymentMethod: method }),
+      setPaymentMethod: (method: 'CASH' | 'QRIS' | 'TRANSFER' | 'EWALLET') => set({ paymentMethod: method }),
       setNotes: (notes) => set({ notes: notes }),
       setDeliveryFee: (fee) => set({ deliveryFee: fee }),
 

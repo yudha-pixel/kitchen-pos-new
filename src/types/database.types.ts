@@ -128,7 +128,7 @@ export interface ModifierUpdate {
 // ============================================================================
 
 export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'served' | 'completed' | 'cancelled';
-export type PaymentMethod = 'cash' | 'card' | 'qr' | 'transfer';
+export type PaymentMethod = 'cash' | 'card' | 'qr' | 'transfer' | 'ewallet';
 
 export interface Order {
   id: string; // UUID

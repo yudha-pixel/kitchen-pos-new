@@ -7,6 +7,7 @@ import { Button } from '@/src/components/ui/Button';
 import { formatRupiah } from '@/src/lib/format';
 import { useToast } from '@/src/components/ui/Toast';
 import { useRouter } from 'next/navigation';
+import { generateUUID } from '@/src/lib/utils';
 
 interface OnlineCheckoutModalProps {
   isOpen: boolean;
@@ -15,6 +16,7 @@ interface OnlineCheckoutModalProps {
 }
 
 const paymentMethods = [
+  { value: 'CASH', label: 'Tunai' },
   { value: 'QRIS', label: 'QRIS' },
   { value: 'TRANSFER', label: 'Transfer Bank' },
   { value: 'EWALLET', label: 'E-Wallet (GoPay/OVO/Dana)' },
@@ -45,17 +47,38 @@ export const OnlineCheckoutModal = ({ isOpen, onClose, outletName }: OnlineCheck
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [showPaymentQR, setShowPaymentQR] = useState(false);
+  const [cashAmount, setCashAmount] = useState<string>('');
 
   const subtotal = getSubtotal();
   const deliveryFee = getDeliveryFee();
   const total = getTotal();
 
+  const calculateChange = () => {
+    const cash = Number(cashAmount) || 0;
+    return cash - total;
+  };
+
+  const handleQuickCashAmount = (amount: number) => {
+    const roundedAmount = Math.ceil(amount / 1000) * 1000;
+    setCashAmount(roundedAmount.toString());
+  };
+
   const handleCheckout = async () => {
     setIsProcessing(true);
 
     try {
+      // Validate payment method
+      if (paymentMethod === 'CASH') {
+        const cash = Number(cashAmount) || 0;
+        if (cash < total) {
+          toast('warning', 'Jumlah uang tunai kurang dari total pembayaran');
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       // Create order via API
-      const orderId = crypto.randomUUID();
+      const orderId = generateUUID();
       const orderData = {
         id: orderId,
         total_amount: total,
@@ -71,7 +94,7 @@ export const OnlineCheckoutModal = ({ isOpen, onClose, outletName }: OnlineCheck
       };
 
       const orderItems = items.map((item) => ({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         order_id: orderId,
         product_id: item.productId,
         quantity: item.quantity,
@@ -102,9 +125,9 @@ export const OnlineCheckoutModal = ({ isOpen, onClose, outletName }: OnlineCheck
     }
   };
 
-  const handlePaymentMethodSelect = (method: 'QRIS' | 'TRANSFER' | 'EWALLET') => {
+  const handlePaymentMethodSelect = (method: 'CASH' | 'QRIS' | 'TRANSFER' | 'EWALLET') => {
     setPaymentMethod(method);
-    if (method === 'QRIS') {
+    if (method === 'QRIS' || method === 'EWALLET') {
       setShowPaymentQR(true);
     }
   };
@@ -226,6 +249,43 @@ export const OnlineCheckoutModal = ({ isOpen, onClose, outletName }: OnlineCheck
               ))}
             </div>
           </div>
+
+          {/* Cash Input Section */}
+          {paymentMethod === 'CASH' && (
+            <div className="space-y-3 pt-2 border-t">
+              <p className="text-sm font-medium text-gray-700">Jumlah Uang Tunai</p>
+              <input
+                type="number"
+                value={cashAmount}
+                onChange={(e) => setCashAmount(e.target.value)}
+                placeholder="Masukkan jumlah uang"
+                className="w-full p-3 border-2 rounded-lg focus:border-primary focus:outline-none"
+              />
+              
+              {/* Quick Amount Buttons */}
+              <div className="grid grid-cols-3 gap-2">
+                {[total, total * 2, total * 3].map((amount, index) => (
+                  <button
+                    key={index}
+                    onClick={() => handleQuickCashAmount(amount)}
+                    className="p-2 text-sm border rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    {formatRupiah(amount)}
+                  </button>
+                ))}
+              </div>
+
+              {/* Change Display */}
+              {cashAmount && Number(cashAmount) >= total && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-green-700">Kembalian:</span>
+                    <span className="text-lg font-bold text-green-700">{formatRupiah(calculateChange())}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 mt-6">
@@ -242,7 +302,7 @@ export const OnlineCheckoutModal = ({ isOpen, onClose, outletName }: OnlineCheck
             size="lg"
             className="flex-1"
             onClick={handleCheckout}
-            disabled={isProcessing}
+            disabled={isProcessing || !paymentMethod || (paymentMethod === 'CASH' && (!cashAmount || Number(cashAmount) < total))}
           >
             {isProcessing ? 'Memproses...' : 'Bayar Sekarang'}
           </Button>

@@ -81,6 +81,25 @@ const defaultKitchenSettings = {
   show_estimation: true,
 };
 
+const defaultTableSettings = {
+  indoor_count: 10,
+  outdoor_count: 8,
+  vip_count: 4,
+  qr_auto_generate: true,
+  areas: [
+    { id: '1', name: 'Indoor', description: 'Area dalam restoran', count: 10 },
+    { id: '2', name: 'Outdoor', description: 'Area luar restoran', count: 8 },
+    { id: '3', name: 'VIP', description: 'Area VIP khusus', count: 4 },
+  ],
+};
+
+const defaultUserSettings = {
+  admin_count: 1,
+  cashier_count: 2,
+  waiter_count: 3,
+  require_2fa: false,
+};
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { updateFromSettings: updateConfig } = useConfigStore();
@@ -97,6 +116,8 @@ export default function SettingsPage() {
   const [inventorySettings, setInventorySettings] = useState(defaultInventorySettings);
   const [securitySettings, setSecuritySettings] = useState(defaultSecuritySettings);
   const [kitchenSettings, setKitchenSettings] = useState(defaultKitchenSettings);
+  const [tableSettings, setTableSettings] = useState(defaultTableSettings);
+  const [userSettings, setUserSettings] = useState(defaultUserSettings);
 
   // Load settings from API on mount
   useEffect(() => {
@@ -175,6 +196,21 @@ export default function SettingsPage() {
         show_estimation: settings.show_estimation !== undefined ? settings.show_estimation : defaultKitchenSettings.show_estimation,
       });
 
+      setTableSettings({
+        indoor_count: settings.indoor_count || defaultTableSettings.indoor_count,
+        outdoor_count: settings.outdoor_count || defaultTableSettings.outdoor_count,
+        vip_count: settings.vip_count || defaultTableSettings.vip_count,
+        qr_auto_generate: settings.qr_auto_generate !== undefined ? settings.qr_auto_generate : defaultTableSettings.qr_auto_generate,
+        areas: settings.areas || defaultTableSettings.areas,
+      });
+
+      setUserSettings({
+        admin_count: settings.admin_count || defaultUserSettings.admin_count,
+        cashier_count: settings.cashier_count || defaultUserSettings.cashier_count,
+        waiter_count: settings.waiter_count || defaultUserSettings.waiter_count,
+        require_2fa: settings.require_2fa !== undefined ? settings.require_2fa : defaultUserSettings.require_2fa,
+      });
+
       // Sync with global config store
       updateConfig({ taxRate: settings.tax_rate, serviceCharge: settings.service_charge });
     } catch (error) {
@@ -208,6 +244,8 @@ export default function SettingsPage() {
         ...inventorySettings,
         ...securitySettings,
         ...kitchenSettings,
+        ...tableSettings,
+        ...userSettings,
       };
 
       const response = await fetch(`${API_BASE_URL}/settings`, {
@@ -324,8 +362,18 @@ export default function SettingsPage() {
                   onChange={setShiftSettings} 
                 />
               )}
-              {activeTab === 'tables' && <TableAreaSettings />}
-              {activeTab === 'users' && <UserAccessSettings />}
+              {activeTab === 'tables' && (
+                <TableAreaSettings 
+                  settings={tableSettings} 
+                  onChange={setTableSettings} 
+                />
+              )}
+              {activeTab === 'users' && (
+                <UserAccessSettings 
+                  settings={userSettings} 
+                  onChange={setUserSettings} 
+                />
+              )}
               {activeTab === 'kitchen' && (
                 <KitchenKDSSettings 
                   settings={kitchenSettings} 
@@ -342,6 +390,7 @@ export default function SettingsPage() {
                 <SecuritySettings 
                   settings={securitySettings} 
                   onChange={setSecuritySettings} 
+                  toast={toast}
                 />
               )}
             </div>
@@ -781,7 +830,65 @@ function ShiftCashierSettings({ settings, onChange }: ShiftSettingsProps) {
 }
 
 // Table & Area Management
-function TableAreaSettings() {
+interface TableSettingsProps {
+  settings: typeof defaultTableSettings;
+  onChange: (settings: typeof defaultTableSettings) => void;
+}
+
+interface Area {
+  id: string;
+  name: string;
+  description: string;
+  count: number;
+}
+
+function TableAreaSettings({ settings, onChange }: TableSettingsProps) {
+  const [editingArea, setEditingArea] = useState<Area | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+
+  const handleChange = (field: keyof typeof defaultTableSettings, value: any) => {
+    onChange({ ...settings, [field]: value });
+  };
+
+  const handleEditArea = (area: Area) => {
+    setEditingArea(area);
+    setModalMode('edit');
+    setIsModalOpen(true);
+  };
+
+  const handleAddArea = () => {
+    setEditingArea(null);
+    setModalMode('add');
+    setIsModalOpen(true);
+  };
+
+  const handleSaveArea = (areaData: Omit<Area, 'id'>) => {
+    if (modalMode === 'edit' && editingArea) {
+      // Update existing area
+      const updatedAreas = settings.areas.map(a => 
+        a.id === editingArea.id ? { ...a, ...areaData } : a
+      );
+      handleChange('areas', updatedAreas);
+    } else {
+      // Add new area
+      const newArea: Area = {
+        id: Date.now().toString(),
+        ...areaData,
+      };
+      handleChange('areas', [...settings.areas, newArea]);
+    }
+    setIsModalOpen(false);
+    setEditingArea(null);
+  };
+
+  const handleDeleteArea = (areaId: string) => {
+    if (confirm('Apakah Anda yakin ingin menghapus area ini?')) {
+      const updatedAreas = settings.areas.filter(a => a.id !== areaId);
+      handleChange('areas', updatedAreas);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -794,50 +901,295 @@ function TableAreaSettings() {
       <div className="border-t border-line pt-6">
         <h3 className="mb-4 text-lg font-semibold text-ink">Konfigurasi Area</h3>
         <div className="space-y-4">
-          <div className="flex items-center justify-between rounded-lg border border-line p-4">
-            <div>
-              <h4 className="font-medium text-ink">Indoor</h4>
-              <p className="text-sm text-ink-secondary">Area dalam restoran</p>
+          {settings.areas.map((area) => (
+            <div key={area.id} className="flex items-center justify-between rounded-lg border border-line p-4">
+              <div>
+                <h4 className="font-medium text-ink">{area.name}</h4>
+                <p className="text-sm text-ink-secondary">{area.description}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-ink-secondary">{area.count} meja</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleEditArea(area)}
+                >
+                  Edit
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => handleDeleteArea(area.id)}
+                >
+                  Hapus
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-ink-secondary">10 meja</span>
-              <Button variant="ghost" size="sm">Edit</Button>
-            </div>
-          </div>
+          ))}
 
-          <div className="flex items-center justify-between rounded-lg border border-line p-4">
-            <div>
-              <h4 className="font-medium text-ink">Outdoor</h4>
-              <p className="text-sm text-ink-secondary">Area luar restoran</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-ink-secondary">8 meja</span>
-              <Button variant="ghost" size="sm">Edit</Button>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-lg border border-line p-4">
-            <div>
-              <h4 className="font-medium text-ink">VIP</h4>
-              <p className="text-sm text-ink-secondary">Area VIP khusus</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-ink-secondary">4 meja</span>
-              <Button variant="ghost" size="sm">Edit</Button>
-            </div>
-          </div>
-
-          <Button variant="primary" className="w-full">
+          <Button 
+            variant="primary" 
+            className="w-full"
+            onClick={handleAddArea}
+          >
             + Tambah Area Baru
           </Button>
         </div>
       </div>
+
+      <div className="border-t border-line pt-6">
+        <h3 className="mb-4 text-lg font-semibold text-ink">QR Code Auto-Generation</h3>
+        <label className="flex items-center gap-3">
+          <input 
+            type="checkbox" 
+            checked={settings.qr_auto_generate}
+            onChange={(e) => handleChange('qr_auto_generate', e.target.checked)}
+            className="h-5 w-5 rounded accent-primary" 
+          />
+          <span className="text-sm text-ink">Otomatis generate QR code untuk meja baru</span>
+        </label>
+      </div>
+
+      {/* Area Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-semibold text-ink">
+              {modalMode === 'edit' ? 'Edit Area' : 'Tambah Area Baru'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="area-name" className="mb-1.5 block text-sm font-medium text-ink">
+                  Nama Area
+                </label>
+                <input
+                  id="area-name"
+                  type="text"
+                  defaultValue={editingArea?.name || ''}
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label htmlFor="area-description" className="mb-1.5 block text-sm font-medium text-ink">
+                  Deskripsi
+                </label>
+                <input
+                  id="area-description"
+                  type="text"
+                  defaultValue={editingArea?.description || ''}
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label htmlFor="area-count" className="mb-1.5 block text-sm font-medium text-ink">
+                  Jumlah Meja
+                </label>
+                <input
+                  id="area-count"
+                  type="number"
+                  defaultValue={editingArea?.count || 0}
+                  min="0"
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button 
+                variant="ghost" 
+                onClick={() => setIsModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button 
+                variant="primary"
+                onClick={() => {
+                  const name = (document.getElementById('area-name') as HTMLInputElement).value;
+                  const description = (document.getElementById('area-description') as HTMLInputElement).value;
+                  const count = parseInt((document.getElementById('area-count') as HTMLInputElement).value) || 0;
+                  if (name && description) {
+                    handleSaveArea({ name, description, count });
+                  }
+                }}
+              >
+                Simpan
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // User & Access Rights Management
-function UserAccessSettings() {
+interface UserSettingsProps {
+  settings: typeof defaultUserSettings;
+  onChange: (settings: typeof defaultUserSettings) => void;
+}
+
+interface StaffUser {
+  id: string;
+  username: string;
+  full_name?: string;
+  email?: string;
+  role: { name: string };
+  is_active: boolean;
+}
+
+interface AccessRights {
+  admin: { fullAccess: boolean };
+  cashier: { processPayment: boolean; viewReports: boolean; manageShift: boolean; voidItem: boolean };
+  waiter: { inputOrder: boolean; viewMenu: boolean; manageTables: boolean };
+}
+
+function UserAccessSettings({ settings, onChange }: UserSettingsProps) {
+  const [users, setUsers] = useState<StaffUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<StaffUser | null>(null);
+  const [accessRights, setAccessRights] = useState<AccessRights>({
+    admin: { fullAccess: true },
+    cashier: { processPayment: true, viewReports: true, manageShift: true, voidItem: false },
+    waiter: { inputOrder: true, viewMenu: true, manageTables: true },
+  });
+  const [formData, setFormData] = useState({
+    username: '',
+    password: '',
+    full_name: '',
+    email: '',
+    role: 'cashier' as 'admin' | 'cashier' | 'waiter',
+    is_active: true,
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
+
+  // Load users on mount
+  useEffect(() => {
+    loadUsers();
+  }, []);
+
+  const loadUsers = async () => {
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data);
+        
+        // Update counts based on actual data
+        const adminCount = data.filter((u: StaffUser) => u.role?.name === 'admin').length;
+        const cashierCount = data.filter((u: StaffUser) => u.role?.name === 'cashier').length;
+        const waiterCount = data.filter((u: StaffUser) => u.role?.name === 'waiter').length;
+        
+        onChange({
+          ...settings,
+          admin_count: adminCount,
+          cashier_count: cashierCount,
+          waiter_count: waiterCount,
+        });
+      }
+    } catch (error) {
+      console.error('Failed to load users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (field: keyof typeof defaultUserSettings, value: any) => {
+    onChange({ ...settings, [field]: value });
+  };
+
+  const handleAddStaff = () => {
+    setEditingUser(null);
+    setFormData({
+      username: '',
+      password: '',
+      full_name: '',
+      email: '',
+      role: 'cashier',
+      is_active: true,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleEditStaff = (user: StaffUser) => {
+    setEditingUser(user);
+    setFormData({
+      username: user.username,
+      password: '',
+      full_name: user.full_name || '',
+      email: user.email || '',
+      role: user.role?.name as 'admin' | 'cashier' | 'waiter',
+      is_active: user.is_active,
+    });
+    setIsModalOpen(true);
+  };
+
+  const handleSaveStaff = async () => {
+    if (!formData.username || (!editingUser && !formData.password)) {
+      toast('error', 'Username dan password wajib diisi');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const token = getToken();
+      const url = editingUser ? `${API_BASE_URL}/users/${editingUser.id}` : `${API_BASE_URL}/users`;
+      const method = editingUser ? 'PUT' : 'POST';
+
+      const payload = editingUser 
+        ? { full_name: formData.full_name, email: formData.email, is_active: formData.is_active }
+        : { username: formData.username, password: formData.password, full_name: formData.full_name, email: formData.email };
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        toast('success', editingUser ? 'Staf berhasil diperbarui' : 'Staf berhasil ditambahkan');
+        await loadUsers();
+        setIsModalOpen(false);
+      } else {
+        const error = await response.json();
+        toast('error', error.error || 'Gagal menyimpan staf');
+      }
+    } catch (error) {
+      console.error('Failed to save staff:', error);
+      toast('error', 'Gagal menyimpan staf');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleToggleAccess = (role: keyof AccessRights, permission: string, value: boolean) => {
+    setAccessRights(prev => ({
+      ...prev,
+      [role]: {
+        ...prev[role],
+        [permission]: value,
+      },
+    }));
+  };
+
+  const getRoleBadgeColor = (roleName: string) => {
+    switch (roleName) {
+      case 'admin': return 'bg-purple-100 text-purple-800';
+      case 'cashier': return 'bg-blue-100 text-blue-800';
+      case 'waiter': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -848,70 +1200,76 @@ function UserAccessSettings() {
       </div>
 
       <div className="border-t border-line pt-6">
+        <h3 className="mb-4 text-lg font-semibold text-ink">Statistik Pengguna</h3>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-lg border border-line p-4">
+            <div className="text-2xl font-bold text-ink">{settings.admin_count}</div>
+            <div className="text-sm text-ink-secondary">Admin</div>
+          </div>
+          <div className="rounded-lg border border-line p-4">
+            <div className="text-2xl font-bold text-ink">{settings.cashier_count}</div>
+            <div className="text-sm text-ink-secondary">Kasir</div>
+          </div>
+          <div className="rounded-lg border border-line p-4">
+            <div className="text-2xl font-bold text-ink">{settings.waiter_count}</div>
+            <div className="text-sm text-ink-secondary">Waiter</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="border-t border-line pt-6">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-ink">Daftar Staf</h3>
-          <Button variant="primary" size="sm">+ Tambah Staf</Button>
+          <Button variant="primary" size="sm" onClick={handleAddStaff}>+ Tambah Staf</Button>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">Admin User</div>
-                  <div className="text-xs text-gray-500">admin@kitchenpos.com</div>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex rounded-full bg-purple-100 px-2 py-1 text-xs font-semibold text-purple-800">Admin</span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">Aktif</span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">Kasir 1</div>
-                  <div className="text-xs text-gray-500">kasir1@kitchenpos.com</div>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex rounded-full bg-blue-100 px-2 py-1 text-xs font-semibold text-blue-800">Kasir</span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">Aktif</span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </td>
-              </tr>
-              <tr>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">Waiter 1</div>
-                  <div className="text-xs text-gray-500">waiter1@kitchenpos.com</div>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex rounded-full bg-yellow-100 px-2 py-1 text-xs font-semibold text-yellow-800">Waiter</span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-semibold text-green-800">Aktif</span>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
-                  <Button variant="ghost" size="sm">Edit</Button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        {loading ? (
+          <div className="text-center py-8 text-ink-secondary">Memuat data...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Aksi</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-ink-secondary">
+                      Belum ada staf terdaftar
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((user) => (
+                    <tr key={user.id}>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">{user.full_name || user.username}</div>
+                        <div className="text-xs text-gray-500">{user.email || '-'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${getRoleBadgeColor(user.role?.name)}`}>
+                          {user.role?.name || 'Unknown'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className={`inline-flex rounded-full px-2 py-1 text-xs font-semibold ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {user.is_active ? 'Aktif' : 'Nonaktif'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-right text-sm">
+                        <Button variant="ghost" size="sm" onClick={() => handleEditStaff(user)}>Edit</Button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-line pt-6">
@@ -921,9 +1279,114 @@ function UserAccessSettings() {
             <h4 className="mb-3 font-medium text-ink">Admin</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked disabled className="h-4 w-4 rounded accent-primary" />
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.admin.fullAccess}
+                  onChange={(e) => handleToggleAccess('admin', 'fullAccess', e.target.checked)}
+                  disabled 
+                  className="h-4 w-4 rounded accent-primary" 
+                />
                 <span className="text-ink-secondary">Akses penuh</span>
               </label>
+              <label className="flex items-center gap-2">
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.waiter.manageTables}
+                  onChange={(e) => handleToggleAccess('waiter', 'manageTables', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
+                <span className="text-ink-secondary">Kelola meja</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Staff Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-surface p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-semibold text-ink">
+              {editingUser ? 'Edit Staf' : 'Tambah Staf Baru'}
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="staff-username" className="mb-1.5 block text-sm font-medium text-ink">
+                  Username
+                </label>
+                <input
+                  id="staff-username"
+                  type="text"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  disabled={!!editingUser}
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none disabled:bg-gray-100"
+                />
+              </div>
+              {!editingUser && (
+                <div>
+                  <label htmlFor="staff-password" className="mb-1.5 block text-sm font-medium text-ink">
+                    Password
+                  </label>
+                  <input
+                    id="staff-password"
+                    type="password"
+                    value={formData.password}
+                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                  />
+                </div>
+              )}
+              <div>
+                <label htmlFor="staff-fullname" className="mb-1.5 block text-sm font-medium text-ink">
+                  Nama Lengkap
+                </label>
+                <input
+                  id="staff-fullname"
+                  type="text"
+                  value={formData.full_name}
+                  onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label htmlFor="staff-email" className="mb-1.5 block text-sm font-medium text-ink">
+                  Email
+                </label>
+                <input
+                  id="staff-email"
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                />
+              </div>
+              <div>
+                <label htmlFor="staff-role" className="mb-1.5 block text-sm font-medium text-ink">
+                  Role
+                </label>
+                <select
+                  id="staff-role"
+                  value={formData.role}
+                  onChange={(e) => setFormData({ ...formData, role: e.target.value as 'admin' | 'cashier' | 'waiter' })}
+                  className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
+                >
+                  <option value="admin">Admin</option>
+                  <option value="cashier">Kasir</option>
+                  <option value="waiter">Waiter</option>
+                </select>
+              </div>
+              <div>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                    className="h-4 w-4 rounded accent-primary"
+                  />
+                  <span className="text-sm text-ink">Aktif</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -931,19 +1394,39 @@ function UserAccessSettings() {
             <h4 className="mb-3 font-medium text-ink">Kasir</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-primary" />
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.cashier.processPayment}
+                  onChange={(e) => handleToggleAccess('cashier', 'processPayment', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
                 <span className="text-ink-secondary">Proses pembayaran</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-primary" />
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.cashier.viewReports}
+                  onChange={(e) => handleToggleAccess('cashier', 'viewReports', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
                 <span className="text-ink-secondary">Lihat laporan</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-primary" />
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.cashier.manageShift}
+                  onChange={(e) => handleToggleAccess('cashier', 'manageShift', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
                 <span className="text-ink-secondary">Kelola shift</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" className="h-4 w-4 rounded accent-primary" />
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.cashier.voidItem}
+                  onChange={(e) => handleToggleAccess('cashier', 'voidItem', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
                 <span className="text-ink-secondary">Void item (perlu PIN)</span>
               </label>
             </div>
@@ -953,17 +1436,42 @@ function UserAccessSettings() {
             <h4 className="mb-3 font-medium text-ink">Waiter</h4>
             <div className="grid grid-cols-2 gap-2 text-sm">
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-primary" />
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.waiter.inputOrder}
+                  onChange={(e) => handleToggleAccess('waiter', 'inputOrder', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
                 <span className="text-ink-secondary">Input pesanan</span>
               </label>
               <label className="flex items-center gap-2">
-                <input type="checkbox" defaultChecked className="h-4 w-4 rounded accent-primary" />
-                <span className="text-ink-secondary">Lihat status pesanan</span>
+                <input 
+                  type="checkbox" 
+                  checked={accessRights.waiter.viewMenu}
+                  onChange={(e) => handleToggleAccess('waiter', 'viewMenu', e.target.checked)}
+                  className="h-4 w-4 rounded accent-primary" 
+                />
+                <span className="text-ink-secondary">Lihat menu</span>
               </label>
+            </div>
+            <div className="mt-6 flex justify-end gap-3">
+              <Button 
+                variant="ghost" 
+                onClick={() => setIsModalOpen(false)}
+              >
+                Batal
+              </Button>
+              <Button 
+                variant="primary"
+                loading={isSaving}
+                onClick={handleSaveStaff}
+              >
+                Simpan
+              </Button>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -1168,9 +1676,10 @@ function InventoryStockSettings({ settings, onChange }: InventorySettingsProps) 
 interface SecuritySettingsProps {
   settings: typeof defaultSecuritySettings;
   onChange: (settings: typeof defaultSecuritySettings) => void;
+  toast: (type: 'success' | 'error' | 'info', message: string) => void;
 }
 
-function SecuritySettings({ settings, onChange }: SecuritySettingsProps) {
+function SecuritySettings({ settings, onChange, toast }: SecuritySettingsProps) {
   const handleChange = (field: keyof typeof defaultSecuritySettings, value: any) => {
     onChange({ ...settings, [field]: value });
   };
@@ -1263,11 +1772,39 @@ function SecuritySettings({ settings, onChange }: SecuritySettingsProps) {
           </div>
 
           <div className="flex gap-3">
-            <Button variant="primary" className="flex items-center gap-2">
+            <Button 
+              variant="primary" 
+              className="flex items-center gap-2"
+              onClick={async () => {
+                try {
+                  const token = getToken();
+                  const response = await fetch(`${API_BASE_URL}/settings/backup`, {
+                    method: 'POST',
+                    headers: {
+                      'Authorization': `Bearer ${token}`,
+                    },
+                  });
+                  if (response.ok) {
+                    toast('success', 'Backup database berhasil');
+                  } else {
+                    toast('error', 'Gagal melakukan backup');
+                  }
+                } catch (error) {
+                  console.error('Backup failed:', error);
+                  toast('error', 'Gagal melakukan backup');
+                }
+              }}
+            >
               <RefreshCw className="h-4 w-4" />
               Backup Sekarang
             </Button>
-            <Button variant="ghost" className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              className="flex items-center gap-2"
+              onClick={() => {
+                toast('info', 'Fitur restore akan segera tersedia');
+              }}
+            >
               Restore dari Backup
             </Button>
           </div>

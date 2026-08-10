@@ -22,6 +22,7 @@ import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
 import { SplitBillModal as NewSplitBillModal } from '@/src/components/pos/SplitBillModal';
+import { generateUUID } from '@/src/lib/utils';
 
 const paymentOptions = [
   { value: 'CASH', label: 'Tunai' },
@@ -506,7 +507,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
       const splitFinalTotal = splitSubtotal + splitTax - splitDiscount;
 
       // Create order data for split payment
-      const orderId = crypto.randomUUID();
+      const orderId = generateUUID();
       
       // Prepare receipt data for split items
       const splitReceiptData = {

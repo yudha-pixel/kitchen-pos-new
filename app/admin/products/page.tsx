@@ -10,9 +10,11 @@ import { EditProductModal } from '@/src/features/pos/components/EditProductModal
 import { Search, Filter, Edit, Plus, AlertCircle, Package } from 'lucide-react';
 import { formatRupiah } from '@/src/lib/format';
 import { Product } from '@/src/types/database.types';
+import { useToast } from '@/src/components/ui/Toast';
 
 export default function ProductManagementPage() {
   const router = useRouter();
+  const { toast } = useToast();
   const { products, loading, refetch } = useProducts();
   const { categories } = useCategories();
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,10 +63,17 @@ export default function ProductManagementPage() {
   };
 
   const handleProductUpdated = async (updatedProduct: Partial<Product>) => {
-    // The EditProductModal will handle the save logic
-    refetch();
-    setIsEditModalOpen(false);
-    setEditingProduct(null);
+    try {
+      const { updateProduct } = await import('@/src/lib/api');
+      await updateProduct(editingProduct!.id!, updatedProduct);
+      toast('success', 'Produk berhasil diperbarui');
+      refetch();
+      setIsEditModalOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Failed to update product:', error);
+      toast('error', 'Gagal memperbarui produk');
+    }
   };
 
   if (loading) {

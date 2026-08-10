@@ -435,6 +435,19 @@ model AppSettings {
   sound_notification Boolean  @default(true)
   auto_refresh       Boolean  @default(true)
   show_estimation    Boolean  @default(true)
+  
+  // Table Settings
+  indoor_count       Int      @default(10)
+  outdoor_count      Int      @default(8)
+  vip_count          Int      @default(4)
+  qr_auto_generate   Boolean  @default(true)
+  areas              Json?    @default("[{\"id\":\"1\",\"name\":\"Indoor\",\"description\":\"Area dalam restoran\",\"count\":10},{\"id\":\"2\",\"name\":\"Outdoor\",\"description\":\"Area luar restoran\",\"count\":8},{\"id\":\"3\",\"name\":\"VIP\",\"description\":\"Area VIP khusus\",\"count\":4}]")
+  
+  // User Settings
+  admin_count        Int      @default(1)
+  cashier_count      Int      @default(2)
+  waiter_count       Int      @default(3)
+  require_2fa        Boolean  @default(false)
 
   @@map("app_settings")
 }

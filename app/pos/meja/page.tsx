@@ -93,9 +93,9 @@ export default function TableManagementPage() {
     setQrModalOpen(true);
   };
 
-  const getQRCodeURL = (tableId: string) => {
+  const getQRCodeURL = (tableId: string, tableNumber: string) => {
     const baseUrl = getWebBaseUrl();
-    return `${baseUrl}/order/${tableId}`;
+    return `${baseUrl}/order/${tableId}?table=${tableNumber}`;
   };
 
   const downloadQRCode = () => {
@@ -262,7 +262,7 @@ export default function TableManagementPage() {
             <div className="rounded-lg border-2 border-line p-4 bg-white">
               <QRCodeSVG
                 id={`qr-svg-${selectedTableForQR.id}`}
-                value={getQRCodeURL(selectedTableForQR.id)}
+                value={getQRCodeURL(selectedTableForQR.id, selectedTableForQR.table_number)}
                 size={200}
                 level="H"
                 includeMargin={true}
@@ -271,7 +271,7 @@ export default function TableManagementPage() {
             <div className="text-center">
               <p className="text-sm text-ink-muted mb-1">URL Pemesanan:</p>
               <p className="text-xs font-mono bg-surface-alt px-2 py-1 rounded break-all">
-                {getQRCodeURL(selectedTableForQR.id)}
+                {getQRCodeURL(selectedTableForQR.id, selectedTableForQR.table_number)}
               </p>
             </div>
             <button

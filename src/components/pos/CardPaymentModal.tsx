@@ -19,6 +19,8 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
   const [cardNumber, setCardNumber] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
+  const [approvalCode, setApprovalCode] = useState('');
+  const [cardType, setCardType] = useState<'debit' | 'credit'>('debit');
   const { toast } = useToast();
 
   const calculateTotal = () => {
@@ -69,6 +71,8 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
     // Simulate payment processing
     setTimeout(() => {
       setStatus('success');
+      // Generate a mock approval code
+      setApprovalCode(Math.random().toString(36).substring(2, 10).toUpperCase());
     }, 2000);
   };
 
@@ -79,6 +83,8 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
     setCardNumber('');
     setExpiryDate('');
     setCvv('');
+    setApprovalCode('');
+    setCardType('debit');
     setStatus('input');
   };
 
@@ -89,6 +95,8 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
     setCardNumber('');
     setExpiryDate('');
     setCvv('');
+    setApprovalCode('');
+    setCardType('debit');
     setStatus('input');
   };
 
@@ -166,6 +174,32 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Kartu</label>
+              <div className="flex gap-4">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="debit"
+                    checked={cardType === 'debit'}
+                    onChange={(e) => setCardType(e.target.value as 'debit' | 'credit')}
+                    className="accent-[var(--primary)]"
+                  />
+                  <span className="text-sm">Debit</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    value="credit"
+                    checked={cardType === 'credit'}
+                    onChange={(e) => setCardType(e.target.value as 'debit' | 'credit')}
+                    className="accent-[var(--primary)]"
+                  />
+                  <span className="text-sm">Kredit</span>
+                </label>
+              </div>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Nomor Kartu</label>
               <input
                 type="text"
@@ -223,7 +257,13 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
             </div>
             <div className="text-center">
               <p className="text-xl font-bold text-green-600 mb-2">Pembayaran Berhasil!</p>
-              <p className="text-sm text-gray-600">Pembayaran kartu telah diterima</p>
+              <p className="text-sm text-gray-600 mb-2">Pembayaran kartu telah diterima</p>
+              {approvalCode && (
+                <div className="bg-gray-50 rounded-lg p-3 mt-3">
+                  <p className="text-xs text-gray-500 mb-1">Kode Persetujuan</p>
+                  <p className="font-mono font-bold text-lg">{approvalCode}</p>
+                </div>
+              )}
             </div>
           </div>
         )}

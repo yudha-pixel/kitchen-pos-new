@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { db, SyncQueueItem } from '@/src/lib/db';
+import { generateUUID } from '@/src/lib/utils';
 
 interface OfflineState {
   isOnline: boolean;
@@ -43,7 +44,7 @@ export const useOfflineStore = create<OfflineState>()(
       addTransaction: async (operation: 'create' | 'update' | 'delete', tableName: string, data: any) => {
         try {
           const queueItem: SyncQueueItem = {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             operation,
             table_name: tableName,
             data,

@@ -57,6 +57,7 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
       if (data.store_phone !== undefined) updateData.store_phone = data.store_phone;
       if (data.store_email !== undefined) updateData.store_email = data.store_email;
       if (data.store_address !== undefined) updateData.store_address = data.store_address;
+      if (data.web_base_url !== undefined) updateData.web_base_url = data.web_base_url;
       if (data.timezone !== undefined) updateData.timezone = data.timezone;
       if (data.currency !== undefined) updateData.currency = data.currency;
       if (data.tax_rate !== undefined) updateData.tax_rate = data.tax_rate;
@@ -101,6 +102,19 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
       if (data.auto_refresh !== undefined) updateData.auto_refresh = data.auto_refresh;
       if (data.show_estimation !== undefined) updateData.show_estimation = data.show_estimation;
       
+      // Table Settings
+      if (data.indoor_count !== undefined) updateData.indoor_count = data.indoor_count;
+      if (data.outdoor_count !== undefined) updateData.outdoor_count = data.outdoor_count;
+      if (data.vip_count !== undefined) updateData.vip_count = data.vip_count;
+      if (data.qr_auto_generate !== undefined) updateData.qr_auto_generate = data.qr_auto_generate;
+      if (data.areas !== undefined) updateData.areas = data.areas;
+      
+      // User Settings
+      if (data.admin_count !== undefined) updateData.admin_count = data.admin_count;
+      if (data.cashier_count !== undefined) updateData.cashier_count = data.cashier_count;
+      if (data.waiter_count !== undefined) updateData.waiter_count = data.waiter_count;
+      if (data.require_2fa !== undefined) updateData.require_2fa = data.require_2fa;
+      
       settings = await prisma.appSettings.update({
         where: { id: settings.id },
         data: updateData,
@@ -122,6 +136,7 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
           store_phone: data.store_phone || '+62 21 1234 5678',
           store_email: data.store_email || 'info@kitchenpos.com',
           store_address: data.store_address || 'Jl. Contoh No. 123, Jakarta Selatan',
+          web_base_url: data.web_base_url || 'http://localhost:3000',
           timezone: data.timezone || 'Asia/Jakarta',
           currency: data.currency || 'IDR',
           tax_rate: data.tax_rate || 10,
@@ -165,6 +180,23 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
           sound_notification: data.sound_notification !== undefined ? data.sound_notification : true,
           auto_refresh: data.auto_refresh !== undefined ? data.auto_refresh : true,
           show_estimation: data.show_estimation !== undefined ? data.show_estimation : true,
+          
+          // Table Settings
+          indoor_count: data.indoor_count || 10,
+          outdoor_count: data.outdoor_count || 8,
+          vip_count: data.vip_count || 4,
+          qr_auto_generate: data.qr_auto_generate !== undefined ? data.qr_auto_generate : true,
+          areas: data.areas || JSON.stringify([
+            { id: '1', name: 'Indoor', description: 'Area dalam restoran', count: 10 },
+            { id: '2', name: 'Outdoor', description: 'Area luar restoran', count: 8 },
+            { id: '3', name: 'VIP', description: 'Area VIP khusus', count: 4 },
+          ]),
+          
+          // User Settings
+          admin_count: data.admin_count || 1,
+          cashier_count: data.cashier_count || 2,
+          waiter_count: data.waiter_count || 3,
+          require_2fa: data.require_2fa !== undefined ? data.require_2fa : false,
         },
       });
     }
@@ -198,6 +230,7 @@ router.post('/reset', authMiddleware, requireRole('admin'), async (req, res) => 
         store_phone: '+62 21 1234 5678',
         store_email: 'info@kitchenpos.com',
         store_address: 'Jl. Contoh No. 123, Jakarta Selatan',
+        web_base_url: 'http://localhost:3000',
         timezone: 'Asia/Jakarta',
         currency: 'IDR',
         tax_rate: 10,
@@ -218,6 +251,19 @@ router.post('/reset', authMiddleware, requireRole('admin'), async (req, res) => 
         require_reconciliation: true,
         show_cash_comparison: true,
         auto_report: true,
+        
+        // Table Settings
+        indoor_count: 10,
+        outdoor_count: 5,
+        vip_count: 3,
+        qr_auto_generate: true,
+        areas: [],
+        
+        // User Settings
+        admin_count: 1,
+        cashier_count: 2,
+        waiter_count: 3,
+        require_2fa: false,
         
         // Inventory Settings
         min_stock_menu: 5,

@@ -150,10 +150,14 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Table number already exists' });
     }
 
+    // Generate QR code URL with table number parameter
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || process.env.WEB_BASE_URL || 'http://localhost:3000';
+    const qrCodeUrl = `${baseUrl}/order/${data.table_number}?table=${data.table_number}`;
+
     const table = await prisma.table.create({
       data: {
         table_number: data.table_number,
-        qr_code: data.qr_code,
+        qr_code: qrCodeUrl,
         outlet_id: data.outlet_id,
         status: 'available',
       },

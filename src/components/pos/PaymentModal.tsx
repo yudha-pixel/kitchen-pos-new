@@ -21,12 +21,14 @@ const paymentMethods = [
   { value: 'CASH', label: 'Tunai', icon: Banknote },
   { value: 'QRIS', label: 'QRIS', icon: QrCode },
   { value: 'DEBIT', label: 'Debit/Kartu', icon: CreditCard },
+  { value: 'EWALLET', label: 'E-Wallet', icon: QrCode },
 ];
 
 const splitPaymentMethods = [
   { value: 'CASH', label: 'Tunai' },
   { value: 'QRIS', label: 'QRIS' },
   { value: 'DEBIT', label: 'Debit/Kartu' },
+  { value: 'EWALLET', label: 'E-Wallet' },
 ];
 
 export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSplitBillComplete }: PaymentModalProps) => {
@@ -44,10 +46,11 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
   const { toast } = useToast();
 
   const calculateTotal = () => {
-    return order.items?.reduce((sum: number, item: any) => {
+    if (!order || !order.items) return 0;
+    return order.items.reduce((sum: number, item: any) => {
       const price = Number(item.price_at_time) || 0;
       return sum + (price * item.quantity);
-    }, 0) || 0;
+    }, 0);
   };
 
   const calculateChange = () => {
@@ -74,6 +77,8 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
       setQrisModalOpen(true);
     } else if (selectedPaymentMethod === 'DEBIT') {
       setCardModalOpen(true);
+    } else if (selectedPaymentMethod === 'EWALLET') {
+      setQrisModalOpen(true);
     }
   };
 
@@ -118,7 +123,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
 
   const handleSelectAll = () => {
     if (isProcessingSplit) return;
-    const allItemIds = order.items?.map((item: any) => item.id) || [];
+    const allItemIds = order?.items?.map((item: any) => item.id) || [];
     if (selectedItemIds.length === allItemIds.length) {
       setSelectedItemIds([]);
     } else {
@@ -178,6 +183,8 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
       setSplitQrisModalOpen(true);
     } else if (method === 'DEBIT') {
       setSplitCardModalOpen(true);
+    } else if (method === 'EWALLET') {
+      setSplitQrisModalOpen(true);
     }
   };
 
@@ -219,9 +226,10 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
   };
 
   const calculateSelectedTotal = () => {
+    if (!order || !order.items) return 0;
     return order.items
-      ?.filter((item: any) => selectedItemIds.includes(item.id))
-      .reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0) || 0;
+      .filter((item: any) => selectedItemIds.includes(item.id))
+      .reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0);
   };
 
   const getItemName = (item: any) => {
@@ -295,7 +303,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                 disabled={!selectedPaymentMethod || (selectedPaymentMethod === 'CASH' && (!cashAmount || Number(cashAmount) < total))}
                 onClick={handlePayment}
               >
-                {selectedPaymentMethod === 'QRIS' || selectedPaymentMethod === 'DEBIT' ? 'Lanjut' : 'Bayar'}
+                {selectedPaymentMethod === 'CASH' ? 'Bayar' : selectedPaymentMethod === 'QRIS' || selectedPaymentMethod === 'EWALLET' || selectedPaymentMethod === 'DEBIT' ? 'Lanjut' : 'Bayar'}
               </Button>
             </div>
           )
@@ -306,7 +314,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
           <div className="bg-gray-50 rounded-lg p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-gray-600">Meja</span>
-              <span className="font-medium">{order.table_number || 'Direct'}</span>
+              <span className="font-medium">{order?.table_number || 'Direct'}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Total</span>

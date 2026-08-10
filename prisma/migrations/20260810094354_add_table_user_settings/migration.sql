@@ -1,0 +1,9 @@
+-- AlterTable
+ALTER TABLE "app_settings" ADD COLUMN     "admin_count" INTEGER NOT NULL DEFAULT 1,
+ADD COLUMN     "cashier_count" INTEGER NOT NULL DEFAULT 2,
+ADD COLUMN     "indoor_count" INTEGER NOT NULL DEFAULT 10,
+ADD COLUMN     "outdoor_count" INTEGER NOT NULL DEFAULT 8,
+ADD COLUMN     "qr_auto_generate" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "require_2fa" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "vip_count" INTEGER NOT NULL DEFAULT 4,
+ADD COLUMN     "waiter_count" INTEGER NOT NULL DEFAULT 3;
