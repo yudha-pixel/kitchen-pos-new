@@ -3,8 +3,9 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
-import { getStockRequests, getStockRequestsByStatus, approveStockRequest, rejectStockRequest, getStockWriteOffsByStatus, approveStockWriteOff, rejectStockWriteOff } from '@/src/features/inventory/inventoryService';
+import { getStockRequestsByStatus, approveStockRequest, rejectStockRequest, getStockWriteOffsByStatus, approveStockWriteOff, rejectStockWriteOff } from '@/src/features/inventory/recipeApiService';
 import { Check, X, Clock, AlertCircle, CheckCircle, XCircle, User, Calendar, Package, FileText, Download, Search, ZoomIn, CheckSquare, Square } from 'lucide-react';
+import { Modal } from '@/src/components/ui/Modal';
 
 export default function StockApprovalsPage() {
   const [requests, setRequests] = useState<any[]>([]);
@@ -23,6 +24,14 @@ export default function StockApprovalsPage() {
   const [bulkRejectionReason, setBulkRejectionReason] = useState('');
   const [isBulkProcessing, setIsBulkProcessing] = useState(false);
   const [supplierFilter, setSupplierFilter] = useState<string>('all');
+  const [pageError, setPageError] = useState('');
+  const [pageStatus, setPageStatus] = useState('');
+  const [approveTarget, setApproveTarget] = useState<{ id: string; type: 'request' | 'writeoff' } | null>(null);
+  const [isApproving, setIsApproving] = useState(false);
+  const [rejectFormError, setRejectFormError] = useState('');
+  const [isRejecting, setIsRejecting] = useState(false);
+  const [bulkApproveConfirmOpen, setBulkApproveConfirmOpen] = useState(false);
+  const [bulkRejectFormError, setBulkRejectFormError] = useState('');
 
   useEffect(() => {
     loadData();
@@ -81,73 +90,79 @@ export default function StockApprovalsPage() {
     return matchesSearch && matchesDate && matchesSupplier;
   });
 
-  const handleApprove = async (requestId: string, type: 'request' | 'writeoff') => {
-    const confirmMessage = type === 'request' 
-      ? 'Apakah Anda yakin ingin menyetujui pengajuan ini? Stok akan bertambah secara otomatis.'
-      : 'Apakah Anda yakin ingin menyetujui laporan ini? Stok akan berkurang secara otomatis.';
-    
-    if (!confirm(confirmMessage)) return;
+  const handleApproveClick = (requestId: string, type: 'request' | 'writeoff') => {
+    setPageError('');
+    setApproveTarget({ id: requestId, type });
+  };
 
+  const handleApproveConfirm = async () => {
+    if (!approveTarget) return;
+    setIsApproving(true);
     try {
       let result;
-      if (type === 'request') {
-        result = await approveStockRequest(requestId, 'admin-user', 'Admin');
+      if (approveTarget.type === 'request') {
+        result = await approveStockRequest(approveTarget.id);
       } else {
-        result = await approveStockWriteOff(requestId, 'admin-user', 'Admin');
+        result = await approveStockWriteOff(approveTarget.id);
       }
-      
+
       if (result.success) {
-        alert('Pengajuan berhasil disetujui. Stok telah diperbarui.');
+        setPageStatus('Pengajuan berhasil disetujui. Stok telah diperbarui.');
+        setApproveTarget(null);
         await loadData();
       } else {
-        alert(result.message);
+        setPageError(result.message);
       }
     } catch (error) {
       console.error('Failed to approve request:', error);
-      alert('Gagal menyetujui pengajuan');
+      setPageError('Gagal menyetujui pengajuan');
+    } finally {
+      setIsApproving(false);
     }
   };
 
   const handleRejectClick = (request: any) => {
+    setPageError('');
     setSelectedRequest(request);
     setRejectionReason('');
+    setRejectFormError('');
     setRejectModalOpen(true);
+  };
+
+  const closeRejectModal = () => {
+    if (isRejecting) return;
+    setRejectModalOpen(false);
+    setRejectFormError('');
   };
 
   const handleRejectConfirm = async () => {
     if (!rejectionReason.trim()) {
-      alert('Mohon isi alasan penolakan');
+      setRejectFormError('Mohon isi alasan penolakan');
       return;
     }
 
+    setRejectFormError('');
+    setIsRejecting(true);
     try {
       let result;
       if (selectedRequest.type === 'request') {
-        result = await rejectStockRequest(
-          selectedRequest.id,
-          'admin-user',
-          'Admin',
-          rejectionReason
-        );
+        result = await rejectStockRequest(selectedRequest.id, rejectionReason);
       } else {
-        result = await rejectStockWriteOff(
-          selectedRequest.id,
-          'admin-user',
-          'Admin',
-          rejectionReason
-        );
+        result = await rejectStockWriteOff(selectedRequest.id, rejectionReason);
       }
       
       if (result.success) {
-        alert('Pengajuan berhasil ditolak.');
+        setPageStatus('Pengajuan berhasil ditolak.');
         setRejectModalOpen(false);
         await loadData();
       } else {
-        alert(result.message);
+        setRejectFormError(result.message);
       }
     } catch (error) {
       console.error('Failed to reject request:', error);
-      alert('Gagal menolak pengajuan');
+      setRejectFormError('Gagal menolak pengajuan');
+    } finally {
+      setIsRejecting(false);
     }
   };
 
@@ -247,14 +262,16 @@ export default function StockApprovalsPage() {
     });
   };
 
-  const handleBulkApprove = async () => {
+  const handleBulkApproveClick = () => {
     if (selectedIds.size === 0) {
-      alert('Pilih minimal satu item untuk disetujui');
+      setPageError('Pilih minimal satu item untuk disetujui');
       return;
     }
-    
-    if (!confirm(`Setujui ${selectedIds.size} pengajuan terpilih?`)) return;
-    
+    setPageError('');
+    setBulkApproveConfirmOpen(true);
+  };
+
+  const handleBulkApproveConfirm = async () => {
     setIsBulkProcessing(true);
     try {
       let successCount = 0;
@@ -263,19 +280,20 @@ export default function StockApprovalsPage() {
         if (request) {
           let result;
           if (request.type === 'request') {
-            result = await approveStockRequest(id, 'admin-user', 'Admin');
+            result = await approveStockRequest(id);
           } else {
-            result = await approveStockWriteOff(id, 'admin-user', 'Admin');
+            result = await approveStockWriteOff(id);
           }
           if (result.success) successCount++;
         }
       }
-      alert(`Berhasil menyetujui ${successCount} dari ${selectedIds.size} pengajuan`);
+      setPageStatus(`Berhasil menyetujui ${successCount} dari ${selectedIds.size} pengajuan`);
+      setBulkApproveConfirmOpen(false);
       setSelectedIds(new Set());
       await loadData();
     } catch (error) {
       console.error('Failed to bulk approve:', error);
-      alert('Gagal menyetujui secara massal');
+      setPageError('Gagal menyetujui secara massal');
     } finally {
       setIsBulkProcessing(false);
     }
@@ -283,19 +301,28 @@ export default function StockApprovalsPage() {
 
   const handleBulkRejectClick = () => {
     if (selectedIds.size === 0) {
-      alert('Pilih minimal satu item untuk ditolak');
+      setPageError('Pilih minimal satu item untuk ditolak');
       return;
     }
+    setPageError('');
     setBulkRejectionReason('');
+    setBulkRejectFormError('');
     setBulkRejectModalOpen(true);
+  };
+
+  const closeBulkRejectModal = () => {
+    if (isBulkProcessing) return;
+    setBulkRejectModalOpen(false);
+    setBulkRejectFormError('');
   };
 
   const handleBulkRejectConfirm = async () => {
     if (!bulkRejectionReason.trim()) {
-      alert('Mohon isi alasan penolakan');
+      setBulkRejectFormError('Mohon isi alasan penolakan');
       return;
     }
-    
+
+    setBulkRejectFormError('');
     setIsBulkProcessing(true);
     try {
       let successCount = 0;
@@ -304,20 +331,20 @@ export default function StockApprovalsPage() {
         if (request) {
           let result;
           if (request.type === 'request') {
-            result = await rejectStockRequest(id, 'admin-user', 'Admin', bulkRejectionReason);
+            result = await rejectStockRequest(id, bulkRejectionReason);
           } else {
-            result = await rejectStockWriteOff(id, 'admin-user', 'Admin', bulkRejectionReason);
+            result = await rejectStockWriteOff(id, bulkRejectionReason);
           }
           if (result.success) successCount++;
         }
       }
-      alert(`Berhasil menolak ${successCount} dari ${selectedIds.size} pengajuan`);
+      setPageStatus(`Berhasil menolak ${successCount} dari ${selectedIds.size} pengajuan`);
       setBulkRejectModalOpen(false);
       setSelectedIds(new Set());
       await loadData();
     } catch (error) {
       console.error('Failed to bulk reject:', error);
-      alert('Gagal menolak secara massal');
+      setBulkRejectFormError('Gagal menolak secara massal');
     } finally {
       setIsBulkProcessing(false);
     }
@@ -344,6 +371,16 @@ export default function StockApprovalsPage() {
               <h1 className="text-3xl font-bold text-gray-900">Persetujuan Penambahan Stok</h1>
               <p className="text-gray-600 mt-1">Kelola persetujuan pengajuan penambahan stok bahan baku</p>
             </div>
+            {pageStatus && (
+              <p role="status" className="mb-4 text-sm font-medium text-green-700">
+                {pageStatus}
+              </p>
+            )}
+            {pageError && (
+              <p role="alert" className="mb-4 text-sm font-medium text-red-600">
+                {pageError}
+              </p>
+            )}
 
             {/* Tabs */}
             <div className="bg-white rounded-lg shadow mb-6">
@@ -438,7 +475,7 @@ export default function StockApprovalsPage() {
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={handleBulkApprove}
+                    onClick={handleBulkApproveClick}
                     disabled={isBulkProcessing}
                     className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white disabled:bg-gray-400 disabled:cursor-not-allowed"
                   >
@@ -635,7 +672,7 @@ export default function StockApprovalsPage() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex gap-2">
                                 <button
-                                  onClick={() => handleApprove(request.id, request.type)}
+                                  onClick={() => handleApproveClick(request.id, request.type)}
                                   className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-indigo-600 hover:bg-indigo-700 hover:text-white"
                                 >
                                   <Check className="h-3 w-3 mr-1" />
@@ -672,8 +709,9 @@ export default function StockApprovalsPage() {
                 Tolak {selectedRequest?.type === 'request' ? 'Pengajuan' : 'Laporan'}
               </h2>
               <button
-                onClick={() => setRejectModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
+                onClick={closeRejectModal}
+                disabled={isRejecting}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -709,18 +747,25 @@ export default function StockApprovalsPage() {
                   required
                 />
               </div>
+              {rejectFormError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {rejectFormError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setRejectModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={closeRejectModal}
+                  disabled={isRejecting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleRejectConfirm}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:text-white transition-colors"
+                  disabled={isRejecting}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 hover:text-white transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
                 >
-                  Tolak
+                  {isRejecting ? 'Menolak...' : 'Tolak'}
                 </button>
               </div>
             </div>
@@ -738,8 +783,9 @@ export default function StockApprovalsPage() {
                 Tolak {selectedIds.size} Pengajuan Terpilih
               </h2>
               <button
-                onClick={() => setBulkRejectModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
+                onClick={closeBulkRejectModal}
+                disabled={isBulkProcessing}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -761,10 +807,16 @@ export default function StockApprovalsPage() {
                   required
                 />
               </div>
+              {bulkRejectFormError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {bulkRejectFormError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setBulkRejectModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={closeBulkRejectModal}
+                  disabled={isBulkProcessing}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -883,7 +935,7 @@ export default function StockApprovalsPage() {
               {selectedDetailRequest.status === 'pending' && (
                 <div className="flex gap-3 pt-4 border-t">
                   <button
-                    onClick={() => handleApprove(selectedDetailRequest.id, selectedDetailRequest.type)}
+                    onClick={() => handleApproveClick(selectedDetailRequest.id, selectedDetailRequest.type)}
                     className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
                   >
                     <Check className="h-4 w-4 inline mr-2" />
@@ -905,6 +957,80 @@ export default function StockApprovalsPage() {
           </div>
         </div>
       )}
+
+      {/* Approve Confirmation */}
+      <Modal
+        isOpen={Boolean(approveTarget)}
+        onClose={() => { if (!isApproving) setApproveTarget(null); }}
+        title="Setujui pengajuan?"
+        role="alertdialog"
+        descriptionId="approve-request-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setApproveTarget(null)}
+              disabled={isApproving}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleApproveConfirm}
+              disabled={isApproving}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isApproving ? 'Memproses...' : 'Setujui'}
+            </button>
+          </>
+        }
+      >
+        <p id="approve-request-description" className="text-sm text-gray-700">
+          {approveTarget?.type === 'request'
+            ? 'Apakah Anda yakin ingin menyetujui pengajuan ini? Stok akan bertambah secara otomatis.'
+            : 'Apakah Anda yakin ingin menyetujui laporan ini? Stok akan berkurang secara otomatis.'}
+        </p>
+      </Modal>
+
+      {/* Bulk Approve Confirmation */}
+      <Modal
+        isOpen={bulkApproveConfirmOpen}
+        onClose={() => { if (!isBulkProcessing) setBulkApproveConfirmOpen(false); }}
+        title="Setujui pengajuan terpilih?"
+        role="alertdialog"
+        descriptionId="bulk-approve-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <button
+              type="button"
+              onClick={() => setBulkApproveConfirmOpen(false)}
+              disabled={isBulkProcessing}
+              className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleBulkApproveConfirm}
+              disabled={isBulkProcessing}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            >
+              {isBulkProcessing ? 'Memproses...' : 'Setujui Semua'}
+            </button>
+          </>
+        }
+      >
+        <p id="bulk-approve-description" className="text-sm text-gray-700">
+          Setujui <strong>{selectedIds.size}</strong> pengajuan terpilih?
+        </p>
+      </Modal>
     </div>
   );
 }

@@ -69,6 +69,9 @@ export default function RecipeMappingPage() {
   const [saving, setSaving] = useState(false);
   const [bulkImportOpen, setBulkImportOpen] = useState(false);
   const [bulkImportData, setBulkImportData] = useState('');
+  const [bulkImportError, setBulkImportError] = useState('');
+  const [pageStatus, setPageStatus] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [activeTab, setActiveTab] = useState('components');
   const [bomType, setBomType] = useState('manufacture');
   const [catalogOpen, setCatalogOpen] = useState(false);
@@ -365,26 +368,32 @@ export default function RecipeMappingPage() {
       await loadSubcontractingInfo();
       await loadProfitability();
 
-      alert('Resep berhasil disimpan');
+      setPageStatus('Resep berhasil disimpan');
     } catch (error) {
       console.error('Failed to save recipes:', error);
-      alert('Gagal menyimpan resep');
+      setSaveError('Gagal menyimpan resep');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleBulkImport = () => {
+  const closeBulkImportModal = () => {
+    setBulkImportOpen(false);
+    setBulkImportError('');
+  };
+
+  const handleBulkImport = async () => {
+    setBulkImportError('');
     try {
       // Check if data is empty
       if (!bulkImportData.trim()) {
-        alert('Data kosong. Silakan isi data JSON.');
+        setBulkImportError('Data kosong. Silakan isi data JSON.');
         return;
       }
 
       // Check if user pasted a file path instead of JSON data
       if (bulkImportData.trim().startsWith('/') || bulkImportData.trim().startsWith('C:') || bulkImportData.trim().startsWith('D:')) {
-        alert('❌ ANDA MEMASUKKAN FILE PATH, BUKAN DATA JSON!\n\n' +
+        setBulkImportError('ANDA MEMASUKKAN FILE PATH, BUKAN DATA JSON!\n\n' +
               'Anda tidak bisa memasukkan file path seperti "/home/taufik/..." ke dalam textarea.\n\n' +
               'CARA YANG BENAR:\n' +
               '1. Buka file JSON di text editor (VS Code, Notepad, dll)\n' +
@@ -423,7 +432,7 @@ export default function RecipeMappingPage() {
       }
 
       // Process bulk import
-      processBulkImport(data);
+      await processBulkImport(data);
       setBulkImportOpen(false);
       setBulkImportData('');
     } catch (error) {
@@ -456,9 +465,9 @@ export default function RecipeMappingPage() {
         userMessage += '- Pastikan semua string menggunakan tanda kutip ganda (")\n';
         userMessage += '- Pastikan tidak ada karakter spesial atau emoji';
         
-        alert(userMessage);
+        setBulkImportError(userMessage);
       } else {
-        alert('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
+        setBulkImportError('Error: ' + (error instanceof Error ? error.message : 'Unknown error'));
       }
     }
   };
@@ -520,7 +529,7 @@ export default function RecipeMappingPage() {
         }
       }
 
-      alert('Bulk import berhasil');
+      setPageStatus('Bulk import berhasil');
       if (selectedProduct) {
         await loadExistingRecipes();
       }
@@ -612,6 +621,11 @@ export default function RecipeMappingPage() {
                 </button>
               </div>
             </div>
+            {pageStatus && (
+              <p role="status" className="mb-4 text-sm font-medium text-green-700">
+                {pageStatus}
+              </p>
+            )}
 
             <div className="flex gap-6 h-[calc(100vh-200px)]">
               {/* List Pane - Desktop */}
@@ -1237,7 +1251,12 @@ export default function RecipeMappingPage() {
                     )}
 
                     {/* Save Button */}
-                    <div className="mt-6 flex justify-end">
+                    <div className="mt-6 flex flex-col items-end gap-2">
+                      {saveError && (
+                        <p role="alert" className="text-sm font-medium text-red-600">
+                          {saveError}
+                        </p>
+                      )}
                       <button
                         onClick={handleSave}
                         disabled={saving}
@@ -1259,7 +1278,7 @@ export default function RecipeMappingPage() {
                   <div className="flex items-center justify-between p-4 border-b">
                     <h2 className="text-lg font-semibold">Bulk Import Resep</h2>
                     <button
-                      onClick={() => setBulkImportOpen(false)}
+                      onClick={closeBulkImportModal}
                       className="p-2 hover:bg-gray-100 rounded-lg"
                     >
                       <Trash2 className="h-5 w-5" />
@@ -1283,9 +1302,14 @@ export default function RecipeMappingPage() {
   }
 ]`}
                     />
+                    {bulkImportError && (
+                      <p role="alert" className="mt-3 whitespace-pre-line text-sm font-medium text-red-600">
+                        {bulkImportError}
+                      </p>
+                    )}
                     <div className="flex gap-3 mt-4">
                       <button
-                        onClick={() => setBulkImportOpen(false)}
+                        onClick={closeBulkImportModal}
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                       >
                         Batal

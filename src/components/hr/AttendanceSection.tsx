@@ -21,6 +21,8 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
   const [loading, setLoading] = useState(false);
   const [showLateAlert, setShowLateAlert] = useState(false);
   const [lateAlertMessage, setLateAlertMessage] = useState('');
+  const [overtimeMessage, setOvertimeMessage] = useState('');
+  const [attendanceError, setAttendanceError] = useState('');
 
   useEffect(() => {
     loadAttendance();
@@ -56,6 +58,7 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
   };
 
   const handleCheckIn = (employee: Employee) => {
+    setAttendanceError('');
     setSelectedEmployee(employee);
     setSelectedShift('');
     setCameraAction('check-in');
@@ -63,6 +66,7 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
   };
 
   const handleCheckOut = (employee: Employee) => {
+    setAttendanceError('');
     setSelectedEmployee(employee);
     setCameraAction('check-out');
     setShowCameraModal(true);
@@ -82,14 +86,14 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
       } else {
         const result = await checkOut(selectedEmployee.id!, photo);
         if (result.overtimeHours > 0) {
-          alert(`${selectedEmployee.name} memiliki ${result.overtimeHours} jam lembur hari ini`);
+          setOvertimeMessage(`${selectedEmployee.name} memiliki ${result.overtimeHours} jam lembur hari ini`);
         }
       }
       await loadAttendance();
       onAttendanceUpdate();
     } catch (error: any) {
       console.error('Failed to record attendance:', error);
-      alert(error.message || 'Gagal mencatat kehadiran');
+      setAttendanceError(error.message || 'Gagal mencatat kehadiran');
     } finally {
       setLoading(false);
       setSelectedEmployee(null);
@@ -131,6 +135,38 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
           <button
             onClick={() => setShowLateAlert(false)}
             className="text-yellow-600 hover:text-yellow-800"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Overtime Info Banner */}
+      {overtimeMessage && (
+        <div role="status" className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Clock className="h-4 w-4 text-blue-600" />
+            <span className="text-sm text-blue-800 font-medium">{overtimeMessage}</span>
+          </div>
+          <button
+            onClick={() => setOvertimeMessage('')}
+            className="text-blue-600 hover:text-blue-800"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Attendance Error Banner */}
+      {attendanceError && (
+        <div role="alert" className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <XCircle className="h-4 w-4 text-red-600" />
+            <span className="text-sm text-red-800 font-medium">{attendanceError}</span>
+          </div>
+          <button
+            onClick={() => setAttendanceError('')}
+            className="text-red-600 hover:text-red-800"
           >
             <X className="h-3.5 w-3.5" />
           </button>

@@ -156,6 +156,26 @@ router.get('/orders/active', authMiddleware, async (_req: Request, res: Response
   res.json(orders);
 });
 
+router.get('/orders/:id', authMiddleware, async (req: Request, res: Response) => {
+  const { id } = req.params as { id: string };
+
+  const order = await prisma.order.findUnique({
+    where: { id },
+    include: {
+      items: {
+        include: { product: true },
+      },
+    },
+  });
+
+  if (!order) {
+    res.status(404).json({ error: 'Order not found' });
+    return;
+  }
+
+  res.json(order);
+});
+
 router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 

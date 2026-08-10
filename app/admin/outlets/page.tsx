@@ -20,12 +20,15 @@ export default function OutletManagementPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [formError, setFormError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     loadOutlets();
   }, []);
 
   const handleOpenModal = (outlet?: Outlet) => {
+    setFormError('');
     if (outlet) {
       setEditingOutlet(outlet);
       setFormData({
@@ -51,8 +54,10 @@ export default function OutletManagementPage() {
   };
 
   const handleCloseModal = () => {
+    if (submitting) return;
     setShowModal(false);
     setEditingOutlet(null);
+    setFormError('');
     setFormData({
       name: '',
       code: '',
@@ -66,6 +71,7 @@ export default function OutletManagementPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setFormError('');
 
     try {
       if (editingOutlet) {
@@ -77,25 +83,32 @@ export default function OutletManagementPage() {
       handleCloseModal();
     } catch (error) {
       console.error('Error saving outlet:', error);
-      alert('Gagal menyimpan outlet');
+      setFormError('Gagal menyimpan outlet');
     } finally {
       setSubmitting(false);
     }
   };
 
+  const closeDeleteModal = () => {
+    if (submitting) return;
+    setDeleteConfirm(null);
+    setDeleteError('');
+  };
+
   const handleDelete = async (id: string) => {
     setSubmitting(true);
+    setDeleteError('');
     try {
       const success = await deleteOutlet(id);
       if (success) {
         await loadOutlets();
         setDeleteConfirm(null);
       } else {
-        alert('Gagal menghapus outlet. Pastikan outlet tidak memiliki data terkait.');
+        setDeleteError('Gagal menghapus outlet. Pastikan outlet tidak memiliki data terkait.');
       }
     } catch (error) {
       console.error('Error deleting outlet:', error);
-      alert('Gagal menghapus outlet');
+      setDeleteError('Gagal menghapus outlet');
     } finally {
       setSubmitting(false);
     }
@@ -192,7 +205,7 @@ export default function OutletManagementPage() {
                         <Edit className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => setDeleteConfirm(outlet.id || '')}
+                        onClick={() => { setDeleteError(''); setDeleteConfirm(outlet.id || ''); }}
                         className="text-red-600 hover:text-red-900"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -293,11 +306,17 @@ export default function OutletManagementPage() {
                   </label>
                 </div>
               </div>
+              {formError && (
+                <p role="alert" className="mt-4 text-sm font-medium text-red-600">
+                  {formError}
+                </p>
+              )}
               <div className="flex gap-3 mt-6">
                 <button
                   type="button"
                   onClick={handleCloseModal}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 hover:text-gray-900 transition-colors"
+                  disabled={submitting}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -322,10 +341,16 @@ export default function OutletManagementPage() {
             <p className="text-gray-600 mb-6">
               Apakah Anda yakin ingin menghapus outlet ini? Tindakan ini tidak dapat dibatalkan.
             </p>
+            {deleteError && (
+              <p role="alert" className="mb-4 text-sm font-medium text-red-600">
+                {deleteError}
+              </p>
+            )}
             <div className="flex gap-3">
               <button
-                onClick={() => setDeleteConfirm(null)}
-                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                onClick={closeDeleteModal}
+                disabled={submitting}
+                className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50"
               >
                 Batal
               </button>

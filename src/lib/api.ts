@@ -202,6 +202,10 @@ export async function fetchOrderItems(orderId: string) {
   return request<unknown>('GET', `/orders/${orderId}/items`);
 }
 
+export async function fetchOrder(orderId: string) {
+  return request<unknown>('GET', `/orders/${orderId}`);
+}
+
 // Active (pending/preparing) orders with items + product + category in one call,
 // used by the Kitchen Display.
 export async function fetchActiveOrders() {

@@ -40,6 +40,7 @@ export const ProductListModal = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [editingStock, setEditingStock] = useState<{ productId: string; value: string } | null>(null);
+  const [stockError, setStockError] = useState('');
 
   if (!isOpen) return null;
 
@@ -61,6 +62,7 @@ export const ProductListModal = ({
   const canEditStock = userRole === 'admin' || userRole === 'management';
 
   const handleStockUpdate = async (productId: string, newStock: number) => {
+    setStockError('');
     try {
       const { updateProductStock } = await import('@/src/lib/api');
       await updateProductStock(productId, newStock);
@@ -70,7 +72,7 @@ export const ProductListModal = ({
       setEditingStock(null);
     } catch (error) {
       console.error('Failed to update stock:', error);
-      alert('Gagal mengupdate stok. Silakan coba lagi.');
+      setStockError('Gagal mengupdate stok. Silakan coba lagi.');
     }
   };
 
@@ -176,34 +178,42 @@ export const ProductListModal = ({
                     </div>
                     <div className="ml-4">
                       {editingStock?.productId === product.id && canEditStock ? (
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="0"
-                            value={editingStock.value}
-                            onChange={(e) => setEditingStock({ productId: product.id, value: e.target.value })}
-                            className="w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-green-500 focus:outline-none"
-                            autoFocus
-                          />
-                          <button
-                            onClick={() => {
-                              const newStock = parseInt(editingStock.value, 10);
-                              if (!isNaN(newStock) && newStock >= 0) {
-                                handleStockUpdate(product.id, newStock);
-                              }
-                            }}
-                            className="rounded bg-green-600 p-1 text-white hover:bg-green-700"
-                            title="Simpan"
-                          >
-                            <Save className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => setEditingStock(null)}
-                            className="rounded bg-gray-400 p-1 text-white hover:bg-gray-500"
-                            title="Batal"
-                          >
-                            <XIcon className="h-4 w-4" />
-                          </button>
+                        <div className="flex flex-col items-end gap-1">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={editingStock.value}
+                              onChange={(e) => setEditingStock({ productId: product.id, value: e.target.value })}
+                              className="w-20 rounded border border-gray-300 px-2 py-1 text-sm focus:border-green-500 focus:outline-none"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => {
+                                const newStock = parseInt(editingStock.value, 10);
+                                if (!isNaN(newStock) && newStock >= 0) {
+                                  handleStockUpdate(product.id, newStock);
+                                }
+                              }}
+                              className="rounded bg-green-600 p-1 text-white hover:bg-green-700"
+                              title="Simpan"
+                            >
+                              <Save className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingStock(null);
+                                setStockError('');
+                              }}
+                              className="rounded bg-gray-400 p-1 text-white hover:bg-gray-500"
+                              title="Batal"
+                            >
+                              <XIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                          {stockError && (
+                            <p role="alert" className="text-xs text-red-600">{stockError}</p>
+                          )}
                         </div>
                       ) : (
                         <div className="flex items-center gap-2">
@@ -218,6 +228,7 @@ export const ProductListModal = ({
                             <button
                               onClick={() => {
                                 const currentStock = productStocks.get(product.id);
+                                setStockError('');
                                 setEditingStock({
                                   productId: product.id,
                                   value: currentStock !== null && currentStock !== undefined ? currentStock.toString() : '0'

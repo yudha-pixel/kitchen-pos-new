@@ -5,12 +5,14 @@ import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { getIngredientsWithStatus, addIngredient, createStockRequest, createStockWriteOff, getPurchaseDataByPeriod } from '@/src/features/inventory/recipeApiService';
 import { getSalesDataByPeriod } from '@/src/features/reports/reportsService';
+import { useAuth } from '@/src/context/AuthContext';
 import { AlertTriangle, Package, TrendingUp, TrendingDown, Plus, X, DollarSign, Filter, ArrowDown, ShoppingCart, Upload, AlertCircle, FileText } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const AVAILABLE_UNITS = ['kg', 'gram', 'pcs', 'liter', 'ml', 'lusin', 'box', 'pack'];
 
 export default function InventoryPage() {
+  const { user } = useAuth();
   const [ingredients, setIngredients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,6 +20,11 @@ export default function InventoryPage() {
   const [stockRequestError, setStockRequestError] = useState('');
   const [stockRequestStatus, setStockRequestStatus] = useState('');
   const [isWriteOffModalOpen, setIsWriteOffModalOpen] = useState(false);
+  const [addIngredientError, setAddIngredientError] = useState('');
+  const [fileError, setFileError] = useState('');
+  const [writeOffQuantityError, setWriteOffQuantityError] = useState('');
+  const [writeOffError, setWriteOffError] = useState('');
+  const [writeOffStatus, setWriteOffStatus] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     current_stock: 0,
@@ -160,6 +167,7 @@ export default function InventoryPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setAddIngredientError('');
 
     try {
       await addIngredient(formData);
@@ -174,7 +182,7 @@ export default function InventoryPage() {
       await loadIngredients();
     } catch (error) {
       console.error('Failed to add ingredient:', error);
-      alert('Gagal menambahkan bahan baku');
+      setAddIngredientError('Gagal menambahkan bahan baku. Silakan coba lagi.');
     } finally {
       setIsSubmitting(false);
     }
@@ -195,8 +203,8 @@ export default function InventoryPage() {
         supplier_name: stockRequestForm.supplier_name,
         proof_file: stockRequestForm.proof_file,
         proof_file_name: stockRequestForm.proof_file_name,
-        requested_by: 'current-user', // TODO: Get from auth context
-        requested_by_name: 'Staff', // TODO: Get from auth context
+        requested_by: user?.id,
+        requested_by_name: user?.username,
       });
       setIsStockRequestModalOpen(false);
       setStockRequestForm({
@@ -221,6 +229,7 @@ export default function InventoryPage() {
   const handleOpenStockRequest = (ingredient: any) => {
     setStockRequestError('');
     setStockRequestStatus('');
+    setFileError('');
     setStockRequestForm({
       ingredient_id: ingredient.id,
       ingredient_name: ingredient.name,
@@ -236,6 +245,9 @@ export default function InventoryPage() {
 
   const handleOpenWriteOff = (ingredient: any) => {
     setAvailableStock(ingredient.current_stock);
+    setFileError('');
+    setWriteOffQuantityError('');
+    setWriteOffError('');
     setWriteOffForm({
       ingredient_id: ingredient.id,
       ingredient_name: ingredient.name,
@@ -250,23 +262,24 @@ export default function InventoryPage() {
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, formType: 'request' | 'writeOff') => {
-    alert('File upload triggered!');
     const file = e.target.files?.[0];
     if (!file) return;
     processFile(file, formType);
   };
 
   const processFile = (file: File, formType: 'request' | 'writeOff') => {
+    setFileError('');
+
     // Check file type
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
     if (!validTypes.includes(file.type)) {
-      alert('Format file tidak valid. Gunakan JPG, PNG, atau PDF.');
+      setFileError('Format file tidak valid. Gunakan JPG, PNG, atau PDF.');
       return;
     }
 
     // Check file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('Ukuran file terlalu besar. Maksimal 5MB.');
+      setFileError('Ukuran file terlalu besar. Maksimal 5MB.');
       return;
     }
 
@@ -290,7 +303,7 @@ export default function InventoryPage() {
     };
     reader.onerror = (error) => {
       console.error('FileReader error:', error);
-      alert('Gagal membaca file. Silakan coba lagi.');
+      setFileError('Gagal membaca file. Silakan coba lagi.');
     };
     reader.readAsDataURL(file);
   };
@@ -337,6 +350,7 @@ export default function InventoryPage() {
 
   const handleQuantityChange = (value: string) => {
     const numValue = parseFloat(value);
+    setWriteOffQuantityError('');
     
     // Reject empty or invalid values
     if (value === '' || isNaN(numValue)) {
@@ -346,13 +360,13 @@ export default function InventoryPage() {
     
     // Reject negative values
     if (numValue < 0) {
-      alert('Jumlah tidak boleh negatif');
+      setWriteOffQuantityError('Jumlah tidak boleh negatif');
       return;
     }
     
     // Reject values exceeding available stock
     if (numValue > availableStock) {
-      alert(`Jumlah tidak boleh melebihi stok tersedia (${availableStock} ${writeOffForm.unit})`);
+      setWriteOffQuantityError(`Jumlah tidak boleh melebihi stok tersedia (${availableStock} ${writeOffForm.unit})`);
       return;
     }
     
@@ -362,9 +376,10 @@ export default function InventoryPage() {
   const handleWriteOffSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setWriteOffError('');
 
     if (!writeOffForm.proof_file) {
-      alert('Wajib melampirkan foto bukti kerusakan/kehilangan');
+      setWriteOffError('Wajib melampirkan foto bukti kerusakan/kehilangan');
       setIsSubmitting(false);
       return;
     }
@@ -379,8 +394,8 @@ export default function InventoryPage() {
         notes: writeOffForm.notes,
         proof_file: writeOffForm.proof_file,
         proof_file_name: writeOffForm.proof_file_name,
-        requested_by: 'current-user', // TODO: Get from auth context
-        requested_by_name: 'Staff', // TODO: Get from auth context
+        requested_by: user?.id,
+        requested_by_name: user?.username,
       });
       setIsWriteOffModalOpen(false);
       setWriteOffForm({
@@ -393,10 +408,10 @@ export default function InventoryPage() {
         proof_file: '',
         proof_file_name: '',
       });
-      alert('Laporan barang rusak/hilang berhasil dikirim. Menunggu persetujuan Admin/Manager.');
+      setWriteOffStatus('Laporan barang rusak/hilang berhasil dikirim. Menunggu persetujuan Admin/Manager.');
     } catch (error) {
       console.error('Failed to create stock write-off:', error);
-      alert('Gagal mengirim laporan barang rusak/hilang');
+      setWriteOffError('Gagal mengirim laporan barang rusak/hilang. Silakan coba lagi.');
     } finally {
       setIsSubmitting(false);
     }
@@ -470,6 +485,11 @@ export default function InventoryPage() {
             {stockRequestStatus && (
               <p role="status" className="mb-4 text-sm font-medium text-green-700">
                 {stockRequestStatus}
+              </p>
+            )}
+            {writeOffStatus && (
+              <p role="status" className="mb-4 text-sm font-medium text-green-700">
+                {writeOffStatus}
               </p>
             )}
 
@@ -668,7 +688,8 @@ export default function InventoryPage() {
                                     <div className="flex items-center gap-3">
                                       <span className="text-sm font-medium text-gray-900">{index + 1}. {item.name}</span>
                                       <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getStatusColor(item.status)}`}>
-                                        {getStatusLabel(item.status)}
+                                        {getStatusIcon(item.status)}
+                                        <span className="ml-1">{getStatusLabel(item.status)}</span>
                                       </span>
                                     </div>
                                     <div className="text-sm text-red-600 font-medium">
@@ -881,6 +902,11 @@ export default function InventoryPage() {
                   placeholder="0"
                 />
               </div>
+              {addIngredientError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {addIngredientError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
@@ -997,6 +1023,11 @@ export default function InventoryPage() {
                   </div>
                 </div>
               </div>
+              {fileError && (
+                <p role="alert" className="text-sm font-medium text-red-600 mt-2">
+                  {fileError}
+                </p>
+              )}
               {stockRequestError && (
                 <p role="alert" className="text-sm font-medium text-red-600">
                   {stockRequestError}
@@ -1064,6 +1095,11 @@ export default function InventoryPage() {
                 <p className="text-xs text-gray-500 mt-1">
                   Stok tersedia: {availableStock} {writeOffForm.unit}
                 </p>
+                {writeOffQuantityError && (
+                  <p role="alert" className="text-sm font-medium text-red-600 mt-1">
+                    {writeOffQuantityError}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Satuan</label>
@@ -1164,6 +1200,16 @@ export default function InventoryPage() {
                   )}
                 </div>
               </div>
+              {fileError && (
+                <p role="alert" className="text-sm font-medium text-red-600 mt-2">
+                  {fileError}
+                </p>
+              )}
+              {writeOffError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {writeOffError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"

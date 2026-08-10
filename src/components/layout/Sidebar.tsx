@@ -29,6 +29,7 @@ import {
   Building2,
   Utensils,
   FileText,
+  Smartphone,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -36,9 +37,10 @@ interface SidebarProps {
 }
 
 const cashierLinks = [
+  { href: '/waiter', label: 'Waiter POS', icon: Smartphone },
   { href: '/pos/meja', label: 'Manajemen Meja', icon: Table },
   { href: '/pos/settings', label: 'Pengaturan Tampilan', icon: Settings },
-  { href: '/customers', label: 'Data Pelanggan', icon: Users },
+  { href: '/admin/crm', label: 'Data Pelanggan', icon: Users },
   { href: '/shift', label: 'Buka/Tutup Shift', icon: Clock },
 ];
 

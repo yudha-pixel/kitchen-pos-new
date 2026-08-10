@@ -7,6 +7,7 @@ import { NetworkError } from '@/src/lib/api';
 import { db } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
 import { reduceStockForOrder, restoreStockForOrder } from '@/src/features/inventory/inventoryService';
+import { addCustomerPoints } from '@/src/features/crm/customerService';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -467,36 +468,11 @@ export const useCartStore = create<CartState>()(
             // Update member points and total spent
             if (state.member) {
               try {
-                const { db } = await import('@/src/lib/db');
-                const currentMember = await db.members.get(state.member.id!);
-                if (currentMember) {
-                  const pointsEarned = Math.floor(finalTotal / 1000); // 1 point per 1000 spent
-                  const newTotalSpent = currentMember.total_spent + finalTotal;
-                  
-                  // Auto-upgrade tier based on new total_spent
-                  let newTier = currentMember.tier;
-                  let newDiscount = currentMember.discount_percentage;
-                  
-                  if (newTotalSpent >= 5000000) {
-                    newTier = 'platinum';
-                    newDiscount = 20;
-                  } else if (newTotalSpent >= 2000000) {
-                    newTier = 'gold';
-                    newDiscount = 15;
-                  } else if (newTotalSpent >= 500000) {
-                    newTier = 'silver';
-                    newDiscount = 10;
-                  }
-                  
-                  await db.members.update(state.member.id!, {
-                    total_spent: newTotalSpent,
-                    points: currentMember.points + pointsEarned,
-                    tier: newTier,
-                    discount_percentage: newDiscount,
-                    updated_at: new Date().toISOString()
-                  });
-                  console.log(`✅ Member updated: +${pointsEarned} points, +Rp${finalTotal.toLocaleString('id-ID')} total spent, tier: ${newTier}`);
-                  
+                const pointsEarned = Math.floor(finalTotal / 1000); // 1 point per 1000 spent
+                const updated = await addCustomerPoints(state.member.id!, pointsEarned, finalTotal);
+                if (updated) {
+                  console.log(`✅ Member updated: +${pointsEarned} points, +Rp${finalTotal.toLocaleString('id-ID')} total spent, tier: ${updated.tier}`);
+
                   // Dispatch event to notify CRM page
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('memberUpdated'));
@@ -620,35 +596,11 @@ export const useCartStore = create<CartState>()(
             // Update member points and total spent
             if (state.member) {
               try {
-                const currentMember = await db.members.get(state.member.id!);
-                if (currentMember) {
-                  const pointsEarned = Math.floor(finalTotal / 1000); // 1 point per 1000 spent
-                  const newTotalSpent = currentMember.total_spent + finalTotal;
-                  
-                  // Auto-upgrade tier based on new total_spent
-                  let newTier = currentMember.tier;
-                  let newDiscount = currentMember.discount_percentage;
-                  
-                  if (newTotalSpent >= 5000000) {
-                    newTier = 'platinum';
-                    newDiscount = 20;
-                  } else if (newTotalSpent >= 2000000) {
-                    newTier = 'gold';
-                    newDiscount = 15;
-                  } else if (newTotalSpent >= 500000) {
-                    newTier = 'silver';
-                    newDiscount = 10;
-                  }
-                  
-                  await db.members.update(state.member.id!, {
-                    total_spent: newTotalSpent,
-                    points: currentMember.points + pointsEarned,
-                    tier: newTier,
-                    discount_percentage: newDiscount,
-                    updated_at: new Date().toISOString()
-                  });
-                  console.log(`✅ Member updated: +${pointsEarned} points, +Rp${finalTotal.toLocaleString('id-ID')} total spent, tier: ${newTier}`);
-                  
+                const pointsEarned = Math.floor(finalTotal / 1000); // 1 point per 1000 spent
+                const updated = await addCustomerPoints(state.member.id!, pointsEarned, finalTotal);
+                if (updated) {
+                  console.log(`✅ Member updated: +${pointsEarned} points, +Rp${finalTotal.toLocaleString('id-ID')} total spent, tier: ${updated.tier}`);
+
                   // Dispatch event to notify CRM page
                   if (typeof window !== 'undefined') {
                     window.dispatchEvent(new CustomEvent('memberUpdated'));

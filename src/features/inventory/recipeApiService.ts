@@ -202,6 +202,29 @@ export async function addIngredient(
   }
 }
 
+export interface StockRequest {
+  id: string;
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity_requested: number;
+  unit: string;
+  notes?: string;
+  supplier_name?: string;
+  proof_file?: string;
+  proof_file_name?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_by: string;
+  requested_by_name: string;
+  approved_by?: string;
+  approved_by_name?: string;
+  rejected_by?: string;
+  rejected_by_name?: string;
+  rejection_reason?: string;
+  requested_at: string;
+  approved_at?: string;
+  rejected_at?: string;
+}
+
 // Create stock request
 export async function createStockRequest(params: any): Promise<string> {
   try {
@@ -214,15 +237,115 @@ export async function createStockRequest(params: any): Promise<string> {
       },
       body: JSON.stringify(params),
     });
-    
+
     if (!response.ok) throw new Error('Failed to create stock request');
-    
+
     const result = await response.json();
     return result.id;
   } catch (error) {
     console.error('Failed to create stock request:', error);
     throw error;
   }
+}
+
+// Get all stock requests
+export async function getStockRequests(): Promise<StockRequest[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get stock requests');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get stock requests:', error);
+    return [];
+  }
+}
+
+// Get stock requests filtered by status
+export async function getStockRequestsByStatus(
+  status: 'pending' | 'approved' | 'rejected'
+): Promise<StockRequest[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get stock requests');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get stock requests by status:', error);
+    return [];
+  }
+}
+
+// Approve a stock request (admin only); server adds the quantity to ingredient stock
+export async function approveStockRequest(
+  requestId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to approve stock request' };
+    }
+    return { success: true, message: 'Stock request approved successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to approve stock request' };
+  }
+}
+
+// Reject a stock request (admin only)
+export async function rejectStockRequest(
+  requestId: string,
+  rejectionReason?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/reject`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ rejection_reason: rejectionReason }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to reject stock request' };
+    }
+    return { success: true, message: 'Stock request rejected successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to reject stock request' };
+  }
+}
+
+export interface StockWriteOff {
+  id: string;
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity_written_off: number;
+  unit: string;
+  reason: string;
+  notes?: string;
+  proof_file: string;
+  proof_file_name: string;
+  status: 'pending' | 'approved' | 'rejected';
+  requested_by: string;
+  requested_by_name: string;
+  approved_by?: string;
+  approved_by_name?: string;
+  rejected_by?: string;
+  rejected_by_name?: string;
+  rejection_reason?: string;
+  requested_at: string;
+  approved_at?: string;
+  rejected_at?: string;
 }
 
 // Create stock write-off
@@ -237,14 +360,91 @@ export async function createStockWriteOff(params: any): Promise<string> {
       },
       body: JSON.stringify(params),
     });
-    
+
     if (!response.ok) throw new Error('Failed to create stock write-off');
-    
+
     const result = await response.json();
     return result.id;
   } catch (error) {
     console.error('Failed to create stock write-off:', error);
     throw error;
+  }
+}
+
+// Get all stock write-offs
+export async function getStockWriteOffs(): Promise<StockWriteOff[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-write-offs`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get stock write-offs');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get stock write-offs:', error);
+    return [];
+  }
+}
+
+// Get stock write-offs filtered by status
+export async function getStockWriteOffsByStatus(
+  status: 'pending' | 'approved' | 'rejected'
+): Promise<StockWriteOff[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-write-offs?status=${status}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get stock write-offs');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get stock write-offs by status:', error);
+    return [];
+  }
+}
+
+// Approve a stock write-off (admin only); server removes the quantity from ingredient stock
+export async function approveStockWriteOff(
+  writeOffId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-write-offs/${writeOffId}/approve`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to approve stock write-off' };
+    }
+    return { success: true, message: 'Stock write-off approved successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to approve stock write-off' };
+  }
+}
+
+// Reject a stock write-off (admin only)
+export async function rejectStockWriteOff(
+  writeOffId: string,
+  rejectionReason?: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/stock-write-offs/${writeOffId}/reject`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ rejection_reason: rejectionReason }),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to reject stock write-off' };
+    }
+    return { success: true, message: 'Stock write-off rejected successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to reject stock write-off' };
   }
 }
 
@@ -267,5 +467,98 @@ export async function getPurchaseDataByPeriod(days: number): Promise<any[]> {
   } catch (error) {
     console.warn('Failed to get purchase data (endpoint may not exist), returning empty array:', error);
     return [];
+  }
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  phone: string;
+  email?: string;
+  address?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Get all suppliers
+export async function getSuppliers(): Promise<Supplier[]> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/suppliers`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) throw new Error('Failed to get suppliers');
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to get suppliers:', error);
+    return [];
+  }
+}
+
+// Create a supplier (admin only)
+export async function addSupplier(
+  supplier: Omit<Supplier, 'id' | 'created_at' | 'updated_at'>
+): Promise<string | null> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/suppliers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(supplier),
+    });
+    if (!response.ok) throw new Error('Failed to create supplier');
+    const result = await response.json();
+    return result.id;
+  } catch (error) {
+    console.error('Failed to create supplier:', error);
+    return null;
+  }
+}
+
+// Update a supplier (admin only)
+export async function updateSupplier(
+  supplierId: string,
+  data: Partial<Omit<Supplier, 'id' | 'created_at' | 'updated_at'>>
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/suppliers/${supplierId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to update supplier' };
+    }
+    return { success: true, message: 'Supplier updated successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to update supplier' };
+  }
+}
+
+// Delete a supplier (admin only)
+export async function deleteSupplier(
+  supplierId: string
+): Promise<{ success: boolean; message: string }> {
+  try {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/suppliers/${supplierId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}));
+      return { success: false, message: body.error || 'Failed to delete supplier' };
+    }
+    return { success: true, message: 'Supplier deleted successfully' };
+  } catch (error) {
+    return { success: false, message: error instanceof Error ? error.message : 'Failed to delete supplier' };
   }
 }

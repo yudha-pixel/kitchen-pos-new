@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
-import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from '@/src/features/inventory/inventoryService';
+import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from '@/src/features/inventory/recipeApiService';
 import { Building2, Plus, Edit, Trash2, X, Phone, Mail, MapPin } from 'lucide-react';
 
 export default function SuppliersPage() {
@@ -13,7 +13,10 @@ export default function SuppliersPage() {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [pageStatus, setPageStatus] = useState('');
+  const [formError, setFormError] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -44,6 +47,7 @@ export default function SuppliersPage() {
       email: '',
       address: '',
     });
+    setFormError('');
     setModalOpen(true);
   };
 
@@ -55,42 +59,59 @@ export default function SuppliersPage() {
       email: supplier.email || '',
       address: supplier.address || '',
     });
+    setFormError('');
     setModalOpen(true);
+  };
+
+  const closeFormModal = () => {
+    if (isSubmitting) return;
+    setModalOpen(false);
+    setFormError('');
   };
 
   const handleDelete = (supplier: any) => {
     setSelectedSupplier(supplier);
+    setDeleteError('');
     setDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    if (isSubmitting) return;
+    setDeleteModalOpen(false);
+    setDeleteError('');
   };
 
   const handleSubmit = async () => {
     if (!formData.name || !formData.phone) {
-      alert('Nama dan Kontak wajib diisi');
+      setFormError('Nama dan Kontak wajib diisi');
       return;
     }
 
+    setFormError('');
     setIsSubmitting(true);
     try {
       if (selectedSupplier) {
         const result = await updateSupplier(selectedSupplier.id, formData);
         if (result.success) {
-          alert('Supplier berhasil diperbarui');
+          setPageStatus('Supplier berhasil diperbarui');
           setModalOpen(false);
           await loadSuppliers();
         } else {
-          alert(result.message);
+          setFormError(result.message);
         }
       } else {
         const id = await addSupplier(formData);
         if (id) {
-          alert('Supplier berhasil ditambahkan');
+          setPageStatus('Supplier berhasil ditambahkan');
           setModalOpen(false);
           await loadSuppliers();
+        } else {
+          setFormError('Gagal menyimpan supplier');
         }
       }
     } catch (error) {
       console.error('Failed to save supplier:', error);
-      alert('Gagal menyimpan supplier');
+      setFormError('Gagal menyimpan supplier');
     } finally {
       setIsSubmitting(false);
     }
@@ -99,19 +120,20 @@ export default function SuppliersPage() {
   const handleConfirmDelete = async () => {
     if (!selectedSupplier) return;
 
+    setDeleteError('');
     setIsSubmitting(true);
     try {
       const result = await deleteSupplier(selectedSupplier.id);
       if (result.success) {
-        alert('Supplier berhasil dihapus');
+        setPageStatus('Supplier berhasil dihapus');
         setDeleteModalOpen(false);
         await loadSuppliers();
       } else {
-        alert(result.message);
+        setDeleteError(result.message);
       }
     } catch (error) {
       console.error('Failed to delete supplier:', error);
-      alert('Gagal menghapus supplier');
+      setDeleteError('Gagal menghapus supplier');
     } finally {
       setIsSubmitting(false);
     }
@@ -137,6 +159,11 @@ export default function SuppliersPage() {
                 Tambah Supplier
               </button>
             </div>
+            {pageStatus && (
+              <p role="status" className="mb-4 text-sm font-medium text-green-700">
+                {pageStatus}
+              </p>
+            )}
 
             {/* Suppliers Table */}
             <div className="bg-white rounded-lg shadow">
@@ -234,8 +261,9 @@ export default function SuppliersPage() {
                 {selectedSupplier ? 'Edit Supplier' : 'Tambah Supplier'}
               </h2>
               <button
-                onClick={() => setModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
+                onClick={closeFormModal}
+                disabled={isSubmitting}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -281,10 +309,16 @@ export default function SuppliersPage() {
                   placeholder="Masukkan alamat (opsional)"
                 />
               </div>
+              {formError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {formError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={closeFormModal}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -308,8 +342,9 @@ export default function SuppliersPage() {
             <div className="flex items-center justify-between p-4 border-b">
               <h2 className="text-lg font-semibold text-red-600">Hapus Supplier</h2>
               <button
-                onClick={() => setDeleteModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
+                onClick={closeDeleteModal}
+                disabled={isSubmitting}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -321,10 +356,16 @@ export default function SuppliersPage() {
               <p className="text-xs text-gray-500">
                 Tindakan ini tidak dapat dibatalkan.
               </p>
+              {deleteError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {deleteError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setDeleteModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={closeDeleteModal}
+                  disabled={isSubmitting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>

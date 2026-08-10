@@ -175,8 +175,8 @@ router.patch('/:id/toggle-active', authMiddleware, requireRole('admin'), async (
   }
 });
 
-// Add points to customer
-router.post('/:id/points', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// Add points to customer (any authenticated staff — routine part of checkout, not an admin action)
+router.post('/:id/points', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { points, total_spent } = req.body;

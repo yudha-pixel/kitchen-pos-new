@@ -41,6 +41,7 @@ export default function CRMPage() {
   const [editingMember, setEditingMember] = useState<Member | null>(null);
   const [memberToDelete, setMemberToDelete] = useState<Member | null>(null);
   const [deleteError, setDeleteError] = useState('');
+  const [formError, setFormError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterTier, setFilterTier] = useState('');
@@ -127,6 +128,7 @@ export default function CRMPage() {
 
   const handleAddMember = () => {
     setEditingMember(null);
+    setFormError('');
     setFormData({
       name: '',
       phone: '',
@@ -142,6 +144,7 @@ export default function CRMPage() {
 
   const handleEditMember = (member: Member) => {
     setEditingMember(member);
+    setFormError('');
     setFormData({
       name: member.name,
       phone: member.phone,
@@ -188,8 +191,9 @@ export default function CRMPage() {
   };
 
   const handleSaveMember = async () => {
+    setFormError('');
     if (!formData.name || !formData.phone) {
-      alert('Nama dan nomor HP wajib diisi');
+      setFormError('Nama dan nomor HP wajib diisi');
       return;
     }
 
@@ -215,7 +219,7 @@ export default function CRMPage() {
       setShowModal(false);
     } catch (error) {
       console.error('Failed to save member:', error);
-      alert('Gagal menyimpan member');
+      setFormError('Gagal menyimpan member');
     }
   };
 
@@ -550,6 +554,9 @@ export default function CRMPage() {
               </div>
             </div>
             
+            {formError && (
+              <p role="alert" className="mt-4 text-sm text-red-600">{formError}</p>
+            )}
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowModal(false)}

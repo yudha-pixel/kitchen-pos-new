@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Clock, CheckCircle, Truck, Package, XCircle, Loader2 } from 'lucide-react';
 import { formatRupiah } from '@/src/lib/format';
+import { Modal } from '@/src/components/ui/Modal';
+import { Button } from '@/src/components/ui/Button';
 
 type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'on_the_way' | 'completed' | 'cancelled';
 
@@ -68,6 +70,9 @@ export default function OrderStatusPage() {
   const [orderData, setOrderData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState('');
 
   useEffect(() => {
     fetchOrderStatus();
@@ -78,9 +83,24 @@ export default function OrderStatusPage() {
 
   const fetchOrderStatus = async () => {
     try {
+      const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+      if (isOnline) {
+        try {
+          const api = await import('@/src/lib/api');
+          const order = await api.fetchOrder(orderId) as any;
+          setOrderData(order);
+          setOrderStatus(order.status as OrderStatus);
+          setLoading(false);
+          return;
+        } catch (apiErr) {
+          console.warn('Failed to fetch order from API, falling back to local cache:', apiErr);
+        }
+      }
+
       const { db } = await import('@/src/lib/db');
       const order = await db.orders.where('id').equals(orderId).first();
-      
+
       if (!order) {
         setError('Pesanan tidak ditemukan');
         setLoading(false);
@@ -94,6 +114,33 @@ export default function OrderStatusPage() {
       console.error('Error fetching order status:', err);
       setError('Gagal memuat status pesanan');
       setLoading(false);
+    }
+  };
+
+  const closeCancelConfirm = () => {
+    if (isCancelling) return;
+    setCancelConfirmOpen(false);
+    setCancelError('');
+  };
+
+  const handleCancelConfirm = async () => {
+    setIsCancelling(true);
+    setCancelError('');
+    try {
+      const api = await import('@/src/lib/api');
+      await api.updateOrderStatus(orderId, 'cancelled');
+
+      const { db } = await import('@/src/lib/db');
+      await db.orders.update(orderId, { status: 'cancelled' });
+
+      setOrderStatus('cancelled');
+      setOrderData((prev: any) => (prev ? { ...prev, status: 'cancelled' } : prev));
+      setCancelConfirmOpen(false);
+    } catch (err) {
+      console.error('Error cancelling order:', err);
+      setCancelError('Gagal membatalkan pesanan. Silakan coba lagi.');
+    } finally {
+      setIsCancelling(false);
     }
   };
 
@@ -229,10 +276,8 @@ export default function OrderStatusPage() {
           {orderStatus === 'pending' && (
             <button
               onClick={() => {
-                // Implement cancel order logic
-                if (confirm('Apakah Anda yakin ingin membatalkan pesanan ini?')) {
-                  // Cancel order
-                }
+                setCancelError('');
+                setCancelConfirmOpen(true);
               }}
               className="w-full py-3 px-4 border-2 border-red-500 text-red-500 rounded-lg hover:bg-red-50 transition-colors"
             >
@@ -250,6 +295,34 @@ export default function OrderStatusPage() {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={cancelConfirmOpen}
+        onClose={closeCancelConfirm}
+        title="Batalkan pesanan?"
+        role="alertdialog"
+        descriptionId="cancel-order-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeCancelConfirm} disabled={isCancelling}>
+              Batal
+            </Button>
+            <Button type="button" variant="danger" loading={isCancelling} onClick={handleCancelConfirm}>
+              Ya, Batalkan
+            </Button>
+          </>
+        }
+      >
+        <p id="cancel-order-description" className="text-pretty text-sm text-ink-secondary">
+          Pesanan ini akan dibatalkan dan tidak dapat dikembalikan.
+        </p>
+        {cancelError && (
+          <p role="alert" className="mt-3 text-sm text-danger">{cancelError}</p>
+        )}
+      </Modal>
     </div>
   );
 }

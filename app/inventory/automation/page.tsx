@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
-import { getIngredientsWithStatus, updateIngredientMinStock, getIngredientsBelowMinStock, createStockRequest, getSuppliers } from '@/src/features/inventory/inventoryService';
+import { getIngredientsWithStatus, updateIngredientMinStock, getIngredientsBelowMinStock } from '@/src/features/inventory/inventoryService';
+import { getSuppliers, createStockRequest } from '@/src/features/inventory/recipeApiService';
 import { AlertTriangle, Package, CheckCircle, Edit, Play, ShoppingCart, Settings, X, DollarSign } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 
@@ -25,6 +26,10 @@ export default function AutomationPage() {
   const [supplierAllocations, setSupplierAllocations] = useState<Map<string, string>>(new Map());
   const [isSavingPO, setIsSavingPO] = useState(false);
   const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [pageStatus, setPageStatus] = useState('');
+  const [pageError, setPageError] = useState('');
+  const [minStockError, setMinStockError] = useState('');
+  const [poError, setPoError] = useState('');
 
   useEffect(() => {
     loadIngredients();
@@ -54,25 +59,33 @@ export default function AutomationPage() {
   const handleEditMinStock = (ingredient: any) => {
     setSelectedIngredient(ingredient);
     setNewMinStock(ingredient.min_stock);
+    setMinStockError('');
     setEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    if (isUpdating) return;
+    setEditModalOpen(false);
+    setMinStockError('');
   };
 
   const handleUpdateMinStock = async () => {
     if (!selectedIngredient) return;
     
     setIsUpdating(true);
+    setMinStockError('');
     try {
       const result = await updateIngredientMinStock(selectedIngredient.id, newMinStock);
       if (result.success) {
-        alert('Batas minimum stok berhasil diperbarui');
+        setPageStatus('Batas minimum stok berhasil diperbarui');
         setEditModalOpen(false);
         await loadIngredients();
       } else {
-        alert(result.message);
+        setMinStockError(result.message);
       }
     } catch (error) {
       console.error('Failed to update min stock:', error);
-      alert('Gagal memperbarui batas minimum stok');
+      setMinStockError('Gagal memperbarui batas minimum stok');
     } finally {
       setIsUpdating(false);
     }
@@ -80,18 +93,19 @@ export default function AutomationPage() {
 
   const handleRunAutoRestock = async () => {
     setIsRunningAutoRestock(true);
+    setPageError('');
     try {
       const items = await getIngredientsBelowMinStock();
       setAutoRestockItems(items);
-      
+
       if (items.length === 0) {
-        alert('Tidak ada bahan baku yang di bawah batas minimum stok');
+        setPageStatus('Tidak ada bahan baku yang di bawah batas minimum stok');
       } else {
-        alert(`Ditemukan ${items.length} bahan baku yang perlu restock`);
+        setPageStatus(`Ditemukan ${items.length} bahan baku yang perlu restock`);
       }
     } catch (error) {
       console.error('Failed to run auto-restock:', error);
-      alert('Gagal menjalankan auto-restock');
+      setPageError('Gagal menjalankan auto-restock');
     } finally {
       setIsRunningAutoRestock(false);
     }
@@ -99,10 +113,12 @@ export default function AutomationPage() {
 
   const handleCreatePO = async () => {
     if (autoRestockItems.length === 0) {
-      alert('Tidak ada item untuk dibuat PO');
+      setPageError('Tidak ada item untuk dibuat PO');
       return;
     }
-    
+
+    setPageError('');
+    setPoError('');
     // Buka modal review alih-alih langsung membuat PO
     setPoItems(autoRestockItems);
     setPoReviewModalOpen(true);
@@ -143,8 +159,15 @@ export default function AutomationPage() {
     }, 0);
   };
 
+  const closePoReviewModal = () => {
+    if (isSavingPO) return;
+    setPoReviewModalOpen(false);
+    setPoError('');
+  };
+
   const handleSavePO = async () => {
     setIsSavingPO(true);
+    setPoError('');
     try {
       let successCount = 0;
       
@@ -160,8 +183,6 @@ export default function AutomationPage() {
           unit: item.unit,
           notes: `Auto-restock: Stok saat ini ${item.current_stock} ${item.unit}, batas minimum ${item.min_stock} ${item.unit}`,
           supplier_name: supplierName,
-          requested_by: 'system',
-          requested_by_name: 'System Automation',
         });
         
         if (result) {
@@ -169,13 +190,13 @@ export default function AutomationPage() {
         }
       }
       
-      alert(`Berhasil membuat ${successCount} dari ${poItems.length} stock request`);
+      setPageStatus(`Berhasil membuat ${successCount} dari ${poItems.length} stock request`);
       setPoReviewModalOpen(false);
       setAutoRestockItems([]);
       setSupplierAllocations(new Map());
     } catch (error) {
       console.error('Failed to save PO:', error);
-      alert('Gagal menyimpan Purchase Order');
+      setPoError('Gagal menyimpan Purchase Order');
     } finally {
       setIsSavingPO(false);
     }
@@ -220,6 +241,16 @@ export default function AutomationPage() {
               <h1 className="text-3xl font-bold text-gray-900">Otomatisasi Pengadaan</h1>
               <p className="text-gray-600 mt-1">Kelola aturan minimum stok dan otomatisasi pengadaan bahan baku</p>
             </div>
+            {pageStatus && (
+              <p role="status" className="mb-4 text-sm font-medium text-green-700">
+                {pageStatus}
+              </p>
+            )}
+            {pageError && (
+              <p role="alert" className="mb-4 text-sm font-medium text-red-600">
+                {pageError}
+              </p>
+            )}
 
             {/* Minimum Stock Rules Section */}
             <div className="bg-white rounded-lg shadow mb-6">
@@ -471,8 +502,9 @@ export default function AutomationPage() {
                 Edit Batas Minimum Stok
               </h2>
               <button
-                onClick={() => setEditModalOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg"
+                onClick={closeEditModal}
+                disabled={isUpdating}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
@@ -505,10 +537,16 @@ export default function AutomationPage() {
                   Satuan: {selectedIngredient.unit}
                 </p>
               </div>
+              {minStockError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {minStockError}
+                </p>
+              )}
               <div className="flex gap-3 pt-4">
                 <button
-                  onClick={() => setEditModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={closeEditModal}
+                  disabled={isUpdating}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>
@@ -534,7 +572,7 @@ export default function AutomationPage() {
                 <ShoppingCart className="h-5 w-5 text-blue-600" />
                 Review Draft Purchase Order
               </h2>
-              <button onClick={() => setPoReviewModalOpen(false)} className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg">
+              <button onClick={closePoReviewModal} disabled={isSavingPO} className="p-2 hover:bg-gray-100 hover:text-gray-900 rounded-lg disabled:opacity-50">
                 <X className="h-5 w-5" />
               </button>
             </div>
@@ -608,11 +646,17 @@ export default function AutomationPage() {
                 </table>
               </div>
 
+              {poError && (
+                <p role="alert" className="text-sm font-medium text-red-600">
+                  {poError}
+                </p>
+              )}
               {/* Action Buttons */}
               <div className="flex gap-3 pt-4 border-t">
                 <button
-                  onClick={() => setPoReviewModalOpen(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors"
+                  onClick={closePoReviewModal}
+                  disabled={isSavingPO}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-900 transition-colors disabled:opacity-50"
                 >
                   Batal
                 </button>

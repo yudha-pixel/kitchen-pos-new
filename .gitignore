@@ -56,3 +56,5 @@ node_modules/.prisma
 *~
 
 sh.exe.stackdump
+/backups/
+/.claude/

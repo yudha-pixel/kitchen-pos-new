@@ -10,7 +10,7 @@ import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, Send, X, List, History, Printer } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, X, List, History, Printer } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
@@ -263,33 +263,6 @@ export default function WaiterPage() {
     }
   };
 
-  const handleSendOrder = async () => {
-    if (cartItems.length === 0) {
-      toast('error', 'Keranjang kosong');
-      return;
-    }
-    if (!selectedTable) {
-      toast('error', 'Silakan pilih nomor meja');
-      return;
-    }
-
-    try {
-      // Set table number in cart store (guest count stored in notes for now)
-      useCartStore.getState().setTableNumber(selectedTable);
-      useCartStore.getState().setNotes(`Guest count: ${guestCount}`);
-
-      // Process payment (this will sync to server if online, or queue if offline)
-      await processPayment();
-
-      toast('success', 'Pesanan dikirim ke dapur');
-      clearCart();
-      setSelectedTable('');
-      setGuestCount(1);
-    } catch (error) {
-      toast('error', error instanceof Error ? error.message : 'Gagal mengirim pesanan');
-    }
-  };
-
   const handleLoadHeldOrder = (index: number) => {
     try {
       const order = heldOrders[index];
@@ -370,89 +343,39 @@ export default function WaiterPage() {
       return;
     }
 
-    try {
-      const { db } = await import('@/src/lib/db');
-      const orderId = crypto.randomUUID();
-
-      // Calculate total
-      const calculatedTotal = cartItems.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity;
-        const modifiersTotal = item.modifiers.reduce((modSum, mod) => modSum + mod.price, 0);
-        return sum + itemTotal + (modifiersTotal * item.quantity);
-      }, 0);
-
-      // Prepare order items
-      const orderItems = cartItems.map(item => ({
-        id: crypto.randomUUID(),
-        order_id: orderId,
-        product_id: item.productId,
-        quantity: item.quantity,
-        price_at_time: item.price,
-        modifiers_applied: item.modifiers,
-        discount_item: 0,
-        split_group_id: null,
-        status: 'pending' as const,
-        created_at: new Date().toISOString(),
-      }));
-
-      // Save order to db.orders
-      const order = {
-        id: orderId,
-        table_number: selectedTable,
-        status: 'completed' as const,
-        total_amount: calculatedTotal,
-        payment_method: selectedPaymentMethod as 'cash' | 'card' | 'qr' | 'transfer',
-        notes: '',
-        created_at: new Date().toISOString(),
-        sync_status: 'pending' as const,
-        cashier_id: null, // Set to null to avoid UUID validation issues
-        discount_amount: 0,
-        rounding_amount: 0,
-      };
-
-      console.log('Saving order to IndexedDB:', order);
-      console.log('Saving order items to IndexedDB:', orderItems);
-
-      await db.orders.add(order);
-      console.log(`✅ Order ${orderId} saved to IndexedDB with status 'paid'`);
-
-      // Save order items
-      await db.order_items.bulkAdd(orderItems);
-      console.log(`✅ Order items saved to IndexedDB`);
-
-      // Prepare receipt data
-      const receiptData = {
-        orderId,
-        tableNumber: selectedTable,
-        items: cartItems.map(item => ({
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-          modifiers: item.modifiers.map(m => m.name),
-        })),
-        subtotal: calculatedTotal,
-        tax: 0,
-        discount: 0,
-        roundingAmount: 0,
-        total: calculatedTotal,
-        paymentMethod: selectedPaymentMethod,
-        cashierName: (user as any)?.name || 'Waiter',
-        notes: '',
-      };
-
-      setSelectedOrderForReceipt(receiptData);
-      setPaymentModalOpen(false);
-      setReceiptModalOpen(true);
-
-      // Clear cart
-      clearCart();
-      setIsCartOpen(false);
-      toast('success', 'Pembayaran berhasil');
-
-    } catch (error) {
-      console.error('Payment failed:', error);
-      toast('error', 'Gagal memproses pembayaran');
+    // The cart store only supports these three; map the modal's options onto them.
+    const methodMap: Record<string, 'CASH' | 'QRIS' | 'DEBIT'> = {
+      cash: 'CASH',
+      qr: 'QRIS',
+      card: 'DEBIT',
+    };
+    const mappedMethod = methodMap[selectedPaymentMethod];
+    if (!mappedMethod) {
+      toast('error', 'Metode pembayaran tidak didukung');
+      return;
     }
+
+    useCartStore.getState().setTableNumber(selectedTable);
+    useCartStore.getState().setNotes(`Guest count: ${guestCount}`);
+    useCartStore.getState().setPaymentMethod(mappedMethod);
+
+    // Goes through the same order-creation path as the main POS (API + IndexedDB,
+    // stock checks, member points) instead of writing straight to IndexedDB.
+    const result = await processPayment();
+
+    if (!result.success) {
+      toast('error', result.message);
+      return;
+    }
+
+    setSelectedOrderForReceipt(result.receiptData);
+    setPaymentModalOpen(false);
+    setReceiptModalOpen(true);
+    setIsCartOpen(false);
+    setSelectedTable('');
+    setGuestCount(1);
+    setSelectedPaymentMethod('');
+    toast('success', 'Pembayaran berhasil');
   };
 
   const cartTotal = cartItems.reduce((sum, item) => {
@@ -708,14 +631,6 @@ export default function WaiterPage() {
                     Tahan
                   </button>
                   <button
-                    onClick={handleSendOrder}
-                    disabled={syncInProgress}
-                    className="flex-1 py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Send className="h-5 w-5" />
-                    Kirim
-                  </button>
-                  <button
                     onClick={() => setPaymentModalOpen(true)}
                     disabled={syncInProgress || cartItems.length === 0}
                     className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
@@ -962,16 +877,6 @@ export default function WaiterPage() {
                 }`}
               >
                 Debit/Kartu
-              </button>
-              <button
-                onClick={() => setSelectedPaymentMethod('transfer')}
-                className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
-                  selectedPaymentMethod === 'transfer'
-                    ? 'border-green-600 bg-green-50 text-green-700'
-                    : 'border-gray-200 hover:border-gray-300'
-                }`}
-              >
-                Transfer
               </button>
             </div>
             <div className="mt-6 flex gap-3">

@@ -36,6 +36,7 @@ export default function PromotionsPage() {
   const [editingPromotion, setEditingPromotion] = useState<Promotion | null>(null);
   const [promotionToDelete, setPromotionToDelete] = useState<Promotion | null>(null);
   const [deleteError, setDeleteError] = useState('');
+  const [formError, setFormError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -97,6 +98,7 @@ export default function PromotionsPage() {
 
   const handleAddPromotion = () => {
     setEditingPromotion(null);
+    setFormError('');
     setFormData({
       name: '',
       description: '',
@@ -118,6 +120,7 @@ export default function PromotionsPage() {
 
   const handleEditPromotion = (promotion: Promotion) => {
     setEditingPromotion(promotion);
+    setFormError('');
     setFormData({
       name: promotion.name,
       description: promotion.description || '',
@@ -160,23 +163,25 @@ export default function PromotionsPage() {
   };
 
   const handleSavePromotion = async () => {
+    setFormError('');
+
     if (!formData.name) {
-      alert('Nama promosi wajib diisi');
+      setFormError('Nama promosi wajib diisi');
       return;
     }
 
     if (formData.type === 'quantity' && formData.min_quantity === 0) {
-      alert('Minimum kuantitas wajib diisi untuk promosi berdasarkan jumlah');
+      setFormError('Minimum kuantitas wajib diisi untuk promosi berdasarkan jumlah');
       return;
     }
 
     if (formData.type === 'amount' && formData.min_amount === 0) {
-      alert('Minimum nominal wajib diisi untuk promosi berdasarkan nominal');
+      setFormError('Minimum nominal wajib diisi untuk promosi berdasarkan nominal');
       return;
     }
 
     if (formData.discount_value === 0) {
-      alert('Nilai diskon wajib diisi');
+      setFormError('Nilai diskon wajib diisi');
       return;
     }
 
@@ -204,7 +209,7 @@ export default function PromotionsPage() {
       setShowModal(false);
     } catch (error) {
       console.error('Failed to save promotion:', error);
-      alert('Gagal menyimpan promosi');
+      setFormError('Gagal menyimpan promosi');
     }
   };
 
@@ -606,6 +611,9 @@ export default function PromotionsPage() {
               </div>
             </div>
             
+            {formError && (
+              <p role="alert" className="mt-4 text-sm text-red-600">{formError}</p>
+            )}
             <div className="flex justify-end gap-2 mt-6">
               <button
                 onClick={() => setShowModal(false)}

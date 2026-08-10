@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { useAuth } from '@/src/context/AuthContext';
-import { Plus, Users, Calendar, DollarSign, AlertCircle } from 'lucide-react';
+import { Plus, Users, Calendar, DollarSign, AlertCircle, X } from 'lucide-react';
 import { EmployeeTable } from '@/src/components/hr/EmployeeTable';
 import { AddEmployeeModal } from '@/src/components/hr/AddEmployeeModal';
 import { AttendanceSection } from '@/src/components/hr/AttendanceSection';
@@ -33,6 +33,7 @@ export default function HRPage() {
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [employeeToDelete, setEmployeeToDelete] = useState<Employee | null>(null);
   const [deleteError, setDeleteError] = useState('');
+  const [saveError, setSaveError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [stats, setStats] = useState({
     totalEmployees: 0,
@@ -96,11 +97,13 @@ export default function HRPage() {
 
   const handleAddEmployee = () => {
     setEditingEmployee(null);
+    setSaveError('');
     setShowAddModal(true);
   };
 
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
+    setSaveError('');
     setShowAddModal(true);
   };
 
@@ -145,7 +148,7 @@ export default function HRPage() {
       setShowAddModal(false);
     } catch (error) {
       console.error('Failed to save employee:', error);
-      alert('Gagal menyimpan karyawan');
+      setSaveError('Gagal menyimpan karyawan');
     }
   };
 
@@ -185,6 +188,19 @@ export default function HRPage() {
                 </button>
               )}
             </div>
+
+            {saveError && (
+              <div role="alert" className="mb-6 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 p-3">
+                <span className="text-sm font-medium text-red-800">{saveError}</span>
+                <button
+                  onClick={() => setSaveError('')}
+                  className="text-red-600 hover:text-red-800"
+                  aria-label="Tutup"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

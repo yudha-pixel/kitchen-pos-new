@@ -63,6 +63,7 @@ export default function KasirPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
   const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
   const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
   const [orderData, setOrderData] = useState<{
     orderId: string;
@@ -137,8 +138,9 @@ export default function KasirPage() {
   };
 
   const handleCheckout = () => {
+    setCheckoutError('');
     if (cart.length === 0) {
-      alert('Keranjang masih kosong');
+      setCheckoutError('Keranjang masih kosong');
       return;
     }
 
@@ -315,6 +317,9 @@ export default function KasirPage() {
                 <span className="text-sm text-ink-muted">Total</span>
                 <span className="text-xl font-bold text-ink">{formatCurrency(calculateTotal())}</span>
               </div>
+              {checkoutError && (
+                <p role="alert" className="mb-2 text-sm text-danger">{checkoutError}</p>
+              )}
               <Button
                 onClick={handleCheckout}
                 disabled={cart.length === 0}

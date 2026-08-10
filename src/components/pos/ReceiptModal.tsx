@@ -52,11 +52,13 @@ export const ReceiptModal = ({
   const receiptRef = useRef<HTMLDivElement>(null);
   const [isPrinting, setIsPrinting] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [pdfError, setPdfError] = useState('');
 
   const generatePDF = async () => {
     if (!receiptRef.current) return;
 
     try {
+      setPdfError('');
       setIsDownloading(true);
       // Capture receipt as canvas using html2canvas-pro
       const canvas = await html2canvas(receiptRef.current, {
@@ -91,7 +93,7 @@ export const ReceiptModal = ({
       pdf.save(filename);
     } catch (error) {
       console.error('PDF generation failed:', error);
-      alert('Gagal membuat PDF. Silakan coba lagi.');
+      setPdfError('Gagal membuat PDF. Silakan coba lagi.');
     } finally {
       setIsDownloading(false);
     }
@@ -250,6 +252,9 @@ export const ReceiptModal = ({
         </div>
       }
     >
+      {pdfError && (
+        <p role="alert" className="mb-3 text-center text-sm text-danger">{pdfError}</p>
+      )}
       <div className="flex justify-center">
         <ReceiptTemplate
           ref={receiptRef}

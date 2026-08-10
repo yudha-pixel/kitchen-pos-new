@@ -4,9 +4,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
 import { Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle, CheckCircle, ArrowLeft, Printer, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+import html2canvas from 'html2canvas-pro';
 
 interface ShiftData {
   isOpen: boolean;
@@ -65,6 +66,12 @@ export default function ShiftPage() {
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
   const [showTransactions, setShowTransactions] = useState(false);
+  const [openShiftError, setOpenShiftError] = useState('');
+  const [closeShiftError, setCloseShiftError] = useState('');
+  const [expenseError, setExpenseError] = useState('');
+  const [pdfError, setPdfError] = useState('');
+  const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [breakdown, setBreakdown] = useState<Record<string, string>>({
     '100000': '',
     '50000': '',
@@ -131,9 +138,10 @@ export default function ShiftPage() {
   };
 
   const handleOpenShift = () => {
+    setOpenShiftError('');
     const cash = parseFloat(startingCashInput);
     if (isNaN(cash) || cash < 0) {
-      alert('Masukkan jumlah modal awal yang valid');
+      setOpenShiftError('Masukkan jumlah modal awal yang valid');
       return;
     }
 
@@ -151,9 +159,10 @@ export default function ShiftPage() {
   };
 
   const handleCloseShift = () => {
+    setCloseShiftError('');
     const cash = parseFloat(endingCashInput);
     if (isNaN(cash) || cash < 0) {
-      alert('Masukkan jumlah uang tunai akhir yang valid');
+      setCloseShiftError('Masukkan jumlah uang tunai akhir yang valid');
       return;
     }
 
@@ -171,13 +180,14 @@ export default function ShiftPage() {
   };
 
   const handleAddExpense = () => {
+    setExpenseError('');
     const amount = parseFloat(expenseInput);
     if (isNaN(amount) || amount <= 0) {
-      alert('Masukkan jumlah pengeluaran yang valid');
+      setExpenseError('Masukkan jumlah pengeluaran yang valid');
       return;
     }
     if (!expenseReason.trim()) {
-      alert('Masukkan alasan pengeluaran');
+      setExpenseError('Masukkan alasan pengeluaran');
       return;
     }
 
@@ -190,21 +200,27 @@ export default function ShiftPage() {
     setShowExpenseForm(false);
   };
 
+  const closeResetConfirm = () => {
+    if (isResetting) return;
+    setResetConfirmOpen(false);
+  };
+
   const handleResetShift = () => {
-    if (confirm('Apakah Anda yakin ingin mereset data shift? Data shift saat ini akan dihapus.')) {
-      setShiftData({
-        isOpen: false,
-        cashierId: null,
-        cashierName: null,
-        openedAt: null,
-        startingCash: 0,
-        totalSales: 0,
-        totalExpenses: 0,
-        closedAt: null,
-        endingCash: null,
-        variance: null,
-      });
-    }
+    setIsResetting(true);
+    setShiftData({
+      isOpen: false,
+      cashierId: null,
+      cashierName: null,
+      openedAt: null,
+      startingCash: 0,
+      totalSales: 0,
+      totalExpenses: 0,
+      closedAt: null,
+      endingCash: null,
+      variance: null,
+    });
+    setIsResetting(false);
+    setResetConfirmOpen(false);
   };
 
   const handlePrint = () => {
@@ -255,6 +271,7 @@ export default function ShiftPage() {
   };
 
   const handleDownloadPDF = async () => {
+    setPdfError('');
     const element = document.getElementById('shift-summary');
     if (!element) return;
 
@@ -275,7 +292,7 @@ export default function ShiftPage() {
       pdf.save(`Laporan_Shift_${date}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Gagal mengunduh PDF. Silakan coba lagi.');
+      setPdfError('Gagal mengunduh PDF. Silakan coba lagi.');
     }
   };
 
@@ -319,6 +336,9 @@ export default function ShiftPage() {
                       className="w-full rounded-lg border-2 border-line bg-surface-alt px-4 py-3 pl-10 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
                     />
                   </div>
+                  {openShiftError && (
+                    <p role="alert" className="mt-2 text-sm text-danger">{openShiftError}</p>
+                  )}
                 </div>
                 <Button onClick={handleOpenShift} className="w-full">
                   <Clock className="h-4 w-4" />
@@ -423,7 +443,10 @@ export default function ShiftPage() {
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setShowExpenseForm(!showExpenseForm)}
+                    onClick={() => {
+                      setExpenseError('');
+                      setShowExpenseForm(!showExpenseForm);
+                    }}
                   >
                     {showExpenseForm ? 'Tutup' : 'Tambah Pengeluaran'}
                   </Button>
@@ -456,6 +479,9 @@ export default function ShiftPage() {
                         className="w-full rounded-lg border-2 border-line bg-surface-alt px-4 py-3 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
                       />
                     </div>
+                    {expenseError && (
+                      <p role="alert" className="text-sm text-danger">{expenseError}</p>
+                    )}
                     <Button onClick={handleAddExpense} variant="danger">
                       Catat Pengeluaran
                     </Button>
@@ -482,6 +508,9 @@ export default function ShiftPage() {
                         className="w-full rounded-lg border-2 border-line bg-surface-alt px-4 py-3 pl-10 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
                       />
                     </div>
+                    {closeShiftError && (
+                      <p role="alert" className="mt-2 text-sm text-danger">{closeShiftError}</p>
+                    )}
                   </div>
 
                   {/* Breakdown Toggle */}
@@ -548,6 +577,7 @@ export default function ShiftPage() {
               margin: '20px auto',
               background: 'white'
             }} data-print-container>
+              <div id="shift-summary">
               {/* Header Section */}
               <div className="text-center mb-6">
                 <h1 className="text-2xl font-bold mb-2">KITCHEN POS</h1>
@@ -663,6 +693,11 @@ export default function ShiftPage() {
 
               {/* Divider */}
               <div className="border-t-2 border-dashed border-gray-400 my-4"></div>
+              </div>
+
+              {pdfError && (
+                <p role="alert" className="mb-4 text-sm text-danger no-print">{pdfError}</p>
+              )}
 
               {/* Action Buttons */}
               <div className="flex gap-2 mt-6 no-print">
@@ -674,7 +709,7 @@ export default function ShiftPage() {
                   <Download className="h-4 w-4" />
                   Download PDF
                 </Button>
-                <Button onClick={handleResetShift} variant="primary" className="flex-1">
+                <Button onClick={() => setResetConfirmOpen(true)} variant="primary" className="flex-1">
                   Mulai Shift Baru
                 </Button>
               </div>
@@ -682,6 +717,31 @@ export default function ShiftPage() {
           )}
         </div>
       </div>
+
+      <Modal
+        isOpen={resetConfirmOpen}
+        onClose={closeResetConfirm}
+        title="Reset data shift?"
+        role="alertdialog"
+        descriptionId="reset-shift-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={closeResetConfirm} disabled={isResetting}>
+              Batal
+            </Button>
+            <Button type="button" variant="danger" loading={isResetting} onClick={handleResetShift}>
+              Reset shift
+            </Button>
+          </>
+        }
+      >
+        <p id="reset-shift-description" className="text-pretty text-sm text-ink-secondary">
+          Data shift saat ini akan dihapus dan tidak dapat dikembalikan.
+        </p>
+      </Modal>
     </div>
   );
 }

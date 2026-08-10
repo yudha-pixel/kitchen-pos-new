@@ -23,8 +23,10 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
     join_date: new Date().toISOString().split('T')[0],
     is_active: true,
   });
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
+    setFormError('');
     if (editingEmployee) {
       setFormData({
         name: editingEmployee.name,
@@ -54,19 +56,20 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setFormError('');
+
     if (!formData.name || !formData.position || !formData.email || !formData.phone) {
-      alert('Mohon lengkapi semua field wajib');
+      setFormError('Mohon lengkapi semua field wajib');
       return;
     }
 
     if (formData.employment_type === 'permanent' && formData.base_salary <= 0) {
-      alert('Gaji pokok harus lebih dari 0 untuk karyawan tetap');
+      setFormError('Gaji pokok harus lebih dari 0 untuk karyawan tetap');
       return;
     }
 
     if (formData.employment_type === 'freelance' && formData.hourly_rate <= 0) {
-      alert('Tarif per jam harus lebih dari 0 untuk pekerja lepas');
+      setFormError('Tarif per jam harus lebih dari 0 untuk pekerja lepas');
       return;
     }
 
@@ -231,7 +234,11 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
           </div>
         </form>
 
-        <div className="sticky bottom-0 bg-white border-t p-6 flex justify-end gap-2">
+        <div className="sticky bottom-0 bg-white border-t p-6 flex flex-col gap-3">
+          {formError && (
+            <p role="alert" className="text-sm text-red-600">{formError}</p>
+          )}
+          <div className="flex justify-end gap-2">
           <button
             type="button"
             onClick={onClose}
@@ -245,6 +252,7 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
           >
             {editingEmployee ? 'Update' : 'Simpan'}
           </button>
+          </div>
         </div>
       </div>
     </div>

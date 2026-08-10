@@ -988,7 +988,7 @@ export default function POSPage() {
       window.location.reload();
     } catch (error) {
       console.error('❌ Failed to clear cache:', error);
-      alert('Gagal membersihkan cache. Cek console untuk detail error.');
+      toast('error', 'Gagal membersihkan cache. Cek console untuk detail error.');
     }
   };
 

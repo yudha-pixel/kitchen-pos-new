@@ -565,6 +565,8 @@ model Ingredient {
   stockAdjustmentLogs StockAdjustmentLog[]
   purchaseOrders  PurchaseOrder[]
   transferItems   StockTransferItem[]
+  stockRequests   StockRequest[]
+  stockWriteOffs  StockWriteOff[]
 
   @@index([name])
   @@index([supplier_id])
@@ -608,6 +610,62 @@ model StockTransferItem {
   @@index([transfer_id])
   @@index([ingredient_id])
   @@map("stock_transfer_items")
+}
+
+model StockRequest {
+  id                 String    @id @default(uuid()) @db.Uuid
+  ingredient_id      String    @db.Uuid
+  ingredient_name    String
+  quantity_requested Float
+  unit               String
+  notes              String?
+  supplier_name      String?
+  proof_file         String?
+  proof_file_name    String?
+  status             String    @default("pending") // pending, approved, rejected
+  requested_by       String    @db.Uuid
+  requested_by_name  String
+  approved_by        String?   @db.Uuid
+  approved_by_name   String?
+  rejected_by        String?   @db.Uuid
+  rejected_by_name   String?
+  rejection_reason   String?
+  requested_at       DateTime  @default(now())
+  approved_at        DateTime?
+  rejected_at        DateTime?
+  ingredient         Ingredient @relation(fields: [ingredient_id], references: [id])
+
+  @@index([ingredient_id])
+  @@index([status])
+  @@map("stock_requests")
+}
+
+model StockWriteOff {
+  id                    String    @id @default(uuid()) @db.Uuid
+  ingredient_id         String    @db.Uuid
+  ingredient_name       String
+  quantity_written_off  Float
+  unit                  String
+  reason                String
+  notes                 String?
+  proof_file            String
+  proof_file_name       String
+  status                String    @default("pending") // pending, approved, rejected
+  requested_by          String    @db.Uuid
+  requested_by_name     String
+  approved_by           String?   @db.Uuid
+  approved_by_name      String?
+  rejected_by           String?   @db.Uuid
+  rejected_by_name      String?
+  rejection_reason      String?
+  requested_at          DateTime  @default(now())
+  approved_at           DateTime?
+  rejected_at           DateTime?
+  ingredient            Ingredient @relation(fields: [ingredient_id], references: [id])
+
+  @@index([ingredient_id])
+  @@index([status])
+  @@map("stock_write_offs")
 }
 
 model Notification {

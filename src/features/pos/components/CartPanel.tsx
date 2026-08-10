@@ -16,6 +16,8 @@ import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { formatRupiah } from '@/src/lib/format';
 import { createPaymentTransaction } from '@/src/features/payment/paymentService';
+import { searchCustomers } from '@/src/features/crm/customerService';
+import { validateVoucher, useVoucher } from '@/src/features/pos/voucherService';
 import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
@@ -93,13 +95,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     const searchMembers = async () => {
       if (memberSearchTerm.length >= 3) {
         try {
-          const { db } = await import('@/src/lib/db');
-          const allMembers = await db.members.toArray();
-          const results = allMembers.filter(member =>
-            member.is_active &&
-            (member.name.toLowerCase().includes(memberSearchTerm.toLowerCase()) ||
-              member.phone.includes(memberSearchTerm))
-          );
+          const results = await searchCustomers(memberSearchTerm);
           setMemberSearchResults(results);
         } catch (error) {
           console.error('Failed to search members:', error);
@@ -151,47 +147,20 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
 
   const handleApplyVoucher = async () => {
     try {
-      const { db } = await import('@/src/lib/db');
-      const voucher = await db.vouchers.where('code').equals(voucherCode).first();
-
-      if (!voucher) {
-        toast('error', 'Kode voucer tidak valid');
-        return;
-      }
-
-      // Check if voucher is active
-      if (!voucher.is_active) {
-        toast('error', 'Voucer tidak aktif');
-        return;
-      }
-
-      // Check expiry
-      const now = new Date();
-      const validFrom = new Date(voucher.valid_from);
-      const validUntil = new Date(voucher.valid_until);
-      if (now < validFrom || now > validUntil) {
-        toast('error', 'Voucer sudah kedaluwarsa atau belum berlaku');
-        return;
-      }
-
-      // Check quota
-      if (voucher.used_count >= voucher.quota) {
-        toast('error', 'Kuota voucer sudah habis');
-        return;
-      }
-
-      // Check minimum purchase
       const subtotal = getSubtotal();
-      if (subtotal < voucher.minimum_purchase) {
-        toast('error', `Minimum belanja Rp ${formatRupiah(voucher.minimum_purchase)}`);
-        return;
-      }
 
       // Prevent double discount - check if other discounts are applied
       if (discountAmount > 0 || globalDiscountAmount > 0) {
         toast('error', 'Hanya boleh menggunakan satu jenis diskon per transaksi');
         return;
       }
+
+      const result = await validateVoucher(voucherCode, subtotal);
+      if (!result.valid || !result.voucher) {
+        toast('error', result.error || 'Kode voucer tidak valid');
+        return;
+      }
+      const voucher = result.voucher;
 
       // Calculate discount amount
       let calculatedDiscount = 0;
@@ -206,13 +175,13 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
       }
 
       // Apply voucher
-      setVoucher(voucher.code, voucher.id!, voucher.discount_type, voucher.discount_value, calculatedDiscount);
+      setVoucher(voucher.code, voucher.id, voucher.discount_type, voucher.discount_value, calculatedDiscount);
       setAppliedVoucher(voucher);
       setVoucherCode('');
       setShowDiscountModal(false);
 
       // Increment voucher usage count
-      await db.vouchers.update(voucher.id!, { used_count: voucher.used_count + 1, updated_at: new Date().toISOString() });
+      await useVoucher(voucher.id);
 
       toast('success', `Voucer ${voucher.name} berhasil diterapkan`);
     } catch (error) {
