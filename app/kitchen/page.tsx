@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Clock, CheckCircle, AlertCircle, ChefHat, Wine, ArrowLeft, RefreshCw, Flame } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, ChefHat, Wine, ArrowLeft, RefreshCw, Flame, Bell } from 'lucide-react';
 import * as api from '@/src/lib/api';
 import { useToast } from '@/src/components/ui/Toast';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -61,8 +61,45 @@ export default function KitchenDisplayPage() {
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'kitchen' | 'bar'>('all');
+  const [newOrderCount, setNewOrderCount] = useState(0);
+  const [showNotification, setShowNotification] = useState(false);
+  const previousOrderCountRef = useRef(0);
   // Ticks every 30s so elapsed times and urgency colors stay current
   const [, setTick] = useState(0);
+
+  const playNotificationSound = () => {
+    // Create audio context for notification sound
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.value = 0.3;
+      
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.2);
+      
+      // Play a second beep
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 1000;
+        osc2.type = 'sine';
+        gain2.gain.value = 0.3;
+        osc2.start();
+        osc2.stop(audioContext.currentTime + 0.2);
+      }, 250);
+    } catch (error) {
+      console.error('Failed to play notification sound:', error);
+    }
+  };
 
   const fetchOrders = useCallback(async (silent = false) => {
     if (!silent) setRefreshing(true);
@@ -70,8 +107,29 @@ export default function KitchenDisplayPage() {
       // /orders/active returns pending + preparing orders with items,
       // product, and category joined in a single call
       const data = await api.fetchActiveOrders();
-      setOrders(data as Order[]);
+      const newOrders = data as Order[];
+      
+      // Check for new orders (compare with previous count)
+      const currentOrderCount = newOrders.length;
+      const previousCount = previousOrderCountRef.current;
+      
+      if (currentOrderCount > previousCount && previousCount > 0) {
+        const newOrdersCount = currentOrderCount - previousCount;
+        setNewOrderCount(newOrdersCount);
+        setShowNotification(true);
+        
+        // Auto-hide notification after 5 seconds
+        setTimeout(() => {
+          setShowNotification(false);
+        }, 5000);
+        
+        // Play notification sound
+        playNotificationSound();
+      }
+      
+      setOrders(newOrders);
       setLastRefreshed(new Date());
+      previousOrderCountRef.current = currentOrderCount;
     } catch (error) {
       console.error('Failed to fetch orders:', error);
       toast('error', 'Gagal memuat order. Coba refresh.');
@@ -206,6 +264,11 @@ export default function KitchenDisplayPage() {
     }
 
     return order.items.map(item => ({ ...item, order }));
+  }).sort((a, b) => {
+    // Sort chronologically by order creation time (oldest first for queue management)
+    const timeA = new Date(a.order.created_at).getTime();
+    const timeB = new Date(b.order.created_at).getTime();
+    return timeA - timeB;
   });
 
   const filterButtons = [
@@ -227,8 +290,23 @@ export default function KitchenDisplayPage() {
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <ChefHat className="h-8 w-8 text-orange-500" aria-hidden="true" />
-            <h1 className="text-2xl font-bold">Kitchen Display</h1>
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <ChefHat className="h-8 w-8 text-orange-500" aria-hidden="true" />
+                {showNotification && newOrderCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white animate-bounce">
+                    {newOrderCount}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-2xl font-bold">Kitchen Display</h1>
+              {showNotification && (
+                <div className="flex items-center gap-2 rounded-lg bg-green-600 px-3 py-1.5 text-sm font-medium text-white animate-pulse">
+                  <Bell className="h-4 w-4" />
+                  {newOrderCount} order baru
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2" role="group" aria-label="Filter station">

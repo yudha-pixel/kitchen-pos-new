@@ -552,6 +552,46 @@ async function main() {
                         nonCoffeeProducts.length + foodProducts.length + dessertProducts.length + bakeryProducts.length + tehProducts.length;
   console.log(`✅ Created ${totalProducts} products (${coffeeProducts.length} coffee, ${coldCoffeeProducts.length} cold coffee, ${nonCoffeeProducts.length} minuman, ${foodProducts.length} makanan utama, ${dessertProducts.length} dessert, ${bakeryProducts.length} bakery, ${tehProducts.length} teh)`);
 
+  // Create Suppliers
+  const suppliers = [
+    { name: 'PT Indofood Sukses Makmur', phone: '021-57958888', email: 'sales@indofood.com', address: 'Jl. Jendral Sudirman Kav. 76-78, Jakarta' },
+    { name: 'PT Ultra Jaya', phone: '022-7564321', email: 'order@ultrajaya.co.id', address: 'Jl. Raya Bandung Km. 24, Cimahi' },
+    { name: 'PT Wings Surya', phone: '031-8531234', email: 'procurement@wingsgroup.com', address: 'Jl. Raya Menganti Km. 16, Surabaya' },
+    { name: 'PT Mayora Indah', phone: '021-54321234', email: 'supply@mayora.co.id', address: 'Jl. Tomang Raya No. 11-13, Jakarta' },
+    { name: 'PT Garudafood', phone: '021-65432109', email: 'vendor@garudafood.com', address: 'Jl. Bintaro Raya No. 9, Tangerang Selatan' },
+    { name: 'PT Frisian Flag Indonesia', phone: '021-87654321', email: 'business@frisianflag.com', address: 'Jl. Raya Bogor Km. 28, Jakarta' },
+    { name: 'PT Unilever Indonesia', phone: '021-23456789', email: 'b2b@unilever.com', address: 'Jl. Gatot Subroto Kav. 15, Jakarta' },
+    { name: 'PT Heinz ABC Indonesia', phone: '021-34567890', email: 'sales@heinzabc.com', address: 'Jl. Daan Mogot Km. 12, Jakarta' },
+  ];
+
+  await prisma.supplier.createMany({
+    data: suppliers,
+    skipDuplicates: true,
+  });
+  console.log('✅ Created 8 suppliers');
+
+  // Create Employees
+  const employees = [
+    { name: 'Budi Santoso', phone: '081234567890', email: 'budi.santoso@kitchenpos.com', position: 'manager', base_salary: 8000000, hourly_rate: 75000, employment_type: 'permanent' },
+    { name: 'Siti Rahayu', phone: '081234567891', email: 'siti.rahayu@kitchenpos.com', position: 'manager', base_salary: 7500000, hourly_rate: 70000, employment_type: 'permanent' },
+    { name: 'Andi Wijaya', phone: '081234567892', email: 'andi.wijaya@kitchenpos.com', position: 'cashier', base_salary: 4500000, hourly_rate: 35000, employment_type: 'permanent' },
+    { name: 'Dewi Lestari', phone: '081234567893', email: 'dewi.lestari@kitchenpos.com', position: 'cashier', base_salary: 4000000, hourly_rate: 30000, employment_type: 'permanent' },
+    { name: 'Eko Prasetyo', phone: '081234567894', email: 'eko.prasetyo@kitchenpos.com', position: 'cashier', base_salary: 3500000, hourly_rate: 25000, employment_type: 'permanent' },
+    { name: 'Fajar Nugraha', phone: '081234567895', email: 'fajar.nugraha@kitchenpos.com', position: 'chef', base_salary: 6000000, hourly_rate: 50000, employment_type: 'permanent' },
+    { name: 'Gita Permata', phone: '081234567896', email: 'gita.permata@kitchenpos.com', position: 'chef', base_salary: 5500000, hourly_rate: 45000, employment_type: 'permanent' },
+    { name: 'Hadi Kusuma', phone: '081234567897', email: 'hadi.kusuma@kitchenpos.com', position: 'chef', base_salary: 5000000, hourly_rate: 40000, employment_type: 'permanent' },
+    { name: 'Indah Sari', phone: '081234567898', email: 'indah.sari@kitchenpos.com', position: 'waiter', base_salary: 3500000, hourly_rate: 30000, employment_type: 'permanent' },
+    { name: 'Joko Anwar', phone: '081234567899', email: 'joko.anwar@kitchenpos.com', position: 'waiter', base_salary: 3000000, hourly_rate: 25000, employment_type: 'permanent' },
+    { name: 'Kartika Sari', phone: '081234567900', email: 'kartika.sari@kitchenpos.com', position: 'barista', base_salary: 5000000, hourly_rate: 40000, employment_type: 'permanent' },
+    { name: 'Lukman Hakim', phone: '081234567901', email: 'lukman.hakim@kitchenpos.com', position: 'barista', base_salary: 4000000, hourly_rate: 35000, employment_type: 'permanent' },
+  ];
+
+  await prisma.employee.createMany({
+    data: employees,
+    skipDuplicates: true,
+  });
+  console.log('✅ Created 12 employees (2 managers, 3 cashiers, 3 chefs, 2 waiters, 2 baristas)');
+
   console.log('🎉 Seeding complete');
 }
 

@@ -622,19 +622,17 @@ export const useCartStore = create<CartState>()(
             // Update order status to 'completed' after successful payment
             try {
               await db.orders.where('id').equals(orderId).modify({ status: 'completed' as any });
-              console.log(`✅ Updated order ${orderId} status to 'completed' in IndexedDB`);
+              console.log('✅ Order status updated to completed');
               
-              // Dispatch event to notify UI components
+              // Dispatch event to notify POS page to update table status
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('orderCompleted', { detail: { orderId } }));
                 console.log('📡 Dispatched orderCompleted event');
               }
             } catch (statusError) {
-              console.error('Failed to update order status to completed:', statusError);
-              // Don't fail the payment if status update fails
+              console.error('Failed to update order status:', statusError);
             }
 
-            // Prepare receipt data BEFORE clearing cart
             const receiptData = {
               orderId,
               tableNumber: state.tableNumber,

@@ -1,17 +1,20 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Search, Plus, Minus, ChevronDown, ChevronLeft, CheckCircle2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, Minus, ChevronDown, ChevronLeft, CheckCircle2, QrCode, CreditCard, Building2 } from 'lucide-react';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
+import { generateUUID } from '@/src/lib/utils';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
 import {
   getSelfOrderProducts,
   getSelfOrderCategories,
   getSelfOrderPaymentMethods,
   createCustomerOrder,
+  updateCustomerOrderPaymentStatus,
   type ProductWithCategory,
   type Category,
 } from '@/src/features/self-order/selfOrderService';
@@ -46,6 +49,7 @@ const lineTotal = (item: CartItem) =>
  */
 export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderExperienceProps) {
   const { toast } = useToast();
+  const router = useRouter();
 
   const [view, setView] = useState<View>('browsing');
   const [products, setProducts] = useState<ProductWithCategory[]>([]);
@@ -67,10 +71,12 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submittedMethod, setSubmittedMethod] = useState<SelfOrderPaymentMethod | null>(null);
   const [wasAutoAccepted, setWasAutoAccepted] = useState(false);
+  const [paymentReference, setPaymentReference] = useState('');
+  const [orderId, setOrderId] = useState<string | null>(null);
   // Stable across retries of the same checkout attempt so a double-tap or a
   // dropped-then-retried request resolves to one order, not two — see
   // createCustomerOrder's doc comment. Freshly generated for each new order.
-  const [draftOrderId, setDraftOrderId] = useState<string>(() => crypto.randomUUID());
+  const [draftOrderId, setDraftOrderId] = useState<string>(() => generateUUID());
 
   useEffect(() => {
     let cancelled = false;
@@ -122,7 +128,7 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
   const addToCart = (productId: string, name: string, price: number, modifiers: ModifierOption[] = []) => {
     setCartItems((prev) => [
       ...prev,
-      { id: crypto.randomUUID(), productId, name, price, quantity: 1, modifiers },
+      { id: generateUUID(), productId, name, price, quantity: 1, modifiers },
     ]);
     toast('success', `${name} ditambahkan ke keranjang`);
   };
@@ -169,6 +175,13 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
       setSubmitError('Pilih metode pembayaran terlebih dahulu');
       return;
     }
+    
+    // Validate payment reference for non-QRIS methods
+    if (method.id !== 'qris' && !paymentReference.trim()) {
+      setSubmitError('Masukkan nomor referensi pembayaran');
+      return;
+    }
+    
     setSubmitting(true);
     setSubmitError(null);
     try {
@@ -183,10 +196,14 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
           modifiers_applied: item.modifiers,
         }))
       );
+      setOrderId(created.id || null);
       setSubmittedMethod(method);
-      setWasAutoAccepted(created.status === 'accepted');
-      setCartItems([]);
-      setView('success');
+      
+      // Update payment status to paid
+      await updateCustomerOrderPaymentStatus(created.id || '', 'paid', method.id);
+      
+      // Redirect to order status page
+      router.push(`/order-status/${created.id}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : 'Gagal mengirim pesanan');
     } finally {
@@ -199,8 +216,31 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
     setSubmitError(null);
     setSubmittedMethod(null);
     setWasAutoAccepted(false);
-    setDraftOrderId(crypto.randomUUID());
+    setPaymentReference('');
+    setOrderId(null);
+    setDraftOrderId(generateUUID());
     setView('browsing');
+  };
+
+  const handlePaymentComplete = async (paymentDetails: any) => {
+    // Update order status to paid
+    if (orderId && submittedMethod) {
+      try {
+        await updateCustomerOrderPaymentStatus(orderId, 'paid', submittedMethod.id);
+        console.log('Payment completed:', paymentDetails);
+        console.log('Order ID:', orderId);
+        
+        // Redirect to order status page
+        router.push(`/order-status/${orderId}`);
+      } catch (err) {
+        console.error('Failed to update payment status:', err);
+        setCartItems([]);
+        setView('success');
+      }
+    } else {
+      setCartItems([]);
+      setView('success');
+    }
   };
 
   if (view === 'success') {
@@ -281,7 +321,10 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
                 {paymentMethods.map((method) => (
                   <button
                     key={method.id}
-                    onClick={() => setSelectedPaymentMethodId(method.id)}
+                    onClick={() => {
+                      setSelectedPaymentMethodId(method.id);
+                      setPaymentReference('');
+                    }}
                     aria-pressed={selectedPaymentMethodId === method.id}
                     className={`w-full rounded-lg border-2 p-3 text-left transition-colors ${
                       selectedPaymentMethodId === method.id
@@ -294,6 +337,95 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
                   </button>
                 ))}
               </div>
+
+              {/* Inline payment workflow based on selected method */}
+              {selectedPaymentMethodId === 'qris' && (
+                <div className="mt-4 rounded-lg bg-surface-alt p-4">
+                  <div className="flex flex-col items-center space-y-3">
+                    <div className="rounded-lg bg-white p-6 shadow-inner">
+                      <QrCode className="h-32 w-32 text-gray-800" />
+                    </div>
+                    <p className="text-center text-xs text-ink-muted">
+                      Scan QR code di atas menggunakan aplikasi e-wallet atau mobile banking Anda
+                    </p>
+                    <div className="rounded-lg bg-primary-soft p-3 text-center w-full">
+                      <p className="text-xs text-ink-muted">Total Pembayaran</p>
+                      <p className="text-lg font-bold text-primary">{formatRupiah(cartTotal)}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedPaymentMethodId === 'debit' && (
+                <div className="mt-4 rounded-lg bg-surface-alt p-4">
+                  <div className="flex items-center gap-3 mb-4">
+                    <CreditCard className="h-6 w-6 text-primary" />
+                    <div>
+                      <p className="font-medium text-sm">Masukkan Kartu</p>
+                      <p className="text-xs text-ink-muted">Tap atau geser kartu Anda pada mesin EDC</p>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-ink-secondary">
+                      Nomor Referensi / Approval Code
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder="Masukkan nomor referensi dari mesin EDC"
+                      className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="mt-3 rounded-lg bg-primary-soft p-3 text-center">
+                    <p className="text-xs text-ink-muted">Total Pembayaran</p>
+                    <p className="text-lg font-bold text-primary">{formatRupiah(cartTotal)}</p>
+                  </div>
+                </div>
+              )}
+
+              {selectedPaymentMethodId === 'transfer' && (
+                <div className="mt-4 rounded-lg bg-surface-alt p-4">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Building2 className="h-6 w-6 text-primary" />
+                    <p className="font-medium text-sm">Detail Rekening Tujuan</p>
+                  </div>
+                  <div className="space-y-2 text-sm mb-4 bg-white rounded-lg p-3">
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">Bank:</span>
+                      <span className="font-medium">BCA</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">Nomor Rekening:</span>
+                      <span className="font-medium">123-456-7890</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-ink-muted">Atas Nama:</span>
+                      <span className="font-medium">Kitchen POS Indonesia</span>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-ink-secondary">
+                      Nomor Referensi Transfer
+                    </label>
+                    <input
+                      type="text"
+                      value={paymentReference}
+                      onChange={(e) => setPaymentReference(e.target.value)}
+                      placeholder="Masukkan nomor referensi dari bukti transfer"
+                      className="w-full rounded-lg border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+
+                  <div className="mt-3 rounded-lg bg-primary-soft p-3 text-center">
+                    <p className="text-xs text-ink-muted">Total Pembayaran</p>
+                    <p className="text-lg font-bold text-primary">{formatRupiah(cartTotal)}</p>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -314,7 +446,7 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
             disabled={submitting || cartItems.length === 0}
             className="w-full rounded-lg bg-success py-3 font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
           >
-            {submitting ? 'Mengirim...' : 'Konfirmasi Pesanan'}
+            {submitting ? 'Mengirim...' : 'Bayar Sekarang'}
           </button>
         </div>
       </div>

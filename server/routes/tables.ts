@@ -23,7 +23,7 @@ const updateTableSchema = z.object({
 // GET /tables - Get all tables with status
 router.get('/', async (req: Request, res: Response) => {
   try {
-    const { status, outlet_id } = req.query;
+    const { status, outlet_id, table_number } = req.query;
 
     const where: any = {};
     if (status && typeof status === 'string') {
@@ -31,6 +31,11 @@ router.get('/', async (req: Request, res: Response) => {
     }
     if (outlet_id && typeof outlet_id === 'string') {
       where.outlet_id = outlet_id;
+    }
+    if (table_number && typeof table_number === 'string') {
+      // Handle URL encoding and trim whitespace for robust matching
+      const decodedTableNumber = decodeURIComponent(table_number).trim();
+      where.table_number = decodedTableNumber;
     }
 
     const tables = await prisma.table.findMany({

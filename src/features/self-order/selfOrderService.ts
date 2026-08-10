@@ -44,11 +44,15 @@ export async function getTableById(tableId: string): Promise<TableInfo | null> {
 // Get table by table number (for QR code validation)
 export async function getTableByNumber(tableNumber: string): Promise<TableInfo | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/tables/${tableNumber}`);
+    // URL encode the table number to handle spaces and special characters
+    const encodedTableNumber = encodeURIComponent(tableNumber);
+    const response = await fetch(`${API_BASE_URL}/tables?table_number=${encodedTableNumber}`);
     if (!response.ok) {
       return null;
     }
-    return await response.json();
+    const tables = await response.json();
+    // Return the first table if found, null otherwise
+    return tables && tables.length > 0 ? tables[0] : null;
   } catch (error) {
     console.error('Error fetching table:', error);
     return null;

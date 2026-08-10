@@ -217,14 +217,14 @@ export const useSyncManager = () => {
           // Prepare order data in the format expected by the API
           const orderData = {
             id: order.id,
-            cashier_id: order.cashier_id,
+            cashier_id: order.cashier_id || null,
             total_amount: order.total_amount,
-            payment_method: order.payment_method || null,
+            payment_method: (order.payment_method && order.payment_method.trim()) ? order.payment_method : null,
             status: order.status || 'pending',
-            table_number: order.table_number || null,
+            table_number: (order.table_number && order.table_number.trim()) ? order.table_number : null,
             discount_amount: order.discount_amount || 0,
             rounding_amount: order.rounding_amount || 0,
-            notes: order.notes || null,
+            notes: (order.notes && order.notes.trim()) ? order.notes : null,
             created_at: order.created_at,
           };
           

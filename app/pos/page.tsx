@@ -81,7 +81,49 @@ export default function POSPage() {
   // Fetch data from the local API with offline support
   const { products, loading: productsLoading, error: productsError, refetch: refetchProducts, isFromCache: productsFromCache } = useProducts();
   const { categories } = useCategories();
-  const { tables, loading: tablesLoading, updateTableStatus } = useTables();
+  const { tables, loading: tablesLoading, updateTableStatus, refetch: refetchTables } = useTables();
+
+  // Listen for order creation to update table status to occupied
+  useEffect(() => {
+    const handleOrderCreated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ orderId: string }>;
+      console.log('📡 Order created event received, updating table status...');
+      
+      // Refetch tables to get updated hasActiveOrders status
+      refetchTables();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('orderCreated', handleOrderCreated);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('orderCreated', handleOrderCreated);
+      }
+    };
+  }, [refetchTables]);
+
+  // Listen for order completion to update table status back to available
+  useEffect(() => {
+    const handleOrderCompleted = (event: Event) => {
+      const customEvent = event as CustomEvent<{ orderId: string }>;
+      console.log('📡 Order completed event received, updating table status...');
+      
+      // Refetch tables to get updated hasActiveOrders status
+      refetchTables();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('orderCompleted', handleOrderCompleted);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('orderCompleted', handleOrderCompleted);
+      }
+    };
+  }, [refetchTables]);
 
   // Extract unique categories from products for ProductListModal
   const productCategories = useMemo(() => {
@@ -1660,13 +1702,17 @@ export default function POSPage() {
                   ) : (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                       {tables.map((table) => {
+                        // Determine effective status based on active orders
+                        // If table has active orders, show as occupied regardless of backend status
+                        const effectiveStatus = table.hasActiveOrders ? 'occupied' : table.status;
+                        
                         const statusConfig = {
                           available: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: 'Available' },
-                          occupied: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Occupied' },
-                          dirty: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Dirty' },
-                          reserved: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Reserved' },
+                          occupied: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Terisi' },
+                          dirty: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Kotor' },
+                          reserved: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Reservasi' },
                         };
-                        const config = statusConfig[table.status];
+                        const config = statusConfig[effectiveStatus];
                         const isSelected = tableNumber === table.table_number;
                         
                         return (
@@ -1686,7 +1732,7 @@ export default function POSPage() {
                           >
                             <div className="text-sm font-bold">{table.table_number}</div>
                             <div className="text-xs mt-1">{config.label}</div>
-                            {table.hasActiveOrders && (
+                            {table.hasActiveOrders && effectiveStatus !== 'occupied' && (
                               <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" title="Has active orders" />
                             )}
                           </button>

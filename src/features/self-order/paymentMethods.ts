@@ -18,22 +18,16 @@ export interface SelfOrderPaymentMethod {
 }
 
 export const SELF_ORDER_PAYMENT_METHODS: Record<string, SelfOrderPaymentMethod> = {
-  cashier: {
-    id: 'cashier',
-    label: 'Bayar di Kasir',
-    description: 'Pesan sekarang, bayar di kasir saat selesai',
-    type: 'counter',
-  },
   qris: {
     id: 'qris',
     label: 'QRIS',
     description: 'Bayar sekarang dengan scan QRIS',
     type: 'online',
   },
-  ewallet: {
-    id: 'ewallet',
-    label: 'E-Wallet',
-    description: 'Bayar sekarang dengan e-wallet',
+  debit: {
+    id: 'debit',
+    label: 'Debit/Kartu',
+    description: 'Bayar sekarang dengan kartu debit/kredit',
     type: 'online',
   },
   transfer: {
@@ -44,8 +38,8 @@ export const SELF_ORDER_PAYMENT_METHODS: Record<string, SelfOrderPaymentMethod> 
   },
 };
 
-/** Pay-at-cashier only. A guest ordering from a table needs no gateway to eat. */
-export const DEFAULT_SELF_ORDER_PAYMENT_METHODS = ['cashier'];
+/** Digital payment methods only for self-order */
+export const DEFAULT_SELF_ORDER_PAYMENT_METHODS = ['qris', 'debit', 'transfer'];
 
 /**
  * Turn whatever is stored in settings into a usable method list.
