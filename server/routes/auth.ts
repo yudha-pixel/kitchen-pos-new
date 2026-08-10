@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
 import { authMiddleware, requireRole, getJwtSecret } from '../middleware/auth';
+import { loadRolePermissions } from '../middleware/permissions';
 import { loginSchema, registerSchema } from '../lib/validation';
 
 const router = Router();
@@ -26,14 +27,17 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 
   const token = jwt.sign(
-    { id: user.id, username: user.username, role: user.role.name },
+    { id: user.id, username: user.username, role: user.role.name, role_id: user.role_id },
     getJwtSecret(),
     { expiresIn: '7d' }
   );
 
+  const permissions = await loadRolePermissions(user.role_id);
+
   res.json({
     token,
-    user: { id: user.id, username: user.username, role: user.role.name },
+    user: { id: user.id, username: user.username, role: user.role.name, role_id: user.role_id },
+    permissions,
   });
 });
 
@@ -69,6 +73,10 @@ router.post(
     res.json({ id: user.id, username: user.username, role: user.role?.name });
   }
 );
+
+router.get('/permissions', authMiddleware, (req: Request, res: Response) => {
+  res.json(req.userPermissions ?? []);
+});
 
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   const user = await prisma.profile.findUnique({

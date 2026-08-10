@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -25,11 +25,29 @@ import {
   LogOut,
   User as UserIcon,
   Building2,
+  X,
 } from 'lucide-react';
 
 import { APPS_REGISTRY, filterApps, AppDefinition } from '@/src/features/apps/apps-registry';
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
+import { useUserPreferences } from '@/src/hooks/useUserPreferences';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   ShoppingCart,
@@ -46,24 +64,66 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Settings,
 };
 
-const RECENT_ITEMS = [
-  { title: 'Point of Sale', route: '/pos', icon: ShoppingCart, timeAgo: '2m ago' },
-  { title: 'Kitchen Display', route: '/kitchen', icon: Monitor, timeAgo: '8m ago' },
-  { title: 'Inventory', route: '/inventory', icon: Box, timeAgo: '1h ago' },
-  { title: 'Reports', route: '/admin/reports', icon: BarChart3, timeAgo: '3h ago' },
-  { title: 'Finance', route: '/finance/ocr', icon: Wallet, timeAgo: '1d ago' },
-];
-
-const FAVORITE_ITEMS = [
-  { title: 'Point of Sale', route: '/pos', icon: ShoppingCart },
-  { title: 'Kitchen Display', route: '/kitchen', icon: Monitor },
-  { title: 'Reports', route: '/admin/reports', icon: BarChart3 },
-];
+// SortableFavoriteItem component for drag-and-drop
+function SortableFavoriteItem({ item, isEditing, onRemove }: any) {
+  const { attributes, listeners, setNodeRef, transform, transition } = useSortable({ id: item.route });
+  const style = { transform: CSS.Transform.toString(transform), transition };
+  const IconComponent = ICON_MAP[item.iconName] || Box;
+  
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <Link
+        href={item.route}
+        className="flex items-center justify-between rounded-lg p-2.5 hover:bg-slate-50 text-slate-700 transition-colors group"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 group-hover:bg-violet-100 transition-colors">
+            <IconComponent className="h-4 w-4" />
+          </div>
+          <span className="text-xs font-medium text-slate-800 group-hover:text-violet-600 transition-colors">
+            {item.title}
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <Star className="h-3.5 w-3.5 text-violet-500 fill-violet-500" />
+          {isEditing && (
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                onRemove(item.route);
+              }}
+              className="flex h-6 w-6 items-center justify-center rounded-md text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </Link>
+    </div>
+  );
+}
 
 export default function AppsPage() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [isEditingFavorites, setIsEditingFavorites] = useState(false);
+  
+  const {
+    preferences,
+    loading: prefsLoading,
+    removeFavorite,
+    reorderFavorites,
+    clearRecent,
+    addRecent
+  } = useUserPreferences();
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/login?redirect=/apps');
+    }
+  }, [authLoading, user, router]);
 
   const filteredApps = useMemo(
     () => filterApps(APPS_REGISTRY, searchQuery, user?.role),
@@ -73,6 +133,40 @@ export default function AppsPage() {
   const handleLogout = () => {
     logout();
     router.push('/login');
+  };
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleDragEnd = (event: any) => {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      const oldIndex = preferences.favorites.indexOf(active.id);
+      const newIndex = preferences.favorites.indexOf(over.id);
+      const newFavorites = arrayMove(preferences.favorites, oldIndex, newIndex);
+      reorderFavorites(newFavorites);
+    }
+  };
+
+  const handleAppClick = (route: string, title: string) => {
+    addRecent(route, title);
+    router.push(route);
+  };
+
+  const formatTimeAgo = (timestamp: string) => {
+    const now = new Date();
+    const past = new Date(timestamp);
+    const diffMs = now.getTime() - past.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
   };
 
   return (
@@ -145,10 +239,10 @@ export default function AppsPage() {
                 {filteredApps.map((app) => {
                   const IconComponent = ICON_MAP[app.iconName] || Box;
                   return (
-                    <Link
+                    <button
                       key={app.id}
-                      href={app.route}
-                      className="group relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md"
+                      onClick={() => handleAppClick(app.route, app.title)}
+                      className="group relative flex flex-col justify-between rounded-xl border border-slate-200 bg-white p-5 shadow-2xs transition-all duration-200 hover:-translate-y-0.5 hover:border-violet-300 hover:shadow-md text-left w-full"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-3">
@@ -164,7 +258,7 @@ export default function AppsPage() {
                           {app.description}
                         </p>
                       </div>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>
@@ -197,32 +291,40 @@ export default function AppsPage() {
               </div>
               <button
                 type="button"
+                onClick={clearRecent}
                 className="text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
               >
                 Clear
               </button>
             </div>
             <div className="space-y-1.5">
-              {RECENT_ITEMS.map((item) => {
-                const ItemIcon = item.icon;
-                return (
-                  <Link
-                    key={item.title}
-                    href={item.route}
-                    className="flex items-center justify-between rounded-lg p-2.5 hover:bg-slate-50 text-slate-700 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 group-hover:bg-violet-100 transition-colors">
-                        <ItemIcon className="h-4 w-4" />
+              {preferences.recent.length > 0 ? (
+                preferences.recent.map((item) => {
+                  const app = APPS_REGISTRY.find(a => a.route === item.route);
+                  if (!app) return null;
+                  const IconComponent = ICON_MAP[app.iconName] || Box;
+                  return (
+                    <Link
+                      key={item.route}
+                      href={item.route}
+                      onClick={() => addRecent(item.route, item.title)}
+                      className="flex items-center justify-between rounded-lg p-2.5 hover:bg-slate-50 text-slate-700 transition-colors group"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 group-hover:bg-violet-100 transition-colors">
+                          <IconComponent className="h-4 w-4" />
+                        </div>
+                        <span className="text-xs font-medium text-slate-800 group-hover:text-violet-600 transition-colors">
+                          {item.title}
+                        </span>
                       </div>
-                      <span className="text-xs font-medium text-slate-800 group-hover:text-violet-600 transition-colors">
-                        {item.title}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-slate-400">{item.timeAgo}</span>
-                  </Link>
-                );
-              })}
+                      <span className="text-[11px] text-slate-400">{formatTimeAgo(item.timestamp)}</span>
+                    </Link>
+                  );
+                })
+              ) : (
+                <div className="text-xs text-slate-400 text-center py-4">No recent items</div>
+              )}
             </div>
           </div>
 
@@ -235,32 +337,33 @@ export default function AppsPage() {
               </div>
               <button
                 type="button"
+                onClick={() => setIsEditingFavorites(!isEditingFavorites)}
                 className="text-xs font-medium text-violet-600 hover:text-violet-800 transition-colors"
               >
-                Edit
+                {isEditingFavorites ? 'Done' : 'Edit'}
               </button>
             </div>
             <div className="space-y-1.5">
-              {FAVORITE_ITEMS.map((item) => {
-                const ItemIcon = item.icon;
-                return (
-                  <Link
-                    key={item.title}
-                    href={item.route}
-                    className="flex items-center justify-between rounded-lg p-2.5 hover:bg-slate-50 text-slate-700 transition-colors group"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-50 text-violet-600 group-hover:bg-violet-100 transition-colors">
-                        <ItemIcon className="h-4 w-4" />
-                      </div>
-                      <span className="text-xs font-medium text-slate-800 group-hover:text-violet-600 transition-colors">
-                        {item.title}
-                      </span>
-                    </div>
-                    <Star className="h-3.5 w-3.5 text-violet-500 fill-violet-500" />
-                  </Link>
-                );
-              })}
+              {preferences.favorites.length > 0 ? (
+                <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                  <SortableContext items={preferences.favorites} strategy={verticalListSortingStrategy}>
+                    {preferences.favorites.map((route) => {
+                      const app = APPS_REGISTRY.find(a => a.route === route);
+                      if (!app) return null;
+                      return (
+                        <SortableFavoriteItem
+                          key={route}
+                          item={{ ...app, route }}
+                          isEditing={isEditingFavorites}
+                          onRemove={removeFavorite}
+                        />
+                      );
+                    })}
+                  </SortableContext>
+                </DndContext>
+              ) : (
+                <div className="text-xs text-slate-400 text-center py-4">No favorites yet</div>
+              )}
             </div>
           </div>
         </aside>

@@ -1,0 +1,592 @@
+{
+  "links": [
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Waiter POS",
+      "href": "/waiter"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Manajemen Meja",
+      "href": "/pos/meja"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Pesanan Masuk",
+      "href": "/pos/requests"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Pengaturan Tampilan",
+      "href": "/pos/settings"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Data Pelanggan",
+      "href": "/admin/crm"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Buka/Tutup Shift",
+      "href": "/shift"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Manajemen Outlet",
+      "href": "/admin/outlets"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Pelanggan & CRM",
+      "href": "/admin/crm"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "HR & Payroll",
+      "href": "/admin/hr"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Absensi (Selfie)",
+      "href": "/admin/attendance"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Laporan Keseluruhan",
+      "href": "/admin/reports"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Pengaturan Sistem",
+      "href": "/admin/settings"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Manajemen Produk",
+      "href": "/admin/products"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Inventori",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Mapping Resep",
+      "href": "/inventory/mapping"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Otomatisasi Pengadaan",
+      "href": "/inventory/automation"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Manajemen Supplier",
+      "href": "/inventory-suppliers"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Laporan Diskon",
+      "href": "/admin/discount-reports"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Manajemen Voucer",
+      "href": "/admin/vouchers"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Pelanggan & CRM",
+      "href": "/admin/crm"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Promosi Otomatis",
+      "href": "/admin/promotions"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Pemindaian Faktur (OCR)",
+      "href": "/finance/ocr"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "POS Utama",
+      "href": "/pos"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "Dapur (KDS)",
+      "href": "/kitchen"
+    },
+    {
+      "sourceFile": "Sidebar.tsx",
+      "type": "sidebar",
+      "linkText": "App Launcher",
+      "href": "/apps"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Point of Sale",
+      "href": "/pos"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "POS Utama",
+      "href": "/pos"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Waiter POS",
+      "href": "/waiter"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Manajemen Meja",
+      "href": "/pos/meja"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Buka/Tutup Shift",
+      "href": "/shift"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Kasir Klasik",
+      "href": "/kasir"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Kitchen Display",
+      "href": "/kitchen"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "KDS Dapur",
+      "href": "/kitchen"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Self Order Status",
+      "href": "/order-status"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Menu & Products",
+      "href": "/admin/products"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Manajemen Produk",
+      "href": "/admin/products"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Mapping Resep (BOM)",
+      "href": "/inventory/mapping"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Inventory",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Ringkasan Stok",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Approval Stok",
+      "href": "/inventory/stock-approvals"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Otomatisasi Restok",
+      "href": "/inventory/automation"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Purchase & Suppliers",
+      "href": "/inventory/suppliers"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Manajemen Supplier",
+      "href": "/inventory-suppliers"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Persetujuan Stok",
+      "href": "/inventory/stock-approvals"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Permintaan Penawaran",
+      "href": "/inventory/quotation-requests"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Penawaran Supplier",
+      "href": "/inventory/quotations"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Purchase Order",
+      "href": "/inventory/purchase-orders"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Goods Received Note",
+      "href": "/inventory/goods-received-notes"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Invoice Supplier",
+      "href": "/inventory/invoices"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Pembayaran Supplier",
+      "href": "/inventory/supplier-payments"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "CRM",
+      "href": "/admin/crm"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Data Pelanggan (CRM)",
+      "href": "/admin/crm"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Promotions",
+      "href": "/admin/vouchers"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Voucer Belanja",
+      "href": "/admin/vouchers"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Promosi Otomatis",
+      "href": "/admin/promotions"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Attendance",
+      "href": "/admin/attendance"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Absensi Selfie",
+      "href": "/admin/attendance"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "HR & Payroll",
+      "href": "/admin/hr"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Data Karyawan",
+      "href": "/admin/hr"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Finance",
+      "href": "/finance/ocr"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Pemindaian Faktur (OCR)",
+      "href": "/finance/ocr"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Reports",
+      "href": "/admin/reports"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Laporan Keseluruhan",
+      "href": "/admin/reports"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Laporan Diskon",
+      "href": "/admin/discount-reports"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Settings",
+      "href": "/admin/settings"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Pengaturan Sistem",
+      "href": "/admin/settings"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Manajemen Outlet",
+      "href": "/admin/outlets"
+    },
+    {
+      "sourceFile": "apps-registry.ts",
+      "type": "app-registry",
+      "linkText": "Pengaturan Tampilan POS",
+      "href": "/pos/settings"
+    },
+    {
+      "sourceFile": "seed.ts",
+      "type": "seed-favorites",
+      "linkText": "Point of Sale",
+      "href": "/pos"
+    },
+    {
+      "sourceFile": "seed.ts",
+      "type": "seed-favorites",
+      "linkText": "Menu & Products",
+      "href": "/admin/products"
+    },
+    {
+      "sourceFile": "seed.ts",
+      "type": "seed-favorites",
+      "linkText": "Settings",
+      "href": "/admin/settings"
+    },
+    {
+      "sourceFile": "seed.ts",
+      "type": "seed-recent",
+      "linkText": "Point of Sale",
+      "href": "/pos"
+    },
+    {
+      "sourceFile": "seed.ts",
+      "type": "seed-recent",
+      "linkText": "Menu & Products",
+      "href": "/admin/products"
+    },
+    {
+      "sourceFile": "admin/attendance/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to inventory",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "admin/discount-reports/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to login",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "admin/hr/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to inventory",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "admin/outlets/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to login",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "admin/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to inventory",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "admin/products/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to mapping",
+      "href": "/inventory/mapping"
+    },
+    {
+      "sourceFile": "admin/promotions/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to login",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "admin/reports/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to inventory",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "apps/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to login",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "apps/page.tsx",
+      "type": "router-push",
+      "linkText": "app click navigation",
+      "href": "dynamic"
+    },
+    {
+      "sourceFile": "finance/ocr/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to inventory",
+      "href": "/inventory"
+    },
+    {
+      "sourceFile": "inventory-suppliers/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to login",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "online-order/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to home",
+      "href": "/"
+    },
+    {
+      "sourceFile": "online-order/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to login",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "order-status/[orderId]/page.tsx",
+      "type": "router-push",
+      "linkText": "back to online-order",
+      "href": "/online-order"
+    },
+    {
+      "sourceFile": "waiter/page.tsx",
+      "type": "router-push",
+      "linkText": "redirect to home",
+      "href": "/"
+    },
+    {
+      "sourceFile": "components/layout/Header.tsx",
+      "type": "router-push",
+      "linkText": "logout redirect",
+      "href": "/login"
+    },
+    {
+      "sourceFile": "components/pos/Receipt.tsx",
+      "type": "router-push",
+      "linkText": "back to pos",
+      "href": "/pos"
+    },
+    {
+      "sourceFile": "components/self-order/SelfOrderExperience.tsx",
+      "type": "router-push",
+      "linkText": "to order-status",
+      "href": "/order-status/:id"
+    },
+    {
+      "sourceFile": "features/online-order/components/OnlineCheckoutModal.tsx",
+      "type": "router-push",
+      "linkText": "to order-status",
+      "href": "/order-status/:id"
+    },
+    {
+      "sourceFile": "apps/page.tsx",
+      "type": "router-replace",
+      "linkText": "redirect to login",
+      "href": "/login?redirect=/apps"
+    },
+    {
+      "sourceFile": "login/page.tsx",
+      "type": "router-replace",
+      "linkText": "login redirect",
+      "href": "dynamic"
+    },
+    {
+      "sourceFile": "page.tsx",
+      "type": "router-replace",
+      "linkText": "root redirect",
+      "href": "dynamic"
+    },
+    {
+      "sourceFile": "pos/page.tsx",
+      "type": "router-replace",
+      "linkText": "redirect to login",
+      "href": "/login?redirect=/pos"
+    },
+    {
+      "sourceFile": "waiter/page.tsx",
+      "type": "router-replace",
+      "linkText": "redirect to login",
+      "href": "/login?redirect=/waiter"
+    }
+  ]
+}

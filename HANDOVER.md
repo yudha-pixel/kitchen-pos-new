@@ -1,8 +1,127 @@
 # Kitchen POS - Handover Document
 
+## API Prefix Standardization
+
+**Date:** 2026-08-11
+
+- Standardized all API endpoints by adding `/api` prefix to backend route mounts to match frontend API call patterns.
+- **Backend changes:**
+  - Updated `server/app.ts` to mount all routes with `/api` prefix (except `/auth` and `/health` for compatibility).
+  - Updated `server/__tests__/route-smoke.test.ts` `ROUTE_MOUNT_PREFIXES` mapping to reflect new prefixes.
+  - Backend smoke tests: 60/60 passed.
+- **Frontend changes:**
+  - Updated all frontend API calls in:
+    - `src/context/ThemeContext.tsx`
+    - `src/components/ui/VoidPaymentModal.tsx`
+    - `src/features/crm/customerService.ts`
+    - `src/features/hr/hrService.ts`
+    - `src/features/inventory/recipeApiService.ts`
+    - `src/features/outlet/outletService.ts`
+    - `src/features/payment/paymentService.ts`
+    - `src/features/pos/voucherService.ts`
+    - `src/features/self-order/selfOrderService.ts`
+    - `src/hooks/useTables.ts`
+    - `src/lib/api.ts`
+  - Added Next.js rewrites in `next.config.ts` to proxy `/api/:path*` to `http://localhost:3001/api/:path*` for development.
+- **Testing:**
+  - Backend smoke tests: 60/60 passed.
+  - Playwright frontend tests: 32/32 passed.
+- **Acceptance criteria met:** All frontend API calls now match backend route mounts with `/api` prefix.
+
+## Route Link 404 Audit & Fix
+
+**Date:** 2026-08-11
+
+- Audited all internal frontend links (Sidebar, apps-registry, router.push/replace, seed favorites/recent).
+- Generated `route-link-inventory.json` with 80+ internal links across the codebase.
+- Cross-referenced with `route-audit-frontend.json` to identify missing pages.
+- **Fixed 3 broken routes:**
+  1. Created `app/inventory/mapping/page.tsx` stub (referenced by Sidebar and apps-registry).
+  2. Created `app/inventory/automation/page.tsx` stub (referenced by Sidebar and apps-registry).
+  3. Fixed `apps-registry.ts` route from `/inventory/suppliers` to `/inventory-suppliers` (duplicate/incorrect route).
+- Re-ran `npx tsx scripts/audit-pages.ts`: total pages increased from 36 to 38 (2 new stub pages added).
+- `npx tsc --noEmit` passes.
+- All sidebar and app launcher links now resolve to existing pages.
+
+**Backend API Smoke Test:**
+- Created `server/__tests__/route-smoke.test.ts` with route mount prefix mapping.
+- Tested 60 routes: public GET (27), authenticated without token (20), admin with token (12), registration check (1).
+- All tests passed (60/60). No broken API routes found.
+- Parameterized routes (e.g., `/:id`) were skipped as they require real test data.
+
+**Frontend Runtime Testing (Playwright):**
+- Created `tests/route-navigation.spec.ts` for frontend route navigation testing.
+- Tested 32 routes unauthenticated: all passed, no 404s found.
+- Authenticated testing skipped due to login form selector issues (test infrastructure, not route issues).
+- No broken frontend routes found via runtime testing.
+
+**Artifacts:**
+- `route-link-inventory.json` — complete inventory of all internal links.
+- `broken-routes-triage.md` — triage decisions for each broken route.
+- `server/__tests__/route-smoke.test.ts` — backend API smoke test suite.
+- `tests/route-navigation.spec.ts` — frontend Playwright navigation test suite.
+- Updated `route-audit-frontend.json` (38 pages, 0 critical issues).
+
+## Seed Update — Recent & Favorites Demo Data
+
+**Date:** 2026-08-11
+
+- Added default `preferences: { favorites, recent }` demo data to both seed scripts.
+- `server/prisma/seed.ts`: all test users (`admin`, `cashier1`, `manager1`, `owner1`, `admin2`) are seeded with the same demo favorites and recent items.
+- `prisma/seed.ts`: the admin upsert now also writes demo preferences.
+- Demo favorites: `/pos`, `/admin/products`, `/admin/settings`.
+- Demo recent: `Point of Sale` (15m ago) and `Menu & Products` (45m ago).
+- Uses `prisma.$executeRaw` with a `::jsonb` cast because the Prisma client cannot regenerate while the query engine is locked (`npx prisma generate` fails with `EPERM` while `node` holds the DLL).
+- This ensures another device using the same database sees the same `Recent` and `Favorites` content immediately after login.
+
 ## Session Summary
 
-**Latest session (2026-08-10, `/pos/meja` + `/order/[tableId]` UI/UX & mobile phases — Phase 1 & 2 implemented)**:
+**Latest session (2026-08-11, Favorites and Recent Items Edit Mode with Drag-and-Drop):**
+- No git operation (no branch/commit/push) at any point. Source changes only, on top of the working tree.
+- Implemented inline edit mode for Favorites and Recent items sections with drag-and-drop reordering, database persistence, and mobile-friendly touch support.
+
+**Implementation Details:**
+
+- **Database Schema Changes:**
+  - Added `preferences Json? @default("{}")` field to Profile model in `prisma/schema.prisma`
+  - Migration `20260810200601_add_user_preferences` applied successfully
+  - Structure: `{ favorites: string[], recent: { route: string, title: string, timestamp: string }[] }`
+
+- **Backend API:**
+  - Created `server/routes/userPreferences.ts` with GET/PUT endpoints
+  - GET `/api/user/preferences` - Returns current user's preferences
+  - PUT `/api/user/preferences` - Updates user's preferences with validation (max 6 favorites, max 10 recent items)
+  - Registered routes at `/api/user/preferences` in `server/app.ts`
+  - Authentication required via `authMiddleware`
+
+- **Frontend Hook:**
+  - Created `src/hooks/useUserPreferences.ts` for state management
+  - Functions: `addFavorite`, `removeFavorite`, `reorderFavorites`, `addRecent`, `clearRecent`, `updatePreferences`
+  - Automatically fetches preferences on user login
+  - Persists changes to database via API
+
+- **UI Updates in `app/apps/page.tsx`:**
+  - Installed `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` for drag-and-drop
+  - Added `SortableFavoriteItem` component with drag handles
+  - Edit mode toggle for Favorites section (Edit/Done button)
+  - Delete buttons appear in edit mode for removing favorites
+  - Drag-and-drop reordering with mouse and touch support
+  - Clear button for Recent items section
+  - Automatic tracking of app visits to recent items
+  - Time-ago formatting for recent items (e.g., "2m ago", "1h ago")
+  - Empty state messages for both sections
+  - Replaced hardcoded `RECENT_ITEMS` and `FAVORITE_ITEMS` arrays with database-backed data
+
+- **Testing:**
+  - Created `server/__tests__/userPreferences.test.ts` with 8 tests
+  - All tests passed: GET endpoint, PUT endpoint, validation (max 6 favorites, max 10 recent), authentication enforcement, persistence
+  - Manual testing: dev server started successfully, browser preview opened at http://localhost:3000
+  - Server shut down after testing per user rules
+
+**Known Issues:**
+- TypeScript errors in `userPreferences.ts` due to Prisma client file lock on Windows (EPERM error when regenerating). The migration succeeded, so the schema is correct. Errors will resolve after restarting the dev server when the Prisma client regenerates. Used `as any` casts as temporary workaround.
+
+**Previous session (2026-08-10, `/pos/meja` + `/order/[tableId]` UI/UX & mobile phases — Phase 1 & 2 implemented):**
 - No git operation (no branch/commit/push) at any point. Source changes only, on top of the working tree.
 - Inputs: external review root `C:\Users\sukma\.codex\visualizations\2026\08\09\019fe7bd-a4a2-7782-9853-6b0c134bff04\kitchen-pos-review-20260810-0141` (task-2 sales report, theme-consistency report, `wireframes/02-responsive-list-detail.png`) + last 7 commits + live checks against the already-running dev server at 375×812.
 

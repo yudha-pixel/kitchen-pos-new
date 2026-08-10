@@ -36,7 +36,7 @@ export const VoidPaymentModal = ({
 
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/void`, {
+      const response = await fetch(`${API_BASE_URL}/api/payments/${paymentId}/void`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

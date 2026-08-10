@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
 import { SELF_ORDER_PAYMENT_METHODS } from '../../src/features/self-order/paymentMethods';
 
 const router = Router();
@@ -8,7 +9,7 @@ const router = Router();
 const SELF_ORDER_PAYMENT_METHOD_IDS = Object.keys(SELF_ORDER_PAYMENT_METHODS);
 
 // GET /api/settings - Get app settings
-router.get('/', async (req, res) => {
+router.get('/', authMiddleware, requirePermission('settings.view'), async (req, res) => {
   try {
     // Get the first settings record (there should only be one)
     let settings = await prisma.appSettings.findFirst();
@@ -36,7 +37,7 @@ router.get('/', async (req, res) => {
 });
 
 // PUT /api/settings - Update app settings
-router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
+router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, res) => {
   try {
     const data = req.body;
 
@@ -96,6 +97,12 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
       if (data.require_pin_discount !== undefined) updateData.require_pin_discount = data.require_pin_discount;
       if (data.require_pin_delete !== undefined) updateData.require_pin_delete = data.require_pin_delete;
       if (data.backup_frequency !== undefined) updateData.backup_frequency = data.backup_frequency;
+      if (data.default_login_redirect !== undefined) {
+        if (typeof data.default_login_redirect !== 'string' || !data.default_login_redirect.startsWith('/')) {
+          return res.status(400).json({ error: 'default_login_redirect must be a valid internal route starting with /' });
+        }
+        updateData.default_login_redirect = data.default_login_redirect;
+      }
       
       // Kitchen Settings
       if (data.main_course_route !== undefined) updateData.main_course_route = data.main_course_route;
@@ -203,6 +210,7 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
           require_pin_discount: data.require_pin_discount !== undefined ? data.require_pin_discount : true,
           require_pin_delete: data.require_pin_delete !== undefined ? data.require_pin_delete : true,
           backup_frequency: data.backup_frequency || 'daily',
+          default_login_redirect: data.default_login_redirect || '/apps',
           
           // Kitchen Settings
           main_course_route: data.main_course_route || 'KDS Display 1',
@@ -240,7 +248,7 @@ router.put('/', authMiddleware, requireRole('admin'), async (req, res) => {
 });
 
 // Reset settings to defaults
-router.post('/reset', authMiddleware, requireRole('admin'), async (req, res) => {
+router.post('/reset', authMiddleware, requirePermission('settings.edit'), async (req, res) => {
   try {
     // Delete existing settings
     await prisma.appSettings.deleteMany();

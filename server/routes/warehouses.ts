@@ -161,7 +161,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /warehouses/:id - Delete warehouse (admin only)
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

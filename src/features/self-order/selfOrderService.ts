@@ -30,7 +30,7 @@ export type { Category };
 // Get table by table ID (for QR code with UUID)
 export async function getTableById(tableId: string): Promise<TableInfo | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/tables/id/${tableId}`);
+    const response = await fetch(`${API_BASE_URL}/api/self-order/tables/id/${tableId}`);
     if (!response.ok) {
       return null;
     }
@@ -46,7 +46,7 @@ export async function getTableByNumber(tableNumber: string): Promise<TableInfo |
   try {
     // URL encode the table number to handle spaces and special characters
     const encodedTableNumber = encodeURIComponent(tableNumber);
-    const response = await fetch(`${API_BASE_URL}/tables?table_number=${encodedTableNumber}`);
+    const response = await fetch(`${API_BASE_URL}/api/tables?table_number=${encodedTableNumber}`);
     if (!response.ok) {
       return null;
     }
@@ -66,7 +66,7 @@ export async function getSelfOrderProducts(outletId?: string, categoryId?: strin
     if (outletId) params.append('outlet_id', outletId);
     if (categoryId) params.append('category_id', categoryId);
 
-    const response = await fetch(`${API_BASE_URL}/self-order/products?${params.toString()}`);
+    const response = await fetch(`${API_BASE_URL}/api/self-order/products?${params.toString()}`);
     if (!response.ok) {
       throw new Error('Failed to fetch products');
     }
@@ -80,7 +80,7 @@ export async function getSelfOrderProducts(outletId?: string, categoryId?: strin
 // Get categories for self-order
 export async function getSelfOrderCategories(): Promise<Category[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/categories`);
+    const response = await fetch(`${API_BASE_URL}/api/self-order/categories`);
     if (!response.ok) {
       throw new Error('Failed to fetch categories');
     }
@@ -98,7 +98,7 @@ export async function getSelfOrderCategories(): Promise<Category[]> {
 // always have a way to order even if the settings call is unreachable.
 export async function getSelfOrderPaymentMethods(): Promise<SelfOrderPaymentMethod[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/settings`);
+    const response = await fetch(`${API_BASE_URL}/api/settings`);
     if (!response.ok) {
       return resolveSelfOrderPaymentMethods(undefined);
     }
@@ -126,7 +126,7 @@ export async function createCustomerOrder(
     modifiers_applied?: any[];
   }>
 ): Promise<CustomerOrderWithItems & { routing: 'review' | 'auto' }> {
-  const response = await fetch(`${API_BASE_URL}/self-order/orders`, {
+  const response = await fetch(`${API_BASE_URL}/api/self-order/orders`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -154,7 +154,7 @@ export async function createCustomerOrder(
 // Get customer order by ID
 export async function getCustomerOrder(orderId: string): Promise<CustomerOrderWithItems | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/orders/${orderId}`);
+    const response = await fetch(`${API_BASE_URL}/api/self-order/orders/${orderId}`);
     if (!response.ok) {
       return null;
     }
@@ -168,7 +168,7 @@ export async function getCustomerOrder(orderId: string): Promise<CustomerOrderWi
 // Get customer orders by table
 export async function getTableOrders(tableId: string): Promise<CustomerOrderWithItems[]> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/tables/${tableId}/orders`);
+    const response = await fetch(`${API_BASE_URL}/api/self-order/tables/${tableId}/orders`);
     if (!response.ok) {
       return [];
     }
@@ -187,7 +187,7 @@ export async function updateCustomerOrderStatus(
   status: 'pending' | 'accepted' | 'cancelled'
 ): Promise<CustomerOrderWithItems | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/orders/${orderId}/status`, {
+    const response = await fetch(`${API_BASE_URL}/api/self-order/orders/${orderId}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -213,7 +213,7 @@ export async function updateCustomerOrderPaymentStatus(
   paymentMethod?: string
 ): Promise<CustomerOrderWithItems | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/self-order/orders/${orderId}/payment-status`, {
+    const response = await fetch(`${API_BASE_URL}/api/self-order/orders/${orderId}/payment-status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

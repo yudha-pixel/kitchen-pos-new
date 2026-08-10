@@ -1,12 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/context/AuthContext';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { getOutlets, createOutlet, updateOutlet, deleteOutlet } from '@/src/features/outlet/outletService';
 import { Outlet } from '@/src/lib/db';
 import { Building2, Plus, Edit, Trash2, MapPin, Phone, Check, X } from 'lucide-react';
 
 export default function OutletManagementPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const { outlets, loading, loadOutlets } = useOutletStore();
   const [showModal, setShowModal] = useState(false);
   const [editingOutlet, setEditingOutlet] = useState<Outlet | null>(null);
@@ -24,8 +28,16 @@ export default function OutletManagementPage() {
   const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
-    loadOutlets();
-  }, []);
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadOutlets();
+    }
+  }, [user]);
 
   const handleOpenModal = (outlet?: Outlet) => {
     setFormError('');

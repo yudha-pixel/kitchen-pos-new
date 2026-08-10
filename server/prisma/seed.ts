@@ -5,8 +5,12 @@ import { randomUUID } from 'crypto';
 async function main() {
   console.log('🌱 Seeding local PostgreSQL database...');
 
-  // Step 1: Clean old data
+  // Step 1: Clean old data (respect foreign key constraints)
   console.log('🧹 Cleaning old data...');
+  await prisma.customerOrderItem.deleteMany();
+  await prisma.customerOrder.deleteMany();
+  await prisma.orderItem.deleteMany();
+  await prisma.order.deleteMany();
   await prisma.productModifierGroup.deleteMany();
   await prisma.modifier.deleteMany();
   await prisma.modifierGroup.deleteMany();
@@ -14,23 +18,165 @@ async function main() {
   await prisma.category.deleteMany();
   console.log('✅ Old data cleaned');
 
-  // Default admin account (change password after first login)
-  const adminExists = await prisma.profile.findUnique({ where: { username: 'admin' } });
-  if (!adminExists) {
-    const passwordHash = await bcrypt.hash('admin', 10);
-    // Get admin role ID
-    const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
-    if (adminRole) {
-      await prisma.profile.create({
+  // Step 1.1: Create roles if they don't exist
+  const roles = ['admin', 'cashier', 'management', 'owner'];
+  for (const roleName of roles) {
+    const roleExists = await prisma.role.findUnique({ where: { name: roleName } });
+    if (!roleExists) {
+      await prisma.role.create({
         data: {
-          username: 'admin',
-          full_name: 'System Administrator',
-          role_id: adminRole.id,
-          password_hash: passwordHash,
+          name: roleName,
+          description: `${roleName.charAt(0).toUpperCase() + roleName.slice(1)} role`,
+          is_system: true,
         },
       });
-      console.log('✅ Created default admin user (username: admin, password: admin)');
+      console.log(`✅ Created ${roleName} role`);
     }
+  }
+
+  // Step 1.2: Create permissions for different modules
+  const modules = [
+    { module: 'products', actions: ['view', 'create', 'edit', 'delete'] },
+    { module: 'orders', actions: ['view', 'create', 'edit', 'delete', 'void', 'refund'] },
+    { module: 'inventory', actions: ['view', 'create', 'edit', 'delete', 'adjust'] },
+    { module: 'hr', actions: ['view', 'create', 'edit', 'delete'] },
+    { module: 'finance', actions: ['view', 'create', 'edit', 'delete', 'approve'] },
+    { module: 'settings', actions: ['view', 'edit'] },
+    { module: 'reports', actions: ['view'] },
+    { module: 'users', actions: ['view', 'create', 'update', 'delete'] },
+  ];
+
+  for (const mod of modules) {
+    for (const action of mod.actions) {
+      const permissionExists = await prisma.permission.findUnique({
+        where: { module_action: { module: mod.module, action } },
+      });
+      if (!permissionExists) {
+        await prisma.permission.create({
+          data: {
+            name: `${mod.module}.${action}`,
+            description: `${action} ${mod.module}`,
+            module: mod.module,
+            action,
+          },
+        });
+      }
+    }
+  }
+  console.log('✅ Created permissions for all modules');
+
+  // Step 1.3: Assign permissions to roles
+  const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+  const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+  const managementRole = await prisma.role.findUnique({ where: { name: 'management' } });
+  const ownerRole = await prisma.role.findUnique({ where: { name: 'owner' } });
+
+  // Admin gets all permissions
+  const allPermissions = await prisma.permission.findMany();
+  for (const permission of allPermissions) {
+    const exists = await prisma.rolePermission.findUnique({
+      where: { role_id_permission_id: { role_id: adminRole!.id, permission_id: permission.id } },
+    });
+    if (!exists) {
+      await prisma.rolePermission.create({
+        data: { role_id: adminRole!.id, permission_id: permission.id },
+      });
+    }
+  }
+
+  // Cashier gets limited permissions
+  const cashierPermissions = await prisma.permission.findMany({
+    where: {
+      OR: [
+        { module: 'products', action: 'view' },
+        { module: 'orders', action: 'view' },
+        { module: 'orders', action: 'create' },
+        { module: 'reports', action: 'view' },
+      ],
+    },
+  });
+  for (const permission of cashierPermissions) {
+    const exists = await prisma.rolePermission.findUnique({
+      where: { role_id_permission_id: { role_id: cashierRole!.id, permission_id: permission.id } },
+    });
+    if (!exists) {
+      await prisma.rolePermission.create({
+        data: { role_id: cashierRole!.id, permission_id: permission.id },
+      });
+    }
+  }
+
+  // Management gets most permissions except finance approval
+  const managementPermissions = await prisma.permission.findMany({
+    where: {
+      NOT: { action: 'approve' },
+    },
+  });
+  for (const permission of managementPermissions) {
+    const exists = await prisma.rolePermission.findUnique({
+      where: { role_id_permission_id: { role_id: managementRole!.id, permission_id: permission.id } },
+    });
+    if (!exists) {
+      await prisma.rolePermission.create({
+        data: { role_id: managementRole!.id, permission_id: permission.id },
+      });
+    }
+  }
+
+  // Owner gets all permissions like admin
+  for (const permission of allPermissions) {
+    const exists = await prisma.rolePermission.findUnique({
+      where: { role_id_permission_id: { role_id: ownerRole!.id, permission_id: permission.id } },
+    });
+    if (!exists) {
+      await prisma.rolePermission.create({
+        data: { role_id: ownerRole!.id, permission_id: permission.id },
+      });
+    }
+  }
+  console.log('✅ Created role-permission mappings');
+
+  // Step 1.4: Create test users
+  const testUsers = [
+    { username: 'admin', password: 'admin', full_name: 'System Administrator', role: 'admin', outlet: 'OUT-001' },
+    { username: 'cashier1', password: 'cashier123', full_name: 'Test Cashier', role: 'cashier', outlet: 'OUT-001' },
+    { username: 'manager1', password: 'manager123', full_name: 'Test Manager', role: 'management', outlet: 'OUT-002' },
+    { username: 'owner1', password: 'owner123', full_name: 'Test Owner', role: 'owner', outlet: 'OUT-003' },
+    { username: 'admin2', password: 'admin123', full_name: 'Second Admin', role: 'admin', outlet: 'OUT-001' },
+  ];
+
+  const defaultPreferences = {
+    favorites: ['/pos', '/admin/products', '/admin/settings'],
+    recent: [
+      { route: '/pos', title: 'Point of Sale', timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
+      { route: '/admin/products', title: 'Menu & Products', timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
+    ],
+  };
+
+  for (const user of testUsers) {
+    const userExists = await prisma.profile.findUnique({ where: { username: user.username } });
+    if (!userExists) {
+      const passwordHash = await bcrypt.hash(user.password, 10);
+      const role = await prisma.role.findUnique({ where: { name: user.role } });
+      const outlet = await prisma.outlet.findUnique({ where: { code: user.outlet } });
+      
+      await prisma.profile.create({
+        data: {
+          username: user.username,
+          full_name: user.full_name,
+          role_id: role!.id,
+          outlet_id: outlet!.id,
+          password_hash: passwordHash,
+          is_active: true,
+        },
+      });
+      console.log(`✅ Created test user: ${user.username} (${user.role})`);
+    }
+
+    // Seed demo Recent/Favorites preferences for this user
+    const preferencesJson = JSON.stringify(defaultPreferences);
+    await prisma.$executeRaw`UPDATE "profiles" SET "preferences" = ${preferencesJson}::jsonb WHERE "username" = ${user.username}`;
+    console.log(`✅ Seeded preferences for: ${user.username}`);
   }
 
   // Create default outlets

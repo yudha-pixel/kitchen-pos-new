@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/context/AuthContext';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
@@ -44,6 +46,8 @@ interface FreeOrderItem {
 }
 
 export default function DiscountReportsPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [orders, setOrders] = useState<DiscountOrder[]>([]);
   const [filteredOrders, setFilteredOrders] = useState<DiscountOrder[]>([]);
   const [voucherOrders, setVoucherOrders] = useState<VoucherOrder[]>([]);
@@ -59,10 +63,18 @@ export default function DiscountReportsPage() {
   const [dateTo, setDateTo] = useState('');
 
   useEffect(() => {
-    loadDiscountOrders();
-    loadVoucherOrders();
-    loadFreeItems();
-  }, []);
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadDiscountOrders();
+      loadVoucherOrders();
+      loadFreeItems();
+    }
+  }, [user]);
 
   useEffect(() => {
     applyFilters();

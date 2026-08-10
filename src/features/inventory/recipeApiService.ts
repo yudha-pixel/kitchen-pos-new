@@ -42,7 +42,7 @@ export async function getIngredientsWithStatus(): Promise<
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}/ingredients`, { headers });
+    const response = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
     if (!response.ok) throw new Error('Failed to fetch ingredients');
     
     const ingredients: Ingredient[] = await response.json();
@@ -77,7 +77,7 @@ export async function getRecipesForMenuItem(
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`, { headers });
+    const response = await fetch(`${API_BASE_URL}/api/recipes/menu/${menuItemId}`, { headers });
     if (!response.ok) throw new Error('Failed to fetch recipes');
     
     const recipes: Recipe[] = await response.json();
@@ -101,7 +101,7 @@ export async function upsertRecipe(
     const token = getToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}/recipes`, {
+    const response = await fetch(`${API_BASE_URL}/api/recipes`, {
       method: 'POST',
       headers,
       body: JSON.stringify(recipe),
@@ -123,7 +123,7 @@ export async function deleteRecipesForMenuItem(menuItemId: string): Promise<void
     const token = getToken();
     const headers: Record<string, string> = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
-    const response = await fetch(`${API_BASE_URL}/recipes/menu/${menuItemId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/recipes/menu/${menuItemId}`, {
       method: 'DELETE',
       headers,
     });
@@ -196,7 +196,7 @@ export async function addIngredient(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/ingredients`, {
+    const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -271,7 +271,7 @@ export interface StockRequest {
 export async function createStockRequest(params: any): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -294,7 +294,7 @@ export async function createStockRequest(params: any): Promise<string> {
 export async function getStockRequests(): Promise<StockRequest[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get stock requests');
@@ -311,7 +311,7 @@ export async function getStockRequestsByStatus(
 ): Promise<StockRequest[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get stock requests');
@@ -329,7 +329,7 @@ export async function approveStockRequestSupervisor(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve-supervisor`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/approve-supervisor`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -354,7 +354,7 @@ export async function approveStockRequestManager(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve-manager`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/approve-manager`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -379,7 +379,7 @@ export async function approveStockRequestFinance(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve-finance`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/approve-finance`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -404,7 +404,7 @@ export async function rejectStockRequest(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/reject`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/reject`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -428,7 +428,7 @@ export async function recallStockRequest(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/recall`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/recall`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -468,7 +468,7 @@ export async function approveStockRequest(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-requests/${requestId}/approve`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/approve`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -526,7 +526,7 @@ export interface Quotation {
 export async function getQuotationRequests(): Promise<QuotationRequest[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotation-requests`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotation-requests`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get quotation requests');
@@ -543,7 +543,7 @@ export async function getQuotationRequestsByStatus(
 ): Promise<QuotationRequest[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotation-requests?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotation-requests?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get quotation requests');
@@ -561,7 +561,7 @@ export async function createQuotationRequest(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotation-requests`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotation-requests`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -584,7 +584,7 @@ export async function closeQuotationRequest(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotation-requests/${requestId}/close`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotation-requests/${requestId}/close`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -604,7 +604,7 @@ export async function cancelQuotationRequest(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotation-requests/${requestId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotation-requests/${requestId}/cancel`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -622,7 +622,7 @@ export async function cancelQuotationRequest(
 export async function getQuotations(quotationRequestId: string): Promise<Quotation[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotation-requests/${quotationRequestId}/quotations`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotation-requests/${quotationRequestId}/quotations`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get quotations');
@@ -637,7 +637,7 @@ export async function getQuotations(quotationRequestId: string): Promise<Quotati
 export async function getAllQuotations(): Promise<Quotation[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotations`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotations`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get quotations');
@@ -654,7 +654,7 @@ export async function selectQuotation(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotations/${quotationId}/select`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotations/${quotationId}/select`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -674,7 +674,7 @@ export async function rejectQuotation(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/quotations/${quotationId}/reject`, {
+    const response = await fetch(`${API_BASE_URL}/api/quotations/${quotationId}/reject`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -742,7 +742,7 @@ export interface PurchaseOrderItem {
 export async function getPurchaseOrders(): Promise<PurchaseOrder[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/purchase-orders`, {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get purchase orders');
@@ -759,7 +759,7 @@ export async function getPurchaseOrdersByStatus(
 ): Promise<PurchaseOrder[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/purchase-orders?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get purchase orders');
@@ -777,7 +777,7 @@ export async function createPurchaseOrder(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/purchase-orders`, {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -801,7 +801,7 @@ export async function reviewPurchaseOrder(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/purchase-orders/${orderId}/review`, {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders/${orderId}/review`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -825,7 +825,7 @@ export async function sendPurchaseOrder(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/purchase-orders/${orderId}/send`, {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders/${orderId}/send`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -845,7 +845,7 @@ export async function cancelPurchaseOrder(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/purchase-orders/${orderId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/purchase-orders/${orderId}/cancel`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -907,7 +907,7 @@ export interface GoodsReceivedNoteItem {
 export async function getGoodsReceivedNotes(): Promise<GoodsReceivedNote[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/goods-received-notes`, {
+    const response = await fetch(`${API_BASE_URL}/api/goods-received-notes`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get goods received notes');
@@ -924,7 +924,7 @@ export async function getGoodsReceivedNotesByStatus(
 ): Promise<GoodsReceivedNote[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/goods-received-notes?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/goods-received-notes?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get goods received notes');
@@ -942,7 +942,7 @@ export async function createGoodsReceivedNote(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/goods-received-notes`, {
+    const response = await fetch(`${API_BASE_URL}/api/goods-received-notes`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -965,7 +965,7 @@ export async function completeGoodsReceivedNote(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/goods-received-notes/${grnId}/complete`, {
+    const response = await fetch(`${API_BASE_URL}/api/goods-received-notes/${grnId}/complete`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -985,7 +985,7 @@ export async function cancelGoodsReceivedNote(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/goods-received-notes/${grnId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/goods-received-notes/${grnId}/cancel`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -1037,7 +1037,7 @@ export interface Invoice {
 export async function getInvoices(): Promise<Invoice[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/invoices`, {
+    const response = await fetch(`${API_BASE_URL}/api/invoices`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get invoices');
@@ -1054,7 +1054,7 @@ export async function getInvoicesByStatus(
 ): Promise<Invoice[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/invoices?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/invoices?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get invoices');
@@ -1073,7 +1073,7 @@ export async function createInvoice(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/invoices`, {
+    const response = await fetch(`${API_BASE_URL}/api/invoices`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1096,7 +1096,7 @@ export async function verifyInvoice(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/verify`, {
+    const response = await fetch(`${API_BASE_URL}/api/invoices/${invoiceId}/verify`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -1116,7 +1116,7 @@ export async function cancelInvoice(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/invoices/${invoiceId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/invoices/${invoiceId}/cancel`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -1167,7 +1167,7 @@ export interface SupplierPayment {
 export async function getSupplierPayments(): Promise<SupplierPayment[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/supplier-payments`, {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-payments`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get supplier payments');
@@ -1184,7 +1184,7 @@ export async function getSupplierPaymentsByStatus(
 ): Promise<SupplierPayment[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/supplier-payments?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-payments?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get supplier payments');
@@ -1205,7 +1205,7 @@ export async function createSupplierPayment(
 ): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/supplier-payments`, {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1234,7 +1234,7 @@ export async function processSupplierPayment(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/supplier-payments/${paymentId}/process`, {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-payments/${paymentId}/process`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -1254,7 +1254,7 @@ export async function cancelSupplierPayment(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/supplier-payments/${paymentId}/cancel`, {
+    const response = await fetch(`${API_BASE_URL}/api/supplier-payments/${paymentId}/cancel`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -1295,7 +1295,7 @@ export interface StockWriteOff {
 export async function createStockWriteOff(params: any): Promise<string> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-write-offs`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-write-offs`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1318,7 +1318,7 @@ export async function createStockWriteOff(params: any): Promise<string> {
 export async function getStockWriteOffs(): Promise<StockWriteOff[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-write-offs`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-write-offs`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get stock write-offs');
@@ -1335,7 +1335,7 @@ export async function getStockWriteOffsByStatus(
 ): Promise<StockWriteOff[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-write-offs?status=${status}`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-write-offs?status=${status}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get stock write-offs');
@@ -1352,7 +1352,7 @@ export async function approveStockWriteOff(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-write-offs/${writeOffId}/approve`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-write-offs/${writeOffId}/approve`, {
       method: 'PATCH',
       headers: { 'Authorization': `Bearer ${token}` },
     });
@@ -1373,7 +1373,7 @@ export async function rejectStockWriteOff(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/stock-write-offs/${writeOffId}/reject`, {
+    const response = await fetch(`${API_BASE_URL}/api/stock-write-offs/${writeOffId}/reject`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -1395,7 +1395,7 @@ export async function rejectStockWriteOff(
 export async function getPurchaseDataByPeriod(days: number): Promise<any[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/reports/purchases?days=${days}`, {
+    const response = await fetch(`${API_BASE_URL}/api/reports/purchases?days=${days}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -1427,7 +1427,7 @@ export interface Supplier {
 export async function getSuppliers(): Promise<Supplier[]> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/suppliers`, {
+    const response = await fetch(`${API_BASE_URL}/api/suppliers`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to get suppliers');
@@ -1444,7 +1444,7 @@ export async function addSupplier(
 ): Promise<string | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/suppliers`, {
+    const response = await fetch(`${API_BASE_URL}/api/suppliers`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1468,7 +1468,7 @@ export async function updateSupplier(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/suppliers/${supplierId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/suppliers/${supplierId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -1492,7 +1492,7 @@ export async function deleteSupplier(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/suppliers/${supplierId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/suppliers/${supplierId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` },
     });

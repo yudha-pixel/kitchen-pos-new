@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, FormEvent, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { Button } from '@/src/components/ui/Button';
 import { ChefHat, Eye, EyeOff } from 'lucide-react';
@@ -11,12 +11,38 @@ const inputClass =
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [defaultRedirect, setDefaultRedirect] = useState('/apps');
+  const redirectUrl = searchParams.get('redirect');
+
+  // Fetch default redirect from app settings
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          setDefaultRedirect(settings.default_login_redirect || '/apps');
+        }
+      } catch (error) {
+        console.error('Failed to fetch settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  // On mount, store redirect URL if present
+  useEffect(() => {
+    if (redirectUrl) {
+      sessionStorage.setItem('loginRedirect', redirectUrl);
+    }
+  }, [redirectUrl]);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -24,7 +50,13 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(username, password);
-      router.replace('/pos');
+      const storedRedirect = sessionStorage.getItem('loginRedirect');
+      if (storedRedirect) {
+        sessionStorage.removeItem('loginRedirect');
+        router.replace(storedRedirect);
+      } else {
+        router.replace(defaultRedirect);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login gagal. Periksa username dan password.');
     } finally {

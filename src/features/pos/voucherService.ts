@@ -23,7 +23,7 @@ export async function validateVoucher(
 ): Promise<{ valid: boolean; voucher?: Voucher; error?: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/vouchers/validate`, {
+    const response = await fetch(`${API_BASE_URL}/api/vouchers/validate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -45,7 +45,7 @@ export async function validateVoucher(
 export async function useVoucher(voucherId: string): Promise<{ success: boolean; message?: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/vouchers/${voucherId}/use`, {
+    const response = await fetch(`${API_BASE_URL}/api/vouchers/${voucherId}/use`, {
       method: 'POST',
       headers: { 'Authorization': `Bearer ${token}` },
     });

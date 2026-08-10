@@ -1,12 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/context/AuthContext';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from '@/src/features/inventory/recipeApiService';
 import { Building2, Plus, Edit, Trash2, X, Phone, Mail, MapPin } from 'lucide-react';
 
 export default function SuppliersPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -25,8 +29,16 @@ export default function SuppliersPage() {
   });
 
   useEffect(() => {
-    loadSuppliers();
-  }, []);
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadSuppliers();
+    }
+  }, [user]);
 
   const loadSuppliers = async () => {
     try {

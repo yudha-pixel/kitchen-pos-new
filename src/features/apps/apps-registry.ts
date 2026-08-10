@@ -87,7 +87,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     category: 'inventory',
     categoryLabel: 'Produk & Inventori',
     iconName: 'ShoppingBag',
-    route: '/inventory/suppliers',
+    route: '/inventory-suppliers',
     keywords: ['pembelian', 'supplier', 'pemasok', 'order', 'po', 'pembayaran', 'quotation', 'invoice', 'grn'],
     subLinks: [
       { label: 'Manajemen Supplier', href: '/inventory-suppliers' },

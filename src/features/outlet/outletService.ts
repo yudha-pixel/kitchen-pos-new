@@ -16,7 +16,7 @@ export async function getOutlets(): Promise<OutletWithCounts[]> {
   try {
     console.log('Fetching outlets...');
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/outlets`, {
+    const response = await fetch(`${API_BASE_URL}/api/outlets`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
@@ -43,7 +43,7 @@ export async function getOutlets(): Promise<OutletWithCounts[]> {
 export async function getOutletById(id: string): Promise<OutletWithCounts | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/outlets/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/outlets/${id}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -62,7 +62,7 @@ export async function getOutletById(id: string): Promise<OutletWithCounts | null
 export async function createOutlet(data: Omit<Outlet, 'id' | 'created_at' | 'updated_at'>): Promise<Outlet | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/outlets`, {
+    const response = await fetch(`${API_BASE_URL}/api/outlets`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -84,7 +84,7 @@ export async function createOutlet(data: Omit<Outlet, 'id' | 'created_at' | 'upd
 export async function updateOutlet(id: string, data: Partial<Omit<Outlet, 'id' | 'created_at' | 'updated_at'>>): Promise<Outlet | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/outlets/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/outlets/${id}`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -106,7 +106,7 @@ export async function updateOutlet(id: string, data: Partial<Omit<Outlet, 'id' |
 export async function deleteOutlet(id: string): Promise<boolean> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/outlets/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/api/outlets/${id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

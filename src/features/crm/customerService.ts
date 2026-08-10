@@ -20,7 +20,7 @@ export async function searchCustomers(query: string): Promise<Customer[]> {
   try {
     const token = getToken();
     const params = new URLSearchParams({ search: query, is_active: 'true' });
-    const response = await fetch(`${API_BASE_URL}/customers?${params.toString()}`, {
+    const response = await fetch(`${API_BASE_URL}/api/customers?${params.toString()}`, {
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) throw new Error('Failed to search customers');
@@ -39,7 +39,7 @@ export async function addCustomerPoints(
 ): Promise<Customer | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/customers/${customerId}/points`, {
+    const response = await fetch(`${API_BASE_URL}/api/customers/${customerId}/points`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

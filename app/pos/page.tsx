@@ -71,7 +71,7 @@ export default function POSPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace('/login');
+      router.replace('/login?redirect=/pos');
     }
   }, [authLoading, user, router]);
 

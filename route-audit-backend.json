@@ -1,0 +1,2973 @@
+{
+  "totalRoutes": 232,
+  "publicRoutes": 35,
+  "authenticatedRoutes": 108,
+  "adminOnlyRoutes": 80,
+  "cashierOnlyRoutes": 0,
+  "multiRoleRoutes": 0,
+  "routes": [
+    {
+      "file": "approvalWorkflows.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "approvalWorkflows.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "approvalWorkflows.ts",
+      "path": "/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "approvalWorkflows.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/check-in",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/check-out",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "attendance.ts",
+      "path": "/summary/today",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "audit.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "audit.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "audit.ts",
+      "path": "/stats/summary",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "auth.ts",
+      "path": "/login",
+      "method": "POST",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "auth.ts",
+      "path": "/register",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "auth.ts",
+      "path": "/permissions",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "auth.ts",
+      "path": "/me",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "backup.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "backup.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "backup.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "backup.ts",
+      "path": "/:id/restore",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "backup.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "customers.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "customers.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "customers.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "customers.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "customers.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "customers.ts",
+      "path": "/:id/toggle-active",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "customers.ts",
+      "path": "/:id/points",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "goodsReceivedNotes.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "goodsReceivedNotes.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "goodsReceivedNotes.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "goodsReceivedNotes.ts",
+      "path": "/:id/quality-check",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "goodsReceivedNotes.ts",
+      "path": "/:id/complete",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "goodsReceivedNotes.ts",
+      "path": "/:id/cancel",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/employees",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/employees/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/employees",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/employees/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/employees/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "hr.ts",
+      "path": "/statistics",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/payroll-summary",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/payroll",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/payroll",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "hr.ts",
+      "path": "/payroll/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "ingredients.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "ingredients.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "ingredients.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "ingredients.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "ingredients.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "invoices.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "invoices.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "invoices.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "invoices.ts",
+      "path": "/:id/verify",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "invoices.ts",
+      "path": "/:id/cancel",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/stations",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/stations",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/stations/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/stations/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/stations/:id/categories",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/stations/:id/categories/:categoryId",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "kitchen.ts",
+      "path": "/orders",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "notifications.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "notifications.ts",
+      "path": "/unread-count",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "notifications.ts",
+      "path": "/:id/mark-read",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "notifications.ts",
+      "path": "/mark-all-read",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "notifications.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "notifications.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "ocr.ts",
+      "path": "/scan",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "ocr.ts",
+      "path": "/scans",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "ocr.ts",
+      "path": "/scans/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "ocr.ts",
+      "path": "/scans/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders/active",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders/:id/items",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/order-items",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/order-items/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "orders.ts",
+      "path": "/void-logs",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "orders.ts",
+      "path": "/orders/merge-table",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "outlets.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "outlets.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "outlets.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "outlets.ts",
+      "path": "/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "outlets.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "payments.ts",
+      "path": "/payments",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "payments.ts",
+      "path": "/payments/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "payments.ts",
+      "path": "/payments/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "payments.ts",
+      "path": "/payments/:id/void",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "payments.ts",
+      "path": "/webhooks/payment",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers/category/:categoryId",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers/route",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers/route/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "print.ts",
+      "path": "/printers/orders/:orderId/jobs",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/categories",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/categories",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/categories/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/categories/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifier-groups",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifier-groups",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifier-groups/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifier-groups/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifiers",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifiers",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifiers/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/modifiers/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "products.ts",
+      "path": "/products",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/products",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/products/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "products.ts",
+      "path": "/products/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/:id/review",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/:id/send",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/:id/acknowledge",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "purchaseOrders.ts",
+      "path": "/:id/cancel",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotationRequests.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotationRequests.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotationRequests.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotationRequests.ts",
+      "path": "/:id/close",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotationRequests.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "quotations.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotations.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotations.ts",
+      "path": "/compare/:requestId",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotations.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotations.ts",
+      "path": "/:id/select",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "quotations.ts",
+      "path": "/:id/reject",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/menu/:menuItemId",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "recipes.ts",
+      "path": "/menu/:menuItemId",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/:id/permissions",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "roles.ts",
+      "path": "/:id/permissions/:permissionId",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/tables",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/tables/:tableNumber",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/tables/id/:tableId",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/products",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/categories",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders",
+      "method": "POST",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders/pending",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders/:id",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/tables/:tableId/orders",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders/:id/payment-status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders/:id/accept",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "selfOrder.ts",
+      "path": "/orders/:id/reject",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "settings.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "settings.view"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "settings.ts",
+      "path": "/",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "settings.edit"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "settings.ts",
+      "path": "/reset",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "settings.edit"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "splitBill.ts",
+      "path": "/:orderId",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "splitBill.ts",
+      "path": "/by-items",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "splitBill.ts",
+      "path": "/by-amount",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "splitBill.ts",
+      "path": "/equal",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id/approve-supervisor",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id/approve-manager",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id/approve-finance",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id/reject",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id/recall",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockRequests.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "stockTransfers.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockTransfers.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockTransfers.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockTransfers.ts",
+      "path": "/:id",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "stockTransfers.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "stockWriteOffs.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockWriteOffs.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockWriteOffs.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "stockWriteOffs.ts",
+      "path": "/:id/approve",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "stockWriteOffs.ts",
+      "path": "/:id/reject",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "supplierPayments.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "supplierPayments.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "supplierPayments.ts",
+      "path": "/invoice/:invoiceId",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "supplierPayments.ts",
+      "path": "/supplier/:supplierId",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "supplierPayments.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "supplierPayments.ts",
+      "path": "/:id/cancel",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/:id/purchase-orders",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/:id/purchase-orders/:poId/receive",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "suppliers.ts",
+      "path": "/:id/purchase-orders",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/summary",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "tables.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "tables.ts",
+      "path": "/summary",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "userPreferences.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "userPreferences.ts",
+      "path": "/",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "users.view"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "users.view"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "users.create"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "users.update"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/:id/password",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/:id/status",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "users.update"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "users.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": true,
+      "roles": [],
+      "permissions": [
+        "users.delete"
+      ],
+      "accessLevel": "permission",
+      "isSensitive": true
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/validate",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/:id/toggle-active",
+      "method": "PATCH",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": false
+    },
+    {
+      "file": "vouchers.ts",
+      "path": "/:id/use",
+      "method": "POST",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "warehouses.ts",
+      "path": "/",
+      "method": "GET",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "warehouses.ts",
+      "path": "/:id",
+      "method": "GET",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "warehouses.ts",
+      "path": "/",
+      "method": "POST",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "warehouses.ts",
+      "path": "/:id",
+      "method": "PUT",
+      "hasAuthMiddleware": false,
+      "hasRequireRole": false,
+      "hasRequirePermission": false,
+      "roles": [],
+      "permissions": [],
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "warehouses.ts",
+      "path": "/:id",
+      "method": "DELETE",
+      "hasAuthMiddleware": true,
+      "hasRequireRole": true,
+      "hasRequirePermission": false,
+      "roles": [
+        "admin"
+      ],
+      "permissions": [],
+      "accessLevel": "admin",
+      "isSensitive": true
+    }
+  ],
+  "criticalIssues": []
+}

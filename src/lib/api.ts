@@ -93,17 +93,17 @@ export async function getMe() {
 
 // Products
 export async function fetchCategories() {
-  return request<unknown>('GET', '/categories');
+  return request<unknown>('GET', '/api/categories');
 }
 
 export async function fetchProducts(categoryId?: string | null) {
   const query = categoryId ? `?categoryId=${encodeURIComponent(categoryId)}` : '';
-  return request<unknown>('GET', `/products${query}`);
+  return request<unknown>('GET', `/api/products${query}`);
 }
 
 export async function fetchModifiers(productId?: string) {
   const query = productId ? `?productId=${encodeURIComponent(productId)}` : '';
-  return request<unknown>('GET', `/modifiers${query}`);
+  return request<unknown>('GET', `/api/modifiers${query}`);
 }
 
 export async function addProduct(data: {
@@ -116,38 +116,38 @@ export async function addProduct(data: {
   description?: string;
   modifier_group_ids?: string[];
 }) {
-  return request<unknown>('POST', '/products', data);
+  return request<unknown>('POST', '/api/products', data);
 }
 
 export async function updateProduct(id: string, data: unknown) {
-  return request<unknown>('PATCH', `/products/${id}`, data);
+  return request<unknown>('PATCH', `/api/products/${id}`, data);
 }
 
 export async function updateProductStock(id: string, stockQuantity: number) {
-  return request<unknown>('PATCH', `/products/${id}`, { stock_quantity: stockQuantity });
+  return request<unknown>('PATCH', `/api/products/${id}`, { stock_quantity: stockQuantity });
 }
 
 // Soft delete: the product is deactivated, not removed.
 export async function deleteProduct(id: string) {
-  return request<{ success: boolean }>('DELETE', `/products/${id}`);
+  return request<{ success: boolean }>('DELETE', `/api/products/${id}`);
 }
 
 // Categories
 export async function createCategory(data: { name: string; color?: string | null }) {
-  return request<unknown>('POST', '/categories', data);
+  return request<unknown>('POST', '/api/categories', data);
 }
 
 export async function updateCategory(id: string, data: { name?: string; color?: string | null }) {
-  return request<unknown>('PATCH', `/categories/${id}`, data);
+  return request<unknown>('PATCH', `/api/categories/${id}`, data);
 }
 
 export async function deleteCategory(id: string) {
-  return request<{ success: boolean }>('DELETE', `/categories/${id}`);
+  return request<{ success: boolean }>('DELETE', `/api/categories/${id}`);
 }
 
 // Modifier groups
 export async function fetchModifierGroups() {
-  return request<unknown>('GET', '/modifier-groups');
+  return request<unknown>('GET', '/api/modifier-groups');
 }
 
 export async function createModifierGroup(data: {
@@ -155,18 +155,18 @@ export async function createModifierGroup(data: {
   is_required?: boolean;
   max_selections?: number;
 }) {
-  return request<unknown>('POST', '/modifier-groups', data);
+  return request<unknown>('POST', '/api/modifier-groups', data);
 }
 
 export async function updateModifierGroup(
   id: string,
   data: { name?: string; is_required?: boolean; max_selections?: number }
 ) {
-  return request<unknown>('PATCH', `/modifier-groups/${id}`, data);
+  return request<unknown>('PATCH', `/api/modifier-groups/${id}`, data);
 }
 
 export async function deleteModifierGroup(id: string) {
-  return request<{ success: boolean }>('DELETE', `/modifier-groups/${id}`);
+  return request<{ success: boolean }>('DELETE', `/api/modifier-groups/${id}`);
 }
 
 // Modifiers CRUD
@@ -175,18 +175,18 @@ export async function createModifier(data: {
   price_extra?: number;
   modifier_group_id: string;
 }) {
-  return request<unknown>('POST', '/modifiers', data);
+  return request<unknown>('POST', '/api/modifiers', data);
 }
 
 export async function updateModifier(
   id: string,
   data: { name?: string; price_extra?: number; modifier_group_id?: string }
 ) {
-  return request<unknown>('PATCH', `/modifiers/${id}`, data);
+  return request<unknown>('PATCH', `/api/modifiers/${id}`, data);
 }
 
 export async function deleteModifier(id: string) {
-  return request<{ success: boolean }>('DELETE', `/modifiers/${id}`);
+  return request<{ success: boolean }>('DELETE', `/api/modifiers/${id}`);
 }
 
 // Orders
@@ -195,45 +195,45 @@ export async function fetchOrders(cashierId?: string | null, status?: string | n
   if (cashierId) params.append('cashierId', cashierId);
   if (status) params.append('status', status);
   const query = params.toString() ? `?${params.toString()}` : '';
-  return request<unknown>('GET', `/orders${query}`);
+  return request<unknown>('GET', `/api/orders${query}`);
 }
 
 export async function fetchOrderItems(orderId: string) {
-  return request<unknown>('GET', `/orders/${orderId}/items`);
+  return request<unknown>('GET', `/api/orders/${orderId}/items`);
 }
 
 export async function fetchOrder(orderId: string) {
-  return request<unknown>('GET', `/orders/${orderId}`);
+  return request<unknown>('GET', `/api/orders/${orderId}`);
 }
 
 // Active (pending/preparing) orders with items + product + category in one call,
 // used by the Kitchen Display.
 export async function fetchActiveOrders() {
-  return request<unknown>('GET', '/orders/active');
+  return request<unknown>('GET', '/api/orders/active');
 }
 
 export async function createOrder(order: unknown, items: unknown[]) {
-  return request<unknown>('POST', '/orders', { order, items });
+  return request<unknown>('POST', '/api/orders', { order, items });
 }
 
 export async function updateOrderStatus(id: string, status: string) {
-  return request<unknown>('PATCH', `/orders/${id}/status`, { status });
+  return request<unknown>('PATCH', `/api/orders/${id}/status`, { status });
 }
 
 export async function updateOrderItemStatus(id: string, status: string) {
-  return request<unknown>('PATCH', `/order-items/${id}/status`, { status });
+  return request<unknown>('PATCH', `/api/order-items/${id}/status`, { status });
 }
 
 export async function createOrderItems(items: unknown[]) {
-  return request<{ success: boolean }>('POST', '/order-items', { items });
+  return request<{ success: boolean }>('POST', '/api/order-items', { items });
 }
 
 export async function createVoidLogs(voidLogs: unknown[]) {
-  return request<{ success: boolean }>('POST', '/void-logs', { voidLogs });
+  return request<{ success: boolean }>('POST', '/api/void-logs', { voidLogs });
 }
 
 export async function mergeTable(sourceTable: string, targetTable: string) {
-  return request<{ success: boolean }>('POST', '/orders/merge-table', { sourceTable, targetTable });
+  return request<{ success: boolean }>('POST', '/api/orders/merge-table', { sourceTable, targetTable });
 }
 
 export async function healthCheck() {
@@ -242,11 +242,11 @@ export async function healthCheck() {
 
 // Printers
 export async function fetchPrinters() {
-  return request<unknown>('GET', '/printers');
+  return request<unknown>('GET', '/api/printers');
 }
 
 export async function fetchPrintersForCategory(categoryId: string) {
-  return request<unknown>('GET', `/printers/category/${categoryId}`);
+  return request<unknown>('GET', `/api/printers/category/${categoryId}`);
 }
 
 export async function createPrinter(data: {
@@ -255,7 +255,7 @@ export async function createPrinter(data: {
   ip_address?: string;
   port?: number;
 }) {
-  return request<unknown>('POST', '/printers', data);
+  return request<unknown>('POST', '/api/printers', data);
 }
 
 export async function updatePrinter(id: string, data: {
@@ -265,21 +265,21 @@ export async function updatePrinter(id: string, data: {
   port?: number;
   is_active?: boolean;
 }) {
-  return request<unknown>('PATCH', `/printers/${id}`, data);
+  return request<unknown>('PATCH', `/api/printers/${id}`, data);
 }
 
 export async function deletePrinter(id: string) {
-  return request<unknown>('DELETE', `/printers/${id}`);
+  return request<unknown>('DELETE', `/api/printers/${id}`);
 }
 
 export async function routeCategoryToPrinter(categoryId: string, printerId: string) {
-  return request<unknown>('POST', '/printers/route', { category_id: categoryId, printer_id: printerId });
+  return request<unknown>('POST', '/api/printers/route', { category_id: categoryId, printer_id: printerId });
 }
 
 export async function removeCategoryFromPrinter(routeId: string) {
-  return request<unknown>('DELETE', `/printers/route/${routeId}`);
+  return request<unknown>('DELETE', `/api/printers/route/${routeId}`);
 }
 
 export async function getPrintJobsForOrder(orderId: string) {
-  return request<unknown>('GET', `/printers/orders/${orderId}/jobs`);
+  return request<unknown>('GET', `/api/printers/orders/${orderId}/jobs`);
 }

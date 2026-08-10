@@ -1,0 +1,20 @@
+[
+  {
+    "file": "selfOrder.ts",
+    "path": "/tables/:tableNumber",
+    "fullPath": "/self-order/tables/:tableNumber",
+    "method": "GET",
+    "status": 404,
+    "expected": 200,
+    "accessLevel": "public"
+  },
+  {
+    "file": "selfOrder.ts",
+    "path": "/tables/id/:tableId",
+    "fullPath": "/self-order/tables/id/:tableId",
+    "method": "GET",
+    "status": 404,
+    "expected": 200,
+    "accessLevel": "public"
+  }
+]

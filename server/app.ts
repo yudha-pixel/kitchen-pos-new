@@ -43,6 +43,7 @@ import ocrRoutes from './routes/ocr';
 import kitchenRoutes from './routes/kitchen';
 import backupRoutes from './routes/backup';
 import auditRoutes from './routes/audit';
+import userPreferencesRoutes from './routes/userPreferences';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -125,40 +126,41 @@ app.get('/health', (_req: Request, res: Response) => {
 // Apply rate limiters to routes
 app.use('/auth/login', authLimiter); // Stricter limit for login endpoint
 app.use('/auth', authRoutes);
-app.use(productRoutes);
-app.use(orderRoutes);
-app.use(printRoutes);
-app.use('/self-order', selfOrderRoutes);
-app.use('/outlets', outletRoutes);
-app.use(generalLimiter, paymentRoutes); // Apply to payment endpoints
-app.use('/settings', settingsRoutes);
-app.use('/ingredients', ingredientRoutes);
-app.use('/recipes', recipeRoutes);
-app.use('/suppliers', supplierRoutes);
-app.use('/customers', customerRoutes);
-app.use('/vouchers', voucherRoutes);
-app.use('/hr', hrRoutes);
-app.use('/attendance', attendanceRoutes);
-app.use('/tables', tableRoutes);
-app.use('/split-bill', splitBillRoutes);
-app.use('/users', userRoutes);
-app.use('/roles', roleRoutes);
-app.use('/warehouses', warehouseRoutes);
-app.use('/stock-transfers', stockTransferRoutes);
-app.use('/stock-requests', stockRequestRoutes);
-app.use('/stock-write-offs', stockWriteOffRoutes);
-app.use('/notifications', notificationRoutes);
-app.use('/quotation-requests', quotationRequestRoutes);
-app.use('/quotations', quotationRoutes);
-app.use('/purchase-orders', purchaseOrderRoutes);
-app.use('/goods-received-notes', goodsReceivedNoteRoutes);
-app.use('/invoices', invoiceRoutes);
-app.use('/supplier-payments', supplierPaymentRoutes);
-app.use('/approval-workflows', approvalWorkflowRoutes);
-app.use('/ocr', ocrRoutes);
-app.use('/kitchen', kitchenRoutes);
-app.use('/backup', backupRoutes);
-app.use('/audit', auditRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/print', printRoutes);
+app.use('/api/self-order', selfOrderRoutes);
+app.use('/api/outlets', outletRoutes);
+app.use('/api/payments', generalLimiter, paymentRoutes); // Apply to payment endpoints
+app.use('/api/settings', settingsRoutes);
+app.use('/api/ingredients', ingredientRoutes);
+app.use('/api/recipes', recipeRoutes);
+app.use('/api/suppliers', supplierRoutes);
+app.use('/api/customers', customerRoutes);
+app.use('/api/vouchers', voucherRoutes);
+app.use('/api/hr', hrRoutes);
+app.use('/api/attendance', attendanceRoutes);
+app.use('/api/tables', tableRoutes);
+app.use('/api/split-bill', splitBillRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/roles', roleRoutes);
+app.use('/api/warehouses', warehouseRoutes);
+app.use('/api/stock-transfers', stockTransferRoutes);
+app.use('/api/stock-requests', stockRequestRoutes);
+app.use('/api/stock-write-offs', stockWriteOffRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/quotation-requests', quotationRequestRoutes);
+app.use('/api/quotations', quotationRoutes);
+app.use('/api/purchase-orders', purchaseOrderRoutes);
+app.use('/api/goods-received-notes', goodsReceivedNoteRoutes);
+app.use('/api/invoices', invoiceRoutes);
+app.use('/api/supplier-payments', supplierPaymentRoutes);
+app.use('/api/approval-workflows', approvalWorkflowRoutes);
+app.use('/api/ocr', ocrRoutes);
+app.use('/api/kitchen', kitchenRoutes);
+app.use('/api/backup', backupRoutes);
+app.use('/api/audit', auditRoutes);
+app.use('/api/user/preferences', userPreferencesRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });

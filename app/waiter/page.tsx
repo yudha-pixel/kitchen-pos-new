@@ -39,7 +39,7 @@ export default function WaiterPage() {
   // Redirect to login if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
-      router.replace('/login');
+      router.replace('/login?redirect=/waiter');
     }
   }, [authLoading, user, router]);
 

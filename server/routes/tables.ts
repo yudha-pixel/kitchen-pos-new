@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { requireRole } from '../middleware/auth';
+import { authMiddleware, requireRole } from '../middleware/auth';
 
 const router = Router();
 
@@ -262,7 +262,7 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
 });
 
 // DELETE /tables/:id - Delete table
-router.delete('/:id', async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

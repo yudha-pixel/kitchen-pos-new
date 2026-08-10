@@ -17,6 +17,7 @@ model Profile {
   is_active     Boolean          @default(true)
   outlet_id     String?          @db.Uuid
   role_id       String           @db.Uuid
+  preferences   Json?            @default("{}")
   created_at    DateTime         @default(now())
   updated_at    DateTime         @updatedAt
   void_logs     OrderVoidLog[]
@@ -429,6 +430,7 @@ model AppSettings {
   require_pin_discount Boolean @default(true)
   require_pin_delete Boolean  @default(true)
   backup_frequency   String   @default("daily")
+  default_login_redirect String @default("/apps")
   
   // Kitchen Settings
   main_course_route   String   @default("KDS Display 1")

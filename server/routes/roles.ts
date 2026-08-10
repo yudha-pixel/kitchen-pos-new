@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware, requireRole } from '../middleware/auth';
+import { clearRolePermissionsCache } from '../middleware/permissions';
 
 const router = Router();
 
@@ -252,6 +253,7 @@ router.post('/:id/permissions', authMiddleware, requireRole('admin'), async (req
       },
     });
 
+    clearRolePermissionsCache(idStr);
     res.status(201).json(rolePermission);
   } catch (error) {
     console.error('Error assigning permission:', error);
@@ -276,6 +278,7 @@ router.delete('/:id/permissions/:permissionId', authMiddleware, requireRole('adm
       },
     });
 
+    clearRolePermissionsCache(idStr);
     res.json({ success: true });
   } catch (error) {
     console.error('Error removing permission:', error);

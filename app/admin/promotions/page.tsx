@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/src/context/AuthContext';
 import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
@@ -29,6 +31,8 @@ interface Promotion {
 }
 
 export default function PromotionsPage() {
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [filteredPromotions, setFilteredPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,6 +44,12 @@ export default function PromotionsPage() {
   const [deleting, setDeleting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
 
   const [formData, setFormData] = useState({
     name: '',

@@ -30,7 +30,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/settings`);
+      const response = await fetch(`${API_BASE_URL}/api/settings`);
       if (response.ok) {
         const data = await response.json();
         setSettings(data);

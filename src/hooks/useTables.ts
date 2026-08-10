@@ -41,7 +41,7 @@ export function useTables() {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
-      const response = await fetch(`${API_BASE_URL}/tables`, { headers });
+      const response = await fetch(`${API_BASE_URL}/api/tables`, { headers });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch tables (${response.status})`);

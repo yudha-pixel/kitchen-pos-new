@@ -23,7 +23,7 @@ export async function createPaymentTransaction(
     console.log('Creating payment transaction:', { orderId, gateway, paymentMethod });
     
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/payments`, {
+    const response = await fetch(`${API_BASE_URL}/api/payments`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,7 +57,7 @@ export async function createPaymentTransaction(
 export async function getPaymentById(paymentId: string): Promise<PaymentTransactionWithOrder | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}`, {
+    const response = await fetch(`${API_BASE_URL}/api/payments/${paymentId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
       },
@@ -83,7 +83,7 @@ export async function updatePaymentStatus(
 ): Promise<PaymentTransactionWithOrder | null> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/payments/${paymentId}/status`, {
+    const response = await fetch(`${API_BASE_URL}/api/payments/${paymentId}/status`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',

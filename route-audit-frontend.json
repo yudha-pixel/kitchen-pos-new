@@ -1,0 +1,449 @@
+{
+  "totalPages": 38,
+  "publicPages": 3,
+  "authenticatedPages": 29,
+  "roleBasedPages": 6,
+  "pages": [
+    {
+      "file": "page.tsx",
+      "route": "/admin\\attendance",
+      "hasAuthCheck": true,
+      "hasRoleCheck": true,
+      "roles": [
+        "admin",
+        "management",
+        "owner"
+      ],
+      "hasRedirect": true,
+      "redirectTarget": "/inventory",
+      "accessLevel": "role-based",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\crm",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\discount-reports",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/login",
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\hr",
+      "hasAuthCheck": true,
+      "hasRoleCheck": true,
+      "roles": [
+        "admin",
+        "management",
+        "owner"
+      ],
+      "hasRedirect": true,
+      "redirectTarget": "/inventory",
+      "accessLevel": "role-based",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\modules",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\outlets",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/login",
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin",
+      "hasAuthCheck": false,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/inventory",
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\products",
+      "hasAuthCheck": false,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/inventory/mapping",
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\promotions",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/login",
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\reports",
+      "hasAuthCheck": true,
+      "hasRoleCheck": true,
+      "roles": [
+        "admin",
+        "management"
+      ],
+      "hasRedirect": true,
+      "redirectTarget": "/inventory",
+      "accessLevel": "role-based",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\settings",
+      "hasAuthCheck": true,
+      "hasRoleCheck": true,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "role-based",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/admin\\vouchers",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/apps",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/login?redirect=/apps",
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/finance\\ocr",
+      "hasAuthCheck": true,
+      "hasRoleCheck": true,
+      "roles": [
+        "admin",
+        "management",
+        "owner"
+      ],
+      "hasRedirect": true,
+      "redirectTarget": "/inventory",
+      "accessLevel": "role-based",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\automation",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\goods-received-notes",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\invoices",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\mapping",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\purchase-orders",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\quotation-requests",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\quotations",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\stock-approvals",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory\\supplier-payments",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/inventory-suppliers",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/login",
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/kasir",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [
+        "admin"
+      ],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/kitchen",
+      "hasAuthCheck": false,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/login",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/online-order",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [
+        "admin"
+      ],
+      "hasRedirect": true,
+      "redirectTarget": "/",
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/order\\[tableId]",
+      "hasAuthCheck": false,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/order-status\\[orderId]",
+      "hasAuthCheck": false,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/online-order",
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/pos\\meja",
+      "hasAuthCheck": false,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "public",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/pos",
+      "hasAuthCheck": true,
+      "hasRoleCheck": true,
+      "roles": [
+        "admin",
+        "admin"
+      ],
+      "hasRedirect": true,
+      "redirectTarget": "/login?redirect=/pos",
+      "accessLevel": "role-based",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/pos\\requests",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/pos\\settings",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": true
+    },
+    {
+      "file": "page.tsx",
+      "route": "/shift",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": false,
+      "redirectTarget": null,
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    },
+    {
+      "file": "page.tsx",
+      "route": "/waiter",
+      "hasAuthCheck": true,
+      "hasRoleCheck": false,
+      "roles": [],
+      "hasRedirect": true,
+      "redirectTarget": "/login?redirect=/waiter",
+      "accessLevel": "authenticated",
+      "isSensitive": false
+    }
+  ],
+  "criticalIssues": []
+}
