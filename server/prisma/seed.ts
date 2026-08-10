@@ -75,6 +75,23 @@ async function main() {
 
   console.log('✅ Created 3 default outlets (Pusat, Senopati, BSD)');
 
+  // Dine-in tables for /pos/meja and the QR self-order links at /order/[tableId]
+  for (let i = 1; i <= 8; i++) {
+    await prisma.table.upsert({
+      where: { table_number: `Meja ${i}` },
+      update: {},
+      create: {
+        id: randomUUID(),
+        table_number: `Meja ${i}`,
+        outlet_id: outlet1.id,
+        status: 'available',
+        is_active: true,
+      },
+    });
+  }
+
+  console.log('✅ Created 8 dine-in tables (Meja 1-8) for Outlet Pusat');
+
   // Step 2: Create Categories with colors
   const makananUtamaCategory = await prisma.category.create({
     data: {

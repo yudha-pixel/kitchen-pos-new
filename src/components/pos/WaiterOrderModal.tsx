@@ -8,7 +8,7 @@ import { useToast } from '@/src/components/ui/Toast';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
-import { Search, Plus, Minus, Clock, Send, X, Printer, Trash2, Scissors } from 'lucide-react';
+import { Search, Plus, Minus, Clock, Send, X, Printer, Trash2, Scissors, ChevronDown } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
@@ -17,10 +17,13 @@ interface WaiterOrderModalProps {
   isOpen: boolean;
   onClose: () => void;
   tableNumber: string;
-  isSelfOrder?: boolean; // If true, hide certain UI elements for self-order
 }
 
-export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfOrder = false }: WaiterOrderModalProps) {
+// Staff-only: opened from /pos/meja's "Pesan" action by a logged-in cashier/waiter.
+// The QR self-order guest flow at /order/[tableId] is SelfOrderExperience, a
+// deliberate fork — a guest has no auth session and none of this component's
+// payment/split-bill/cancel/receipt actions are guest-appropriate.
+export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: WaiterOrderModalProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
@@ -49,6 +52,25 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
       useCartStore.getState().setCashierId(user.id);
     }
   }, [user]);
+
+  // Escape closes the topmost open dialog first, then the root modal itself.
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (splitBillOpen) {
+        setSplitBillOpen(false);
+        setSelectedItemsForSplit(new Set());
+      } else if (cancelConfirmOpen) {
+        setCancelConfirmOpen(false);
+      } else if (paymentModalOpen) {
+        setPaymentModalOpen(false);
+      } else if (isOpen) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [splitBillOpen, cancelConfirmOpen, paymentModalOpen, isOpen, onClose]);
 
   // Fetch data from the local API with offline support
   const { products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts();
@@ -467,32 +489,44 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="waiter-order-title"
+    >
+      <div className="flex h-[90vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-surface">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b">
+        <div className="flex items-center justify-between p-4 border-b border-line">
           <div>
-            <h2 className="text-xl font-bold">Pemesanan - {tableNumber}</h2>
-            <p className="text-sm text-gray-500">Jumlah Tamu: {guestCount}</p>
+            <h2 id="waiter-order-title" className="flex items-center gap-2 text-xl font-bold">
+              Pemesanan
+              {orderCategory === 'dine-in' && (
+                <span className="rounded-full bg-primary-soft px-2.5 py-0.5 text-sm font-semibold text-primary">
+                  {tableNumber}
+                </span>
+              )}
+            </h2>
+            <p className="text-sm text-ink-muted">Jumlah Tamu: {guestCount}</p>
           </div>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-gray-100 rounded-lg"
+            aria-label="Tutup"
+            className="p-2 hover:bg-surface-alt rounded-lg"
           >
             <X className="h-6 w-6" />
           </button>
         </div>
 
-        {/* Order Category Selection - Hide for self-order */}
-        {!isSelfOrder && (
-          <div className="p-4 border-b">
+        {/* Order Category Selection */}
+        <div className="p-4 border-b border-line">
             <div className="flex gap-2">
               <button
                 onClick={() => setOrderCategory('dine-in')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
                   orderCategory === 'dine-in'
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface-alt text-ink-secondary hover:bg-line'
                 }`}
               >
                 Dine-in
@@ -501,8 +535,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                 onClick={() => setOrderCategory('takeaway')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
                   orderCategory === 'takeaway'
-                    ? 'bg-orange-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-warning text-on-primary'
+                    : 'bg-surface-alt text-ink-secondary hover:bg-line'
                 }`}
               >
                 Takeaway
@@ -511,70 +545,58 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                 onClick={() => setOrderCategory('delivery')}
                 className={`flex-1 py-2 px-3 rounded-lg font-medium transition-colors ${
                   orderCategory === 'delivery'
-                    ? 'bg-green-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    ? 'bg-success text-on-primary'
+                    : 'bg-surface-alt text-ink-secondary hover:bg-line'
                 }`}
               >
                 Delivery
               </button>
             </div>
-          </div>
-        )}
+        </div>
 
-        {/* Conditional Input Fields */}
-        <div className="p-4 border-b">
-          {isSelfOrder || orderCategory === 'dine-in' ? (
+        {/* Conditional Input Fields — dine-in's table binding is shown as the header badge above */}
+        {(orderCategory === 'takeaway' || orderCategory === 'delivery') && (
+        <div className="p-4 border-b border-line">
+          {orderCategory === 'takeaway' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nomor Meja</label>
-              <input
-                type="text"
-                value={tableNumber}
-                disabled
-                className="w-full px-3 py-2 border rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
-              />
-              <p className="text-xs text-gray-500 mt-1">Nomor meja terkunci otomatis untuk Dine-in</p>
-            </div>
-          ) : null}
-          {!isSelfOrder && orderCategory === 'takeaway' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Nama Pelanggan</label>
+              <label className="block text-sm font-medium text-ink-secondary mb-2">Nama Pelanggan</label>
               <input
                 type="text"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Masukkan nama pelanggan"
-                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
+                className="w-full px-3 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-warning"
               />
             </div>
           )}
-          {!isSelfOrder && orderCategory === 'delivery' && (
+          {orderCategory === 'delivery' && (
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Alamat Pengiriman</label>
+                <label className="block text-sm font-medium text-ink-secondary mb-2">Alamat Pengiriman</label>
                 <input
                   type="text"
                   value={deliveryAddress}
                   onChange={(e) => setDeliveryAddress(e.target.value)}
                   placeholder="Masukkan alamat pengiriman"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-success"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nama Kurir</label>
+                <label className="block text-sm font-medium text-ink-secondary mb-2">Nama Kurir</label>
                 <input
                   type="text"
                   value={courierName}
                   onChange={(e) => setCourierName(e.target.value)}
                   placeholder="Masukkan nama kurir"
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-success"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Tipe Kurir</label>
+                <label className="block text-sm font-medium text-ink-secondary mb-2">Tipe Kurir</label>
                 <select
                   value={courierType}
                   onChange={(e) => setCourierType(e.target.value as 'internal' | 'external')}
-                  className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-success"
                 >
                   <option value="internal">Internal</option>
                   <option value="external">External</option>
@@ -583,30 +605,37 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
             </div>
           )}
         </div>
+        )}
 
         {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
           {/* Products Section */}
-          <div className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 flex flex-col overflow-hidden min-h-0">
             {/* Search and Category */}
-            <div className="p-4 border-b space-y-3">
+            <div className="p-4 border-b border-line space-y-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-ink-muted" />
                 <input
                   type="text"
                   placeholder="Cari menu..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-10 pr-4 py-2 border border-line rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-2">
+              <div
+                className="flex gap-2 overflow-x-auto pb-2"
+                style={{
+                  WebkitMaskImage: 'linear-gradient(to right, transparent, black 16px, black calc(100% - 24px), transparent)',
+                  maskImage: 'linear-gradient(to right, transparent, black 16px, black calc(100% - 24px), transparent)',
+                }}
+              >
                 <button
                   onClick={() => setSelectedCategory('Semua')}
                   className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
                     selectedCategory === 'Semua'
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-surface-alt text-ink-secondary hover:bg-line'
                   }`}
                 >
                   Semua
@@ -617,8 +646,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                     onClick={() => setSelectedCategory(cat.id)}
                     className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
                       selectedCategory === cat.id
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                        ? 'bg-primary text-on-primary'
+                        : 'bg-surface-alt text-ink-secondary hover:bg-line'
                     }`}
                   >
                     {cat.name}
@@ -632,7 +661,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
               {productsLoading ? (
                 <div className="grid grid-cols-2 gap-3">
                   {Array.from({ length: 8 }).map((_, i) => (
-                    <div key={i} className="bg-gray-100 rounded-xl p-3 animate-pulse" />
+                    <div key={i} className="bg-surface-alt rounded-xl p-3 animate-pulse" />
                   ))}
                 </div>
               ) : productsError ? (
@@ -653,9 +682,9 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                     <button
                       key={product.id}
                       onClick={() => handleProductClick(product)}
-                      className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-left active:scale-95"
+                      className="bg-surface rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-left active:scale-95"
                     >
-                      <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-square bg-surface-alt rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                         {product.image_url ? (
                           <img
                             src={product.image_url}
@@ -663,11 +692,11 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <span className="text-gray-400 text-2xl">🍽️</span>
+                          <span className="text-ink-muted text-2xl">🍽️</span>
                         )}
                       </div>
                       <h3 className="font-medium text-sm">{product.name}</h3>
-                      <p className="text-xs text-gray-500">Rp {product.price.toLocaleString()}</p>
+                      <p className="text-xs text-ink-muted">Rp {product.price.toLocaleString()}</p>
                     </button>
                   ))}
                 </div>
@@ -675,14 +704,30 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
             </div>
           </div>
 
-          {/* Cart Section */}
-          <div className="w-96 border-l flex flex-col bg-gray-50">
-            <div className="p-4 border-b flex items-center justify-between">
+          {/* Cart Section: bottom sheet below lg, sidebar at lg and above */}
+          <div className="w-full border-t border-line bg-surface flex flex-col shrink-0 lg:w-96 lg:border-t-0 lg:border-l lg:shrink lg:overflow-hidden">
+            {/* Mobile: tap to expand/collapse the item list */}
+            <button
+              onClick={() => setIsCartOpen((open) => !open)}
+              aria-expanded={isCartOpen}
+              className="flex items-center justify-between p-4 border-b border-line w-full text-left lg:hidden"
+            >
+              <span className="font-bold">Keranjang</span>
+              <span className="flex items-center gap-2">
+                <Badge tone="info">{cartItems.length} item</Badge>
+                <ChevronDown className={`h-4 w-4 transition-transform ${isCartOpen ? 'rotate-180' : ''}`} />
+              </span>
+            </button>
+            <div className="hidden p-4 border-b border-line items-center justify-between lg:flex">
               <h3 className="font-bold">Keranjang</h3>
               <Badge tone="info">{cartItems.length} item</Badge>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            <div
+              className={`overflow-y-auto p-4 max-h-[45vh] lg:max-h-none lg:flex-1 ${
+                isCartOpen ? 'block' : 'hidden'
+              } lg:block`}
+            >
               {cartItems.length === 0 ? (
                 <EmptyState
                   icon={Search}
@@ -692,12 +737,12 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
               ) : (
                 <div className="space-y-3">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 bg-white rounded-lg p-3">
+                    <div key={item.id} className="flex items-center gap-3 bg-surface-alt rounded-lg p-3">
                       <div className="flex-1">
                         <h4 className="font-medium text-sm">{item.name}</h4>
-                        <p className="text-xs text-gray-500">Rp {item.price.toLocaleString()}</p>
+                        <p className="text-xs text-ink-muted">Rp {item.price.toLocaleString()}</p>
                         {item.modifiers.length > 0 && (
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-ink-muted mt-1">
                             {item.modifiers.map(m => m.name).join(', ')}
                           </p>
                         )}
@@ -705,14 +750,14 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                       <div className="flex items-center gap-2">
                         <button
                           onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
+                          className="w-8 h-8 rounded-full bg-line flex items-center justify-center hover:bg-line-strong"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
                         <span className="w-8 text-center font-medium">{item.quantity}</span>
                         <button
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700"
+                          className="w-8 h-8 rounded-full bg-primary text-on-primary flex items-center justify-center hover:bg-primary-hover"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -723,69 +768,63 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
               )}
             </div>
 
-            <div className="p-4 border-t bg-white">
+            <div className="p-4 border-t border-line bg-surface">
               <div className="flex justify-between mb-3">
                 <span className="font-medium">Total</span>
-                <span className="font-bold text-blue-600">Rp {cartTotal.toLocaleString()}</span>
+                <span className="font-bold text-primary">Rp {cartTotal.toLocaleString()}</span>
               </div>
-              {isSelfOrder ? (
+              <div className="grid grid-cols-4 gap-2">
+                <button
+                  onClick={handleSendOrder}
+                  disabled={syncInProgress || cartItems.length === 0}
+                  className="col-span-1 py-3 bg-primary text-on-primary rounded-lg font-medium hover:bg-primary-hover disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Send className="h-5 w-5" />
+                  Kirim
+                </button>
                 <button
                   onClick={() => setPaymentModalOpen(true)}
                   disabled={syncInProgress || cartItems.length === 0}
-                  className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  className="col-span-1 py-3 bg-success text-on-primary rounded-lg font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   <Printer className="h-5 w-5" />
                   Bayar
                 </button>
-              ) : (
-                <div className="grid grid-cols-4 gap-2">
-                  <button
-                    onClick={handleSendOrder}
-                    disabled={syncInProgress || cartItems.length === 0}
-                    className="col-span-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Send className="h-5 w-5" />
-                    Kirim
-                  </button>
-                  <button
-                    onClick={() => setPaymentModalOpen(true)}
-                    disabled={syncInProgress || cartItems.length === 0}
-                    className="col-span-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Printer className="h-5 w-5" />
-                    Bayar
-                  </button>
-                  <button
-                    onClick={handleSplitBill}
-                    disabled={syncInProgress || cartItems.length === 0}
-                    className="col-span-1 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Scissors className="h-5 w-5" />
-                    Split
-                  </button>
-                  <button
-                    onClick={() => setCancelConfirmOpen(true)}
-                    disabled={syncInProgress || cartItems.length === 0}
-                    className="col-span-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
-                  >
-                    <Trash2 className="h-5 w-5" />
-                    Batal
-                  </button>
-                </div>
-              )}
+                <button
+                  onClick={handleSplitBill}
+                  disabled={syncInProgress || cartItems.length === 0}
+                  className="col-span-1 py-3 bg-info text-on-primary rounded-lg font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Scissors className="h-5 w-5" />
+                  Split
+                </button>
+                <button
+                  onClick={() => setCancelConfirmOpen(true)}
+                  disabled={syncInProgress || cartItems.length === 0}
+                  className="col-span-1 py-3 bg-danger text-on-primary rounded-lg font-medium hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="h-5 w-5" />
+                  Batal
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Payment Method Modal */}
         {paymentModalOpen && (
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6">
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-modal-title"
+          >
+            <div className="bg-surface rounded-2xl w-full max-w-md p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Pilih Metode Pembayaran</h3>
+                <h3 id="payment-modal-title" className="text-xl font-bold">Pilih Metode Pembayaran</h3>
                 <button
                   onClick={() => setPaymentModalOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-surface-alt rounded-lg"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -795,8 +834,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                   onClick={() => setSelectedPaymentMethod('cash')}
                   className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
                     selectedPaymentMethod === 'cash'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary-soft text-primary'
+                      : 'border-line hover:border-line-strong'
                   }`}
                 >
                   Tunai
@@ -805,8 +844,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                   onClick={() => setSelectedPaymentMethod('qr')}
                   className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
                     selectedPaymentMethod === 'qr'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary-soft text-primary'
+                      : 'border-line hover:border-line-strong'
                   }`}
                 >
                   QRIS
@@ -815,8 +854,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                   onClick={() => setSelectedPaymentMethod('card')}
                   className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
                     selectedPaymentMethod === 'card'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary-soft text-primary'
+                      : 'border-line hover:border-line-strong'
                   }`}
                 >
                   Debit/Kartu
@@ -825,8 +864,8 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                   onClick={() => setSelectedPaymentMethod('transfer')}
                   className={`w-full p-4 rounded-lg border-2 text-left font-medium transition-colors ${
                     selectedPaymentMethod === 'transfer'
-                      ? 'border-green-600 bg-green-50 text-green-700'
-                      : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-primary bg-primary-soft text-primary'
+                      : 'border-line hover:border-line-strong'
                   }`}
                 >
                   Transfer
@@ -835,14 +874,14 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
               <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => setPaymentModalOpen(false)}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                  className="flex-1 py-3 bg-line text-ink-secondary rounded-lg font-medium hover:bg-line-strong"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handlePayment}
                   disabled={!selectedPaymentMethod}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:opacity-50"
+                  className="flex-1 py-3 bg-success text-on-primary rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
                 >
                   Proses Bayar
                 </button>
@@ -887,30 +926,35 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
 
         {/* Cancel Confirmation Modal */}
         {cancelConfirmOpen && (
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6">
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-modal-title"
+          >
+            <div className="bg-surface rounded-2xl w-full max-w-md p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Batalkan Pesanan</h3>
+                <h3 id="cancel-modal-title" className="text-xl font-bold">Batalkan Pesanan</h3>
                 <button
                   onClick={() => setCancelConfirmOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-surface-alt rounded-lg"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <p className="text-gray-600 mb-6">
+              <p className="text-ink-secondary mb-6">
                 Apakah Anda yakin ingin membatalkan pesanan ini? Semua item di keranjang akan dihapus.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setCancelConfirmOpen(false)}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                  className="flex-1 py-3 bg-line text-ink-secondary rounded-lg font-medium hover:bg-line-strong"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleCancelOrder}
-                  className="flex-1 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+                  className="flex-1 py-3 bg-danger text-on-primary rounded-lg font-medium hover:opacity-90"
                 >
                   Ya, Batalkan
                 </button>
@@ -921,21 +965,26 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
 
         {/* Split Bill Modal */}
         {splitBillOpen && (
-          <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-2xl w-full max-w-md p-6 max-h-[80vh] overflow-y-auto">
+          <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="split-modal-title"
+          >
+            <div className="bg-surface rounded-2xl w-full max-w-md p-6 max-h-[80vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold">Split Bill</h3>
+                <h3 id="split-modal-title" className="text-xl font-bold">Split Bill</h3>
                 <button
                   onClick={() => {
                     setSplitBillOpen(false);
                     setSelectedItemsForSplit(new Set());
                   }}
-                  className="p-2 hover:bg-gray-100 rounded-lg"
+                  className="p-2 hover:bg-surface-alt rounded-lg"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <p className="text-gray-600 mb-4">
+              <p className="text-ink-secondary mb-4">
                 Pilih item yang ingin dipisah pembayarannya:
               </p>
               <div className="space-y-2 mb-4">
@@ -945,14 +994,14 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                     onClick={() => toggleItemForSplit(item.id)}
                     className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${
                       selectedItemsForSplit.has(item.id)
-                        ? 'border-purple-600 bg-purple-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                        ? 'border-primary bg-primary-soft'
+                        : 'border-line hover:border-line-strong'
                     }`}
                   >
                     <div className="flex items-center justify-between">
                       <div>
                         <span className="font-medium">{item.name}</span>
-                        <span className="text-sm text-gray-500 ml-2">x{item.quantity}</span>
+                        <span className="text-sm text-ink-muted ml-2">x{item.quantity}</span>
                       </div>
                       <span className="font-medium">Rp {(item.price * item.quantity).toLocaleString()}</span>
                     </div>
@@ -965,14 +1014,14 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber, isSelfO
                     setSplitBillOpen(false);
                     setSelectedItemsForSplit(new Set());
                   }}
-                  className="flex-1 py-3 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300"
+                  className="flex-1 py-3 bg-line text-ink-secondary rounded-lg font-medium hover:bg-line-strong"
                 >
                   Batal
                 </button>
                 <button
                   onClick={handleProcessSplitBill}
                   disabled={selectedItemsForSplit.size === 0}
-                  className="flex-1 py-3 bg-purple-600 text-white rounded-lg font-medium hover:bg-purple-700 disabled:opacity-50"
+                  className="flex-1 py-3 bg-info text-on-primary rounded-lg font-medium hover:opacity-90 disabled:opacity-50"
                 >
                   Proses Split
                 </button>

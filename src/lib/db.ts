@@ -188,9 +188,11 @@ export interface CustomerOrder {
   table_id: string; // UUID
   customer_name?: string;
   total_amount: number;
-  status: 'pending' | 'paid' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+  // Matches the server's CustomerOrder model (server/routes/selfOrder.ts): 'accepted'
+  // means staff converted it into a real Order — see POST /self-order/orders/:id/accept.
+  status: 'pending' | 'accepted' | 'cancelled';
   payment_method?: string;
-  payment_status: 'unpaid' | 'paid';
+  payment_status: 'unpaid' | 'pending' | 'paid';
   created_at: string;
   updated_at: string;
 }

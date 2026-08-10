@@ -16,12 +16,12 @@ export function OutletSelector() {
   }
 
   return (
-    <div className="flex items-center gap-2 bg-white rounded-lg px-3 py-2 shadow-sm">
-      <Store className="h-4 w-4 text-gray-500" />
+    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-surface px-3 py-2 shadow-sm">
+      <Store className="h-4 w-4 shrink-0 text-ink-muted" />
       <select
         value={selectedOutletId || ''}
         onChange={(e) => setSelectedOutletId(e.target.value || null)}
-        className="outline-none text-sm bg-transparent min-w-[150px]"
+        className="min-w-0 w-24 outline-none text-sm bg-transparent sm:w-auto sm:min-w-[150px]"
         disabled={loading}
       >
         <option value="">Semua Outlet</option>

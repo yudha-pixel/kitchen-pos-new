@@ -31,6 +31,7 @@ import {
   FileText,
   Smartphone,
   X,
+  Bell,
 } from 'lucide-react';
 
 export interface SidebarProps {
@@ -41,6 +42,7 @@ export interface SidebarProps {
 const cashierLinks = [
   { href: '/waiter', label: 'Waiter POS', icon: Smartphone },
   { href: '/pos/meja', label: 'Manajemen Meja', icon: Table },
+  { href: '/pos/requests', label: 'Pesanan Masuk', icon: Bell },
   { href: '/pos/settings', label: 'Pengaturan Tampilan', icon: Settings },
   { href: '/admin/crm', label: 'Data Pelanggan', icon: Users },
   { href: '/shift', label: 'Buka/Tutup Shift', icon: Clock },

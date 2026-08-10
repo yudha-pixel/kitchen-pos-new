@@ -130,6 +130,25 @@ describe('Table Management API', () => {
     });
   });
 
+  // Guards the QR self-order chain: /pos/meja encodes the table UUID into the QR,
+  // and /order/[tableId] resolves the table number from it. Broken when no table row exists.
+  describe('GET /self-order/tables/id/:tableId', () => {
+    it('should resolve a real table number from its UUID', async () => {
+      const res = await request(app)
+        .get(`/self-order/tables/id/${testTableId}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.table_number).toBe('TEST-001');
+    });
+
+    it('should return 404 for an unknown table UUID', async () => {
+      const res = await request(app)
+        .get('/self-order/tables/id/00000000-0000-0000-0000-000000000000');
+
+      expect(res.status).toBe(404);
+    });
+  });
+
   describe('PUT /tables/:id', () => {
     it('should update table details', async () => {
       const res = await request(app)

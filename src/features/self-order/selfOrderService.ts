@@ -1,5 +1,6 @@
 import { TableEntity, Product, Category, CustomerOrder, CustomerOrderItem } from '@/src/lib/db';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { resolveSelfOrderPaymentMethods, type SelfOrderPaymentMethod } from '@/src/features/self-order/paymentMethods';
 
 export interface TableInfo extends TableEntity {
   outlet?: {
@@ -86,38 +87,64 @@ export async function getSelfOrderCategories(): Promise<Category[]> {
   }
 }
 
-// Create customer order
+// Which payment methods the guest may choose from — reads AppSettings (public GET,
+// no auth needed) and resolves it through the same catalog the server validates
+// against, so an unknown/stale id in settings can't reach the picker UI.
+// Falls back to the pay-at-cashier default on any fetch failure — a guest must
+// always have a way to order even if the settings call is unreachable.
+export async function getSelfOrderPaymentMethods(): Promise<SelfOrderPaymentMethod[]> {
+  try {
+    const response = await fetch(`${API_BASE_URL}/settings`);
+    if (!response.ok) {
+      return resolveSelfOrderPaymentMethods(undefined);
+    }
+    const settings = await response.json();
+    return resolveSelfOrderPaymentMethods(settings.selforder_payment_methods);
+  } catch (error) {
+    console.error('Error fetching self-order payment methods:', error);
+    return resolveSelfOrderPaymentMethods(undefined);
+  }
+}
+
+// Create customer order. `orderId` should be generated once by the caller and
+// reused across retries of the *same* submit attempt (not a fresh id per call) —
+// the server recognizes a repeated id as the same request and returns the
+// existing order instead of creating a duplicate. See the id-exists check in
+// POST /self-order/orders.
 export async function createCustomerOrder(
+  orderId: string,
   tableId: string,
   customerName: string | undefined,
+  paymentMethod: string,
   items: Array<{
     product_id: string;
     quantity: number;
     modifiers_applied?: any[];
   }>
-): Promise<CustomerOrderWithItems | null> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/self-order/orders`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        table_id: tableId,
-        customer_name: customerName,
-        items,
-      }),
-    });
+): Promise<CustomerOrderWithItems & { routing: 'review' | 'auto' }> {
+  const response = await fetch(`${API_BASE_URL}/self-order/orders`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      id: orderId,
+      table_id: tableId,
+      customer_name: customerName,
+      payment_method: paymentMethod,
+      items,
+    }),
+  });
 
-    if (!response.ok) {
-      throw new Error('Failed to create order');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error creating order:', error);
-    return null;
+  if (!response.ok) {
+    const body = await response.json().catch(() => null);
+    // Surface the server's actual reason (e.g. an out-of-stock item, or an
+    // outdated payment_method id) instead of a generic failure — this is the
+    // order the guest is about to pay for, "something went wrong" isn't enough.
+    throw new Error(body?.error || 'Gagal mengirim pesanan');
   }
+
+  return await response.json();
 }
 
 // Get customer order by ID
@@ -148,10 +175,12 @@ export async function getTableOrders(tableId: string): Promise<CustomerOrderWith
   }
 }
 
-// Update customer order status
+// Update customer order status — staff only (requires auth); kept for future staff
+// UI, not called anywhere yet. Kitchen fulfillment progress lives on the linked
+// Order.status once accepted, see POST /self-order/orders/:id/accept.
 export async function updateCustomerOrderStatus(
   orderId: string,
-  status: 'pending' | 'paid' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+  status: 'pending' | 'accepted' | 'cancelled'
 ): Promise<CustomerOrderWithItems | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/self-order/orders/${orderId}/status`, {
