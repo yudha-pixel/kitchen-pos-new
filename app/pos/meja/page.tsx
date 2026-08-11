@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
 import { Modal } from '@/src/components/ui/Modal';
 import { Badge } from '@/src/components/ui/Badge';
 import { CheckCircle, UserRound, CalendarClock, Sparkles, LucideIcon, ShoppingCart, QrCode, Download, AlertCircle, RefreshCw } from 'lucide-react';
@@ -109,10 +107,7 @@ export default function TableManagementPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <Header title="Manajemen Meja" />
-
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
 
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Header */}

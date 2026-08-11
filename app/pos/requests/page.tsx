@@ -1,8 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
+import { usePageHeader } from '@/src/context/PageHeaderContext';
 import { Badge } from '@/src/components/ui/Badge';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah, formatTime } from '@/src/lib/format';
@@ -47,7 +46,7 @@ export default function SelfOrderRequestsPage() {
     setError(null);
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/self-order/orders/pending`, {
+      const res = await fetch(`${API_BASE_URL}/api/self-order/orders/pending`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`Gagal memuat pesanan masuk (${res.status})`);
@@ -69,7 +68,7 @@ export default function SelfOrderRequestsPage() {
     setActingOnId(orderId);
     try {
       const token = getToken();
-      const res = await fetch(`${API_BASE_URL}/self-order/orders/${orderId}/${action}`, {
+      const res = await fetch(`${API_BASE_URL}/api/self-order/orders/${orderId}/${action}`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -85,11 +84,11 @@ export default function SelfOrderRequestsPage() {
     }
   };
 
+  usePageHeader({ title: 'Pesanan Masuk' });
+
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <Header title="Pesanan Masuk" />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <div className="mb-6 flex items-center justify-between">
             <div>

@@ -21,7 +21,7 @@ export function OutletSelector() {
       <select
         value={selectedOutletId || ''}
         onChange={(e) => setSelectedOutletId(e.target.value || null)}
-        className="min-w-0 w-24 outline-none text-sm bg-transparent sm:w-auto sm:min-w-[150px]"
+        className="min-w-0 w-24 outline-none text-sm text-ink bg-transparent sm:w-auto sm:min-w-[150px]"
         disabled={loading}
       >
         <option value="">Semua Outlet</option>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
 import { Modal } from '@/src/components/ui/Modal';
 import { Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle, CheckCircle, ArrowLeft, Printer, Download } from 'lucide-react';
@@ -313,9 +314,8 @@ export default function ShiftPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="p-6">
-        <div className="mx-auto max-w-4xl space-y-6">
+    <ResponsiveShell title="Buka/Tutup Shift">
+      <div className="mx-auto max-w-4xl space-y-6">
           {/* Open Shift Form */}
           {!shiftData.isOpen && !shiftData.closedAt && (
             <div className="rounded-lg border-2 border-line bg-surface p-6">
@@ -716,7 +716,6 @@ export default function ShiftPage() {
             </div>
           )}
         </div>
-      </div>
 
       <Modal
         isOpen={resetConfirmOpen}
@@ -742,7 +741,7 @@ export default function ShiftPage() {
           Data shift saat ini akan dihapus dan tidak dapat dikembalikan.
         </p>
       </Modal>
-    </div>
+    </ResponsiveShell>
   );
 }
 

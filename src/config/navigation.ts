@@ -48,7 +48,6 @@ export const APPS_REGISTRY: AppDefinition[] = [
     keywords: ['kds', 'dapur', 'kitchen', 'pesanan', 'masak', 'chef', 'antrean'],
     subLinks: [
       { label: 'KDS Dapur', href: '/kitchen' },
-      { label: 'Self Order Status', href: '/order-status' },
     ],
   },
   {
@@ -91,7 +90,6 @@ export const APPS_REGISTRY: AppDefinition[] = [
     keywords: ['pembelian', 'supplier', 'pemasok', 'order', 'po', 'pembayaran', 'quotation', 'invoice', 'grn'],
     subLinks: [
       { label: 'Manajemen Supplier', href: '/inventory-suppliers' },
-      { label: 'Persetujuan Stok', href: '/inventory/stock-approvals' },
       { label: 'Permintaan Penawaran', href: '/inventory/quotation-requests' },
       { label: 'Penawaran Supplier', href: '/inventory/quotations' },
       { label: 'Purchase Order', href: '/inventory/purchase-orders' },
@@ -148,6 +146,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     categoryLabel: 'SDM & Pegawai',
     iconName: 'IdCard',
     route: '/admin/hr',
+    allowedRoles: ['admin', 'owner', 'management'],
     keywords: ['hr', 'payroll', 'karyawan', 'gaji', 'kompensasi', 'pegawai'],
     subLinks: [
       { label: 'Data Karyawan', href: '/admin/hr' },
@@ -161,6 +160,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     categoryLabel: 'Keuangan',
     iconName: 'Wallet',
     route: '/finance/ocr',
+    allowedRoles: ['admin', 'owner', 'management'],
     keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'ocr', 'faktur'],
     subLinks: [
       { label: 'Pemindaian Faktur (OCR)', href: '/finance/ocr' },
@@ -174,6 +174,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     categoryLabel: 'Keuangan',
     iconName: 'BarChart3',
     route: '/admin/reports',
+    allowedRoles: ['admin', 'owner', 'management'],
     keywords: ['reports', 'laporan', 'penjualan', 'operasional', 'keuangan', 'analisis'],
     subLinks: [
       { label: 'Laporan Keseluruhan', href: '/admin/reports' },
@@ -188,17 +189,34 @@ export const APPS_REGISTRY: AppDefinition[] = [
     categoryLabel: 'Pengaturan',
     iconName: 'Settings',
     route: '/admin/settings',
+    allowedRoles: ['admin', 'owner', 'management'],
     keywords: ['settings', 'pengaturan', 'konfigurasi', 'sistem', 'peran', 'preferensi', 'outlet'],
     subLinks: [
       { label: 'Pengaturan Sistem', href: '/admin/settings' },
       { label: 'Manajemen Outlet', href: '/admin/outlets' },
       { label: 'Pengaturan Tampilan POS', href: '/pos/settings' },
+      { label: 'Modul Internal', href: '/admin/modules' },
     ],
   },
 ];
 
 export function getAppsRegistry(): AppDefinition[] {
   return APPS_REGISTRY;
+}
+
+// Resolves which module owns a given pathname, so the shared Header/Sidebar
+// can render a module-scoped breadcrumb and rail instead of one global menu.
+export function findModuleForPath(pathname: string): AppDefinition | null {
+  const exact = APPS_REGISTRY.find(
+    (app) => app.route === pathname || app.subLinks.some((sub) => sub.href === pathname)
+  );
+  if (exact) return exact;
+  const prefixed = APPS_REGISTRY.find(
+    (app) =>
+      pathname.startsWith(`${app.route}/`) ||
+      app.subLinks.some((sub) => pathname.startsWith(`${sub.href}/`))
+  );
+  return prefixed || null;
 }
 
 export function filterApps(

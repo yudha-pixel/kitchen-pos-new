@@ -178,7 +178,7 @@ export default function OrderStatusPage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white border-b">
+      <header className="bg-surface border-line border-b">
         <div className="container mx-auto px-4 py-4">
           <button
             onClick={() => router.push('/online-order')}

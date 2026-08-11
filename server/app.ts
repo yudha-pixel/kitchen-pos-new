@@ -106,14 +106,6 @@ const authLimiter = rateLimit({
   },
 });
 
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requests per window
-  message: 'Too many requests, please try again later.',
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // Raw body parser for webhook signature verification (Xendit requires raw body)
 app.use(express.json({ limit: '10mb', verify: (req: any, _res, buf) => {
   req.rawBody = buf;
@@ -126,12 +118,16 @@ app.get('/health', (_req: Request, res: Response) => {
 // Apply rate limiters to routes
 app.use('/auth/login', authLimiter); // Stricter limit for login endpoint
 app.use('/auth', authRoutes);
-app.use('/api/products', productRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/print', printRoutes);
+// These four routers already define their own resource-prefixed paths
+// internally (e.g. orderRoutes has `/orders`, `/orders/active`, `/order-items`,
+// `/void-logs`), so they're mounted bare at /api — mounting them under an
+// extra /api/<resource> prefix would double it up (e.g. /api/orders/orders/active).
+app.use('/api', productRoutes);
+app.use('/api', orderRoutes);
+app.use('/api', printRoutes);
 app.use('/api/self-order', selfOrderRoutes);
 app.use('/api/outlets', outletRoutes);
-app.use('/api/payments', generalLimiter, paymentRoutes); // Apply to payment endpoints
+app.use('/api', paymentRoutes); // Rate limiting for these routes is applied per-route inside payments.ts, not here — this mount also catches unmatched /api/* requests that fall through to later routers, so a limiter here would (and did) throttle unrelated endpoints too.
 app.use('/api/settings', settingsRoutes);
 app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/recipes', recipeRoutes);

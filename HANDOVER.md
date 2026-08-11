@@ -1,5 +1,103 @@
 # Kitchen POS - Handover Document
 
+## Follow-up fixes: redundant back button + broken sidebar link
+
+**Date:** 2026-08-11 (same day, continued)
+
+- **`Header.tsx` had two "go back" controls side by side**: a `router.back()` chevron (browser-history based, non-deterministic) and the app-launcher icon linking to `/apps`. User flagged them as redundant. Removed the `router.back()` button entirely — the app-launcher icon is now the sole back control. This also happens to satisfy the original audit's P1-15 finding ("POS Back always navigates explicitly to `/apps`, never browser history") as a side effect, since browser-history-based back is gone. Removed the now-unused `ArrowLeft` import.
+- **`src/config/navigation.ts` had a broken sidebar link**: Kitchen Display's "Self Order Status" pointed at bare `/order-status` (no order ID), but only `app/order-status/[orderId]/page.tsx` exists — no index route — so it 404'd. Checked every real usage of that route (`OnlineCheckoutModal.tsx`, `SelfOrderExperience.tsx`) and confirmed it's always reached with a real order ID after checkout (`/order-status/${orderId}`); nothing in the app ever needs the bare path. Removed the broken sidebar entry rather than building a fake index page — the dynamic route itself is legitimate, actively-used functionality (live order-status polling, cancellation, timeline) and was kept as-is.
+
+## Follow-up fixes: rate limiter over-throttling + duplicate module ownership
+
+**Date:** 2026-08-11 (same day, continued)
+
+**429 "Too Many Requests" on unrelated endpoints (`/api/user/preferences`, `/api/vouchers`, `/api/suppliers`, `/api/stock-requests`, etc.) — self-inflicted regression from the earlier double-prefix fix.** When `server/app.ts` mounted `paymentRoutes` at `/api/payments` with `generalLimiter` (`app.use('/api/payments', generalLimiter, paymentRoutes)`), the limiter only ran for requests actually starting with `/api/payments`. Fixing the double-prefix bug changed that mount to bare `/api` (since `paymentRoutes`'s own internal paths already declare `/payments`) — but Express runs `app.use()` middleware unconditionally for any path matching the mount prefix, *before* the router even checks whether it has a matching internal route. So `generalLimiter` started counting **every** `/api/*` request that fell through earlier routers unmatched (which is most of them, since `paymentRoutes` is mounted late in the chain), and normal test traffic exhausted the 100-requests/15-min budget in minutes.
+- Fix: removed `generalLimiter` from the `server/app.ts` mount entirely; added a route-scoped `paymentLimiter` (same 100/15min config) directly inside `server/routes/payments.ts`, applied as a middleware argument to each of its 5 routes individually (`POST /payments`, `GET /payments/:id`, `PATCH /payments/:id/status`, `POST /payments/:id/void`, `POST /webhooks/payment`) — route-level middleware only runs once Express has matched that exact route, so it can no longer catch pass-through traffic for other routers.
+- Verified live: `/api/vouchers`, `/api/stock-requests` etc. now return `200` after an API restart (which also resets the in-memory rate-limit counter).
+
+**`/inventory/stock-approvals` was claimed by two different modules in `src/config/navigation.ts`** — both "Inventory" (`Approval Stok`) and "Purchase & Suppliers" (`Persetujuan Stok`) linked to the same URL. Since `findModuleForPath()` resolves to the first array match, clicking it from Purchase & Suppliers' own rail silently swapped the user into Inventory's rail/breadcrumb — a jarring cross-module jump. Removed the duplicate `Persetujuan Stok` entry from Purchase & Suppliers; Inventory is now the sole owner (matches what the page actually is — stock/ingredient request approvals, not a supplier-purchasing step).
+
+## Persistent app shell: Header + Sidebar no longer remount per page
+
+**Date:** 2026-08-11 (same day, continued)
+
+**Problem:** even after the earlier consistency fixes, navigating between pages (e.g. `/pos` → `/kasir`) still felt like a full page reload. Root cause: there was no shared Next.js `layout.tsx` — every page rendered its own `<Header>`/`<Sidebar>` (via `ResponsiveShell` or raw composition), so React fully unmounted and remounted them on every navigation, re-running their outlet/user fetches and the clock effect from scratch, plus a visible flash.
+
+**Fix — a real persistent shell:**
+- **`src/context/PageHeaderContext.tsx`** (new): lets a leaf page register its `{title, onSearch}` with the shell via `usePageHeader(...)`, without the shell needing to import every page.
+- **`src/components/layout/AppShell.tsx`** (new): mounted once in `app/layout.tsx`, wrapping `{children}`. Renders `Header` + `Sidebar` a single time for the whole session; only the `<main>` content below swaps per navigation (`key={pathname}` + `animate-in fade-in duration-200` gives a smooth cross-fade instead of a jarring cut). Excludes `/`, `/login`, `/apps` (own bespoke launcher header, no sidebar — matches the wireframe), and the customer-facing self-order routes.
+- **`src/components/layout/ResponsiveShell.tsx`**: repurposed into a thin compatibility shim — it just calls `usePageHeader()` and renders `children`, so the 17 pages already using `<ResponsiveShell title="...">` needed zero changes.
+- **15 pages that composed `<Header>`/`<Sidebar>` directly** (`/pos`, `/pos/meja`, `/pos/requests`, `/admin/*`, `/finance/ocr`, `/inventory-suppliers`) had those two components' JSX/imports stripped, since they're now supplied by the global shell. A couple (`/admin/hr`, `/finance/ocr`, `/admin/reports`, `/admin/attendance`) had a second `<Header>`/`<Sidebar>` composition in an early RBAC-denied return branch — same treatment.
+- **Sidebar simplified to remove its own module-title row** (redundant with the Header's breadcrumb) — now just a collapse/close toggle above the module-scoped link list.
+- **Header's app-launcher icon is now dynamic**: shows the current module's icon (e.g. a cart for Point of Sale, a box for Inventory) instead of a static grid icon, via a new shared `src/components/layout/moduleIcons.tsx` (`MODULE_ICON_MAP`) used by both `Header` and `Sidebar`.
+- **Header's breadcrumb fallback improved**: `findModuleForPath()` (in `src/config/navigation.ts`) now also matches the current pathname against the module's own `subLinks` labels, so pages that don't pass an explicit `title` get a specific one (e.g. "Manajemen Produk") instead of a redundant "Module › Module" breadcrumb.
+- **Same `useCallback` mistake bit twice**: `AppShell.tsx` initially passed new inline arrow functions as `onToggleMobileSidebar`/`onMobileClose` on every render (identical bug to the one already fixed once in the old `ResponsiveShell.tsx`) — `Sidebar`'s "close drawer on route change" effect depends on `onMobileClose`'s identity, so it re-fired on every render and closed the mobile drawer immediately after opening it. Fixed by memoizing both callbacks in `AppShell.tsx` with `useCallback`. **If a mobile hamburger stops opening the drawer again, check here first** — this is the third time this exact shape of bug has appeared.
+
+**Verification:** `npx tsc --noEmit` and lint clean on all touched files; live-tested `/pos` → `/kasir` navigation (breadcrumb and active-link update, Header/Sidebar don't flash/remount), `/apps` (single bespoke header, no sidebar, no duplicate), and the mobile drawer at 375px (opens/stays open). Dev servers shut down after testing.
+
+## Global Navigation, Header/Sidebar Consistency & Theme Wiring Fix
+
+**Date:** 2026-08-11
+
+Source: external audit `C:\Users\sukma\.codex\visualizations\2026\08\09\019fe7bd-a4a2-7782-9853-6b0c134bff04\kitchen-pos-review-20260810-0141` (this "wireframes" package turned out to be a full UX/architecture audit run against this exact repo, not independent HTML wireframes — see `final-consolidated-review.md`, `role-navigation-authorization-mismatch.md`, `theme-consistency-report.md` in that folder). No git operation (no branch/commit/push) at any point — source changes only, on top of the working tree, per explicit instruction for this session.
+
+**Problem:** one theme-correct, responsive `Header`+`Sidebar` pair existed (`src/components/layout/Header.tsx`, `Sidebar.tsx`) but was only wired into ~14 of 37 routes; the rest had no shared chrome or rolled their own header with hardcoded colors. Navigation menu data was forked across 4 separate hand-maintained files that already disagreed with each other. `/pos/settings` looked like a working theme control panel but never actually read or wrote real settings. `ThemeContext` itself never sent an auth token on its settings fetch, so it silently 401'd and fell back to hardcoded defaults on every load — meaning saved theme changes never really took effect anywhere.
+
+**Changes:**
+- **Single source of truth for navigation:** moved `src/features/apps/apps-registry.ts` → `src/config/navigation.ts` (`APPS_REGISTRY`, `filterApps`). `app/apps/page.tsx` and `server/__tests__/apps-registry.test.ts` now import from there. Added `allowedRoles` to HR/Finance/Reports/Settings modules.
+- **`src/components/layout/Sidebar.tsx`** rewritten to derive its expandable module sections from `APPS_REGISTRY` grouped by `category`, filtered by `user.role` via `allowedRoles` (previously `user` was destructured but never used — every link showed to every role). Removes the old duplicated hardcoded arrays (`cashierLinks`, `adminLinks`, `dashboardSubLinks`, `financeSubLinks`) and the `/admin/crm` triple-listing.
+- **Rolled the shared `Header`+`Sidebar` shell (via `ResponsiveShell`)** out to previously chrome-less/ad-hoc routes: `/kitchen`, `/waiter`, `/kasir`, `/shift`, `/admin/outlets`, `/admin/modules`, `/pos/settings`, and all 9 `/inventory/*` sub-routes. `/kitchen`'s KDS dark theme (`data-theme="kds"`) is preserved on the content panel inside the shell.
+- **Removed hardcoded-color leakage** that bypassed the theme token system: `/kitchen`'s orange/red/green accent colors → `text-primary`/`bg-danger`/`bg-success` tokens; `bg-white` headers on `/waiter`, `/online-order`, `/order-status/[orderId]` → `bg-surface`; `OutletSelector.tsx`'s `<select>` now gets an explicit `text-ink`.
+- **`/pos/settings` rewired to be real**, not a decoy: reads initial values from `useTheme()`, `Save changes` now `PUT`s to `/api/settings` and calls `refreshSettings()` (previously it just faked a 600ms delay and toasted success with nothing persisted). Dropped its private `MODULE_SETTINGS_LINKS` rail in favor of the shared `Sidebar`.
+- **Fixed `ThemeContext.tsx`** to send `Authorization: Bearer <token>` on its `GET /api/settings` — without this, every theme read 401'd and silently fell back to hardcoded defaults, so saved appearance settings never actually reflected back into the live app. This was likely the main reason "the theme setting is not working."
+- **Fixed a real regression found during verification, not present before this session's `ResponsiveShell` rollout:** `ResponsiveShell.tsx` passed new inline arrow functions as `onMobileClose`/`onToggleMobileSidebar` on every render. `Sidebar.tsx`'s "close drawer on route change" `useEffect` depends on `handleCloseMobile`, which is a `useCallback` keyed on `onMobileClose` — so its identity changed every render too, re-firing the effect and closing the mobile drawer immediately after it opened. Memoized both callbacks in `ResponsiveShell.tsx` with `useCallback`. Confirmed via live testing that the hamburger drawer now opens and stays open on `/kitchen`, `/kasir`, and other newly-wrapped routes at 375px.
+- **Fixed a double navbar/sidebar** on `app/inventory/page.tsx`, `app/inventory/mapping/page.tsx`, and `app/inventory/automation/page.tsx`: these three had their own full local breadcrumb header + `INVENTORY_NAV_ITEMS` left rail (a duplicate of the exact same links now in the shared Sidebar's "Produk & Inventori" section) still rendered *inside* the new `ResponsiveShell` wrap, stacking two headers and two sidebars. Caught from a screenshot after the initial rollout. Removed the local header/rail from all three, keeping only their actual content (KPI cards, table, detail panel / stub content). The other 6 already-wrapped `/inventory/*` sub-routes did not have this problem and were left as-is.
+
+**Verification performed:**
+- `npx tsc --noEmit`: clean.
+- `npm run lint`: no new errors/warnings introduced beyond pre-existing repo-wide debt (verified by diffing lint output scoped to touched files).
+- Live dev server walkthrough (`npm run api:dev` + Next dev on :3000): logged in as `admin`/`admin`, verified Sidebar category expand/collapse and active-link highlighting on `/pos`, confirmed `/kasir`, `/kitchen`, `/admin/outlets`, `/inventory` now render with the shared shell, confirmed the `/pos/settings` save flow actually round-trips through `PUT /api/settings` → `GET /api/settings` and persists after reload (tested accent color change to Emerald and back to the original Blue).
+- Mobile check at 375×812: `/kitchen` and `/kasir` have no horizontal overflow; hamburger opens/closes the drawer correctly after the `ResponsiveShell` fix above.
+- Dev servers (API on :3001, Next on :3000) were shut down after testing.
+
+**Follow-up fix (same day):** the user hit the `/apps` crash live via their own `npm run dev`, so it was fixed in this session after all — `src/hooks/useUserPreferences.ts` now imports `getToken()` from `src/lib/api.ts` instead of reading the wrong `localStorage` key (`'token'` vs. the real `'kitchen-pos-token'`), and both `fetchPreferences`/`updatePreferences` now check `res.ok` and default-guard `favorites`/`recent` before calling `setPreferences`, so a failed request can no longer crash the page. Verified live: `GET /api/user/preferences` now returns `200` and `/apps` renders without error.
+
+## Follow-up: module-scoped Header/Sidebar redesign to match the wireframe visually
+
+**Date:** 2026-08-11 (same day, later)
+
+The user pointed out the global `Header`/`Sidebar` I extended everywhere still didn't visually/structurally match `wireframes/02-responsive-list-detail.png` — it "looked old and static." Root cause: commit `49bc046` had introduced **two parallel, disconnected UI systems** at once — the generic blue global `Header.tsx`/`Sidebar.tsx` (a global cross-module expandable menu) *and* a set of bespoke, wireframe-accurate pages (`/apps`, `/admin/modules`, the 3 inventory pages) with their own hand-built violet-accented header+module-scoped-rail. They were never unified; I'd been extending the wrong (generic) one.
+
+Per the user's suggestion, pulled the canonical markup straight from the already-committed wireframe-matching pages (`git show HEAD:app/inventory/page.tsx`) instead of re-deriving a design from the PNG:
+- **`src/components/layout/Sidebar.tsx` rewritten again**, this time to be **module-scoped** per the audit's binding IA ("each module owns its own child menu... the current mixed global ERP sidebar is explicitly not retained"): it now shows only the current module's title + its flat list of sub-links (via a new `findModuleForPath()` helper in `src/config/navigation.ts`, shared with `Header.tsx`), not a global accordion of every module. Active link uses `bg-primary-soft text-primary` (the token equivalent of the wireframe's `bg-violet-50 text-violet-700`). "App Launcher" link pinned at the bottom like the wireframe's rail.
+- **`src/components/layout/Header.tsx` restyled** to match: `h-16` height + `shadow-xs`, app-launcher icon is now a filled `bg-primary` rounded-lg square (was a ghost icon), added a breadcrumb ("ModuleTitle › PageTitle" via the same `findModuleForPath()` helper) replacing the flat static title, user chip is now a circular avatar-initial (`bg-primary-soft`/`text-primary`) instead of a bare icon+name.
+- Fixed `app/pos/page.tsx` passing `title="Kitchen POS"` to `Header` (the app's brand name, not the page name) — now `"POS Utama"`, so the breadcrumb reads "Point of Sale › POS Utama" instead of "Point of Sale › Kitchen POS".
+- Everything still uses the dynamic `--primary` theme token (not hardcoded violet), so it stays consistent with the earlier theme-wiring fix and renders in whatever accent color the user has actually configured.
+
+Verified live: `/inventory` and `/pos` both show the module-scoped rail + breadcrumb header now; mobile drawer at 375px still opens/stays open (re-checked after the Sidebar rewrite, since that's the piece that broke once already).
+
+## Follow-up: 4 server routers were double/mismatched-prefixed (core POS functionality was broken)
+
+**Date:** 2026-08-11 (same day)
+
+The user asked to keep an eye on server logs, which surfaced two live `ApiError: Not found` console errors on `/pos` (`fetchProducts`, `fetchCategories`). This turned out to be the **same systemic bug already flagged for `orders.ts`**, but present in three more routers — and unlike `/kitchen`'s polling, this one broke the actual POS product/category listing (the "Gagal memuat produk" error seen on `/pos` and `/kasir` in earlier screenshots), not just a background poll.
+
+Root cause (all from the earlier "API Prefix Standardization" session): `server/app.ts` mounted these routers at `/api/<resource>`, but the route files already defined their own resource-prefixed internal paths — doubling up:
+- `orders.ts`: mounted at `/api/orders`, internal `/orders`, `/orders/active`, `/order-items`, `/void-logs`, `/orders/merge-table` → actual paths were `/api/orders/orders/active` etc.
+- `products.ts`: mounted at `/api/products`, internal `/products`, `/categories`, `/modifier-groups`, `/modifiers` → actual paths were `/api/products/products`, `/api/products/categories`, etc. — but the frontend calls bare `/api/products`, `/api/categories`, `/api/modifier-groups`, `/api/modifiers`.
+- `payments.ts`: mounted at `/api/payments`, internal `/payments` → `/api/payments/payments`.
+- `print.ts`: mounted at `/api/print`, internal `/printers` → `/api/print/printers`, but frontend calls bare `/api/printers`.
+
+Fix: in `server/app.ts`, changed these four mounts from `/api/<resource>` to bare `/api` (with a comment explaining why), since each file's own internal paths already match exactly what `src/lib/api.ts`/`src/features/payment/paymentService.ts` expect. No route collisions — Express's router falls through to the next `app.use()` when nothing matches internally, and none of these four files' internal path literals overlap with any other mounted router's prefix (checked systematically against every `server/routes/*.ts` file and its real frontend call sites, not just the two the user flagged).
+
+Also fixed `server/__tests__/route-smoke.test.ts`'s `ROUTE_MOUNT_PREFIXES` map, which had encoded the same wrong assumption (`'orders.ts': '/api/orders'` etc.) — this is exactly why the smoke test could report "60/60 passed" while these routes were actually 404ing in the real app. Re-ran it after the fix: still 60/60, now against the corrected paths.
+
+Verified live: `GET /api/products`, `/api/categories`, `/api/orders/active` all return `200` now (were `404`); `/pos` shows real products/categories instead of "Gagal memuat produk"; Kitchen Display's polling error is gone.
+
+**Still explicitly out of scope** (larger pre-existing issues from the same audit, unrelated to nav/header/sidebar/theme, left untouched):
+- Auth/authorization architecture mismatch — client role union (`admin|management|cashier|owner`) vs. server `requireRole` (`admin|cashier` only); most server mutations gate on the literal string `admin` instead of the unused `Role`/`Permission`/`RolePermission` Prisma models.
+- IndexedDB vs Postgres data-truth splits (e.g. completed POS receipts can show `TOTAL Rp 0`, profitability calc off by 100×) — unrelated to the routing-prefix bug just fixed above, which was purely about the API being unreachable, not about which store (IndexedDB vs Postgres) is treated as source of truth once it *is* reachable.
+
 ## API Prefix Standardization
 
 **Date:** 2026-08-11

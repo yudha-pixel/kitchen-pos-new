@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import rateLimit from 'express-rate-limit';
 import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { ZodError } from 'zod';
@@ -7,6 +8,18 @@ import { authMiddleware, requireRole } from '../middleware/auth';
 import { webhookSignatureMiddleware } from '../middleware/webhookSignature';
 
 const router = Router();
+
+// Scoped to these payment routes specifically (applied per-route below, not
+// via router.use/app.use) — this router is mounted bare at /api alongside
+// several others, so a blanket middleware here would also throttle every
+// unrelated /api/* request that falls through to this router unmatched.
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100,
+  message: 'Too many requests, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // Validation schemas
 // Note: `amount` is deliberately NOT part of this schema. It used to be
@@ -33,7 +46,7 @@ const voidPaymentSchema = z.object({
 });
 
 // Create payment transaction
-router.post('/payments', authMiddleware, async (req: Request, res: Response) => {
+router.post('/payments', paymentLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const data = createPaymentSchema.parse(req.body);
     const paymentId = randomUUID();
@@ -114,7 +127,7 @@ router.post('/payments', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // Get payment by ID
-router.get('/payments/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/payments/:id', paymentLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
 
@@ -144,7 +157,7 @@ router.get('/payments/:id', authMiddleware, async (req: Request, res: Response) 
 // `admin` and `cashier` roles are allowed here (authMiddleware alone, no
 // further requireRole restriction), matching who is already trusted to
 // operate the POS day-to-day.
-router.patch('/payments/:id/status', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/payments/:id/status', paymentLimiter, authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     const data = updatePaymentStatusSchema.parse(req.body);
@@ -186,7 +199,7 @@ router.patch('/payments/:id/status', authMiddleware, async (req: Request, res: R
 // Void payment - requires admin role for authorization
 // This endpoint allows voiding a payment transaction for any order type (Dine-In, Takeaway, Online Order)
 // It updates the payment status and records the void reason and who voided it
-router.post('/payments/:id/void', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/payments/:id/void', paymentLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     const { reason } = voidPaymentSchema.parse(req.body);
@@ -257,7 +270,7 @@ router.post('/payments/:id/void', authMiddleware, requireRole('admin'), async (r
 // Webhook endpoint for payment gateway notifications
 // This endpoint is protected by signature verification middleware
 // Payment gateways (Midtrans/Xendit) authenticate via their own signature scheme, not our JWTs
-router.post('/webhooks/payment', webhookSignatureMiddleware, async (req: Request, res: Response) => {
+router.post('/webhooks/payment', paymentLimiter, webhookSignatureMiddleware, async (req: Request, res: Response) => {
   try {
     const { gateway, gateway_tx_id, status, amount } = req.body;
 

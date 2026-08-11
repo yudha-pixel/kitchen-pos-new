@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
 import { ShoppingCart, Plus, Minus, Trash2, Coffee, Cake, Utensils, GlassWater } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
@@ -199,7 +200,7 @@ export default function KasirPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <ResponsiveShell title="Kasir Klasik">
       {/* Header */}
       <div className="border-b-2 border-line bg-surface px-6 py-4">
         <div className="flex items-center gap-3">
@@ -364,6 +365,6 @@ export default function KasirPage() {
           onVoided={handleVoidPaymentComplete}
         />
       )}
-    </div>
+    </ResponsiveShell>
   );
 }

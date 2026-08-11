@@ -13,6 +13,7 @@ import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
 import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, X, List, History, Printer } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 
 interface CartItem {
   productId: string;
@@ -227,27 +228,21 @@ export default function WaiterPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100">
-        <div className="text-gray-600">Memuat...</div>
+      <div className="min-h-screen flex items-center justify-center bg-surface-alt">
+        <div className="text-ink-secondary">Memuat...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 pb-20">
-      {/* Header */}
-      <header className="bg-white shadow-sm sticky top-0 z-30">
+    <ResponsiveShell title="Waiter POS">
+    <div className="-m-4 min-h-[calc(100%+2rem)] bg-surface-alt pb-20 sm:-m-6 sm:min-h-[calc(100%+3rem)]">
+      {/* Toolbar */}
+      <header className="bg-surface shadow-sm sticky top-0 z-30">
         <div className="px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
-              <button
-                onClick={() => router.push('/')}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                title="Kembali"
-              >
-                <X className="h-5 w-5 text-gray-600" />
-              </button>
-              <h1 className="text-xl font-bold text-gray-900">Waiter POS</h1>
+              <h1 className="text-xl font-bold text-ink">Waiter POS</h1>
             </div>
             <ConnectionIndicator />
           </div>
@@ -635,5 +630,6 @@ export default function WaiterPage() {
         />
       )}
     </div>
+    </ResponsiveShell>
   );
 }

@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
 import { getToken } from '@/src/lib/api';
 import { Plus, Edit, Trash2, Calendar, Tag, Percent, DollarSign, Check, X } from 'lucide-react';
@@ -61,7 +59,7 @@ export default function VouchersPage() {
   const loadVouchers = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/vouchers`, {
+      const response = await fetch(`${API_BASE_URL}/api/vouchers`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -101,7 +99,7 @@ export default function VouchersPage() {
       }
 
       const token = getToken();
-      const url = editingVoucher ? `${API_BASE_URL}/vouchers/${editingVoucher.id}` : `${API_BASE_URL}/vouchers`;
+      const url = editingVoucher ? `${API_BASE_URL}/api/vouchers/${editingVoucher.id}` : `${API_BASE_URL}/api/vouchers`;
       const method = editingVoucher ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -151,7 +149,7 @@ export default function VouchersPage() {
     setDeleteError('');
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/vouchers/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/vouchers/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -182,7 +180,7 @@ export default function VouchersPage() {
   const handleToggleActive = async (voucher: Voucher) => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/vouchers/${voucher.id}/toggle-active`, {
+      const response = await fetch(`${API_BASE_URL}/api/vouchers/${voucher.id}/toggle-active`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -227,9 +225,7 @@ export default function VouchersPage() {
 
   return (
     <div className="flex h-dvh bg-gray-50">
-      <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto">
             {/* Header */}

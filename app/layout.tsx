@@ -4,6 +4,8 @@ import "./globals.css";
 import { AuthProvider } from "@/src/context/AuthContext";
 import { ToastProvider } from "@/src/components/ui/Toast";
 import { ThemeProvider } from "@/src/context/ThemeContext";
+import { PageHeaderProvider } from "@/src/context/PageHeaderContext";
+import { AppShell } from "@/src/components/layout/AppShell";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,7 +41,11 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>{children}</ToastProvider>
+            <ToastProvider>
+              <PageHeaderProvider>
+                <AppShell>{children}</AppShell>
+              </PageHeaderProvider>
+            </ToastProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

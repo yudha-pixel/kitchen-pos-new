@@ -6,6 +6,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { getOutlets, createOutlet, updateOutlet, deleteOutlet } from '@/src/features/outlet/outletService';
 import { Outlet } from '@/src/lib/db';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Building2, Plus, Edit, Trash2, MapPin, Phone, Check, X } from 'lucide-react';
 
 export default function OutletManagementPage() {
@@ -127,7 +128,7 @@ export default function OutletManagementPage() {
   };
 
   return (
-    <div className="p-6">
+    <ResponsiveShell title="Manajemen Outlet">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Manajemen Outlet</h1>
         <p className="text-gray-600">Kelola data outlet/cabang restoran</p>
@@ -377,6 +378,6 @@ export default function OutletManagementPage() {
           </div>
         </div>
       )}
-    </div>
+    </ResponsiveShell>
   );
 }

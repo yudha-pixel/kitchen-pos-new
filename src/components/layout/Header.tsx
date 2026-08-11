@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { Search, LogOut, ArrowLeft, Users, User, LayoutGrid, Menu } from 'lucide-react';
+import { useRouter, usePathname } from 'next/navigation';
+import { Search, LogOut, Users, LayoutGrid, Menu, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { TableMergeModal } from './TableMergeModal';
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
+import { findModuleForPath } from '@/src/config/navigation';
+import { MODULE_ICON_MAP } from './moduleIcons';
 
 interface HeaderProps {
   title?: string;
@@ -14,12 +16,23 @@ interface HeaderProps {
   onToggleMobileSidebar?: () => void;
 }
 
-export const Header = ({ title = 'Kitchen POS', onSearch, onToggleMobileSidebar }: HeaderProps) => {
+export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentTime, setCurrentTime] = useState<Date | null>(null);
   const [showTableMergeModal, setShowTableMergeModal] = useState(false);
   const { user, logout } = useAuth();
+  const currentModule = findModuleForPath(pathname);
+  // Falls back to the matching sub-link's own label (e.g. "Manajemen Produk")
+  // before the module title, so pages that don't pass an explicit title don't
+  // show a redundant "Module › Module" breadcrumb.
+  const matchedSubLink = currentModule?.subLinks.find((sub) => sub.href === pathname);
+  const pageTitle = title || matchedSubLink?.label || currentModule?.title || 'Kitchen POS';
+  const initial = user?.username?.charAt(0).toUpperCase() || 'U';
+  // App-launcher icon reflects the current module so it doubles as a quick module glance,
+  // falling back to the generic grid icon outside any module (e.g. /apps itself).
+  const AppIcon = (currentModule && MODULE_ICON_MAP[currentModule.iconName]) || LayoutGrid;
 
   // Set on mount + update every minute (avoids SSR/client clock mismatch)
   useEffect(() => {
@@ -52,9 +65,9 @@ export const Header = ({ title = 'Kitchen POS', onSearch, onToggleMobileSidebar 
   };
 
   return (
-    <header className="relative z-40 border-b border-line bg-surface px-4 py-2 sm:px-6">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left: Hamburger, Back Button, Title and Search */}
+    <header className="relative z-40 flex h-16 items-center border-b border-line bg-surface px-4 shadow-xs sm:px-6">
+      <div className="flex w-full items-center justify-between gap-4">
+        {/* Left: Hamburger, Back Button, Breadcrumb and Search */}
         <div className="flex flex-1 items-center gap-2 sm:gap-3">
           <button
             onClick={handleToggleSidebar}
@@ -64,22 +77,23 @@ export const Header = ({ title = 'Kitchen POS', onSearch, onToggleMobileSidebar 
           >
             <Menu className="h-5 w-5" />
           </button>
-          <button
-            onClick={() => router.back()}
-            aria-label="Kembali"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </button>
           <Link
             href="/apps"
             aria-label="Kembali ke Launcher Aplikasi"
             title="Launcher Aplikasi (/apps)"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt hover:text-primary"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary shadow-xs transition-colors hover:bg-primary-hover"
           >
-            <LayoutGrid className="h-5 w-5" />
+            <AppIcon className="h-5 w-5" />
           </Link>
-          <h1 className="hidden text-xl font-bold text-ink sm:block">{title}</h1>
+          <div className="hidden min-w-0 items-center gap-2 text-xs sm:flex">
+            {currentModule && (
+              <>
+                <span className="text-ink-muted">{currentModule.title}</span>
+                <ChevronRight className="h-3 w-3 shrink-0 text-ink-muted" aria-hidden="true" />
+              </>
+            )}
+            <span className="truncate text-sm font-semibold text-ink">{pageTitle}</span>
+          </div>
 
           {onSearch && (
             <div className="relative max-w-md flex-1">
@@ -129,7 +143,12 @@ export const Header = ({ title = 'Kitchen POS', onSearch, onToggleMobileSidebar 
 
           <div className="flex items-center gap-1 border-l border-line pl-2 sm:pl-3">
             <span className="flex items-center gap-2 px-1 text-sm font-medium text-ink-secondary">
-              <User className="h-4 w-4" aria-hidden="true" />
+              <span
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary"
+                aria-hidden="true"
+              >
+                {initial}
+              </span>
               <span className="hidden sm:inline">{user?.username}</span>
             </span>
             <button

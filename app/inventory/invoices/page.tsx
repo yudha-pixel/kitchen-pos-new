@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  Search, 
+import {
+  Search,
   CheckCircle, 
   XCircle, 
   Clock,
@@ -20,7 +18,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
-import { 
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import {
   Invoice,
   getInvoices,
   getInvoicesByStatus,
@@ -206,22 +205,15 @@ export default function InvoicesPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <ResponsiveShell title="Invoices">
+    <div className="min-h-full bg-slate-50 -m-4 sm:-m-6">
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/inventory"
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5 text-slate-600" />
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Invoice Supplier</h1>
-                <p className="text-sm text-slate-500">Kelola invoice dari supplier</p>
-              </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Invoice Supplier</h1>
+              <p className="text-sm text-slate-500">Kelola invoice dari supplier</p>
             </div>
             <button
               onClick={() => setCreateModalOpen(true)}
@@ -566,5 +558,6 @@ export default function InvoicesPage() {
         </div>
       )}
     </div>
+    </ResponsiveShell>
   );
 }

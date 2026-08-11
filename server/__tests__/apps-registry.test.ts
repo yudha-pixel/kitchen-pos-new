@@ -4,7 +4,7 @@ import {
   APPS_REGISTRY,
   filterApps,
   getAppsRegistry,
-} from '../../src/features/apps/apps-registry';
+} from '../../src/config/navigation';
 
 describe('APPS_REGISTRY', () => {
   it('returns non-empty list of valid app definitions', () => {

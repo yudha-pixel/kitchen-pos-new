@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
+import { usePageHeader } from '@/src/context/PageHeaderContext';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
 import { CartPanel } from '@/src/features/pos/components/CartPanel';
 import { useCartStore } from '@/src/store/useCartStore';
@@ -35,6 +34,7 @@ export default function POSPage() {
   const { settings } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  usePageHeader({ title: 'POS Utama', onSearch: setSearchQuery });
   const [sortBy, setSortBy] = useState<'name' | 'price'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
@@ -1199,9 +1199,6 @@ export default function POSPage() {
       data-card-view={settings?.card_view || 'grid'}
       data-cart-position={settings?.cart_position || 'right-sidebar'}
     >
-      {/* Header */}
-      <Header title="Kitchen POS" onSearch={setSearchQuery} />
-
       {/* Sync Status Strip */}
       <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-1.5 text-sm">
         <div className="flex items-center gap-2">
@@ -1257,9 +1254,6 @@ export default function POSPage() {
 
       {/* Main Content */}
       <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <Sidebar />
-
         {/* Product Grid */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           {/* Tab Toggle */}

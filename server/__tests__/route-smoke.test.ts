@@ -39,10 +39,13 @@ const ROUTE_MOUNT_PREFIXES: Record<string, string> = {
   'outlets.ts': '/api/outlets',
   'selfOrder.ts': '/api/self-order',
   'settings.ts': '/api/settings',
-  'products.ts': '/api/products',
-  'orders.ts': '/api/orders',
-  'print.ts': '/api/print',
-  'payments.ts': '/api/payments',
+  // These four already define their own resource-prefixed paths internally
+  // (e.g. orders.ts has `/orders`, `/orders/active`) so they're mounted bare
+  // at /api in server/app.ts — see the comment there.
+  'products.ts': '/api',
+  'orders.ts': '/api',
+  'print.ts': '/api',
+  'payments.ts': '/api',
 };
 
 function getFullPath(file: string, path: string): string {

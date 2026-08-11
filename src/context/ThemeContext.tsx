@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { getToken } from '@/src/lib/api';
 
 interface AppSettings {
   id: string;
@@ -30,7 +31,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/settings`);
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/settings`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
       if (response.ok) {
         const data = await response.json();
         setSettings(data);

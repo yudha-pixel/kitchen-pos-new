@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
 import { getSuppliers, addSupplier, updateSupplier, deleteSupplier } from '@/src/features/inventory/recipeApiService';
 import { Building2, Plus, Edit, Trash2, X, Phone, Mail, MapPin } from 'lucide-react';
 
@@ -153,9 +151,7 @@ export default function SuppliersPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto">
             <div className="mb-6 flex items-center justify-between">

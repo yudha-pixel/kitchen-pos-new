@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
 import { getToken } from '@/src/lib/api';
 import { Search, UserPlus, Edit, Trash2, Crown, Shield, Star, Gem, Phone, Mail, Calendar, TrendingUp } from 'lucide-react';
@@ -88,7 +86,7 @@ export default function CRMPage() {
   const loadMembers = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/customers`, {
+      const response = await fetch(`${API_BASE_URL}/api/customers`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -163,7 +161,7 @@ export default function CRMPage() {
     setDeleteError('');
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/customers/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -199,7 +197,7 @@ export default function CRMPage() {
 
     try {
       const token = getToken();
-      const url = editingMember ? `${API_BASE_URL}/customers/${editingMember.id}` : `${API_BASE_URL}/customers`;
+      const url = editingMember ? `${API_BASE_URL}/api/customers/${editingMember.id}` : `${API_BASE_URL}/api/customers`;
       const method = editingMember ? 'PUT' : 'POST';
 
       const response = await fetch(url, {
@@ -226,7 +224,7 @@ export default function CRMPage() {
   const handleToggleActive = async (member: Member) => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/customers/${member.id}/toggle-active`, {
+      const response = await fetch(`${API_BASE_URL}/api/customers/${member.id}/toggle-active`, {
         method: 'PATCH',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -273,9 +271,7 @@ export default function CRMPage() {
 
   return (
     <div className="flex h-dvh bg-gray-50">
-      <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto">
             {/* Header */}

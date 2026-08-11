@@ -28,7 +28,7 @@ import {
   X,
 } from 'lucide-react';
 
-import { APPS_REGISTRY, filterApps, AppDefinition } from '@/src/features/apps/apps-registry';
+import { APPS_REGISTRY, filterApps, AppDefinition } from '@/src/config/navigation';
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
 import { useUserPreferences } from '@/src/hooks/useUserPreferences';

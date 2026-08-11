@@ -62,7 +62,7 @@ export function useTables() {
   const updateTableStatus = async (tableId: string, status: TableStatus) => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/tables/${tableId}/status`, {
+      const response = await fetch(`${API_BASE_URL}/api/tables/${tableId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

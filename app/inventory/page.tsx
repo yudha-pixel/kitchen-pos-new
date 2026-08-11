@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
-  LayoutGrid,
   Search,
   Filter,
   Plus,
@@ -15,44 +13,16 @@ import {
   AlertTriangle,
   XCircle,
   DollarSign,
-  ChevronRight,
   X,
-  Boxes,
-  CheckSquare,
-  Tags,
   Sliders,
-  ArrowRightLeft,
-  Truck,
-  Zap,
   Upload,
-  FileText as FileTextIcon,
-  Star,
-  Send,
-  Package,
-  Wallet,
 } from 'lucide-react';
 
-import { OutletSelector } from '@/src/components/outlet/OutletSelector';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
 import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
-
-const INVENTORY_NAV_ITEMS = [
-  { id: 'all', label: 'All Items', icon: Boxes, href: '/inventory', active: true },
-  { id: 'approvals', label: 'Stock Approvals', icon: CheckSquare, href: '/inventory/stock-approvals', active: false },
-  { id: 'quotation-requests', label: 'Quotation Requests', icon: FileTextIcon, href: '/inventory/quotation-requests', active: false },
-  { id: 'quotations', label: 'Quotations', icon: Star, href: '/inventory/quotations', active: false },
-  { id: 'purchase-orders', label: 'Purchase Orders', icon: Send, href: '/inventory/purchase-orders', active: false },
-  { id: 'grn', label: 'Goods Received Notes', icon: Package, href: '/inventory/goods-received-notes', active: false },
-  { id: 'invoices', label: 'Invoices', icon: DollarSign, href: '/inventory/invoices', active: false },
-  { id: 'supplier-payments', label: 'Supplier Payments', icon: Wallet, href: '/inventory/supplier-payments', active: false },
-  { id: 'categories', label: 'Categories', icon: Tags, href: '/inventory/categories', active: false },
-  { id: 'adjustments', label: 'Stock Adjustments', icon: Sliders, href: '/inventory/adjustments', active: false },
-  { id: 'transfers', label: 'Stock Transfers', icon: ArrowRightLeft, href: '/inventory/transfers', active: false },
-  { id: 'suppliers', label: 'Suppliers', icon: Truck, href: '/inventory-suppliers', active: false },
-  { id: 'automation', label: 'Automation', icon: Zap, href: '/inventory/automation', active: false },
-];
 
 interface InventoryItem {
   id: string;
@@ -508,51 +478,9 @@ export default function InventoryPage() {
   });
 
   return (
-    <div className="flex h-screen w-full flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      {/* Top Header Bar */}
-      <header className="flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-6 py-2 shadow-xs shrink-0 z-20">
-        <div className="flex items-center gap-3">
-          <Link href="/apps" className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs hover:bg-violet-700">
-            <LayoutGrid className="h-5 w-5" />
-          </Link>
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <span className="text-slate-400">Inventory</span>
-            <ChevronRight className="h-3 w-3 text-slate-400" />
-            <span className="text-slate-900 font-medium">All Items</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <OutletSelector />
-          <div className="flex items-center gap-2 text-xs text-slate-500">
-            <div className="h-8 w-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center font-medium">
-              {user?.username?.charAt(0).toUpperCase() || 'U'}
-            </div>
-            <span className="text-slate-700">{user?.username || 'User'}</span>
-          </div>
-        </div>
-      </header>
-
+    <ResponsiveShell title="Ringkasan Stok">
+    <div className="flex h-full w-full flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden -m-4 sm:-m-6">
       <div className="flex flex-1 overflow-hidden">
-        {/* Left Navigation Rail */}
-        <nav className="w-56 bg-white border-r border-slate-200 flex flex-col shrink-0 overflow-y-auto">
-          <div className="p-3 space-y-1">
-            {INVENTORY_NAV_ITEMS.map((item) => (
-              <Link
-                key={item.id}
-                href={item.href}
-                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  item.active
-                    ? 'bg-violet-50 text-violet-700'
-                    : 'text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            ))}
-          </div>
-        </nav>
-
         {/* Main Content Area */}
         <main className="flex-1 flex flex-col overflow-hidden">
           {/* KPI Header Stats */}
@@ -1184,5 +1112,6 @@ export default function InventoryPage() {
         </div>
       )}
     </div>
+    </ResponsiveShell>
   );
 }

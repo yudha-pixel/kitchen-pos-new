@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
 import { useAuth } from '@/src/context/AuthContext';
 import { useConfigStore } from '@/src/store/useConfigStore';
 import { getSalesDataByPeriod, getExpensesDataByPeriod, getPaymentMethodSummary, getBestSellingProducts } from '@/src/features/reports/reportsService';
@@ -146,25 +144,17 @@ export default function ReportsPage() {
   // RBAC Protection
   if (user && user.role !== 'admin' && user.role !== 'management') {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <Sidebar />
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Header />
-          <main className="flex-1 overflow-y-auto p-6">
-            <div className="max-w-7xl mx-auto">
-              <div className="bg-white rounded-lg shadow p-8 text-center">
-                <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Akses Ditolak</h2>
-                <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Admin dan Management.</p>
-                <button
-                  onClick={() => router.push('/inventory')}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
-                >
-                  Kembali ke Inventori
-                </button>
-              </div>
-            </div>
-          </main>
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow p-8 text-center">
+          <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Akses Ditolak</h2>
+          <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Admin dan Management.</p>
+          <button
+            onClick={() => router.push('/inventory')}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
+          >
+            Kembali ke Inventori
+          </button>
         </div>
       </div>
     );
@@ -172,9 +162,7 @@ export default function ReportsPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-y-auto p-4">
           <div className="max-w-7xl mx-auto">
             {/* Header */}

@@ -2,10 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
-import { 
-  ArrowLeft, 
-  Search, 
+import {
+  Search,
   Filter, 
   Calendar, 
   User, 
@@ -20,8 +18,9 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
-import { 
-  StockRequest, 
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import {
+  StockRequest,
   getStockRequests, 
   getStockRequestsByStatus,
   approveStockRequestSupervisor,
@@ -201,7 +200,7 @@ export default function StockApprovalsPage() {
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
       const token = localStorage.getItem('token');
       
-      const response = await fetch(`${API_BASE_URL}/ingredients`, {
+      const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -282,22 +281,15 @@ export default function StockApprovalsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <ResponsiveShell title="Stock Approvals">
+    <div className="min-h-full bg-slate-50 -m-4 sm:-m-6">
       {/* Header */}
       <div className="bg-white border-b border-slate-200">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-4">
-              <Link
-                href="/inventory"
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
-              >
-                <ArrowLeft className="h-5 w-5 text-slate-600" />
-              </Link>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Persetujuan Stok</h1>
-                <p className="text-sm text-slate-500">Kelola permintaan dan transfer stok</p>
-              </div>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Persetujuan Stok</h1>
+              <p className="text-sm text-slate-500">Kelola permintaan dan transfer stok</p>
             </div>
             <button
               onClick={handleCreateTestRequest}
@@ -714,5 +706,6 @@ export default function StockApprovalsPage() {
         </div>
       )}
     </div>
+    </ResponsiveShell>
   );
 }

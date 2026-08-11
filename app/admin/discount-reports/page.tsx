@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
-import { Sidebar } from '@/src/components/layout/Sidebar';
-import { Header } from '@/src/components/layout/Header';
 import { formatRupiah } from '@/src/lib/format';
 import { Search, Calendar, User, Download, Filter, Gift, Tag } from 'lucide-react';
 
@@ -244,9 +242,7 @@ export default function DiscountReportsPage() {
 
   return (
     <div className="flex h-screen bg-gray-50">
-      <Sidebar />
       <div className="flex-1 flex flex-col overflow-hidden">
-        <Header />
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-7xl mx-auto">
             {/* Header */}

@@ -3,21 +3,13 @@
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import {
-  LayoutGrid,
-  Search,
   CheckCircle2,
   ArrowUpCircle,
   AlertCircle,
   Filter,
   ShieldCheck,
   ChevronRight,
-  HelpCircle,
-  Home,
-  Layers,
-  Users,
-  FileText,
-  Activity,
-  Settings as SettingsIcon,
+  Search,
   ShoppingCart,
   Monitor,
   Box,
@@ -27,12 +19,8 @@ import {
   BarChart3,
   ShoppingBag,
   AlertTriangle,
-  RotateCcw,
   X,
-  ExternalLink,
   Check,
-  MoreVertical,
-  LogOut,
 } from 'lucide-react';
 
 import {
@@ -40,18 +28,8 @@ import {
   InternalModule,
   getModuleDependents,
 } from '@/src/features/modules/module-manager';
-import { OutletSelector } from '@/src/components/outlet/OutletSelector';
-import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
-
-const ADMIN_NAV_ITEMS = [
-  { id: 'overview', label: 'Overview', icon: Home, active: false },
-  { id: 'modules', label: 'Internal Modules', icon: Layers, active: true },
-  { id: 'roles', label: 'Roles & Permissions', icon: Users, active: false },
-  { id: 'audit', label: 'Audit Logs', icon: FileText, active: false },
-  { id: 'health', label: 'System Health', icon: Activity, active: false },
-  { id: 'config', label: 'Configuration', icon: SettingsIcon, active: false },
-];
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 
 const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   pos_core: ShoppingCart,
@@ -66,7 +44,6 @@ const MODULE_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
 
 export default function InternalModuleManagerPage() {
   const { toast } = useToast();
-  const { user, logout } = useAuth();
   const [modules, setModules] = useState<InternalModule[]>(INTERNAL_MODULES);
   const [selectedModuleId, setSelectedModuleId] = useState<string>('kds_core');
   const [searchQuery, setSearchQuery] = useState('');
@@ -134,61 +111,9 @@ export default function InternalModuleManagerPage() {
   }, [targetDisableModule]);
 
   return (
-    <div className="flex h-screen w-full flex-col bg-slate-50 text-slate-900 font-sans overflow-hidden">
-      {/* Top Header Bar */}
-      <header className="flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white px-6 py-2 shadow-xs shrink-0 z-20">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-600 text-white shadow-xs">
-            <LayoutGrid className="h-5 w-5" />
-          </div>
-          <span className="text-lg font-bold tracking-tight text-slate-900">Kitchen POS ERP</span>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <OutletSelector />
-          <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-700 text-xs font-bold text-white uppercase">
-              {user?.username?.charAt(0) || 'A'}
-            </div>
-            <span className="text-xs font-semibold text-slate-800 hidden sm:block">{user?.username || 'admin'}</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Body Area: System Admin Sub-Rail + Central Workspace + Right Detail Panel */}
-      <div className="flex flex-1 min-h-0 w-full overflow-hidden">
-        {/* Left Sub-Navigation Rail */}
-        <aside className="w-64 border-r border-slate-200 bg-white flex flex-col justify-between shrink-0">
-          <div className="p-3">
-            <span className="px-3 text-[11px] font-bold uppercase tracking-wider text-slate-400">
-              SYSTEM ADMINISTRATION
-            </span>
-            <nav className="mt-2 space-y-1">
-              {ADMIN_NAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <div
-                    key={item.id}
-                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors cursor-pointer ${
-                      item.active
-                        ? 'bg-violet-50 text-violet-700 font-semibold'
-                        : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                    }`}
-                  >
-                    <Icon className={`h-5 w-5 ${item.active ? 'text-violet-600' : 'text-slate-400'}`} />
-                    <span className="text-xs">{item.label}</span>
-                  </div>
-                );
-              })}
-            </nav>
-          </div>
-
-          <div className="p-4 border-t border-slate-100 text-xs text-slate-400">
-            <span className="font-semibold text-slate-700 block">Nusantara Resto</span>
-            <span className="text-[10px]">v3.18.0</span>
-          </div>
-        </aside>
-
+    <ResponsiveShell title="Internal Modules">
+      {/* Central Workspace + Right Detail Panel */}
+      <div className="-m-4 flex min-h-[calc(100%+2rem)] w-[calc(100%+2rem)] sm:-m-6 sm:min-h-[calc(100%+3rem)] sm:w-[calc(100%+3rem)]">
         {/* Central Workspace: Modules List & Table */}
         <main className="flex-1 flex flex-col min-w-0 overflow-y-auto p-6 bg-slate-50/70">
           {/* Header Title & Badge */}
@@ -580,6 +505,6 @@ export default function InternalModuleManagerPage() {
           </div>
         </div>
       )}
-    </div>
+    </ResponsiveShell>
   );
 }

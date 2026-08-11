@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Header } from '@/src/components/layout/Header';
-import { Sidebar } from '@/src/components/layout/Sidebar';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { getToken } from '@/src/lib/api';
@@ -127,7 +125,7 @@ export default function SettingsPage() {
   const loadSettings = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/settings`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -248,7 +246,7 @@ export default function SettingsPage() {
         ...userSettings,
       };
 
-      const response = await fetch(`${API_BASE_URL}/settings`, {
+      const response = await fetch(`${API_BASE_URL}/api/settings`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -284,7 +282,7 @@ export default function SettingsPage() {
     setResetError('');
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/settings/reset`, {
+      const response = await fetch(`${API_BASE_URL}/api/settings/reset`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -314,11 +312,7 @@ export default function SettingsPage() {
 
   return (
     <div className="flex h-dvh flex-col bg-background">
-      <Header title="Pengaturan Sistem" />
-      
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar />
-        
         <main className="flex-1 overflow-y-auto p-6">
           <div className="mx-auto max-w-6xl">
             {/* Tab Navigation */}
@@ -1071,7 +1065,7 @@ function UserAccessSettings({ settings, onChange }: UserSettingsProps) {
   const loadUsers = async () => {
     try {
       const token = getToken();
-      const response = await fetch(`${API_BASE_URL}/users`, {
+      const response = await fetch(`${API_BASE_URL}/api/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -1139,7 +1133,7 @@ function UserAccessSettings({ settings, onChange }: UserSettingsProps) {
     setIsSaving(true);
     try {
       const token = getToken();
-      const url = editingUser ? `${API_BASE_URL}/users/${editingUser.id}` : `${API_BASE_URL}/users`;
+      const url = editingUser ? `${API_BASE_URL}/api/users/${editingUser.id}` : `${API_BASE_URL}/api/users`;
       const method = editingUser ? 'PUT' : 'POST';
 
       const payload = editingUser 
@@ -1778,7 +1772,7 @@ function SecuritySettings({ settings, onChange, toast }: SecuritySettingsProps) 
               onClick={async () => {
                 try {
                   const token = getToken();
-                  const response = await fetch(`${API_BASE_URL}/settings/backup`, {
+                  const response = await fetch(`${API_BASE_URL}/api/backup`, {
                     method: 'POST',
                     headers: {
                       'Authorization': `Bearer ${token}`,

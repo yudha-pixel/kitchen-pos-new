@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { Clock, CheckCircle, AlertCircle, ChefHat, Wine, ArrowLeft, RefreshCw, Flame, Bell } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, ChefHat, Wine, RefreshCw, Flame, Bell } from 'lucide-react';
 import * as api from '@/src/lib/api';
 import { useToast } from '@/src/components/ui/Toast';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { Spinner } from '@/src/components/ui/Spinner';
 import { formatTime, formatElapsed, elapsedMinutes } from '@/src/lib/format';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 
 interface OrderItem {
   id: string;
@@ -53,7 +53,6 @@ const urgencyStyles: Record<Urgency, { border: string; chip: string; label: stri
 };
 
 export default function KitchenDisplayPage() {
-  const router = useRouter();
   const { toast } = useToast();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -301,77 +300,69 @@ export default function KitchenDisplayPage() {
   ];
 
   return (
-    <div data-theme="kds" className="min-h-dvh bg-kds-bg text-kds-text">
-      {/* Header */}
-      <div className="border-b border-kds-border bg-kds-surface p-4">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.back()}
-              aria-label="Kembali"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-kds-text-secondary transition-colors hover:bg-kds-surface-alt hover:text-kds-text"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </button>
+    <ResponsiveShell title="Kitchen Display">
+      <div data-theme="kds" className="-m-4 min-h-[calc(100%+2rem)] rounded-lg bg-kds-bg text-kds-text sm:-m-6 sm:min-h-[calc(100%+3rem)]">
+        {/* Toolbar */}
+        <div className="rounded-t-lg border-b border-kds-border bg-kds-surface p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <ChefHat className="h-8 w-8 text-orange-500" aria-hidden="true" />
+                <ChefHat className="h-8 w-8 text-primary" aria-hidden="true" />
                 {showNotification && newOrderCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white animate-bounce">
+                  <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-danger text-xs font-bold text-white animate-bounce">
                     {newOrderCount}
                   </span>
                 )}
               </div>
               <h1 className="text-2xl font-bold">Kitchen Display</h1>
               {showNotification && (
-                <div className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white animate-pulse shadow-lg">
+                <div className="flex items-center gap-2 rounded-lg bg-success px-4 py-2 text-sm font-medium text-white animate-pulse shadow-lg">
                   <Bell className="h-4 w-4" />
                   {newOrderCount} order baru
                 </div>
               )}
             </div>
-          </div>
 
-          <div className="flex items-center gap-2" role="group" aria-label="Filter station">
-            {filterButtons.map(({ key, label, Icon }) => (
+            <div className="flex items-center gap-2" role="group" aria-label="Filter station">
+              {filterButtons.map(({ key, label, Icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setFilter(key)}
+                  aria-pressed={filter === key}
+                  className={`flex min-h-11 items-center gap-2 rounded-lg px-4 font-medium transition-colors ${
+                    filter === key
+                      ? 'bg-primary text-on-primary'
+                      : 'bg-kds-surface-alt text-kds-text-secondary hover:bg-kds-border hover:text-kds-text'
+                  }`}
+                >
+                  {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {lastRefreshed && (
+                <span className="tnum hidden text-xs text-kds-text-secondary sm:inline">
+                  Diperbarui {formatTime(lastRefreshed)}
+                </span>
+              )}
               <button
-                key={key}
-                onClick={() => setFilter(key)}
-                aria-pressed={filter === key}
-                className={`flex min-h-11 items-center gap-2 rounded-lg px-4 font-medium transition-colors ${
-                  filter === key
-                    ? 'bg-orange-500 text-white'
-                    : 'bg-kds-surface-alt text-kds-text-secondary hover:bg-slate-600 hover:text-white'
-                }`}
+                onClick={() => fetchOrders()}
+                disabled={refreshing}
+                className="flex min-h-11 items-center gap-2 rounded-lg bg-primary px-4 font-medium text-on-primary transition-colors hover:bg-primary-hover disabled:opacity-50"
               >
-                {Icon && <Icon className="h-4 w-4" aria-hidden="true" />}
-                {label}
+                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
+                Refresh
               </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
-            {lastRefreshed && (
-              <span className="tnum hidden text-xs text-kds-text-secondary sm:inline">
-                Diperbarui {formatTime(lastRefreshed)}
-              </span>
-            )}
-            <button
-              onClick={() => fetchOrders()}
-              disabled={refreshing}
-              className="flex min-h-11 items-center gap-2 rounded-lg bg-sky-700 px-4 font-medium text-white transition-colors hover:bg-sky-600 hover:text-white disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
-              Refresh
-            </button>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Orders Grid */}
-      <div className="p-6">
+        {/* Orders Grid */}
+        <div className="p-6">
         {loading ? (
-          <div className="flex h-64 items-center justify-center text-orange-500">
+          <div className="flex h-64 items-center justify-center text-primary">
             <Spinner size="lg" />
           </div>
         ) : filteredItems.length === 0 ? (
@@ -395,7 +386,7 @@ export default function KitchenDisplayPage() {
                     <div>
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xl font-bold">{order.table_number || 'Take Away'}</span>
-                        <span className="rounded bg-orange-500 px-2 py-1 text-xs font-medium text-white">
+                        <span className="rounded bg-primary px-2 py-1 text-xs font-medium text-on-primary">
                           #{order.id.slice(0, 6)}
                         </span>
                         {order.status === 'preparing' && (
@@ -417,7 +408,7 @@ export default function KitchenDisplayPage() {
 
                   {/* Item Card */}
                   <div className="p-4">
-                    <div className="border-l-4 border-orange-500 pl-3">
+                    <div className="border-l-4 border-primary pl-3">
                       <div className="flex items-baseline justify-between gap-2">
                         <span className="tnum text-xl font-bold">{item.quantity}x</span>
                         <span className="flex-1 text-right text-lg font-medium">
@@ -469,7 +460,8 @@ export default function KitchenDisplayPage() {
             })}
           </div>
         )}
+        </div>
       </div>
-    </div>
+    </ResponsiveShell>
   );
 }

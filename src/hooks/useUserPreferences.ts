@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/src/context/AuthContext';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { getToken } from '@/src/lib/api';
 
 interface UserPreferences {
   favorites: string[];
@@ -25,14 +26,15 @@ export function useUserPreferences() {
 
   const fetchPreferences = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}/api/user/preferences`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
+      if (!res.ok) throw new Error(`Failed to fetch preferences: ${res.status}`);
       const data = await res.json();
-      setPreferences(data);
+      setPreferences({ favorites: data.favorites ?? [], recent: data.recent ?? [] });
     } catch (error) {
       console.error('Failed to fetch preferences:', error);
     } finally {
@@ -42,7 +44,7 @@ export function useUserPreferences() {
 
   const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
     try {
-      const token = localStorage.getItem('token');
+      const token = getToken();
       const res = await fetch(`${API_BASE_URL}/api/user/preferences`, {
         method: 'PUT',
         headers: {
@@ -51,8 +53,9 @@ export function useUserPreferences() {
         },
         body: JSON.stringify({ ...preferences, ...newPrefs })
       });
+      if (!res.ok) throw new Error(`Failed to update preferences: ${res.status}`);
       const data = await res.json();
-      setPreferences(data);
+      setPreferences({ favorites: data.favorites ?? [], recent: data.recent ?? [] });
     } catch (error) {
       console.error('Failed to update preferences:', error);
     }
