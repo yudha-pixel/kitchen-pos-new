@@ -14,10 +14,14 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     const profile = await prisma.profile.findUnique({
       where: { id: userId },
       select: { preferences: true }
-    }) as any;
+    });
+    
+    if (!profile) {
+      return res.status(404).json({ error: 'User not found' });
+    }
     
     // Return preferences or default empty object
-    const preferences = profile?.preferences || {};
+    const preferences = profile.preferences as any || {};
     res.json({
       favorites: preferences.favorites || [],
       recent: preferences.recent || []
@@ -51,9 +55,13 @@ router.put('/', authMiddleware, async (req: Request, res: Response) => {
     const currentProfile = await prisma.profile.findUnique({
       where: { id: userId },
       select: { preferences: true }
-    }) as any;
+    });
     
-    const currentPreferences = currentProfile?.preferences || {};
+    if (!currentProfile) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    const currentPreferences = currentProfile.preferences as any || {};
     
     // Update with new values, preserving existing structure
     const updatedPreferences = {
@@ -65,9 +73,9 @@ router.put('/', authMiddleware, async (req: Request, res: Response) => {
     const updated = await prisma.profile.update({
       where: { id: userId },
       data: { preferences: updatedPreferences as any }
-    }) as any;
+    });
     
-    const preferences = updated.preferences || {};
+    const preferences = updated.preferences as any || {};
     res.json({
       favorites: preferences.favorites || [],
       recent: preferences.recent || []

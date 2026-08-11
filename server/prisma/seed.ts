@@ -136,12 +136,27 @@ async function main() {
   }
   console.log('✅ Created role-permission mappings');
 
-  // Step 1.4: Create test users
+  // Step 1.4: Create default outlets
+  const outlet1 = await prisma.outlet.upsert({
+    where: { code: 'OUT-001' },
+    update: {},
+    create: {
+      id: randomUUID(),
+      name: 'Outlet Pusat',
+      code: 'OUT-001',
+      address: 'Jl. Jendral Sudirman No. 1, Jakarta',
+      phone: '021-12345678',
+      is_active: true,
+    },
+  });
+  console.log('✅ Created default outlet: OUT-001');
+
+  // Step 1.5: Create test users
   const testUsers = [
     { username: 'admin', password: 'admin', full_name: 'System Administrator', role: 'admin', outlet: 'OUT-001' },
-    { username: 'cashier1', password: 'cashier123', full_name: 'Test Cashier', role: 'cashier', outlet: 'OUT-001' },
-    { username: 'manager1', password: 'manager123', full_name: 'Test Manager', role: 'management', outlet: 'OUT-002' },
-    { username: 'owner1', password: 'owner123', full_name: 'Test Owner', role: 'owner', outlet: 'OUT-003' },
+    { username: 'cashier', password: 'cashier123', full_name: 'Cashier User', role: 'cashier', outlet: 'OUT-001' },
+    { username: 'manager', password: 'manager123', full_name: 'Manager User', role: 'management', outlet: 'OUT-001' },
+    { username: 'owner', password: 'owner123', full_name: 'Owner User', role: 'owner', outlet: 'OUT-001' },
     { username: 'admin2', password: 'admin123', full_name: 'Second Admin', role: 'admin', outlet: 'OUT-001' },
   ];
 
@@ -179,20 +194,7 @@ async function main() {
     console.log(`✅ Seeded preferences for: ${user.username}`);
   }
 
-  // Create default outlets
-  const outlet1 = await prisma.outlet.upsert({
-    where: { code: 'OUT-001' },
-    update: {},
-    create: {
-      id: randomUUID(),
-      name: 'Outlet Pusat',
-      code: 'OUT-001',
-      address: 'Jl. Jendral Sudirman No. 1, Jakarta',
-      phone: '021-12345678',
-      is_active: true,
-    },
-  });
-
+  // Create additional outlets
   const outlet2 = await prisma.outlet.upsert({
     where: { code: 'OUT-002' },
     update: {},

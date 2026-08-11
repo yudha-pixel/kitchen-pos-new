@@ -1,5 +1,6 @@
 import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { convertToSmallestUnit } from '@/src/features/inventory/unitConversion';
 
 export interface Ingredient {
   id: string;
@@ -143,7 +144,16 @@ export async function calculateRecipeCost(productId: string): Promise<number> {
     
     for (const recipe of recipes) {
       if (recipe.ingredient) {
-        totalCost += recipe.ingredient.unit_price * recipe.quantity_required;
+        // Use the unit from the recipe and price from the ingredient
+        // The unit_price is stored in smallest unit (g, ml, pcs)
+        // The quantity_required is in the recipe's unit
+        // We need to convert quantity to smallest unit for accurate calculation
+        const unit = recipe.unit || recipe.ingredient.unit;
+        const pricePerSmallestUnit = recipe.ingredient.unit_price;
+        
+        // Convert quantity to smallest unit
+        const converted = convertToSmallestUnit(recipe.quantity_required, unit);
+        totalCost += converted.price * pricePerSmallestUnit;
       }
     }
     
@@ -212,6 +222,309 @@ export async function addIngredient(
   } catch (error) {
     console.error('Failed to add ingredient:', error);
     throw error;
+  }
+}
+
+// Sync recipe ingredients to inventory
+export async function syncRecipeIngredientsToInventory(): Promise<{
+  success: boolean;
+  added: number;
+  failed: number;
+  message: string;
+}> {
+  console.log('Starting recipe-inventory synchronization audit...');
+  
+  try {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    
+    // Get all inventory ingredients
+    const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
+    if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
+    const inventoryIngredients = await ingredientsResponse.json();
+    
+    // Create a map of existing ingredient names (case-insensitive) for quick lookup
+    const existingIngredientNames = new Set(
+      inventoryIngredients.map((ing: any) => ing.name.toLowerCase())
+    );
+    
+    // Get all recipes to identify unique ingredients used
+    const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes`, { headers });
+    if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
+    const allRecipes = await recipesResponse.json();
+    
+    // Collect unique ingredient names from recipes
+    const recipeIngredientNames = new Set<string>();
+    for (const recipe of allRecipes) {
+      if (recipe.ingredient?.name) {
+        recipeIngredientNames.add(recipe.ingredient.name.toLowerCase());
+      }
+    }
+    
+    // Also check for ingredients referenced by name in recipe data
+    for (const recipe of allRecipes) {
+      if (recipe.ingredient_name) {
+        recipeIngredientNames.add(recipe.ingredient_name.toLowerCase());
+      }
+    }
+    
+    console.log(`Audit Results:`);
+    console.log(`- Total unique ingredients in recipes: ${recipeIngredientNames.size}`);
+    console.log(`- Total ingredients in inventory: ${inventoryIngredients.length}`);
+    
+    // Find ingredients in recipes that are missing from inventory (by name)
+    const missingIngredientNames = [...recipeIngredientNames].filter(
+      name => !existingIngredientNames.has(name)
+    );
+    
+    console.log(`- Missing ingredients: ${missingIngredientNames.length}`);
+    
+    if (missingIngredientNames.length === 0) {
+      console.log('✅ All recipe ingredients are already registered in inventory');
+      return {
+        success: true,
+        added: 0,
+        failed: 0,
+        message: 'Semua bahan resep sudah terdaftar di inventory',
+      };
+    }
+    
+    // Get details of missing ingredients from recipes to determine units and prices
+    const missingIngredientsMap = new Map<string, { unit: string; unit_price: number }>();
+    
+    for (const recipe of allRecipes) {
+      const ingredientName = recipe.ingredient?.name || recipe.ingredient_name;
+      if (!ingredientName) continue;
+      
+      const normalizedName = ingredientName.toLowerCase();
+      if (missingIngredientNames.includes(normalizedName) && !missingIngredientsMap.has(normalizedName)) {
+        missingIngredientsMap.set(normalizedName, {
+          unit: recipe.unit || recipe.ingredient?.unit || 'g',
+          unit_price: recipe.ingredient?.unit_price || 0,
+        });
+      }
+    }
+    
+    const missingIngredients = missingIngredientNames.map(name => {
+      const details = missingIngredientsMap.get(name) || { unit: 'g', unit_price: 0 };
+      return {
+        name: name.charAt(0).toUpperCase() + name.slice(1), // Capitalize first letter
+        unit: details.unit,
+        unit_price: details.unit_price,
+      };
+    });
+    
+    console.log(`Registering ${missingIngredients.length} missing ingredients...`);
+    console.log('Missing ingredients:', missingIngredients);
+    
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const ingredient of missingIngredients) {
+      try {
+        console.log(`Attempting to register: ${ingredient.name} (${ingredient.unit}, ${ingredient.unit_price})`);
+        const result = await addIngredient({
+          name: ingredient.name,
+          current_stock: 0,
+          unit: ingredient.unit,
+          min_stock: 100,
+          unit_price: ingredient.unit_price,
+        });
+        console.log(`✅ Registered: ${ingredient.name} with ID: ${result}`);
+        successCount++;
+      } catch (error) {
+        console.error(`❌ Failed to register ${ingredient.name}:`, error);
+        failCount++;
+      }
+    }
+    
+    console.log(`Sync completed: ${successCount} added, ${failCount} failed`);
+    
+    return {
+      success: true,
+      added: successCount,
+      failed: failCount,
+      message: `${successCount} bahan ditambahkan, ${failCount} gagal`,
+    };
+    
+  } catch (error) {
+    console.error('Sync failed:', error);
+    return {
+      success: false,
+      added: 0,
+      failed: 0,
+      message: 'Gagal melakukan sinkronisasi',
+    };
+  }
+}
+
+// Check if sufficient stock is available for a product
+export async function checkStockAvailability(productId: string, quantity: number = 1): Promise<{
+  available: boolean;
+  insufficientIngredients: Array<{ name: string; required: number; available: number; unit: string }>;
+}> {
+  try {
+    const token = getToken();
+    const headers: Record<string, string> = {};
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    
+    // Get recipes for the product
+    const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes/menu/${productId}`, { headers });
+    if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
+    const recipes = await recipesResponse.json();
+    
+    // Get current inventory
+    const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
+    if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
+    const ingredients = await ingredientsResponse.json();
+    
+    // Create a map of ingredient ID to current stock
+    const stockMap = new Map(ingredients.map((ing: any) => [ing.id, ing]));
+    
+    const insufficientIngredients: Array<{ name: string; required: number; available: number; unit: string }> = [];
+    
+    for (const recipe of recipes) {
+      const ingredient = stockMap.get(recipe.ingredient_id);
+      if (!ingredient) {
+        insufficientIngredients.push({
+          name: recipe.ingredient?.name || 'Unknown',
+          required: recipe.quantity_required * quantity,
+          available: 0,
+          unit: recipe.unit || ingredient?.unit || 'g',
+        });
+        continue;
+      }
+      
+      const required = recipe.quantity_required * quantity;
+      const available = ingredient.current_stock;
+      
+      if (available < required) {
+        insufficientIngredients.push({
+          name: ingredient.name,
+          required,
+          available,
+          unit: recipe.unit || ingredient.unit,
+        });
+      }
+    }
+    
+    return {
+      available: insufficientIngredients.length === 0,
+      insufficientIngredients,
+    };
+  } catch (error) {
+    console.error('Failed to check stock availability:', error);
+    return {
+      available: false,
+      insufficientIngredients: [],
+    };
+  }
+}
+
+// Deduct stock based on product recipe
+export async function deductStockForSale(productId: string, quantity: number = 1): Promise<{
+  success: boolean;
+  deductedIngredients: Array<{ name: string; quantity: number; unit: string }>;
+  failedIngredients: Array<{ name: string; error: string }>;
+  message: string;
+}> {
+  console.log(`Deducting stock for product ${productId}, quantity: ${quantity}`);
+  
+  try {
+    const token = getToken();
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) headers['Authorization'] = `Bearer ${token}`;
+    
+    // Get recipes for the product
+    const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes/menu/${productId}`, { headers });
+    if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
+    const recipes = await recipesResponse.json();
+    
+    // Get current inventory
+    const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
+    if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
+    const ingredients = await ingredientsResponse.json();
+    
+    // Create a map of ingredient ID to current stock
+    const stockMap = new Map(ingredients.map((ing: any) => [ing.id, ing]));
+    
+    const deductedIngredients: Array<{ name: string; quantity: number; unit: string }> = [];
+    const failedIngredients: Array<{ name: string; error: string }> = [];
+    
+    for (const recipe of recipes) {
+      const ingredient = stockMap.get(recipe.ingredient_id);
+      if (!ingredient) {
+        console.error(`Ingredient ${recipe.ingredient_id} not found in inventory`);
+        failedIngredients.push({
+          name: recipe.ingredient?.name || 'Unknown',
+          error: 'Ingredient not found in inventory',
+        });
+        continue;
+      }
+      
+      const required = recipe.quantity_required * quantity;
+      const newStock = ingredient.current_stock - required;
+      
+      if (newStock < 0) {
+        console.error(`Insufficient stock for ${ingredient.name}: required ${required}, available ${ingredient.current_stock}`);
+        failedIngredients.push({
+          name: ingredient.name,
+          error: `Insufficient stock: required ${required}, available ${ingredient.current_stock}`,
+        });
+        continue;
+      }
+      
+      try {
+        // Update ingredient stock via API
+        const updateResponse = await fetch(`${API_BASE_URL}/api/ingredients/${ingredient.id}`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({
+            name: ingredient.name,
+            current_stock: newStock,
+            unit: ingredient.unit,
+            min_stock: ingredient.min_stock,
+            unit_price: ingredient.unit_price,
+            supplier_id: ingredient.supplier_id,
+          }),
+        });
+        
+        if (!updateResponse.ok) {
+          throw new Error('Failed to update ingredient stock');
+        }
+        
+        console.log(`✅ Deducted ${required} ${ingredient.unit} from ${ingredient.name} (new stock: ${newStock})`);
+        deductedIngredients.push({
+          name: ingredient.name,
+          quantity: required,
+          unit: ingredient.unit,
+        });
+      } catch (error) {
+        console.error(`Failed to deduct stock for ${ingredient.name}:`, error);
+        failedIngredients.push({
+          name: ingredient.name,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+    
+    const message = `Stock deducted: ${deductedIngredients.length} ingredients${failedIngredients.length > 0 ? `, ${failedIngredients.length} failed` : ''}`;
+    
+    return {
+      success: failedIngredients.length === 0,
+      deductedIngredients,
+      failedIngredients,
+      message,
+    };
+  } catch (error) {
+    console.error('Failed to deduct stock:', error);
+    return {
+      success: false,
+      deductedIngredients: [],
+      failedIngredients: [],
+      message: 'Failed to deduct stock',
+    };
   }
 }
 

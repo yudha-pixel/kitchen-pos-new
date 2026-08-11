@@ -23,6 +23,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
 import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
+import { getIngredientsWithStatus, syncRecipeIngredientsToInventory } from '@/src/features/inventory/recipeApiService';
+import { validateUnitPrice, convertToSmallestUnit, convertFromSmallestUnit, getSmallestUnit, calculateUnitCostFromPackage } from '@/src/features/inventory/unitConversion';
 
 interface InventoryItem {
   id: string;
@@ -142,7 +144,7 @@ export default function InventoryPage() {
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [detailTab, setDetailTab] = useState<'details' | 'activity'>('details');
-  const [items, setItems] = useState<InventoryItem[]>(MOCK_ITEMS);
+  const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [adjustmentModalOpen, setAdjustmentModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
@@ -165,47 +167,62 @@ export default function InventoryPage() {
     unitPrice: '',
     minStock: '',
     supplierId: '',
+    packagePrice: '',
+    packageSize: '',
+    packageUnit: '',
   });
 
   const selectedItem = items.find((i) => i.id === selectedItemId) || items[0];
 
-  // Load inventory data from IndexedDB
+  // Load inventory data from API
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const ingredients = await db.ingredients.toArray();
-        const suppliers = await db.suppliers.toArray();
+        console.log('Loading inventory data from API...');
+        // Fetch from API to ensure sync data is reflected
+        const ingredients = await getIngredientsWithStatus();
+        console.log('Loaded ingredients from API:', ingredients.length);
+        
+        if (ingredients.length === 0) {
+          console.warn('No ingredients returned from API');
+          setItems([]);
+          return;
+        }
         
         const inventoryItems: InventoryItem[] = ingredients.map(ing => {
-          const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
           const status = ing.current_stock <= 0 ? 'Out of Stock' : 
                         ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
-          
-          return {
-            id: ing.id!,
-            name: ing.name,
-            sku: ing.sku,
-            category: ing.category,
-            onHand: `${ing.current_stock} ${ing.unit}`,
-            status,
-            unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
-            unit: ing.unit,
-            barcode: ing.sku,
-            supplier: supplier?.name || 'Unknown',
-            sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
-            reorderPoint: `${ing.min_stock} ${ing.unit}`,
-            description: '',
-            committed: '0',
-            available: `${ing.current_stock} ${ing.unit}`,
-            lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
-          };
-        });
         
+        // Convert price back to original unit for display
+        const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
+        
+        return {
+          id: ing.id,
+          name: ing.name,
+          sku: ing.sku,
+          category: ing.category,
+          onHand: `${ing.current_stock} ${ing.unit}`,
+          status,
+          unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
+          unit: ing.unit,
+          barcode: ing.sku,
+          supplier: ing.supplier_name || 'Unknown',
+          sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString('id-ID')}`,
+          reorderPoint: `${ing.min_stock} ${ing.unit}`,
+          description: '',
+          committed: '0',
+          available: `${ing.current_stock} ${ing.unit}`,
+          lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+        };
+      });
+        
+        console.log('Setting inventory items:', inventoryItems.length);
         setItems(inventoryItems);
       } catch (error) {
         console.error('Failed to load inventory data:', error);
         toast('error', 'Gagal memuat data inventaris');
+        setItems([]);
       } finally {
         setLoading(false);
       }
@@ -316,6 +333,9 @@ export default function InventoryPage() {
           const status = ing.current_stock <= 0 ? 'Out of Stock' : 
                         ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
           
+          // Convert price back to original unit for display
+          const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
+          
           return {
             id: ing.id!,
             name: ing.name,
@@ -323,11 +343,11 @@ export default function InventoryPage() {
             category: ing.category,
             onHand: `${ing.current_stock} ${ing.unit}`,
             status,
-            unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+            unitCost: `Rp ${displayPrice.toLocaleString()}`,
             unit: ing.unit,
             barcode: ing.sku,
             supplier: supplier?.name || 'Unknown',
-            sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+            sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString()}`,
             reorderPoint: `${ing.min_stock} ${ing.unit}`,
             description: '',
             committed: '0',
@@ -352,26 +372,35 @@ export default function InventoryPage() {
   const handleRefresh = async () => {
     setLoading(true);
     try {
-      const ingredients = await db.ingredients.toArray();
-      const suppliers = await db.suppliers.toArray();
+      // First sync recipe ingredients to inventory
+      const syncResult = await syncRecipeIngredientsToInventory();
+      if (syncResult.success && syncResult.added > 0) {
+        toast('success', `Sinkronisasi: ${syncResult.message}`);
+      }
+      
+      // Then reload inventory data from API
+      const ingredients = await getIngredientsWithStatus();
+      console.log('Loaded ingredients from API after refresh:', ingredients.length);
       
       const inventoryItems: InventoryItem[] = ingredients.map(ing => {
-        const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
         const status = ing.current_stock <= 0 ? 'Out of Stock' : 
                       ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
         
+        // Convert price back to original unit for display
+        const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
+        
         return {
-          id: ing.id!,
+          id: ing.id,
           name: ing.name,
-          sku: ing.sku,
-          category: ing.category,
+          sku: undefined,
+          category: undefined,
           onHand: `${ing.current_stock} ${ing.unit}`,
           status,
-          unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+          unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
           unit: ing.unit,
-          barcode: ing.sku,
-          supplier: supplier?.name || 'Unknown',
-          sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+          barcode: undefined,
+          supplier: ing.supplier_name || 'Unknown',
+          sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString('id-ID')}`,
           reorderPoint: `${ing.min_stock} ${ing.unit}`,
           description: '',
           committed: '0',
@@ -395,19 +424,48 @@ export default function InventoryPage() {
   };
 
   const handleSaveNewItem = async () => {
-    if (!newItem.name || !newItem.unit || !newItem.unitPrice) {
+    if (!newItem.name || !newItem.unit) {
       toast('error', 'Please fill in required fields');
       return;
     }
 
+    let unitPrice = 0;
+    
+    // Calculate unit cost from package pricing if provided
+    if (newItem.packagePrice && newItem.packageSize && newItem.packageUnit) {
+      const packagePrice = parseFloat(newItem.packagePrice);
+      const packageSize = parseFloat(newItem.packageSize);
+      
+      const calculated = calculateUnitCostFromPackage(packagePrice, packageSize, newItem.packageUnit, newItem.unit);
+      unitPrice = calculated.price;
+      
+      console.log(`Calculated unit cost: Rp ${unitPrice.toFixed(4)}/${newItem.unit} from package: Rp ${packagePrice.toLocaleString('id-ID')}/${packageSize} ${newItem.packageUnit}`);
+    } else if (newItem.unitPrice) {
+      // Use direct unit price input
+      unitPrice = parseFloat(newItem.unitPrice);
+    } else {
+      toast('error', 'Please provide either package pricing or direct unit price');
+      return;
+    }
+    
+    // Validate unit price for realistic values
+    const validation = validateUnitPrice(unitPrice, newItem.unit);
+    if (validation.warning) {
+      toast('warning', validation.warning);
+      // Allow proceeding but warn user
+    }
+
     setProcessing(true);
     try {
+      // Convert to smallest unit for storage consistency
+      const converted = convertToSmallestUnit(unitPrice, newItem.unit);
+      
       const ingredient: Omit<Ingredient, 'id'> = {
         name: newItem.name,
         sku: newItem.sku || undefined,
         category: newItem.category || undefined,
         unit: newItem.unit,
-        unit_price: parseFloat(newItem.unitPrice),
+        unit_price: converted.price,
         current_stock: 0,
         min_stock: parseFloat(newItem.minStock) || 0,
         supplier_id: newItem.supplierId || undefined,
@@ -426,6 +484,9 @@ export default function InventoryPage() {
         unitPrice: '',
         minStock: '',
         supplierId: '',
+        packagePrice: '',
+        packageSize: '',
+        packageUnit: '',
       });
       
       // Reload data
@@ -437,6 +498,9 @@ export default function InventoryPage() {
         const status = ing.current_stock <= 0 ? 'Out of Stock' : 
                       ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
         
+        // Convert price back to original unit for display
+        const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
+        
         return {
           id: ing.id!,
           name: ing.name,
@@ -444,11 +508,11 @@ export default function InventoryPage() {
           category: ing.category,
           onHand: `${ing.current_stock} ${ing.unit}`,
           status,
-          unitCost: `Rp ${ing.unit_price.toLocaleString()}`,
+          unitCost: `Rp ${displayPrice.toLocaleString()}`,
           unit: ing.unit,
           barcode: ing.sku,
           supplier: supplier?.name || 'Unknown',
-          sellingPrice: `Rp ${(ing.unit_price * 1.5).toLocaleString()}`,
+          sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString()}`,
           reorderPoint: `${ing.min_stock} ${ing.unit}`,
           description: '',
           committed: '0',
@@ -1068,11 +1132,11 @@ export default function InventoryPage() {
                     value={newItem.unit}
                     onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
                     className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="e.g., kg, pcs"
+                    placeholder="e.g., g, ml, pcs"
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Unit Price *</label>
+                  <label className="text-sm font-medium text-slate-700">Unit Price (Direct)</label>
                   <input
                     type="number"
                     value={newItem.unitPrice}
@@ -1080,6 +1144,42 @@ export default function InventoryPage() {
                     className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                     placeholder="0"
                   />
+                </div>
+              </div>
+              
+              <div className="border-t border-slate-200 pt-4">
+                <p className="text-xs font-medium text-slate-500 mb-3">OR Calculate from Package Pricing</p>
+                <div className="grid grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Package Price</label>
+                    <input
+                      type="number"
+                      value={newItem.packagePrice}
+                      onChange={(e) => setNewItem({ ...newItem, packagePrice: e.target.value })}
+                      className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      placeholder="e.g., 150000"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Package Size</label>
+                    <input
+                      type="number"
+                      value={newItem.packageSize}
+                      onChange={(e) => setNewItem({ ...newItem, packageSize: e.target.value })}
+                      className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      placeholder="e.g., 1, 500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-slate-700">Package Unit</label>
+                    <input
+                      type="text"
+                      value={newItem.packageUnit}
+                      onChange={(e) => setNewItem({ ...newItem, packageUnit: e.target.value })}
+                      className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                      placeholder="e.g., kg, L"
+                    />
+                  </div>
                 </div>
               </div>
               <div>

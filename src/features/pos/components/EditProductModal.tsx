@@ -1,13 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Upload, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Upload, Plus, Trash2, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Settings } from 'lucide-react';
 import { Product } from '@/src/types/database.types';
 import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
 import { generateUUID } from '@/src/lib/utils';
+import { getRecipesForMenuItem } from '@/src/features/inventory/recipeApiService';
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -41,6 +43,7 @@ export const EditProductModal = ({
   onSave,
   userRole = 'cashier'
 }: EditProductModalProps) => {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: product.name,
     description: product.description || '',
@@ -51,6 +54,8 @@ export const EditProductModal = ({
   const [modifierGroups, setModifierGroups] = useState<ModifierGroup[]>([]);
   const [newGroupName, setNewGroupName] = useState('');
   const [newGroupType, setNewGroupType] = useState<'single' | 'multiple'>('single');
+  const [hasRecipe, setHasRecipe] = useState(false);
+  const [loadingRecipe, setLoadingRecipe] = useState(false);
   const { toast } = useToast();
 
   // Load existing modifier groups when modal opens
@@ -72,6 +77,25 @@ export const EditProductModal = ({
       setModifierGroups([]);
     }
   }, [isOpen, product]);
+
+  // Check if product has a recipe
+  useEffect(() => {
+    const checkRecipe = async () => {
+      if (isOpen && product.id) {
+        setLoadingRecipe(true);
+        try {
+          const recipes = await getRecipesForMenuItem(product.id);
+          setHasRecipe(recipes && recipes.length > 0);
+        } catch (error) {
+          console.error('Failed to check recipe:', error);
+          setHasRecipe(false);
+        } finally {
+          setLoadingRecipe(false);
+        }
+      }
+    };
+    checkRecipe();
+  }, [isOpen, product.id]);
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -175,6 +199,12 @@ export const EditProductModal = ({
     }
   };
 
+  const handleNavigateToRecipeMapping = () => {
+    // Navigate to Recipe Mapping page
+    // The page will need to handle the product selection via URL param or state
+    router.push('/inventory/mapping');
+  };
+
   if (userRole !== 'admin' && userRole !== 'management') {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Akses Ditolak" size="sm">
@@ -243,6 +273,40 @@ export const EditProductModal = ({
             onChange={(e) => handleInputChange('price', e.target.value)}
             className={`${inputClass} tnum`}
           />
+        </div>
+
+        {/* BOM Status Indicator */}
+        <div className="rounded-lg border border-line-strong bg-surface p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              {loadingRecipe ? (
+                <div className="h-5 w-5 animate-pulse rounded-full bg-slate-200" />
+              ) : hasRecipe ? (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-green-100">
+                  <CheckCircle className="h-3 w-3 text-green-600" />
+                </div>
+              ) : (
+                <div className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-100">
+                  <AlertCircle className="h-3 w-3 text-amber-600" />
+                </div>
+              )}
+              <div>
+                <span className="text-sm font-medium text-ink">Status Resep (BOM)</span>
+                <p className="text-xs text-ink-muted">
+                  {loadingRecipe ? 'Memeriksa...' : hasRecipe ? 'Resep Terdaftar' : 'Belum Ada Resep'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={handleNavigateToRecipeMapping}
+              className="flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              <span>Atur Resep</span>
+            </Button>
+          </div>
         </div>
 
         {/* Image Upload */}

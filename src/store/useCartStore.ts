@@ -9,6 +9,7 @@ import { useOfflineStore } from '@/src/store/useOfflineStore';
 import { reduceStockForOrder, restoreStockForOrder } from '@/src/features/inventory/inventoryService';
 import { addCustomerPoints } from '@/src/features/crm/customerService';
 import { generateUUID } from '@/src/lib/utils';
+import { checkStockAvailability, deductStockForSale } from '@/src/features/inventory/recipeApiService';
 
 export interface ModifierOption {
   id: string; // UUID
@@ -339,11 +340,14 @@ export const useCartStore = create<CartState>()(
           return { success: false, message: 'Mohon isi alamat pengiriman dan nama kurir terlebih dahulu' };
         }
 
-        // Check stock availability for all items based on their bom_type
+        // Check stock availability for all items using Recipe Mapping (BOM)
         for (const item of state.items) {
-          const stockCheck = await canOrderProduct(item.productId, item.quantity);
-          if (!stockCheck.canOrder) {
-            return { success: false, message: stockCheck.message };
+          const stockCheck = await checkStockAvailability(item.productId, item.quantity);
+          if (!stockCheck.available) {
+            const insufficientIngredients = stockCheck.insufficientIngredients.map(ing => 
+              `${ing.name} (butuh: ${ing.required}, tersedia: ${ing.available} ${ing.unit})`
+            ).join(', ');
+            return { success: false, message: `Stok tidak mencukupi untuk ${item.name}: ${insufficientIngredients}` };
           }
         }
 
@@ -459,15 +463,13 @@ export const useCartStore = create<CartState>()(
             await db.order_items.bulkAdd(allOrderItems);
             console.log(`✅ Order items saved to IndexedDB successfully`);
 
-            // Deduct stock based on bom_type for each item (offline mode)
+            // Deduct stock based on Recipe Mapping (BOM) for each item (offline mode)
             for (const item of state.items) {
-              const product = await db.products.get(item.productId);
-              if (!product) continue;
-
-              if (product.bom_type === 'manufacture') {
-                await deductManufactureStock(item.productId, item.quantity);
-              } else if (product.bom_type === 'kit') {
-                await deductKitStock(item.productId, item.quantity);
+              const result = await deductStockForSale(item.productId, item.quantity);
+              if (!result.success) {
+                console.error(`Failed to deduct stock for ${item.productId}:`, result.message);
+              } else {
+                console.log(`✅ Stock deducted for ${item.name}: ${result.message}`);
               }
             }
 
@@ -587,15 +589,13 @@ export const useCartStore = create<CartState>()(
             await db.order_items.bulkAdd(allOrderItems);
             console.log(`✅ Order items saved to IndexedDB successfully`);
 
-            // Deduct stock based on bom_type for each item
+            // Deduct stock based on Recipe Mapping (BOM) for each item
             for (const item of state.items) {
-              const product = await db.products.get(item.productId);
-              if (!product) continue;
-
-              if (product.bom_type === 'manufacture') {
-                await deductManufactureStock(item.productId, item.quantity);
-              } else if (product.bom_type === 'kit') {
-                await deductKitStock(item.productId, item.quantity);
+              const result = await deductStockForSale(item.productId, item.quantity);
+              if (!result.success) {
+                console.error(`Failed to deduct stock for ${item.productId}:`, result.message);
+              } else {
+                console.log(`✅ Stock deducted for ${item.name}: ${result.message}`);
               }
             }
 
@@ -937,11 +937,14 @@ export const useCartStore = create<CartState>()(
           return { success: false, message: 'Mohon isi nomor meja terlebih dahulu' };
         }
 
-        // Check stock availability for all items based on their bom_type
+        // Check stock availability for all items using Recipe Mapping (BOM)
         for (const item of state.items) {
-          const stockCheck = await canOrderProduct(item.productId, item.quantity);
-          if (!stockCheck.canOrder) {
-            return { success: false, message: stockCheck.message };
+          const stockCheck = await checkStockAvailability(item.productId, item.quantity);
+          if (!stockCheck.available) {
+            const insufficientIngredients = stockCheck.insufficientIngredients.map(ing => 
+              `${ing.name} (butuh: ${ing.required}, tersedia: ${ing.available} ${ing.unit})`
+            ).join(', ');
+            return { success: false, message: `Stok tidak mencukupi untuk ${item.name}: ${insufficientIngredients}` };
           }
         }
 

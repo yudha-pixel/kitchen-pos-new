@@ -4,15 +4,22 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/src/context/PageHeaderContext';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
-import { CartPanel } from '@/src/features/pos/components/CartPanel';
-import { useCartStore } from '@/src/store/useCartStore';
-import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
-import { useProducts, useCategories } from '@/src/hooks/useProducts';
-import { useSyncManager } from '@/src/hooks/useSyncManager';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { useAuth } from '@/src/context/AuthContext';
-import { useTables, TableStatus } from '@/src/hooks/useTables';
 import { useToast } from '@/src/components/ui/Toast';
+import { useCartStore } from '@/src/store/useCartStore';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
+import { db } from '@/src/lib/db';
+import { PaymentModal } from '@/src/components/pos/PaymentModal';
+import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
+import { formatCurrency } from '@/src/lib/utils';
+import { checkStockAvailability, deductStockForSale } from '@/src/features/inventory/recipeApiService';
+import { useProducts, useCategories } from '@/src/hooks/useProducts';
+import { useTables } from '@/src/hooks/useTables';
+import { useSyncManager } from '@/src/hooks/useSyncManager';
+import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
+import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
+import { CartPanel } from '@/src/features/pos/components/CartPanel';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
@@ -20,9 +27,6 @@ import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
 import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
 import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2, Loader2, CreditCard } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
-import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
-import { PaymentModal } from '@/src/components/pos/PaymentModal';
-import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
 
@@ -955,6 +959,31 @@ export default function POSPage() {
         return;
       }
 
+      // Check stock availability for all items in the order
+      const stockChecks = await Promise.all(
+        order.items?.map(async (item: any) => {
+          const check = await checkStockAvailability(item.product_id, item.quantity);
+          return {
+            productName: item.product?.name || 'Unknown',
+            ...check,
+          };
+        }) || []
+      );
+
+      const insufficientStockItems = stockChecks.filter(check => !check.available);
+      
+      if (insufficientStockItems.length > 0) {
+        const errorMessages = insufficientStockItems.map(item => {
+          const ingredients = item.insufficientIngredients.map(ing => 
+            `${ing.name} (butuh: ${ing.required}, tersedia: ${ing.available} ${ing.unit})`
+          ).join(', ');
+          return `${item.productName}: ${ingredients}`;
+        }).join('\n');
+        
+        toast('error', 'Stok tidak mencukupi:\n' + errorMessages);
+        return;
+      }
+
       // Calculate total from order items
       const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
         const price = Number(item.price_at_time) || 0;
@@ -979,6 +1008,25 @@ export default function POSPage() {
       });
 
       console.log(`✅ Order ${order.id} marked as paid with ${paymentMethod}${amount ? ` (amount: Rp${amount.toLocaleString('id-ID')})` : ''}`);
+
+      // Deduct stock for each item in the order
+      const stockDeductions = await Promise.all(
+        order.items?.map(async (item: any) => {
+          const result = await deductStockForSale(item.product_id, item.quantity);
+          return {
+            productName: item.product?.name || 'Unknown',
+            ...result,
+          };
+        }) || []
+      );
+
+      const failedDeductions = stockDeductions.filter(d => !d.success);
+      if (failedDeductions.length > 0) {
+        console.error('Some stock deductions failed:', failedDeductions);
+        toast('warning', 'Pembayaran berhasil, tapi beberapa stok gagal dikurangi');
+      } else {
+        console.log('All stock deductions successful');
+      }
 
       // Dispatch event to notify other components
       if (typeof window !== 'undefined') {

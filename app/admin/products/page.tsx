@@ -2,13 +2,14 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import { Plus, Search, Edit, Trash2, Filter, Package } from 'lucide-react';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
-import { calculateMenuStocks } from '@/src/features/inventory/inventoryService';
 import { EditProductModal } from '@/src/features/pos/components/EditProductModal';
-import { Search, Filter, Edit, Plus, AlertCircle, Package } from 'lucide-react';
+import { AddProductModal } from '@/src/features/pos/components/AddProductModal';
+import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
 import { Product } from '@/src/types/database.types';
-import { useToast } from '@/src/components/ui/Toast';
+import { calculateMenuStocks } from '@/src/features/inventory/inventoryService';
 
 export default function ProductManagementPage() {
   const router = useRouter();
@@ -20,6 +21,7 @@ export default function ProductManagementPage() {
   const [productStocks, setProductStocks] = useState<Map<string, number | null>>(new Map());
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<any>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
@@ -60,7 +62,12 @@ export default function ProductManagementPage() {
   };
 
   const handleAddNew = () => {
-    router.push('/inventory/mapping');
+    setIsAddModalOpen(true);
+  };
+
+  const handleProductAdded = () => {
+    refetch();
+    refetchCategories();
   };
 
   const handleProductUpdated = async (updatedProduct: Partial<Product>) => {
@@ -270,6 +277,14 @@ export default function ProductManagementPage() {
           userRole="admin"
         />
       )}
+
+      {/* Add Product Modal */}
+      <AddProductModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onProductAdded={handleProductAdded}
+        userRole="admin"
+      />
 
       {/* Edit Category Modal */}
       {isCategoryModalOpen && (
