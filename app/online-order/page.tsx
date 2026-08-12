@@ -239,7 +239,6 @@ export default function OnlineOrderPage() {
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileCart(false)} />
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Keranjang</h2>
               <button onClick={() => setShowMobileCart(false)} className="p-2">
                 <X className="w-5 h-5" />
               </button>

@@ -12,6 +12,9 @@ export interface AppearanceSettingsRecord {
   layout_density: string;
   card_view: string;
   cart_position: string;
+  // Not persisted/validated through this resolver — computed by the settings route
+  // from launcher_background_path, mirroring how company.logo_url is derived.
+  launcher_background_url?: string | null;
 }
 
 export interface AppVisualSettings {
@@ -30,6 +33,7 @@ export const DEFAULT_APPEARANCE_RECORD: AppearanceSettingsRecord = {
   layout_density: 'spacious',
   card_view: 'grid',
   cart_position: 'right-sidebar',
+  launcher_background_url: null,
 };
 
 export const DEFAULT_APPEARANCE_SETTINGS: AppVisualSettings = {

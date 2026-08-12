@@ -44,6 +44,7 @@ import kitchenRoutes from './routes/kitchen';
 import backupRoutes from './routes/backup';
 import auditRoutes from './routes/audit';
 import userPreferencesRoutes from './routes/userPreferences';
+import companyRoutes from './routes/company';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -129,6 +130,7 @@ app.use('/api/self-order', selfOrderRoutes);
 app.use('/api/outlets', outletRoutes);
 app.use('/api', paymentRoutes); // Rate limiting for these routes is applied per-route inside payments.ts, not here — this mount also catches unmatched /api/* requests that fall through to later routers, so a limiter here would (and did) throttle unrelated endpoints too.
 app.use('/api/settings', settingsRoutes);
+app.use('/api/company', companyRoutes);
 app.use('/api/ingredients', ingredientRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/suppliers', supplierRoutes);

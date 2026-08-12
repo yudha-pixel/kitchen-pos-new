@@ -1,6 +1,8 @@
 import { db, Recipe, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
 import { comprehensiveIngredients, createRecipesForProduct } from './recipeData';
 import { generateUUID } from '@/src/lib/utils';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 /**
  * Inventory Service for managing stock levels
@@ -1357,13 +1359,41 @@ export async function recordStockAdjustment(
         break;
     }
     
-    // Update ingredient stock
+    // Persist to the server first — this is the shared source of truth other
+    // devices and the Stock Adjustments audit view read from. A local-only
+    // write here would silently vanish next time this device refetches
+    // ingredients from the server.
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/api/ingredients/${ingredientId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        name: ingredient.name,
+        current_stock: newStock,
+        unit: ingredient.unit,
+        min_stock: ingredient.min_stock,
+        unit_price: ingredient.unit_price,
+        supplier_id: ingredient.supplier_id ?? null,
+        adjustment_type: adjustmentType,
+        reason,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      return { success: false, message: body?.error || 'Gagal menyimpan penyesuaian stok ke server' };
+    }
+
+    // Mirror the server's write into the local cache so this device's UI
+    // reflects it immediately without waiting for the next background refetch.
     await db.ingredients.update(ingredientId, {
       current_stock: newStock,
       updated_at: new Date().toISOString(),
     });
-    
-    // Create audit trail record
+
     const adjustment: StockAdjustment = {
       id: generateUUID(),
       ingredientId,
@@ -1378,9 +1408,9 @@ export async function recordStockAdjustment(
       adjustedAt: new Date().toISOString(),
       referenceId,
     };
-    
+
     await db.stock_adjustments.add(adjustment);
-    
+
     console.log(`✅ Stock adjustment recorded: ${adjustmentType} ${adjustmentQuantity} for ${ingredientName}`);
     return { success: true, message: 'Stock adjustment recorded successfully', adjustment };
   } catch (error) {

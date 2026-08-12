@@ -38,7 +38,6 @@ const ROUTES_TO_TEST = [
   
   // Other pages
   { path: '/inventory-suppliers', expectedStatus: 401, description: 'Suppliers (requires auth)' },
-  { path: '/kasir', expectedStatus: 401, description: 'Kasir klasik (requires auth)' },
   { path: '/shift', expectedStatus: 401, description: 'Shift management (requires auth)' },
   { path: '/finance/ocr', expectedStatus: 401, description: 'Finance OCR (requires auth)' },
   { path: '/online-order', expectedStatus: 401, description: 'Online order (requires auth)' },

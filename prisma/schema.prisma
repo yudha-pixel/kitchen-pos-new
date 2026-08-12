@@ -263,6 +263,7 @@ model Outlet {
   phone         String?
   is_active     Boolean          @default(true)
   delivery_fee  Float            @default(15000)
+  company_id    String           @db.Uuid
   created_at    DateTime         @default(now())
   updated_at    DateTime         @updatedAt
   orders        Order[]
@@ -271,9 +272,33 @@ model Outlet {
   tables        Table[]
   warehouses    Warehouse[]
   kitchenStations KitchenStation[]
+  company       Company          @relation(fields: [company_id], references: [id])
 
+  @@index([company_id])
   @@index([code])
   @@map("outlets")
+}
+
+model Company {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String
+  logo_path          String?
+  logo_mime_type     String?
+  phone              String?
+  email              String?
+  website            String?
+  address            String?
+  tax_id              String?
+  company_registry   String?
+  timezone           String   @default("Asia/Jakarta")
+  currency           String   @default("IDR")
+  tax_rate           Float    @default(10)
+  service_charge     Float    @default(0)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  outlets            Outlet[]
+
+  @@map("companies")
 }
 
 model Warehouse {
@@ -391,7 +416,9 @@ model AppSettings {
   card_view          String   @default("grid")
   cart_position      String   @default("right-sidebar")
   layout_density     String   @default("spacious")
-  
+  launcher_background_path      String?
+  launcher_background_mime_type String?
+
   // Store Settings
   store_name         String   @default("Kitchen POS Restaurant")
   store_phone        String   @default("+62 21 1234 5678")
@@ -590,10 +617,12 @@ model Ingredient {
   unit_price      Float           @default(0)
   supplier_id     String?         @db.Uuid
   warehouse_id    String?         @db.Uuid
+  category_id     String?         @db.Uuid
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
   supplier        Supplier?       @relation("IngredientSupplier", fields: [supplier_id], references: [id])
   warehouse       Warehouse?      @relation(fields: [warehouse_id], references: [id])
+  category        IngredientCategory? @relation(fields: [category_id], references: [id])
   recipes         Recipe[]
   stockAdjustmentLogs StockAdjustmentLog[]
   purchaseOrderItems PurchaseOrderItem[]
@@ -605,7 +634,23 @@ model Ingredient {
   @@index([name])
   @@index([supplier_id])
   @@index([warehouse_id])
+  @@index([category_id])
   @@map("ingredients")
+}
+
+// Ingredient categorization (e.g. "Protein", "Dairy", "Produce") — a distinct
+// domain from Product's `Category` model, which groups menu items, not raw
+// materials. Kept as its own table rather than reusing Category so an admin
+// can't accidentally file a menu category under inventory or vice versa.
+model IngredientCategory {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  color       String?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  ingredients Ingredient[]
+
+  @@map("ingredient_categories")
 }
 
 model StockTransfer {

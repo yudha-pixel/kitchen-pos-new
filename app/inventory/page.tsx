@@ -25,6 +25,8 @@ import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/
 import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
 import { getIngredientsWithStatus, syncRecipeIngredientsToInventory } from '@/src/features/inventory/recipeApiService';
 import { validateUnitPrice, convertToSmallestUnit, convertFromSmallestUnit, getSmallestUnit, calculateUnitCostFromPackage } from '@/src/features/inventory/unitConversion';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface InventoryItem {
   id: string;
@@ -163,6 +165,7 @@ export default function InventoryPage() {
     name: '',
     sku: '',
     category: '',
+    categoryId: '',
     unit: '',
     unitPrice: '',
     minStock: '',
@@ -171,6 +174,7 @@ export default function InventoryPage() {
     packageSize: '',
     packageUnit: '',
   });
+  const [ingredientCategories, setIngredientCategories] = useState<{ id: string; name: string }[]>([]);
 
   const selectedItem = items.find((i) => i.id === selectedItemId) || items[0];
 
@@ -178,6 +182,23 @@ export default function InventoryPage() {
     const handleAddItem = () => setAddItemModalOpen(true);
     window.addEventListener('inventory-add-item', handleAddItem);
     return () => window.removeEventListener('inventory-add-item', handleAddItem);
+  }, []);
+
+  const loadIngredientCategories = async () => {
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE_URL}/api/ingredients/categories`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Failed to load ingredient categories: ${res.status}`);
+      setIngredientCategories(await res.json());
+    } catch (error) {
+      console.error('Failed to load ingredient categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadIngredientCategories();
   }, []);
 
   // Load inventory data from API
@@ -461,27 +482,59 @@ export default function InventoryPage() {
     try {
       // Convert to smallest unit for storage consistency
       const converted = convertToSmallestUnit(unitPrice, newItem.unit);
-      
-      const ingredient: Omit<Ingredient, 'id'> = {
-        name: newItem.name,
+
+      // Persist to the server first — this is the shared source of truth other
+      // devices read from. A local-only write here would never appear in the
+      // database and would be lost on the next server refetch.
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: newItem.name,
+          current_stock: 0,
+          unit: newItem.unit,
+          min_stock: parseFloat(newItem.minStock) || 0,
+          unit_price: converted.price,
+          supplier_id: newItem.supplierId || null,
+          category_id: newItem.categoryId || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Gagal menyimpan item baru ke server');
+      }
+
+      const created: { id: string; name: string; sku?: string; category?: { name: string } | null; unit: string; unit_price: number; current_stock: number; min_stock: number; supplier_id: string | null; created_at: string; updated_at: string } = await response.json();
+
+      // Mirror the server's write into the local cache so this device's UI
+      // reflects it immediately without waiting for the next background refetch.
+      const ingredient: Ingredient = {
+        id: created.id,
+        name: created.name,
         sku: newItem.sku || undefined,
-        category: newItem.category || undefined,
-        unit: newItem.unit,
-        unit_price: converted.price,
-        current_stock: 0,
-        min_stock: parseFloat(newItem.minStock) || 0,
-        supplier_id: newItem.supplierId || undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        category: created.category?.name,
+        unit: created.unit,
+        unit_price: created.unit_price,
+        current_stock: created.current_stock,
+        min_stock: created.min_stock,
+        supplier_id: created.supplier_id || undefined,
+        created_at: created.created_at,
+        updated_at: created.updated_at,
       };
 
-      const id = await db.ingredients.add(ingredient);
+      await db.ingredients.add(ingredient);
       toast('success', 'Item added successfully');
       setAddItemModalOpen(false);
       setNewItem({
         name: '',
         sku: '',
         category: '',
+        categoryId: '',
         unit: '',
         unitPrice: '',
         minStock: '',
@@ -1118,13 +1171,16 @@ export default function InventoryPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Category</label>
-                <input
-                  type="text"
-                  value={newItem.category}
-                  onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                <select
+                  value={newItem.categoryId}
+                  onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
                   className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Enter category"
-                />
+                >
+                  <option value="">Tanpa kategori</option>
+                  {ingredientCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>

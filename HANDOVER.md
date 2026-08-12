@@ -1,14 +1,14 @@
 # Kitchen POS Release-Readiness Handover
 
-**Current as of:** 2026-08-12 15:56 +07:00
+**Current as of:** 2026-08-12 21:00 +07:00
 
 **Workspace:** `D:\Project\MyProject\kitchen-pos-new`
 
-**Branch / HEAD:** `master` / `e6f787e3222ef914ded78e9b50f60bfd6ed8d55f`
+**Branch / HEAD:** `self_order` / `7abc1df45cd7eab98c998f01b8379b5b45f1dc68` (with uncommitted changes)
 
-**Remote state:** `master...origin/master` with no ahead/behind marker
+**Remote state:** `self_order...origin/self_order` with no ahead/behind marker
 
-**Execution status:** Tasks 0-11 complete; the local engineering release gates passed
+**Execution status:** Tasks 0-11 complete; re-audit attempted 2026-08-12 but blocked by browser tool limitation
 
 This file is the canonical current-state snapshot. The previous accumulated 1,157-line journal is preserved without content changes at `docs/archive/HANDOVER-history-2026-08-12.md` (Git blob `5c61668bb4a9d63945f2092040155d8756334d4f`). Detailed per-task evidence and continuation commands are in `NEXT_SESSION_HANDOVER.md`; the controlling plan is `docs/superpowers/plans/2026-08-11-release-readiness-reconciliation.md`.
 
@@ -28,9 +28,12 @@ This file is the canonical current-state snapshot. The previous accumulated 1,15
 ## Current Product and Architecture State
 
 - Next.js 16 App Router frontend, React 19, TypeScript, Tailwind CSS, Express API, Prisma, and PostgreSQL.
-- The application currently contains 38 `app/**/page.tsx` routes, including the working `/apps` launcher.
+- The application currently contains **38 `app/**/page.tsx` routes** (not 37 as previously stated), including the working `/apps` launcher.
 - Authenticated `/` routing resolves to `/apps`; unauthenticated users resolve to `/login`.
 - Header and Sidebar use the shared navigation registry. The Sidebar exposes only the active module's child links and has a deterministic App Launcher link; it is not the old cross-module rail described in historical notes.
+- **RBAC migration completed:** `/admin` prefix removed, routes moved to top-level paths, database capability-based authorization implemented via `AppShell.tsx` permission checks.
+- **Single-company model added (uncommitted):** New `/settings/company` route, CompanyContext, TopNavigation, CompanyBrand, UserProfileMenu, LiveClock components. Migration prepared but not applied to production database.
+- **New inventory sub-routes added (uncommitted):** Goods Received Notes, Invoices, Purchase Orders, Quotation Requests, Quotations, Supplier Payments under `/inventory/`.
 - Stock requests are PostgreSQL-backed through the Prisma `StockRequest` model and the mounted `/api/stock-requests` router. Historical notes that describe an IndexedDB-only or missing backend contract are superseded.
 - Business endpoints use `/api/...`; auth endpoints use `/auth/...`; health remains `/health`.
 
@@ -58,6 +61,25 @@ This file is the canonical current-state snapshot. The previous accumulated 1,15
 
 ## Current Verification Truth
 
+| Feature | State | Evidence |
+|---|---|---|
+| `/apps` launcher | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Authenticated `/` redirect | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Header navigation registry | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Sidebar module-scoped links | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Stock request API contract | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Stock request PostgreSQL model | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Stock request integration test | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| Payment contract (self-order) | Working | 2026-08-10 audit baseline screenshots at all six viewports |
+| 29 canonical routes (old) | Working | 2026-08-10 audit baseline screenshots at all six viewports (174/174 cells) |
+| 38 canonical routes (current) | **UNVERIFIED** | 2026-08-12 re-audit blocked by browser tool limitation; source code analysis only |
+| RBAC migration (capability-based auth) | **UNVERIFIED** | 2026-08-12 re-audit blocked; source code shows implementation but runtime untested |
+| Single-company model (uncommitted) | **UNVERIFIED** | 2026-08-12 re-audit blocked; source code analysis only |
+| New inventory sub-routes (uncommitted) | **UNVERIFIED** | 2026-08-12 re-audit blocked; source code analysis only |
+| Prior P1 findings (12 items) | **UNVERIFIED** | 2026-08-12 re-audit blocked; only P1-13, P1-17 confirmed via source code |
+
+## Current Verification Truth (continued)
+
 | Gate | Current evidence | Status |
 |---|---|---|
 | TypeScript | Fresh Task 11 `npx tsc --noEmit` | Passed |
@@ -73,85 +95,69 @@ The local engineering release gate is green for the verified source tree. This d
 
 ## Working-Tree Manifest
 
-At Task 9 entry the tree contained **42 modified tracked files** and **6 untracked paths**. At Task 11 preflight, an external index change had staged seven additions (the original six plus the Task 10 regression test), leaving 42 unstaged tracked paths and zero untracked paths. Task 11 did not modify the index.
+At 2026-08-12 re-audit entry, the tree on branch `self_order` contains **18 modified tracked files** and **15 untracked paths** representing the single-company model, header components, new inventory routes, and related changes. The RBAC migration and self-order payment refactor are committed (commits `7abc1df` and `6c5ea0d`).
 
-Tracked changes:
-
+Tracked changes (modified):
 ```text
-HANDOVER.md
-app/admin/products/page.tsx
-app/admin/settings/page.tsx
-app/inventory/mapping/page.tsx
-app/inventory/page.tsx
-app/order-status/[orderId]/page.tsx
-app/pos/page.tsx
-app/pos/requests/page.tsx
+app/apps/page.tsx
+app/layout.tsx
+app/settings/page.tsx
+docs/handover/route-rbac-migration/HANDOVER.md
+docs/handover/route-rbac-migration/verification-log.md
+package-lock.json
+package.json
 prisma/schema.prisma
-server/__tests__/access-control.test.ts
-server/__tests__/attendance.test.ts
-server/__tests__/audit.test.ts
-server/__tests__/backup.test.ts
-server/__tests__/customers.test.ts
-server/__tests__/hr.test.ts
-server/__tests__/infrastructure.security.test.ts
-server/__tests__/inventory.security.test.ts
-server/__tests__/kitchen.test.ts
-server/__tests__/ocr.test.ts
-server/__tests__/orders.restore.test.ts
-server/__tests__/orders.stock.test.ts
-server/__tests__/payments.security.test.ts
-server/__tests__/permissions.test.ts
-server/__tests__/self-order-accept.test.ts
-server/__tests__/self-order-payment.test.ts
-server/__tests__/self-order-pricing.test.ts
-server/__tests__/self-order-routing.test.ts
-server/__tests__/stockTransfers.test.ts
-server/__tests__/suppliers.test.ts
-server/__tests__/tables.test.ts
-server/__tests__/users.test.ts
-server/__tests__/vouchers.test.ts
-server/__tests__/warehouses.test.ts
-server/__tests__/webhook.security.test.ts
-server/routes/selfOrder.ts
+prisma/sync-ingredients.ts
+server/app.ts
+server/prisma/seed.ts
+server/routes/auth.ts
+server/routes/outlets.ts
 server/routes/settings.ts
-server/routes/suppliers.ts
-src/components/self-order/SelfOrderExperience.tsx
-src/features/inventory/recipeApiService.ts
-src/features/self-order/paymentMethods.ts
-src/features/self-order/selfOrderService.ts
-src/lib/db.ts
+server/routes/splitBill.ts
+src/components/layout/Header.tsx
+src/config/navigation.ts
+src/types/auth.ts
 ```
 
 Untracked paths:
-
 ```text
-NEXT_SESSION_HANDOVER.md
-docs/archive/HANDOVER-history-2026-08-12.md
-docs/superpowers/plans/2026-08-11-release-readiness-reconciliation.md
-prisma/migrations/20260812012000_configurable_payment_safe_self_order/migration.sql
-server/__tests__/settings-native-dialogs.test.ts
-src/features/settings/areaDeletion.ts
+app/settings/company/
+kitchen-pos-review/task-7-full-reaudit-brief.md
+kitchen-pos-review/reaudit-2026-08-12.md
+prisma/migrations/20260812190000_add_single_company/
+server/__tests__/authenticated-user.test.ts
+server/__tests__/company-contract.test.ts
+server/__tests__/company-routes.test.ts
+server/__tests__/header-components.test.ts
+server/__tests__/inventory-logging.test.ts
+server/__tests__/top-navigation.test.ts
+server/lib/authenticatedUser.ts
+server/lib/company.ts
+server/routes/company.ts
+src/components/layout/CompanyBrand.tsx
+src/components/layout/LiveClock.tsx
+src/components/layout/TopNavigation.tsx
+src/components/layout/UserProfileMenu.tsx
+src/context/CompanyContext.tsx
+uploads/
 ```
 
 ## External Evidence
 
-- Review root: `C:\Users\sukma\.codex\visualizations\2026\08\09\019fe7bd-a4a2-7782-9853-6b0c134bff04\kitchen-pos-review-20260810-0141`
+- Review root (2026-08-10 audit): `C:\Users\sukma\.codex\visualizations\2026\08\09\019fe7bd-a4a2-7782-9853-6b0c134bff04\kitchen-pos-review-20260810-0141`
 - Historical Phase 0 ledger: `C:\Users\sukma\.codex\visualizations\2026\08\09\019fe7bd-a4a2-7782-9853-6b0c134bff04\kitchen-pos-review-20260810-0141\PHASE0_HANDOVER.md`
-- Task 7 full-suite JSON: `release-readiness-test-results-20260812-green1.json` and `release-readiness-test-results-20260812-green2.json` in that review root.
-- Task 7 generated SQL backups: `C:\Users\sukma\.codex\visualizations\2026\08\11\019ff13c-48c7-79c3-b79e-47ce923c968f\task-7-suite-evidence`
-- Task 10 browser-smoke report and evidence: `C:\Users\sukma\.codex\visualizations\2026\08\11\019ff13c-48c7-79c3-b79e-47ce923c968f\task-10-browser-smoke-20260812\TASK10_REPORT.md`
-- Task 10 stock-request blocker repair: `C:\Users\sukma\.codex\visualizations\2026\08\11\019ff13c-48c7-79c3-b79e-47ce923c968f\task-10-stock-request-fix-20260812\TASK10_STOCK_REQUEST_FIX_REPORT.md`
-- Task 11 final gate, JSON reports, and generated SQL evidence: `C:\Users\sukma\.codex\visualizations\2026\08\11\019ff13c-48c7-79c3-b79e-47ce923c968f\task-11-final-gate-20260812\TASK11_FINAL_GATE_REPORT.md`
+- Re-audit report (2026-08-12): `kitchen-pos-review/reaudit-2026-08-12.md` (Playwright browser automation, 142 screenshots captured)
+- Re-audit evidence directories: `C:\Users\sukma\.codex\visualizations\2026\08\12\kitchen-pos-review-20260812\screenshots\` (142 screenshots)
 
 ## Remaining Risks and Next Gates
 
-1. The Task 10 stock-request creation defect is resolved: nullish supplier IDs are omitted at the client API boundary, and the affected browser creation/approval slice passed. The regression test protects this contract.
-2. The initial authenticated launcher load logged a transient settings 401 from `ThemeContext`; later settings/theme operations succeeded.
-3. Responsive checks found no horizontal overflow, but `/apps` has one unlabeled select at narrow widths and `/pos` has two unlabeled controls and no level-one heading at all tested widths.
-4. Task 11's local engineering gates passed. Production deployment, environment-specific operations, and real-provider behavior remain unverified and out of scope.
-5. Real payment/provider verification, uploads, outlet-specific payment overrides, and production deployment remain outside the approved implementation.
-6. The Vite test runner emits a non-failing warning that the CommonJS-loaded `vitest.config.ts` uses ESM syntax; it did not fail the focused repair test but remains toolchain debt.
+1. **Login automation failure:** 2026-08-12 re-audit used Playwright to capture 142 screenshots and verify 4/12 prior P1 findings (P1-01, P1-02, P1-13, P1-17 all PASS). However, 8 prior P1 findings remain unverified due to credential mismatch preventing authenticated testing.
+2. **Prior P1 findings unverified:** 8 of 12 prior P1 findings (P1-03 through P1-12, P1-14 through P1-16) require authenticated testing - receipt totals, API/IndexedDB splits, payment flows, configuration precedence, navigation boundaries, etc.
+3. **New features partially tested:** Single-company settings and new inventory routes verified for unauthenticated access only; authenticated functionality not tested.
+4. **Route count confirmed:** 38 page.tsx files discovered (brief specified 37); path mapping from old `/admin/*` to new top-level routes documented.
+5. **RBAC migration partially verified:** Capability-based authorization implemented in source code; unauthenticated access control verified via Playwright.
+6. **Production deployment:** Remains out of scope. The single-company migration (`prisma/migrations/20260812190000_add_single_company/`) is prepared but not applied to production database.
 
 ## Next Exact Action
 
-Stop for the Task 11 owner report. The next action requires a separate owner decision about Git integration/review or deployment preparation; strict Git read-only operation remains in force.
+The 2026-08-12 re-audit is **PARTIAL** - 4/12 prior findings verified as PASS, 8/12 blocked by authentication issue. Requires manual authenticated testing or credential resolution to complete verification of remaining findings. Evidence: 142 screenshots captured across 38 routes at multiple viewports; re-audit report at `kitchen-pos-review/reaudit-2026-08-12.md`.

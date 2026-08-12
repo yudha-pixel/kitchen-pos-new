@@ -79,7 +79,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
         <main
           key={pathname}
-          className="app-shell-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-surface-alt animate-in fade-in duration-200"
+          className="app-shell-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden bg-surface-alt animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out"
         >
           {children}
         </main>

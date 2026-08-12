@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useCartStore } from '@/src/store/useCartStore';
-import { ShoppingCart, Trash2, Plus, Minus, Ban, Gift, X, User } from 'lucide-react';
+import { useConfigStore } from '@/src/store/useConfigStore';
+import { ShoppingCart, Trash2, Plus, Minus, Ban, X, User, ChevronDown, Utensils, Loader2, StickyNote } from 'lucide-react';
 import { Receipt } from '@/src/components/pos/Receipt';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
+import { useTables } from '@/src/hooks/useTables';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
@@ -15,6 +17,7 @@ import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { PromptDialog } from '@/src/components/ui/PromptDialog';
 import { Button } from '@/src/components/ui/Button';
 import { EmptyState } from '@/src/components/ui/EmptyState';
+import { Modal } from '@/src/components/ui/Modal';
 import { formatRupiah } from '@/src/lib/format';
 import { createPaymentTransaction } from '@/src/features/payment/paymentService';
 import { searchCustomers } from '@/src/features/crm/customerService';
@@ -23,17 +26,13 @@ import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
 import { SplitBillModal as NewSplitBillModal } from '@/src/components/pos/SplitBillModal';
+import { CartPaymentModal } from '@/src/components/pos/CartPaymentModal';
+import { useGlobalHotkey } from '@/src/hooks/useGlobalHotkey';
 import { PERMISSIONS } from '@/src/config/permissions';
-
-const paymentOptions = [
-  { value: 'CASH', label: 'Tunai' },
-  { value: 'QRIS', label: 'QRIS' },
-  { value: 'DEBIT', label: 'Debit' },
-] as const;
 
 interface CartPanelProps {
   orderCategory?: 'dine-in' | 'takeaway' | 'delivery';
-  tableNumber?: string;
+  onOrderCategoryChange?: (category: 'dine-in' | 'takeaway' | 'delivery') => void;
   customerName?: string;
   deliveryAddress?: string;
   courierName?: string;
@@ -41,16 +40,20 @@ interface CartPanelProps {
   receiptNumber?: string;
 }
 
-export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNumber, customerName, deliveryAddress, courierName, courierType, receiptNumber }: CartPanelProps) => {
-  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod, discountAmount, discountType, setDiscount, freeItems, addFreeItem, removeFreeItem, clearFreeItems, getDiscount, globalDiscountAmount, globalDiscountType, setGlobalDiscount, clearGlobalDiscount, getGlobalDiscount, setVoucher, clearVoucher, voucherDiscountAmount, setMember, clearMember, member, sendToKitchen, kitchenSent } = useCartStore();
+export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, customerName, deliveryAddress, courierName, courierType, receiptNumber }: CartPanelProps) => {
+  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, getServiceCharge, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod, discountAmount, discountType, setDiscount, freeItems, clearFreeItems, getDiscount, globalDiscountAmount, globalDiscountType, setGlobalDiscount, clearGlobalDiscount, getGlobalDiscount, setVoucher, clearVoucher, voucherDiscountAmount, setMember, clearMember, member, sendToKitchen, kitchenSent } = useCartStore();
   const { user, can } = useAuth();
   const { toast } = useToast();
   const { setCurrentPayment, clearPayment } = usePaymentStore();
+  const { tables, loading: tablesLoading } = useTables();
+  const taxRatePercent = useConfigStore((state) => state.taxRate);
+  const serviceChargeRatePercent = useConfigStore((state) => state.serviceChargeRate);
+  const [showTableModal, setShowTableModal] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const [splitMode, setSplitMode] = useState(false);
   const [currentSplitGroup, setCurrentSplitGroup] = useState<string | null>(null);
-  const [roundTo, setRoundTo] = useState<number>(1000);
+  const [roundTo] = useState<number>(1000);
   const [showReceipt, setShowReceipt] = useState(false);
   const [receiptData, setReceiptData] = useState<any>(null);
   const [cashReceived, setCashReceived] = useState<string>('');
@@ -60,10 +63,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   const [showDiscountInput, setShowDiscountInput] = useState(false);
   const [discountValue, setDiscountValue] = useState<string>('');
   const [localDiscountType, setLocalDiscountType] = useState<'nominal' | 'percentage'>('nominal');
-  const [showFreeItemModal, setShowFreeItemModal] = useState(false);
-  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
-  const [selectedFreeProduct, setSelectedFreeProduct] = useState<any>(null);
-  const [freeItemQuantity, setFreeItemQuantity] = useState<number>(1);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountTab, setDiscountTab] = useState<'regular' | 'global' | 'voucher'>('regular');
   const [voucherCode, setVoucherCode] = useState<string>('');
@@ -77,20 +76,16 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   const [memberSearchTerm, setMemberSearchTerm] = useState<string>('');
   const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
   const [selectedMember, setSelectedMember] = useState<any>(null);
-  const [showMemberSearch, setShowMemberSearch] = useState(false);
   const [showNewSplitBillModal, setShowNewSplitBillModal] = useState(false);
+  const [showMemberModal, setShowMemberModal] = useState(false);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [notesDraft, setNotesDraft] = useState('');
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Load available products when free item modal opens
-  useEffect(() => {
-    if (showFreeItemModal) {
-      loadAvailableProducts();
-    }
-  }, [showFreeItemModal]);
 
   // Search members when search term changes
   useEffect(() => {
@@ -110,42 +105,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     const debounceTimer = setTimeout(searchMembers, 300);
     return () => clearTimeout(debounceTimer);
   }, [memberSearchTerm]);
-
-  const loadAvailableProducts = async () => {
-    try {
-      const { db } = await import('@/src/lib/db');
-      const products = await db.products.toArray();
-      setAvailableProducts(products);
-    } catch (error) {
-      console.error('Failed to load products:', error);
-      toast('error', 'Gagal memuat daftar produk');
-    }
-  };
-
-  const handleAddFreeItem = () => {
-    if (!selectedFreeProduct) {
-      toast('error', 'Pilih produk terlebih dahulu');
-      return;
-    }
-    if (freeItemQuantity < 1) {
-      toast('error', 'Jumlah minimal 1');
-      return;
-    }
-
-    // Add free item with price 0
-    addFreeItem({
-      productId: selectedFreeProduct.id,
-      name: selectedFreeProduct.name,
-      price: 0, // Free items have price 0
-      quantity: freeItemQuantity,
-      modifiers: [],
-    });
-
-    toast('success', `${selectedFreeProduct.name} x${freeItemQuantity} ditambahkan sebagai item gratis`);
-    setShowFreeItemModal(false);
-    setSelectedFreeProduct(null);
-    setFreeItemQuantity(1);
-  };
 
   const handleApplyVoucher = async () => {
     try {
@@ -197,7 +156,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     setMember(member);
     setMemberSearchTerm('');
     setMemberSearchResults([]);
-    setShowMemberSearch(false);
     toast('success', `Member ${member.name} (${member.tier}) dipilih - Diskon ${member.discount_percentage}%`);
   };
 
@@ -221,6 +179,11 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [items.length]);
+
+  // F1 opens the payment modal from anywhere on the POS screen
+  useGlobalHotkey('F1', () => {
+    if (items.length > 0) setShowPaymentModal(true);
+  });
 
   const handleQuantityChange = (id: string, newQuantity: number) => {
     if (newQuantity > 0) updateQuantity(id, newQuantity);
@@ -285,14 +248,14 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
     toast('success', 'Global Diskon dihapus');
   };
 
-  const handlePayment = async () => {
+  const handlePayment = async (): Promise<boolean> => {
     if (items.length === 0) {
       toast('warning', 'Keranjang kosong');
-      return;
+      return false;
     }
     if (!storeTableNumber) {
       toast('warning', 'Mohon isi nomor meja terlebih dahulu');
-      return;
+      return false;
     }
 
     const total = calculateRoundedTotal(roundTo).total;
@@ -308,7 +271,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           
           if (!orderId) {
             toast('error', 'Gagal mendapatkan order ID');
-            return;
+            return false;
           }
           
           console.log('Order created successfully, ID:', orderId);
@@ -327,56 +290,39 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           if (payment) {
             setCurrentPayment(payment);
             setShowQRISModal(true);
-            
-            // Store receipt data for after payment success
+
+            // processPayment() already clears the cart on success, so its own
+            // returned receiptData (computed before the clear) is the only
+            // reliable source of totals here — recomputing via getSubtotal()/
+            // calculateRoundedTotal() now would read the post-clear (empty) cart.
             setReceiptData({
-              orderId,
-              tableNumber: storeTableNumber,
-              items: items.map(item => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                modifiers: (item.modifiers || []).map(m => m.name || String(m)),
-              })),
-              freeItems: freeItems.map(item => ({
-                name: item.name,
-                quantity: item.quantity,
-                price: item.price,
-                modifiers: (item.modifiers || []).map(m => m.name || String(m)),
-              })),
-              subtotal: getSubtotal(),
-              tax: getTax(),
-              discount: getDiscount() + getGlobalDiscount(),
-              discountType: discountType,
-              globalDiscount: globalDiscountAmount,
-              globalDiscountType: globalDiscountType,
-              roundingAmount: calculateRoundedTotal(roundTo).roundingAmount,
-              total: calculateRoundedTotal(roundTo).total,
-              paymentMethod: paymentMethod,
+              ...(result.receiptData as Record<string, unknown>),
               cashierName: (user as any)?.name || 'Kasir',
-              notes: notes,
             });
+            return true;
           } else {
             toast('error', 'Gagal membuat pembayaran QRIS. Order ID: ' + orderId);
             // Order was created but payment failed - need to handle this
+            return false;
           }
         } else {
           toast('error', result.message || 'Gagal memproses pesanan');
+          return false;
         }
       } catch (error) {
         console.error('Error processing order for QRIS:', error);
         toast('error', 'Gagal memproses pesanan');
+        return false;
       } finally {
         setPaying(false);
       }
-      return;
     }
 
     if (paymentMethod === 'CASH') {
       const cashAmount = Number(cashReceived);
       if (!cashReceived || cashAmount < total) {
         toast('error', `Uang tunai yang diterima kurang. Total: ${formatRupiah(total)}`);
-        return;
+        return false;
       }
     }
 
@@ -385,33 +331,13 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
       const result = await processPayment(roundTo, orderCategory, receiptNumber, customerName, deliveryAddress, courierName, courierType);
       
       if (result.success) {
-        const { orderId, receiptData } = result;
+        // processPayment() already clears the cart on success, so its own
+        // returned receiptData (computed before the clear) is the only
+        // reliable source of totals here — recomputing via getSubtotal()/
+        // calculateRoundedTotal() now would read the post-clear (empty) cart.
         setReceiptData({
-          orderId,
-          tableNumber: storeTableNumber,
-          items: items.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            modifiers: (item.modifiers || []).map(m => m.name || String(m)),
-          })),
-          freeItems: freeItems.map(item => ({
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-            modifiers: (item.modifiers || []).map(m => m.name || String(m)),
-          })),
-          subtotal: getSubtotal(),
-          tax: getTax(),
-          discount: getDiscount() + getGlobalDiscount(),
-          discountType: discountType,
-          globalDiscount: globalDiscountAmount,
-          globalDiscountType: globalDiscountType,
-          roundingAmount: calculateRoundedTotal(roundTo).roundingAmount,
-          total: calculateRoundedTotal(roundTo).total,
-          paymentMethod: paymentMethod,
+          ...(result.receiptData as Record<string, unknown>),
           cashierName: (user as any)?.name || 'Kasir',
-          notes: notes,
         });
         setShowReceipt(true);
         clearCart();
@@ -420,12 +346,15 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
         clearVoucher();
         clearMember();
         clearFreeItems();
+        return true;
       } else {
         toast('error', result.message || 'Gagal memproses pembayaran');
+        return false;
       }
     } catch (error) {
       console.error('Payment error:', error);
       toast('error', 'Terjadi kesalahan saat memproses pembayaran');
+      return false;
     } finally {
       setPaying(false);
     }
@@ -656,10 +585,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
 
   if (!mounted) {
     return (
-      <div className="flex h-full flex-col border-l border-line bg-surface">
-        <div className="border-b border-line p-4">
-          <h2 className="text-xl font-bold text-ink">Keranjang</h2>
-        </div>
+      <div className="flex h-full w-full min-w-0 flex-col border-l border-line bg-surface">
         <div className="flex-1 flex items-center justify-center p-4">
           <p className="text-ink-muted">Memuat...</p>
         </div>
@@ -668,14 +594,13 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   }
 
   return (
-    <div className="flex h-full flex-col border-l border-line bg-surface">
+    <div className="flex h-full w-full min-w-0 flex-col border-l border-line bg-surface">
       {/* Header */}
       <div className="border-b border-line p-3">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-ink">Keranjang</h2>
           {items.length > 0 && (
             <div className="flex gap-1.5">
-              <Button variant="ghost" size="sm" className="text-danger hover:bg-danger-soft text-xs px-2 py-1" onClick={() => setConfirmClear(true)}>
+              <Button variant="ghost" size="sm" mnemonic="C" className="text-danger hover:bg-danger-soft text-xs px-2 py-1" onClick={() => setConfirmClear(true)}>
                 Kosongkan
               </Button>
               <Button variant={splitMode ? 'secondary' : 'primary'} size="sm" className="text-xs px-2 py-1" onClick={splitMode ? handleEndSplit : handleStartSplit}>
@@ -685,107 +610,105 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           )}
         </div>
 
-        {/* Table Number Input */}
+        {/* Order Type Toggle */}
         <div className="mb-2">
-          <label htmlFor="cart-table" className="mb-0.5 block text-xs font-medium text-ink">
-            Nomor Meja <span aria-hidden="true" className="text-danger">*</span>
-          </label>
-          <input
-            id="cart-table"
-            type="text"
-            value={storeTableNumber}
-            onChange={(e) => setTableNumber(e.target.value)}
-            placeholder="Contoh: Meja 1"
-            className="min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
-          />
-        </div>
-
-        {/* Member Search */}
-        <div className="mb-2 relative">
-          <label htmlFor="member-search" className="mb-0.5 block text-xs font-medium text-ink">
-            Member (Opsional)
-          </label>
-          <div className="relative">
-            <input
-              id="member-search"
-              type="text"
-              value={selectedMember ? `${selectedMember.name} (${selectedMember.tier})` : memberSearchTerm}
-              onChange={(e) => {
-                if (!selectedMember) {
-                  setMemberSearchTerm(e.target.value);
-                  setShowMemberSearch(true);
-                }
-              }}
-              onFocus={() => setShowMemberSearch(true)}
-              placeholder="Cari nama atau nomor HP member..."
-              className="min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 pr-8 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
-            />
-            {selectedMember && (
+          <label className="mb-0.5 block text-xs font-medium text-ink">Tipe Pesanan</label>
+          <div className="flex gap-1">
+            {([
+              { value: 'dine-in', label: 'Dine-in' },
+              { value: 'takeaway', label: 'Takeaway' },
+              { value: 'delivery', label: 'Delivery' },
+            ] as const).map(({ value, label }) => (
               <button
-                onClick={handleClearMember}
-                className="absolute right-6 top-1/2 -translate-y-1/2 text-ink-muted hover:text-danger"
+                key={value}
+                type="button"
+                onClick={() => onOrderCategoryChange?.(value)}
+                className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${
+                  orderCategory === value
+                    ? 'bg-primary text-on-primary'
+                    : 'bg-surface-alt text-ink-secondary hover:bg-surface'
+                }`}
               >
-                <X className="h-3.5 w-3.5" />
+                {label}
               </button>
-            )}
-            <User className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-ink-muted" />
+            ))}
           </div>
+        </div>
 
-          {/* Member Search Results Dropdown */}
-          {showMemberSearch && memberSearchResults.length > 0 && (
-            <div className="absolute z-10 mt-1 w-full rounded-lg border border-line-strong bg-surface shadow-lg max-h-60 overflow-y-auto">
-              {memberSearchResults.map((member) => (
-                <button
-                  key={member.id}
-                  onClick={() => handleSelectMember(member)}
-                  className="w-full px-2.5 py-2 text-left hover:bg-surface-alt border-b border-line last:border-b-0 text-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <div className="font-medium text-ink">{member.name}</div>
-                      <div className="text-xs text-ink-secondary">{member.phone}</div>
-                    </div>
-                    <div className="text-xs font-medium px-2 py-0.5 rounded-full bg-primary-soft text-primary">
-                      {member.tier.charAt(0).toUpperCase() + member.tier.slice(1)}
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
+        {/* Table Selector (dine-in only) */}
+        {orderCategory === 'dine-in' && (
+          <div className="mb-2">
+            <label className="mb-0.5 block text-xs font-medium text-ink">
+              Nomor Meja <span aria-hidden="true" className="text-danger">*</span>
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowTableModal(true)}
+              className="flex min-h-9 w-full items-center justify-between rounded-lg border border-line-strong bg-surface px-2.5 text-sm text-ink hover:bg-surface-alt focus:border-primary focus:outline-none"
+            >
+              <span className={storeTableNumber ? 'text-ink' : 'text-ink-muted'}>
+                {storeTableNumber || 'Pilih Meja'}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-ink-muted" aria-hidden="true" />
+            </button>
+          </div>
+        )}
+
+        {/* Compact metadata triggers */}
+        <div className="flex gap-1.5">
+          {selectedMember ? (
+            <button
+              onClick={() => setShowMemberModal(true)}
+              className="flex min-h-8 flex-1 items-center gap-1.5 rounded-full border border-primary bg-primary-soft px-3 text-xs font-medium text-primary"
+            >
+              <User className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{selectedMember.name}</span>
+              <X
+                className="ml-auto h-3.5 w-3.5 shrink-0 hover:text-danger"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleClearMember();
+                }}
+              />
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowMemberModal(true)}
+              className="flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface-alt px-3 text-xs font-medium text-ink-secondary hover:bg-surface hover:text-ink"
+            >
+              <User className="h-3.5 w-3.5" /> + Member
+            </button>
           )}
-        </div>
 
-        {/* Free Item Button */}
-        <div className="mb-2">
-          <button
-            onClick={() => setShowFreeItemModal(true)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-line-strong bg-surface-alt px-2.5 py-1.5 text-xs font-medium text-ink-secondary hover:bg-surface hover:text-ink"
-          >
-            <Gift className="h-3.5 w-3.5" />
-            <span>+ Tambah Item Gratis</span>
-          </button>
-        </div>
-
-        {/* Notes Input */}
-        <div>
-          <label htmlFor="cart-notes" className="mb-0.5 block text-xs font-medium text-ink">
-            Catatan Pesanan
-          </label>
-          <textarea
-            id="cart-notes"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Catatan khusus untuk pesanan..."
-            rows={2}
-            className="w-full resize-none rounded-lg border border-line-strong bg-surface px-2.5 py-1.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
-          />
+          {notes ? (
+            <button
+              onClick={() => {
+                setNotesDraft(notes);
+                setShowNotesModal(true);
+              }}
+              className="flex min-h-8 flex-1 items-center gap-1.5 rounded-full border border-primary bg-primary-soft px-3 text-xs font-medium text-primary"
+            >
+              <StickyNote className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{notes}</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                setNotesDraft(notes);
+                setShowNotesModal(true);
+              }}
+              className="flex min-h-8 flex-1 items-center justify-center gap-1.5 rounded-full border border-dashed border-line-strong bg-surface-alt px-3 text-xs font-medium text-ink-secondary hover:bg-surface hover:text-ink"
+            >
+              <StickyNote className="h-3.5 w-3.5" /> + Catatan
+            </button>
+          )}
         </div>
       </div>
 
       {/* Cart Items */}
       <div className="flex-1 overflow-y-auto p-4">
         {items.length === 0 ? (
-          <EmptyState icon={ShoppingCart} title="Keranjang kosong" message="Tambahkan produk untuk memulai pesanan" />
+          <EmptyState icon={ShoppingCart} title="Keranjang Kosong" message="Pilih menu di sebelah kiri" />
         ) : (
           <div className="space-y-3">
             {items.map((item) => {
@@ -873,12 +796,30 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
       </div>
 
       {/* Footer - Total and Payment */}
-      <div className="border-t border-line bg-surface-alt p-3">
+      <div className="sticky bottom-0 shrink-0 border-t border-line bg-surface-alt p-3">
         <div className="mb-3 space-y-2">
-          {/* Subtotal hidden from customer view - tax and service are included in final price */}
-          
-          {/* Combined Discount Button */}
-          <div className="flex items-center justify-between">
+          {/* Subtotal */}
+          <div className="flex justify-between text-xs text-ink-secondary">
+            <span>Subtotal</span>
+            <span className="tnum">{formatRupiah(getSubtotal())}</span>
+          </div>
+
+          {/* Tax (PPN) */}
+          <div className="flex justify-between text-xs text-ink-secondary">
+            <span>Pajak (PPN {taxRatePercent}%)</span>
+            <span className="tnum">{formatRupiah(getTax())}</span>
+          </div>
+
+          {/* Service Charge - only shown when a rate is configured */}
+          {serviceChargeRatePercent > 0 && (
+            <div className="flex justify-between text-xs text-ink-secondary">
+              <span>Biaya Layanan ({serviceChargeRatePercent}%)</span>
+              <span className="tnum">{formatRupiah(getServiceCharge())}</span>
+            </div>
+          )}
+
+          {/* Combined Discount / utility links row */}
+          <div className="flex items-center justify-between gap-3">
             {(globalDiscountAmount > 0 || discountAmount > 0) ? (
               <div className="space-y-0.5 flex-1">
                 {globalDiscountAmount > 0 && (
@@ -902,10 +843,15 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
                 + Diskon
               </button>
             )}
+            <button
+              onClick={() => setShowNewSplitBillModal(true)}
+              disabled={items.length === 0}
+              className="text-xs text-ink-secondary hover:underline disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Split Bill
+            </button>
           </div>
-          
-          {/* Tax hidden from customer view - included in final price */}
-          
+
           {/* Free Items Section */}
           {freeItems.length > 0 && (
             <div className="space-y-0.5">
@@ -937,71 +883,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           </div>
         </div>
 
-        <div className="mb-2">
-          <label htmlFor="cart-rounding" className="sr-only">
-            Pembulatan
-          </label>
-          <select
-            id="cart-rounding"
-            value={roundTo}
-            onChange={(e) => setRoundTo(Number(e.target.value))}
-            className="min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-xs text-ink focus:border-primary focus:outline-none"
-          >
-            <option value={500}>Pembulatan 500</option>
-            <option value={1000}>Pembulatan 1000</option>
-            <option value={0}>Tidak ada pembulatan</option>
-          </select>
-        </div>
-
-        <fieldset className="mb-2">
-          <legend className="sr-only">Metode pembayaran</legend>
-          <div className="flex gap-1.5">
-            {paymentOptions.map(({ value, label }) => (
-              <label
-                key={value}
-                className={`flex min-h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 py-1.5 transition-colors ${
-                  paymentMethod === value
-                    ? 'border-primary bg-primary-soft text-primary'
-                    : 'border-line-strong text-ink-secondary hover:bg-surface'
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="paymentMethod"
-                  value={value}
-                  checked={paymentMethod === value}
-                  onChange={() => setPaymentMethod(value)}
-                  className="sr-only"
-                />
-                <span className="text-xs font-medium">{label}</span>
-              </label>
-            ))}
-          </div>
-        </fieldset>
-
-        {/* Cash Input - Only show for CASH payment */}
-        {paymentMethod === 'CASH' && (
-          <div className="mb-2">
-            <label htmlFor="cart-cash" className="mb-0.5 block text-xs font-medium text-ink">
-              Uang Diterima
-            </label>
-            <input
-              id="cart-cash"
-              type="number"
-              inputMode="numeric"
-              value={cashReceived}
-              onChange={(e) => setCashReceived(e.target.value)}
-              placeholder="Masukkan jumlah uang tunai"
-              className="tnum min-h-9 w-full rounded-lg border border-line-strong bg-surface px-2.5 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
-            />
-            {cashReceived && (
-              <p className="tnum mt-0.5 text-xs text-ink-secondary">
-                Kembalian: {formatRupiah(Number(cashReceived) - rounded.total)}
-              </p>
-            )}
-          </div>
-        )}
-
         <div className="flex gap-1.5">
           {splitMode && currentSplitGroup && (
             <Button variant="secondary" size="lg" className="flex-1 text-sm py-2.5" onClick={handlePaySplit}>
@@ -1011,31 +892,23 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
           <Button
             variant="secondary"
             size="lg"
+            mnemonic="K"
             className="flex-1 text-sm py-2.5 font-bold"
-            disabled={items.length === 0}
-            onClick={() => setShowNewSplitBillModal(true)}
-          >
-            Split Bill
-          </Button>
-          <Button
-            variant="primary"
-            size="lg"
-            className="flex-1 text-sm py-2.5 font-bold !text-gray-900 disabled:!text-gray-700"
             disabled={items.length === 0 || kitchenSent}
             onClick={handleSendToKitchen}
             title={kitchenSent ? 'Keranjang sudah dikirim ke dapur. Tambah atau ubah item untuk mengirim ulang.' : undefined}
           >
-            {kitchenSent ? 'Sudah Dikirim' : 'Kirim ke Dapur'}
+            {kitchenSent ? 'Sudah Dikirim' : 'KIRIM KE DAPUR'}
           </Button>
           <Button
             variant="success"
             size="lg"
+            mnemonic="B"
             className="flex-[2] text-sm py-2.5 font-bold"
             disabled={items.length === 0}
-            loading={paying}
-            onClick={handlePayment}
+            onClick={() => setShowPaymentModal(true)}
           >
-            Bayar Sekarang
+            BAYAR (F1)
           </Button>
         </div>
       </div>
@@ -1083,6 +956,58 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
         onSplitComplete={handleSplitComplete}
       />
 
+      {/* Table Selector Modal */}
+      <Modal
+        isOpen={showTableModal}
+        onClose={() => setShowTableModal(false)}
+        title="Pilih Meja"
+        size="md"
+      >
+        {tablesLoading ? (
+          <div className="flex items-center gap-2 text-sm text-ink-secondary">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Memuat meja...
+          </div>
+        ) : tables.length === 0 ? (
+          <EmptyState icon={Utensils} title="Belum ada meja" message="Tambahkan meja di Manajemen Meja" />
+        ) : (
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {tables.map((table) => {
+              const effectiveStatus = table.hasActiveOrders ? 'occupied' : table.status;
+              const statusConfig = {
+                available: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: 'Available' },
+                occupied: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Terisi' },
+                dirty: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Kotor' },
+                reserved: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Reservasi' },
+              } as const;
+              const config = statusConfig[effectiveStatus];
+              const isSelected = storeTableNumber === table.table_number;
+
+              return (
+                <button
+                  key={table.id}
+                  type="button"
+                  onClick={() => {
+                    setTableNumber(table.table_number);
+                    setShowTableModal(false);
+                  }}
+                  className={`relative rounded-lg border-2 p-3 transition-all hover:opacity-80 active:scale-95 ${
+                    isSelected ? 'ring-2 ring-primary ring-offset-2' : ''
+                  } ${config.bg} ${config.border} ${config.text}`}
+                  title={`${table.table_number} - ${config.label}`}
+                >
+                  <div className="text-sm font-bold">{table.table_number}</div>
+                  <div className="mt-1 text-xs">{config.label}</div>
+                  {table.hasActiveOrders && effectiveStatus !== 'occupied' && (
+                    <div className="absolute right-1 top-1 h-2 w-2 rounded-full bg-blue-500" title="Has active orders" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
+
       {/* Dialogs */}
       <ConfirmDialog
         isOpen={confirmClear}
@@ -1119,84 +1044,108 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
         onCancel={() => setVoidTargetId(null)}
       />
       
-      {/* Free Item Modal */}
-      {showFreeItemModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="w-full max-w-2xl max-h-[80vh] rounded-lg bg-surface p-6 shadow-lg overflow-y-auto">
-            <h3 className="mb-4 text-lg font-bold text-ink">Tambah Item Gratis</h3>
-            <p className="mb-4 text-sm text-ink-secondary">
-              Pilih produk dari menu untuk ditambahkan sebagai item gratis. Item gratis tidak dikenakan pajak dan akan mengurangi stok inventori sesuai resep.
-            </p>
-            
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-ink mb-2">Pilih Produk</label>
-              <div className="max-h-48 overflow-y-auto border border-line-strong rounded-lg">
-                {availableProducts.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-ink-secondary">
-                    Memuat produk...
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-2 gap-2 p-2">
-                    {availableProducts.map((product) => (
-                      <button
-                        key={product.id}
-                        onClick={() => setSelectedFreeProduct(product)}
-                        className={`p-3 rounded-lg border text-left transition-colors ${
-                          selectedFreeProduct?.id === product.id
-                            ? 'border-primary bg-primary/10'
-                            : 'border-line-strong hover:bg-surface-alt'
-                        }`}
-                      >
-                        <div className="font-medium text-sm text-ink">{product.name}</div>
-                        <div className="text-xs text-ink-secondary">{formatRupiah(product.price)}</div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-ink mb-2">Jumlah</label>
-              <input
-                type="number"
-                min="1"
-                value={freeItemQuantity}
-                onChange={(e) => setFreeItemQuantity(Number(e.target.value))}
-                className="w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-ink focus:border-primary focus:outline-none"
-              />
-            </div>
-
-            {selectedFreeProduct && (
-              <div className="mb-4 p-3 bg-surface-alt rounded-lg">
-                <div className="text-sm text-ink-secondary">Produk Terpilih:</div>
-                <div className="font-medium text-ink">{selectedFreeProduct.name}</div>
-                <div className="text-sm text-ink-secondary">Harga Asli: {formatRupiah(selectedFreeProduct.price)}</div>
-                <div className="text-sm text-success font-medium">Harga Gratis: Rp 0</div>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="ghost"
-                onClick={() => {
-                  setShowFreeItemModal(false);
-                  setSelectedFreeProduct(null);
-                  setFreeItemQuantity(1);
-                }}
-              >
-                Batal
-              </Button>
-              <Button
-                onClick={handleAddFreeItem}
-                disabled={!selectedFreeProduct}
-              >
-                Tambah Gratis
-              </Button>
-            </div>
-          </div>
+      {/* Member Modal */}
+      <Modal isOpen={showMemberModal} onClose={() => setShowMemberModal(false)} title="Member" size="sm">
+        <div className="relative">
+          <input
+            type="text"
+            value={selectedMember ? `${selectedMember.name} (${selectedMember.tier})` : memberSearchTerm}
+            onChange={(e) => {
+              if (!selectedMember) {
+                setMemberSearchTerm(e.target.value);
+              }
+            }}
+            placeholder="Cari nama atau nomor HP member..."
+            className="min-h-10 w-full rounded-lg border border-line-strong bg-surface px-3 pr-9 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+            autoFocus
+          />
+          {selectedMember && (
+            <button
+              onClick={handleClearMember}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-muted hover:text-danger"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
         </div>
-      )}
+
+        {!selectedMember && memberSearchResults.length > 0 && (
+          <div className="mt-2 max-h-60 overflow-y-auto rounded-lg border border-line-strong">
+            {memberSearchResults.map((m) => (
+              <button
+                key={m.id}
+                onClick={() => {
+                  handleSelectMember(m);
+                  setShowMemberModal(false);
+                }}
+                className="w-full border-b border-line px-3 py-2 text-left text-sm last:border-b-0 hover:bg-surface-alt"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-medium text-ink">{m.name}</div>
+                    <div className="text-xs text-ink-secondary">{m.phone}</div>
+                  </div>
+                  <div className="rounded-full bg-primary-soft px-2 py-0.5 text-xs font-medium text-primary">
+                    {m.tier.charAt(0).toUpperCase() + m.tier.slice(1)}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </Modal>
+
+      {/* Notes Modal */}
+      <Modal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        title="Catatan Pesanan"
+        size="sm"
+        footer={
+          <div className="flex w-full gap-2">
+            <Button variant="ghost" className="flex-1" onClick={() => setShowNotesModal(false)}>
+              Batal
+            </Button>
+            <Button
+              className="flex-1"
+              onClick={() => {
+                setNotes(notesDraft);
+                setShowNotesModal(false);
+              }}
+            >
+              Simpan
+            </Button>
+          </div>
+        }
+      >
+        <textarea
+          value={notesDraft}
+          onChange={(e) => setNotesDraft(e.target.value)}
+          placeholder="Catatan khusus untuk pesanan..."
+          rows={3}
+          autoFocus
+          className="w-full resize-none rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+        />
+      </Modal>
+
+      {/* Payment Modal (Step 2: Settlement) */}
+      <CartPaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        total={rounded.total}
+        orderCategory={orderCategory}
+        tableNumber={storeTableNumber}
+        itemCount={items.reduce((sum, item) => sum + item.quantity, 0)}
+        paymentMethod={paymentMethod}
+        onPaymentMethodChange={setPaymentMethod}
+        cashReceived={cashReceived}
+        onCashReceivedChange={setCashReceived}
+        paying={paying}
+        onConfirm={async () => {
+          const success = await handlePayment();
+          if (success) setShowPaymentModal(false);
+        }}
+      />
 
       {/* Unified Discount Modal */}
       {showDiscountModal && (

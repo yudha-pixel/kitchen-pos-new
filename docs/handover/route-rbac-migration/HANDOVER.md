@@ -167,3 +167,50 @@ No API or Next.js server was started for this migration. Vitest, TypeScript, per
 ```text
 Continue the Business Routes and Capability RBAC migration from docs/handover/route-rbac-migration/HANDOVER.md. Keep Git strictly read-only, preserve unrelated working-tree changes, do not run browser automation/Playwright, and do not apply database backfills to production. Read knowledge/route-rbac-migration first, then inspect verification-log.md and remaining-risks.md. Re-run only the failed or missing verification gate, stop any server you start, and update this handover with exact evidence.
 ```
+
+## Top Navigation Profile, Brand, and Live Clock Slice
+
+**Completed:** 2026-08-12 19:44 +07:00
+**Read-only Git identity:** `self_order` / `7abc1df45cd7eab98c998f01b8379b5b45f1dc68`
+
+The persistent authenticated header now centers the static `Kitchen POS` brand, exposes the authenticated profile through an accessible Base UI menu, removes the outlet selector from the header only, and displays a device-local Indonesian clock with seconds on desktop. Mobile keeps the brand, profile, and existing page action in the first row; POS search moves to a full-width second row, and the clock stays hidden below `lg`.
+
+The public login and `/auth/me` user shape now add `full_name`. Both routes use one serializer and continue to return `id`, `username`, `full_name`, `role_id`, `role`, and `permissions`. Authentication remains under `/auth/...`; business and health route prefixes were not changed.
+
+Changed files for this slice:
+
+```text
+package.json
+package-lock.json
+server/lib/authenticatedUser.ts
+server/routes/auth.ts
+server/__tests__/authenticated-user.test.ts
+server/__tests__/header-components.test.ts
+src/types/auth.ts
+src/components/layout/Header.tsx
+src/components/layout/LiveClock.tsx
+src/components/layout/UserProfileMenu.tsx
+docs/handover/route-rbac-migration/HANDOVER.md
+docs/handover/route-rbac-migration/verification-log.md
+```
+
+`@base-ui/react` `^1.6.0` was added and resolved to `1.6.0`. The install audit reported 14 existing findings (1 moderate, 13 high); no audit fix was run. No database query, migration, seed, permission synchronization, backfill, or other database write was performed. No browser automation, Playwright, API server, or Next development server was run. The unrelated untracked `server/__tests__/inventory-logging.test.ts` was preserved untouched.
+
+Automated verification is complete and recorded in `verification-log.md`. Runtime visual acceptance remains intentionally user-run: desktop alignment/live ticking/profile keyboard behavior, mobile header/search layout, and logout navigation were not promoted to verified browser claims.
+
+## Single-Company Configuration and Unified Navigation Slice
+
+**Completed:** 2026-08-12 (Asia/Jakarta)
+**Read-only Git identity:** `self_order` / `7abc1df` (`yudha-pixel`, `sukmayudha48@gmail.com`)
+
+The authenticated shell and `/apps` now share the same balanced top-navigation foundation. The single configured company name/logo replaces the hardcoded authenticated brand, `/apps` uses the shared live clock and Base UI profile menu, module search moves below the primary row below `lg`, and no header renders an outlet selector. The launcher grid, permission filtering, favorites, recent items, and outlet infrastructure remain intact.
+
+The new `/settings/company` screen owns company identity, managed logo upload/removal, timezone, currency, tax, and service-charge defaults. `AppSettings` retains its legacy database columns for one compatibility cycle but the settings API no longer exposes, updates, resets, or reads those company-owned fields. `web_base_url` moved to the Self-Order settings surface. Split-bill and client configuration hydration now use Company defaults.
+
+New business routes are `/api/company/identity`, `/api/company/config`, `/api/company`, and `/api/company/logo`; `/auth/...`, other `/api/...`, and `/health` contracts are unchanged. Existing `settings.view`/`settings.edit` permissions are reused, so no permission catalog or backfill action was performed.
+
+The prepared `20260812190000_add_single_company` migration creates the single Company from the oldest `AppSettings` row or safe defaults, adds required `Outlet.company_id`, and backfills every outlet. It was applied only to disposable `kitchen_pos_company_verify_20260812`, where all 32 migrations succeeded, `company_count=1`, and `unlinked_outlets=0`; the database was dropped and confirmed absent. The `kitchen_pos` database was not migrated, seeded, synchronized, queried, or otherwise changed. Runtime use of the company feature against `kitchen_pos` therefore remains pending separate migration authorization.
+
+Files added or changed specifically for this slice include the Company schema/migration, company API/validation/tests, company settings route, company context/brand/top-navigation components, launcher/root layout/navigation integration, outlet creation/seed/sync ownership, legacy settings separation, split-bill defaults, and these handover records. The earlier auth/header edits and unrelated `server/__tests__/inventory-logging.test.ts` were preserved.
+
+No dependency was added for this slice; existing Multer and Base UI packages were reused. No Playwright or browser automation was run. No verification server was started. Pre-existing project dev listeners remained running on ports 3000 (PID 22600, Next) and 3001 (PID 4580, API watcher); they were inspected but not stopped because they were not started by this implementation.

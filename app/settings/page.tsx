@@ -12,7 +12,6 @@ import {
   requestAreaDeletion,
 } from '@/src/features/settings/areaDeletion';
 import { 
-  Store, 
   Printer, 
   Clock, 
   LayoutGrid, 
@@ -26,19 +25,11 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-type SettingsTab = 'store' | 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder';
+type SettingsTab = 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder';
 
 // Default settings values
 const defaultStoreSettings = {
-  store_name: 'Kitchen POS Restaurant',
-  store_phone: '+62 21 1234 5678',
-  store_email: 'info@kitchenpos.com',
-  store_address: 'Jl. Contoh No. 123, Jakarta Selatan',
   web_base_url: 'http://localhost:3000',
-  timezone: 'Asia/Jakarta',
-  currency: 'IDR',
-  tax_rate: 10,
-  service_charge: 0,
 };
 
 const defaultReceiptSettings = {
@@ -115,8 +106,8 @@ const defaultSelfOrderSettings = {
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const { updateFromSettings: updateConfig } = useConfigStore();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('store');
+  const setWebBaseUrl = useConfigStore((state) => state.setWebBaseUrl);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('receipt');
   const [saving, setSaving] = useState(false);
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
@@ -155,15 +146,8 @@ export default function SettingsPage() {
       
       // Map API response to local state
       setStoreSettings({
-        store_name: settings.store_name || defaultStoreSettings.store_name,
-        store_phone: settings.store_phone || defaultStoreSettings.store_phone,
-        store_email: settings.store_email || defaultStoreSettings.store_email,
-        store_address: settings.store_address || defaultStoreSettings.store_address,
+        ...defaultStoreSettings,
         web_base_url: settings.web_base_url || defaultStoreSettings.web_base_url,
-        timezone: settings.timezone || defaultStoreSettings.timezone,
-        currency: settings.currency || defaultStoreSettings.currency,
-        tax_rate: settings.tax_rate || defaultStoreSettings.tax_rate,
-        service_charge: settings.service_charge || defaultStoreSettings.service_charge,
       });
 
       setReceiptSettings({
@@ -241,15 +225,13 @@ export default function SettingsPage() {
         selforder_routing: settings.selforder_routing === 'auto' ? 'auto' : 'review',
       });
 
-      // Sync with global config store
-      updateConfig({ taxRate: settings.tax_rate, serviceCharge: settings.service_charge });
+      setWebBaseUrl(settings.web_base_url || defaultStoreSettings.web_base_url);
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
   };
 
   const tabs = [
-    { id: 'store' as SettingsTab, label: 'Toko & Profil', icon: Store },
     { id: 'receipt' as SettingsTab, label: 'Struk & Cetak', icon: Printer },
     { id: 'shift' as SettingsTab, label: 'Shift & Kasir', icon: Clock },
     { id: 'tables' as SettingsTab, label: 'Meja & Area', icon: LayoutGrid },
@@ -292,7 +274,7 @@ export default function SettingsPage() {
       
       // Combine all settings into one object
       const allSettings = {
-        ...storeSettings,
+        web_base_url: storeSettings.web_base_url,
         ...receiptSettings,
         ...shiftSettings,
         ...inventorySettings,
@@ -317,12 +299,7 @@ export default function SettingsPage() {
         throw new Error(body?.error || 'Failed to save settings');
       }
       
-      // Sync tax, service charge rates, and web base URL with global config store
-      updateConfig({ 
-        taxRate: storeSettings.tax_rate, 
-        serviceCharge: storeSettings.service_charge,
-        webBaseUrl: storeSettings.web_base_url 
-      });
+      setWebBaseUrl(storeSettings.web_base_url);
       
       toast('success', 'Pengaturan berhasil disimpan');
     } catch (error) {
@@ -397,12 +374,6 @@ export default function SettingsPage() {
 
             {/* Tab Content */}
             <div className="rounded-xl border border-line bg-surface p-6 shadow-sm">
-              {activeTab === 'store' && (
-                <StoreProfileSettings 
-                  settings={storeSettings} 
-                  onChange={setStoreSettings} 
-                />
-              )}
               {activeTab === 'receipt' && (
                 <ReceiptPrintSettings 
                   settings={receiptSettings} 
@@ -447,7 +418,12 @@ export default function SettingsPage() {
                 />
               )}
               {activeTab === 'selforder' && (
-                <SelfOrderSettings settings={selfOrderSettings} onChange={setSelfOrderSettings} />
+                <SelfOrderSettings
+                  settings={selfOrderSettings}
+                  onChange={setSelfOrderSettings}
+                  webBaseUrl={storeSettings.web_base_url}
+                  onWebBaseUrlChange={(webBaseUrl) => setStoreSettings((current) => ({ ...current, web_base_url: webBaseUrl }))}
+                />
               )}
             </div>
 
@@ -511,20 +487,18 @@ export default function SettingsPage() {
   );
 }
 
-// Store & Business Profile Settings
-interface StoreSettingsProps {
-  settings: typeof defaultStoreSettings;
-  onChange: (settings: typeof defaultStoreSettings) => void;
-}
-
 type SelfOrderSettingsValue = typeof defaultSelfOrderSettings;
 
 function SelfOrderSettings({
   settings,
   onChange,
+  webBaseUrl,
+  onWebBaseUrlChange,
 }: {
   settings: SelfOrderSettingsValue;
   onChange: (value: SelfOrderSettingsValue) => void;
+  webBaseUrl: string;
+  onWebBaseUrlChange: (value: string) => void;
 }) {
   const toggleMethod = (id: string) => {
     const enabled = settings.selforder_payment_methods.includes(id);
@@ -541,6 +515,20 @@ function SelfOrderSettings({
       <div>
         <h2 id="self-order-settings-heading" className="text-xl font-semibold text-ink">Self-Order</h2>
         <p className="mt-1 text-sm text-ink-muted">Atur metode yang dilihat tamu. Jenis dan aturan keamanan setiap metode tidak dapat diubah.</p>
+      </div>
+
+      <div>
+        <label htmlFor="selforder-web-base-url" className="block text-sm font-medium text-ink">Web Base URL</label>
+        <input
+          id="selforder-web-base-url"
+          type="url"
+          value={webBaseUrl}
+          onChange={(event) => onWebBaseUrlChange(event.target.value)}
+          placeholder="http://192.168.1.36:3000"
+          className="mt-1.5 min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-ink focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+          aria-describedby="selforder-web-base-url-help"
+        />
+        <p id="selforder-web-base-url-help" className="mt-1 text-pretty text-xs text-ink-secondary">URL dasar untuk QR code dan akses dari perangkat lain.</p>
       </div>
 
       <fieldset>
@@ -623,165 +611,6 @@ function SelfOrderSettings({
         </div>
       )}
     </section>
-  );
-}
-
-function StoreProfileSettings({ settings, onChange }: StoreSettingsProps) {
-  const handleChange = (field: keyof typeof defaultStoreSettings, value: any) => {
-    onChange({ ...settings, [field]: value });
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="mb-4 text-xl font-bold text-ink">Pengaturan Toko & Profil Bisnis</h2>
-        <p className="mb-6 text-sm text-ink-secondary">
-          Konfigurasi informasi dasar restoran dan profil bisnis Anda.
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="store-name" className="mb-1.5 block text-sm font-medium text-ink">
-              Nama Restoran
-            </label>
-            <input
-              id="store-name"
-              type="text"
-              value={settings.store_name}
-              onChange={(e) => handleChange('store_name', e.target.value)}
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="store-phone" className="mb-1.5 block text-sm font-medium text-ink">
-              Nomor Telepon
-            </label>
-            <input
-              id="store-phone"
-              type="tel"
-              value={settings.store_phone}
-              onChange={(e) => handleChange('store_phone', e.target.value)}
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="store-email" className="mb-1.5 block text-sm font-medium text-ink">
-              Email
-            </label>
-            <input
-              id="store-email"
-              type="email"
-              value={settings.store_email}
-              onChange={(e) => handleChange('store_email', e.target.value)}
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label htmlFor="store-address" className="mb-1.5 block text-sm font-medium text-ink">
-              Alamat
-            </label>
-            <textarea
-              id="store-address"
-              rows={3}
-              value={settings.store_address}
-              onChange={(e) => handleChange('store_address', e.target.value)}
-              className="w-full resize-none rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="timezone" className="mb-1.5 block text-sm font-medium text-ink">
-              Zona Waktu
-            </label>
-            <select
-              id="timezone"
-              value={settings.timezone}
-              onChange={(e) => handleChange('timezone', e.target.value)}
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            >
-              <option value="Asia/Jakarta">WIB (Jakarta)</option>
-              <option value="Asia/Makassar">WITA (Makassar)</option>
-              <option value="Asia/Jayapura">WIT (Jayapura)</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="currency" className="mb-1.5 block text-sm font-medium text-ink">
-              Mata Uang
-            </label>
-            <select
-              id="currency"
-              value={settings.currency}
-              onChange={(e) => handleChange('currency', e.target.value)}
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            >
-              <option value="IDR">IDR - Indonesian Rupiah</option>
-              <option value="USD">USD - US Dollar</option>
-              <option value="SGD">SGD - Singapore Dollar</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="web-base-url" className="mb-1.5 block text-sm font-medium text-ink">
-              Web Base URL
-            </label>
-            <input
-              id="web-base-url"
-              type="url"
-              value={settings.web_base_url}
-              onChange={(e) => handleChange('web_base_url', e.target.value)}
-              placeholder="http://192.168.1.36:3000"
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-            <p className="mt-1 text-xs text-ink-secondary">
-              URL dasar untuk QR code dan akses dari perangkat lain (contoh: http://192.168.1.36:3000)
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-line pt-6">
-        <h3 className="mb-4 text-lg font-semibold text-ink">Pengaturan Pajak & Biaya</h3>
-        <div className="grid gap-6 md:grid-cols-2">
-          <div>
-            <label htmlFor="tax-rate" className="mb-1.5 block text-sm font-medium text-ink">
-              Persentase Pajak/PPN (%)
-            </label>
-            <input
-              id="tax-rate"
-              type="number"
-              value={settings.tax_rate}
-              onChange={(e) => handleChange('tax_rate', Number(e.target.value))}
-              min="0"
-              max="100"
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="service-charge" className="mb-1.5 block text-sm font-medium text-ink">
-              Biaya Layanan (%)
-            </label>
-            <input
-              id="service-charge"
-              type="number"
-              value={settings.service_charge}
-              onChange={(e) => handleChange('service_charge', Number(e.target.value))}
-              min="0"
-              max="100"
-              className="w-full rounded-lg border border-line-strong bg-surface px-4 py-2.5 text-ink focus:border-primary focus:outline-none"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
   );
 }
 

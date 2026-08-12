@@ -39,6 +39,25 @@ async function main() {
   await synchronizePermissionCatalog(prisma, { dryRun: false });
   console.log('✅ Synchronized permission catalog and system-role mappings');
 
+  const company = await prisma.company.upsert({
+    where: { id: '00000000-0000-4000-8000-000000000001' },
+    update: {},
+    create: {
+      id: '00000000-0000-4000-8000-000000000001',
+      name: 'Kitchen POS',
+      phone: '0812-3456-7890',
+      email: 'support@kitchenpos.id',
+      website: 'https://kitchenpos.id',
+      address: 'Jl. Jendral Sudirman No. 123, Jakarta Selatan, DKI Jakarta 12190',
+      tax_id: '01.234.567.8-012.000',
+      company_registry: 'AHU-0012345.AH.01.01.TAHUN.2024',
+      timezone: 'Asia/Jakarta',
+      currency: 'IDR',
+      tax_rate: 10,
+      service_charge: 5,
+    },
+  });
+
   // Step 1.4: Create default outlets
   const outlet1 = await prisma.outlet.upsert({
     where: { code: 'OUT-001' },
@@ -50,6 +69,7 @@ async function main() {
       address: 'Jl. Jendral Sudirman No. 1, Jakarta',
       phone: '021-12345678',
       is_active: true,
+      company_id: company.id,
     },
   });
   console.log('✅ Created default outlet: OUT-001');
@@ -108,6 +128,7 @@ async function main() {
       address: 'Jl. Senopati Raya No. 45, Jakarta Selatan',
       phone: '021-87654321',
       is_active: true,
+      company_id: company.id,
     },
   });
 
@@ -121,6 +142,7 @@ async function main() {
       address: 'Jl. BSD City Raya No. 78, Tangerang',
       phone: '021-55555555',
       is_active: true,
+      company_id: company.id,
     },
   });
 

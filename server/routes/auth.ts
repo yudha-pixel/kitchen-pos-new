@@ -7,6 +7,7 @@ import { loadRolePermissions } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
 import { requirePermission } from '../middleware/permissions';
 import { loginSchema, registerSchema } from '../lib/validation';
+import { serializeAuthenticatedUser } from '../lib/authenticatedUser';
 
 const router = Router();
 
@@ -36,13 +37,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const permissions = await loadRolePermissions(user.role_id);
 
-  const authenticatedUser = {
-    id: user.id,
-    username: user.username,
-    role: user.role.name,
-    role_id: user.role_id,
-    permissions,
-  };
+  const authenticatedUser = serializeAuthenticatedUser(user, permissions);
 
   res.json({
     token,
@@ -100,13 +95,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   }
 
   const permissions = await loadRolePermissions(user.role_id);
-  res.json({
-    id: user.id,
-    username: user.username,
-    role: user.role.name,
-    role_id: user.role_id,
-    permissions,
-  });
+  res.json(serializeAuthenticatedUser(user, permissions));
 });
 
 export default router;

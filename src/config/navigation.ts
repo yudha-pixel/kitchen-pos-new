@@ -1,4 +1,12 @@
 import { PERMISSIONS, type PermissionName } from './permissions';
+import type { Tone as BadgeTone } from '@/src/components/ui/Badge';
+
+export interface AppModuleBadge {
+  label: string;
+  // 'primary' = core/most-used module; 'info' = new/updated; 'success' = live/technical
+  // capability (real-time, offline-ready); 'neutral' = operational area (FOH/BOH).
+  tone: BadgeTone;
+}
 
 export interface AppChildLink {
   label: string;
@@ -16,7 +24,7 @@ export interface AppDefinition {
   iconName: string;
   route: string;
   subLinks: AppChildLink[];
-  badge?: string;
+  badge?: AppModuleBadge;
   requiredPermission: PermissionName;
   keywords: string[];
 }
@@ -31,14 +39,14 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'ShoppingCart',
     route: '/pos',
     requiredPermission: PERMISSIONS.orders.create,
-    badge: 'Utama',
-    keywords: ['pos', 'kasir', 'waiter', 'meja', 'shift', 'penjualan', 'checkout'],
+    // Offline-first: this module keeps taking orders on IndexedDB + a sync queue when the LAN/API drops.
+    badge: { label: 'Offline-Ready', tone: 'success' },
+    keywords: ['pos', 'kasir', 'waiter', 'order', 'table', 'meja', 'sesi', 'shift', 'penjualan', 'checkout'],
     subLinks: [
-      { label: 'POS Utama', href: '/pos', requiredPermission: PERMISSIONS.orders.create },
-      { label: 'Waiter POS', href: '/waiter', requiredPermission: PERMISSIONS.orders.create },
-      { label: 'Manajemen Meja', href: '/pos/meja', requiredPermission: PERMISSIONS.tables.view },
-      { label: 'Buka/Tutup Shift', href: '/shift', requiredPermission: PERMISSIONS.orders.create },
-      { label: 'Kasir Klasik', href: '/kasir', requiredPermission: PERMISSIONS.orders.create },
+      { label: 'Kasir Utama', href: '/pos', iconName: 'Store', requiredPermission: PERMISSIONS.orders.create },
+      { label: 'Pesanan Waiter', href: '/waiter', iconName: 'ConciergeBell', requiredPermission: PERMISSIONS.orders.create },
+      { label: 'Denah Meja', href: '/pos/meja', iconName: 'Armchair', requiredPermission: PERMISSIONS.tables.view },
+      { label: 'Sesi Kasir', href: '/shift', iconName: 'Clock', requiredPermission: PERMISSIONS.orders.create },
     ],
   },
   {
@@ -50,10 +58,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Monitor',
     route: '/kitchen',
     requiredPermission: PERMISSIONS.kitchen.view,
-    badge: 'Real-time',
-    keywords: ['kds', 'dapur', 'kitchen', 'pesanan', 'masak', 'chef', 'antrean'],
+    badge: { label: 'Live', tone: 'success' },
+    keywords: ['kds', 'dapur', 'kitchen', 'layar dapur', 'pesanan', 'masak', 'chef', 'antrean', 'kitchen display'],
     subLinks: [
-      { label: 'KDS Dapur', href: '/kitchen', requiredPermission: PERMISSIONS.kitchen.view },
+      { label: 'Layar Dapur', href: '/kitchen', iconName: 'ChefHat', requiredPermission: PERMISSIONS.kitchen.view },
     ],
   },
   {
@@ -65,10 +73,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'UtensilsCrossed',
     route: '/products',
     requiredPermission: PERMISSIONS.products.view,
-    keywords: ['produk', 'menu', 'kategori', 'modifier', 'resep', 'mapping', 'harga'],
+    keywords: ['produk', 'menu', 'daftar menu', 'kategori', 'modifier', 'resep', 'mapping resep', 'harga', 'bom', 'bill of materials', 'product', 'catalog'],
     subLinks: [
-      { label: 'Manajemen Produk', href: '/products', requiredPermission: PERMISSIONS.products.view },
-      { label: 'Mapping Resep (BOM)', href: '/inventory/mapping', requiredPermission: PERMISSIONS.products.recipesManage },
+      { label: 'Daftar Menu', href: '/products', iconName: 'Utensils', requiredPermission: PERMISSIONS.products.view },
+      { label: 'Mapping Resep', href: '/inventory/mapping', iconName: 'Layers', requiredPermission: PERMISSIONS.products.recipesManage },
     ],
   },
   {
@@ -80,15 +88,15 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Box',
     route: '/inventory',
     requiredPermission: PERMISSIONS.inventory.view,
-    keywords: ['inventori', 'stok', 'bahan baku', 'supplier', 'approval', 'write-off', 'automation'],
+    badge: { label: 'BOH', tone: 'neutral' },
+    keywords: ['inventori', 'stok', 'barang', 'bahan', 'persetujuan', 'penyesuaian', 'transfer', 'otomatisasi', 'kategori barang', 'items', 'approval', 'adjustment', 'automation'],
     subLinks: [
-      { label: 'All Items', href: '/inventory', iconName: 'PackageOpen', requiredPermission: PERMISSIONS.inventory.view },
-      { label: 'Stock Approvals', href: '/inventory/stock-approvals', iconName: 'ClipboardCheck', requiredPermission: PERMISSIONS.inventory.approve },
-      { label: 'Categories', href: '/products', iconName: 'Tags', requiredPermission: PERMISSIONS.products.view },
-      { label: 'Stock Adjustments', href: '/inventory?view=adjustments', iconName: 'SlidersHorizontal', requiredPermission: PERMISSIONS.inventory.adjust },
-      { label: 'Stock Transfers', href: '/inventory/stock-approvals?view=transfers', iconName: 'ArrowLeftRight', requiredPermission: PERMISSIONS.inventory.transfer },
-      { label: 'Suppliers', href: '/inventory-suppliers', iconName: 'Truck', requiredPermission: PERMISSIONS.purchasing.view },
-      { label: 'Automation', href: '/inventory/automation', iconName: 'Workflow', requiredPermission: PERMISSIONS.inventory.edit },
+      { label: 'Data Barang & Bahan', href: '/inventory', iconName: 'PackageOpen', requiredPermission: PERMISSIONS.inventory.view },
+      { label: 'Persetujuan Stok', href: '/inventory/stock-approvals', iconName: 'ClipboardCheck', requiredPermission: PERMISSIONS.inventory.approve },
+      { label: 'Kategori Barang', href: '/inventory/categories', iconName: 'Tags', requiredPermission: PERMISSIONS.inventory.view },
+      { label: 'Penyesuaian Stok', href: '/inventory/stock-adjustments', iconName: 'SlidersHorizontal', requiredPermission: PERMISSIONS.inventory.adjust },
+      { label: 'Transfer Stok', href: '/inventory/stock-transfers', iconName: 'ArrowLeftRight', requiredPermission: PERMISSIONS.inventory.transfer },
+      { label: 'Otomatisasi Stok', href: '/inventory/automation', iconName: 'Workflow', requiredPermission: PERMISSIONS.inventory.edit },
     ],
   },
   {
@@ -100,15 +108,16 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'ShoppingBag',
     route: '/inventory-suppliers',
     requiredPermission: PERMISSIONS.purchasing.view,
-    keywords: ['pembelian', 'supplier', 'pemasok', 'order', 'po', 'pembayaran', 'quotation', 'invoice', 'grn'],
+    badge: { label: 'BOH', tone: 'neutral' },
+    keywords: ['pembelian', 'supplier', 'pemasok', 'pesanan pembelian', 'penerimaan barang', 'faktur', 'pembayaran', 'quotation', 'po', 'grn', 'invoice', 'purchase order', 'goods received note'],
     subLinks: [
-      { label: 'Manajemen Supplier', href: '/inventory-suppliers', requiredPermission: PERMISSIONS.purchasing.view },
-      { label: 'Permintaan Penawaran', href: '/inventory/quotation-requests', requiredPermission: PERMISSIONS.purchasing.create },
-      { label: 'Penawaran Supplier', href: '/inventory/quotations', requiredPermission: PERMISSIONS.purchasing.edit },
-      { label: 'Purchase Order', href: '/inventory/purchase-orders', requiredPermission: PERMISSIONS.purchasing.create },
-      { label: 'Goods Received Note', href: '/inventory/goods-received-notes', requiredPermission: PERMISSIONS.purchasing.receive },
-      { label: 'Invoice Supplier', href: '/inventory/invoices', requiredPermission: PERMISSIONS.purchasing.view },
-      { label: 'Pembayaran Supplier', href: '/inventory/supplier-payments', requiredPermission: PERMISSIONS.purchasing.pay },
+      { label: 'Data Supplier', href: '/inventory-suppliers', iconName: 'Truck', requiredPermission: PERMISSIONS.purchasing.view },
+      { label: 'Permintaan Penawaran', href: '/inventory/quotation-requests', iconName: 'FileSearch', requiredPermission: PERMISSIONS.purchasing.create },
+      { label: 'Penawaran Supplier', href: '/inventory/quotations', iconName: 'FileText', requiredPermission: PERMISSIONS.purchasing.edit },
+      { label: 'Pesanan Pembelian', href: '/inventory/purchase-orders', iconName: 'ClipboardList', requiredPermission: PERMISSIONS.purchasing.create },
+      { label: 'Penerimaan Barang', href: '/inventory/goods-received-notes', iconName: 'PackageCheck', requiredPermission: PERMISSIONS.purchasing.receive },
+      { label: 'Faktur Supplier', href: '/inventory/invoices', iconName: 'Receipt', requiredPermission: PERMISSIONS.purchasing.view },
+      { label: 'Pembayaran Supplier', href: '/inventory/supplier-payments', iconName: 'CreditCard', requiredPermission: PERMISSIONS.purchasing.pay },
     ],
   },
   {
@@ -120,9 +129,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Users',
     route: '/crm',
     requiredPermission: PERMISSIONS.crm.view,
-    keywords: ['crm', 'pelanggan', 'leads', 'loyalty', 'poin', 'pelanggan'],
+    badge: { label: 'FOH', tone: 'neutral' },
+    keywords: ['crm', 'pelanggan', 'data pelanggan', 'leads', 'loyalty', 'poin', 'customer', 'customer relationship management'],
     subLinks: [
-      { label: 'Data Pelanggan (CRM)', href: '/crm', requiredPermission: PERMISSIONS.crm.view },
+      { label: 'Data Pelanggan', href: '/crm', iconName: 'UserCircle', requiredPermission: PERMISSIONS.crm.view },
     ],
   },
   {
@@ -134,10 +144,11 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Tag',
     route: '/promotions',
     requiredPermission: PERMISSIONS.promotions.view,
+    badge: { label: 'FOH', tone: 'neutral' },
     keywords: ['promotions', 'promo', 'diskon', 'voucher', 'potongan'],
     subLinks: [
-      { label: 'Promosi Otomatis', href: '/promotions', requiredPermission: PERMISSIONS.promotions.view },
-      { label: 'Voucher Belanja', href: '/promotions/vouchers', requiredPermission: PERMISSIONS.promotions.view },
+      { label: 'Promosi Otomatis', href: '/promotions', iconName: 'Sparkles', requiredPermission: PERMISSIONS.promotions.view },
+      { label: 'Voucher Belanja', href: '/promotions/vouchers', iconName: 'Ticket', requiredPermission: PERMISSIONS.promotions.view },
     ],
   },
   {
@@ -151,7 +162,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     requiredPermission: PERMISSIONS.attendance.view,
     keywords: ['attendance', 'absensi', 'kehadiran', 'shift', 'jadwal', 'selfie'],
     subLinks: [
-      { label: 'Absensi Selfie', href: '/attendance', requiredPermission: PERMISSIONS.attendance.view },
+      { label: 'Absensi Selfie', href: '/attendance', iconName: 'Camera', requiredPermission: PERMISSIONS.attendance.view },
     ],
   },
   {
@@ -165,7 +176,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     requiredPermission: PERMISSIONS.hr.view,
     keywords: ['hr', 'payroll', 'karyawan', 'gaji', 'kompensasi', 'pegawai'],
     subLinks: [
-      { label: 'Data Karyawan', href: '/hr', requiredPermission: PERMISSIONS.hr.view },
+      { label: 'Data Karyawan', href: '/hr', iconName: 'Contact', requiredPermission: PERMISSIONS.hr.view },
     ],
   },
   {
@@ -177,9 +188,9 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Wallet',
     route: '/finance/ocr',
     requiredPermission: PERMISSIONS.finance.view,
-    keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'ocr', 'faktur'],
+    keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'pemindaian faktur', 'ocr', 'faktur', 'invoice', 'optical character recognition'],
     subLinks: [
-      { label: 'Pemindaian Faktur (OCR)', href: '/finance/ocr', requiredPermission: PERMISSIONS.finance.view },
+      { label: 'Pemindaian Faktur', href: '/finance/ocr', iconName: 'ScanLine', requiredPermission: PERMISSIONS.finance.view },
     ],
   },
   {
@@ -191,10 +202,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'BarChart3',
     route: '/reports',
     requiredPermission: PERMISSIONS.reports.view,
-    keywords: ['reports', 'laporan', 'penjualan', 'operasional', 'keuangan', 'analisis'],
+    keywords: ['reports', 'laporan', 'ringkasan laporan', 'penjualan', 'operasional', 'keuangan', 'analisis'],
     subLinks: [
-      { label: 'Laporan Keseluruhan', href: '/reports', requiredPermission: PERMISSIONS.reports.view },
-      { label: 'Laporan Diskon', href: '/reports/discounts', requiredPermission: PERMISSIONS.reports.view },
+      { label: 'Ringkasan Laporan', href: '/reports', iconName: 'LineChart', requiredPermission: PERMISSIONS.reports.view },
+      { label: 'Laporan Diskon', href: '/reports/discounts', iconName: 'Percent', requiredPermission: PERMISSIONS.reports.view },
     ],
   },
   {
@@ -206,12 +217,13 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Settings',
     route: '/settings',
     requiredPermission: PERMISSIONS.settings.view,
-    keywords: ['settings', 'pengaturan', 'konfigurasi', 'sistem', 'peran', 'preferensi', 'outlet'],
+    keywords: ['settings', 'pengaturan', 'konfigurasi', 'sistem', 'peran', 'preferensi', 'data perusahaan', 'data outlet', 'outlet'],
     subLinks: [
-      { label: 'Pengaturan Sistem', href: '/settings', requiredPermission: PERMISSIONS.settings.view },
-      { label: 'Manajemen Outlet', href: '/settings/outlets', requiredPermission: PERMISSIONS.outlets.view },
-      { label: 'Pengaturan Tampilan POS', href: '/pos/settings', requiredPermission: PERMISSIONS.settings.view },
-      { label: 'Modul Internal', href: '/settings/modules', requiredPermission: PERMISSIONS.modules.view },
+      { label: 'Data Perusahaan', href: '/settings/company', iconName: 'Building2', requiredPermission: PERMISSIONS.settings.view },
+      { label: 'Pengaturan Sistem', href: '/settings', iconName: 'Settings2', requiredPermission: PERMISSIONS.settings.view },
+      { label: 'Data Outlet', href: '/settings/outlets', iconName: 'MapPin', requiredPermission: PERMISSIONS.outlets.view },
+      { label: 'Pengaturan Tampilan POS', href: '/pos/settings', iconName: 'Palette', requiredPermission: PERMISSIONS.settings.view },
+      { label: 'Modul Internal', href: '/settings/modules', iconName: 'Puzzle', requiredPermission: PERMISSIONS.modules.view },
     ],
   },
 ];

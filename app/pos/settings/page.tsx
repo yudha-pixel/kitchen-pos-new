@@ -1,8 +1,10 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { useRef, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import {
   Check,
+  Image as ImageIcon,
+  ImageUp,
   LayoutGrid,
   List,
   Maximize2,
@@ -10,6 +12,7 @@ import {
   ShoppingCart,
   Sparkles,
   Sun,
+  Trash2,
 } from 'lucide-react';
 
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
@@ -84,6 +87,11 @@ export default function AppearanceSettingsPage() {
   const [previewTab, setPreviewTab] = useState<PreviewTab>('pos');
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [saving, setSaving] = useState(false);
+  const backgroundFileInputRef = useRef<HTMLInputElement>(null);
+  const [backgroundUploading, setBackgroundUploading] = useState(false);
+  const [backgroundError, setBackgroundError] = useState('');
+  const [backgroundVersion, setBackgroundVersion] = useState(0);
+  const [showRemoveBackgroundDialog, setShowRemoveBackgroundDialog] = useState(false);
 
   const draft = draftOverride ?? savedSettings;
   const isDirty = !appearanceSettingsEqual(draft, savedSettings);
@@ -119,6 +127,60 @@ export default function AppearanceSettingsPage() {
       setSaving(false);
     }
   };
+
+  const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setBackgroundUploading(true);
+    setBackgroundError('');
+    try {
+      const token = getToken();
+      const formData = new FormData();
+      formData.append('background', file);
+      const response = await fetch(`${API_BASE_URL}/api/settings/launcher-background`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(body?.error || 'Gagal mengunggah gambar latar.');
+      await refreshSettings();
+      setBackgroundVersion((version) => version + 1);
+      toast('success', 'Gambar latar launcher berhasil diperbarui.');
+    } catch (error) {
+      setBackgroundError(error instanceof Error ? error.message : 'Gagal mengunggah gambar latar.');
+    } finally {
+      setBackgroundUploading(false);
+      if (backgroundFileInputRef.current) backgroundFileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveBackground = async () => {
+    setBackgroundUploading(true);
+    setBackgroundError('');
+    try {
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/settings/launcher-background`, {
+        method: 'DELETE',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Gagal menghapus gambar latar.');
+      }
+      await refreshSettings();
+      setShowRemoveBackgroundDialog(false);
+      toast('success', 'Gambar latar launcher dihapus.');
+    } catch (error) {
+      setBackgroundError(error instanceof Error ? error.message : 'Gagal menghapus gambar latar.');
+    } finally {
+      setBackgroundUploading(false);
+    }
+  };
+
+  const backgroundSrc = settings.launcher_background_url
+    ? `${settings.launcher_background_url}?v=${backgroundVersion}`
+    : null;
 
   return (
     <ResponsiveShell title="Pengaturan Tampilan">
@@ -235,6 +297,37 @@ export default function AppearanceSettingsPage() {
                   </select>
                   <OrganizationBadge />
                 </SettingRow>
+              </div>
+            </section>
+
+            <section className="appearance-card mt-6 overflow-hidden border border-line bg-surface shadow-xs" aria-labelledby="launcher-background-heading">
+              <div className="border-b border-line p-5">
+                <h2 id="launcher-background-heading" className="text-sm font-semibold text-ink">Launcher background</h2>
+                <p className="mt-1 text-pretty text-xs text-ink-secondary">Optional background image for the module launcher (/apps). Applies immediately, no save required.</p>
+              </div>
+              <div className="p-5">
+                {backgroundError && <p role="alert" className="mb-4 rounded-lg border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger">{backgroundError}</p>}
+                <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+                  <div className="flex h-24 w-40 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-line bg-surface-alt text-ink-muted">
+                    {backgroundSrc ? (
+                      // Launcher backgrounds are managed runtime API assets, sized for a small preview only.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={backgroundSrc} alt="Pratinjau latar launcher" className="size-full object-cover" />
+                    ) : <ImageIcon className="size-8" aria-hidden="true" />}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <input ref={backgroundFileInputRef} id="launcher-background" type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={handleBackgroundUpload} />
+                    <Button type="button" variant="secondary" loading={backgroundUploading} onClick={() => backgroundFileInputRef.current?.click()}>
+                      <ImageUp className="size-4" aria-hidden="true" />Upload background
+                    </Button>
+                    {backgroundSrc && (
+                      <Button type="button" variant="ghost" disabled={backgroundUploading} onClick={() => setShowRemoveBackgroundDialog(true)}>
+                        <Trash2 className="size-4" aria-hidden="true" />Remove background
+                      </Button>
+                    )}
+                    <p className="w-full text-pretty text-xs text-ink-muted">PNG, JPEG, or WebP. Maximum 5 MB.</p>
+                  </div>
+                </div>
               </div>
             </section>
           </div>
@@ -360,6 +453,17 @@ export default function AppearanceSettingsPage() {
         loading={saving}
         onConfirm={handleConfirmSave}
         onCancel={() => setShowConfirmDialog(false)}
+      />
+
+      <ConfirmDialog
+        isOpen={showRemoveBackgroundDialog}
+        title="Remove launcher background?"
+        message="The module launcher will fall back to its plain background."
+        confirmLabel="Remove background"
+        cancelLabel="Cancel"
+        loading={backgroundUploading}
+        onConfirm={handleRemoveBackground}
+        onCancel={() => setShowRemoveBackgroundDialog(false)}
       />
     </ResponsiveShell>
   );

@@ -1,7 +1,9 @@
 'use client';
 
-import { ButtonHTMLAttributes, forwardRef } from 'react';
+import { ButtonHTMLAttributes, forwardRef, useCallback, useRef } from 'react';
 import { Spinner } from './Spinner';
+import { MnemonicBadge } from './MnemonicBadge';
+import { useMnemonic } from '@/src/hooks/useMnemonic';
 
 type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
 type Size = 'sm' | 'md' | 'lg' | 'icon';
@@ -10,6 +12,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
   loading?: boolean;
+  /**
+   * Single letter for a Windows-style Alt-mnemonic (e.g. "S" for "Simpan").
+   * Assign explicitly per button — not auto-derived — since it must be unique
+   * among buttons visible on the same screen. Shows a hint badge while Alt is
+   * held; pressing Alt+<letter> clicks the button.
+   */
+  mnemonic?: string;
 }
 
 const variants: Record<Variant, string> = {
@@ -29,17 +38,30 @@ const sizes: Record<Size, string> = {
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ variant = 'primary', size = 'md', loading = false, disabled, className = '', children, ...props }, ref) => (
-    <button
-      ref={ref}
-      disabled={disabled || loading}
-      className={`appearance-card inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}
-    >
-      {loading && <Spinner size="sm" />}
-      {children}
-    </button>
-  )
+  ({ variant = 'primary', size = 'md', loading = false, disabled, className = '', children, mnemonic, ...props }, ref) => {
+    const internalRef = useRef<HTMLButtonElement>(null);
+    const isDisabled = disabled || loading;
+    const handleMnemonicTrigger = useCallback(() => internalRef.current?.click(), []);
+    useMnemonic(mnemonic, handleMnemonicTrigger, isDisabled);
+
+    return (
+      <button
+        ref={(node) => {
+          internalRef.current = node;
+          if (typeof ref === 'function') ref(node);
+          else if (ref) ref.current = node;
+        }}
+        disabled={isDisabled}
+        aria-keyshortcuts={mnemonic && !isDisabled ? `Alt+${mnemonic.toUpperCase()}` : undefined}
+        className={`appearance-card relative inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${className}`}
+        {...props}
+      >
+        {mnemonic && !isDisabled && <MnemonicBadge letter={mnemonic} />}
+        {loading && <Spinner size="sm" />}
+        {children}
+      </button>
+    );
+  }
 );
 
 Button.displayName = 'Button';

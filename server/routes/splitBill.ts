@@ -36,6 +36,17 @@ function calculateTaxAndService(
   return { tax, serviceCharge, total };
 }
 
+async function getCompanyCharges() {
+  const company = await prisma.company.findFirst({
+    orderBy: { created_at: 'asc' },
+    select: { tax_rate: true, service_charge: true },
+  });
+  return {
+    taxRate: company?.tax_rate ?? 10,
+    serviceChargeRate: company?.service_charge ?? 0,
+  };
+}
+
 // GET /split-bill/:orderId - Get split bill options for an order
 router.get('/:orderId', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   try {
@@ -57,10 +68,7 @@ router.get('/:orderId', authMiddleware, requirePermission(PERMISSIONS.orders.vie
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Get app settings for tax and service charge
-    const settings = await prisma.appSettings.findFirst();
-    const taxRate = settings?.tax_rate ?? 10;
-    const serviceChargeRate = settings?.service_charge ?? 0;
+    const { taxRate, serviceChargeRate } = await getCompanyCharges();
 
     // Calculate item-level breakdown
     const itemBreakdown = order.items.map((item: any) => ({
@@ -110,10 +118,7 @@ router.post('/by-items', authMiddleware, requirePermission(PERMISSIONS.orders.ed
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Get app settings
-    const settings = await prisma.appSettings.findFirst();
-    const taxRate = settings?.tax_rate ?? 10;
-    const serviceChargeRate = settings?.service_charge ?? 0;
+    const { taxRate, serviceChargeRate } = await getCompanyCharges();
 
     // Calculate each split
     const splits = data.splits.map(split => {
@@ -188,10 +193,7 @@ router.post('/by-amount', authMiddleware, requirePermission(PERMISSIONS.orders.e
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Get app settings
-    const settings = await prisma.appSettings.findFirst();
-    const taxRate = settings?.tax_rate ?? 10;
-    const serviceChargeRate = settings?.service_charge ?? 0;
+    const { taxRate, serviceChargeRate } = await getCompanyCharges();
 
     // Calculate subtotal from total (reverse calculation)
     const totalWithTaxAndService = data.splits.reduce((sum, s) => sum + s.amount, 0);
@@ -270,10 +272,7 @@ router.post('/equal', authMiddleware, requirePermission(PERMISSIONS.orders.edit)
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // Get app settings
-    const settings = await prisma.appSettings.findFirst();
-    const taxRate = settings?.tax_rate ?? 10;
-    const serviceChargeRate = settings?.service_charge ?? 0;
+    const { taxRate, serviceChargeRate } = await getCompanyCharges();
 
     // Calculate per-person amount
     const totalPerPerson = order.total_amount / number_of_people;

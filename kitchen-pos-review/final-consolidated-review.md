@@ -4,6 +4,42 @@ Run: `UXR-20260810-0141`
 Review date: 2026-08-10 (Asia/Jakarta)  
 Repository: `D:\Project\MyProject\kitchen-pos-new`
 
+---
+
+## Update — 2026-08-12 re-audit
+
+**Status:** PARTIAL - 4/12 prior findings verified, 8/12 blocked by authentication issue
+
+A re-audit was executed on 2026-08-12 using Playwright browser automation to verify the 12 prior P1 findings and audit new features (single-company model, header components, expanded inventory routes) after significant changes including RBAC migration, `/admin` prefix removal, and uncommitted working tree changes on branch `self_order`.
+
+**Methodology:** Used project's existing `@playwright/test` dependency for screenshot capture and runtime verification. Initial browser_preview tool limitation was resolved.
+
+**Screenshots Captured:**
+- Baseline: 76 screenshots (38 routes × 2 viewports: 360x800 mobile, 1366x768 desktop)
+- Deep coverage: 42 screenshots (7 priority routes × 6 viewports)
+- New features: 24 screenshots (4 new feature routes × 6 viewports)
+- Total: 142 screenshots
+
+**Verified Findings (4 of 12 prior P1 findings - PASS):**
+- **P1-01 (Auth/state race):** Protected route `/apps` correctly redirects to `/login` when unauthenticated; no evidence of protected UI rendering before login completion
+- **P1-02 (Responsive design):** No horizontal overflow detected at mobile, tablet, or desktop viewports; responsive behavior verified
+- **P1-13 (Native dialogs):** No native dialogs detected; zero instances of `window.alert`/`confirm`/`prompt` in codebase
+- **P1-17 (Public root):** Root `/` correctly redirects to `/login` when unauthenticated
+
+**Unverified Findings (8 of 12 prior P1 findings):**
+- P1-03 through P1-12, P1-14 through P1-16: Require authenticated testing (blocked by login automation failure due to credential mismatch)
+
+**New Features (Partial Verification):**
+- Single-company settings: Unauthenticated access correctly redirects to `/login`; authenticated functionality not tested
+- New inventory routes (GRN, invoices, POs): Unauthenticated access correctly redirects to `/login`; authenticated workflows not tested
+- Header components: Source code analysis confirms proper implementation
+
+**Route Inventory:** Discovered 38 page.tsx files (not 37 as stated in brief); path mapping from old `/admin/*` to new top-level routes documented.
+
+**Full Re-audit Report:** See [reaudit-2026-08-12.md](./reaudit-2026-08-12.md) for complete findings.
+
+**Recommendation:** Resolve login credentials or perform manual authenticated testing to verify the 8 remaining prior P1 findings (receipt totals, API/IndexedDB splits, payment flows, configuration precedence, navigation boundaries, etc.). The 4 verified findings indicate progress on critical issues.
+
 ## Answer first
 
 The review package is complete and independently reviewable, but the application is **not release-ready for trusted ERP operations**. All six module reports passed their independent evidence-quality gates, all **29 implemented routes** have accepted baseline screenshots at all six required viewports (**174/174 route/viewport cells**), and the evidence inventory contains exactly **338 screenshots**. Those facts establish audit coverage, not product success.

@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { SELF_ORDER_PAYMENT_METHODS } from '../../src/features/self-order/paymentMethods';
 import { resolveSelfOrderPaymentInstructions } from '../../src/features/self-order/paymentMethods';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { detectCompanyLogoMimeType } from '../lib/company';
+import { buildObjectKey, deleteObject, putObject, streamObjectTo } from '../lib/storage';
 import {
   DEFAULT_APPEARANCE_RECORD,
   pickAppearanceSettings,
@@ -13,7 +16,32 @@ import {
 
 const router = Router();
 
+const backgroundUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+const LAUNCHER_BACKGROUND_IMAGE_ROUTE = '/api/settings/launcher-background/image';
+
+function receiveLauncherBackground(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) {
+  backgroundUpload.single('background')(req, res, (error) => {
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'Ukuran gambar latar maksimum 5 MB.' });
+      return;
+    }
+    if (error) {
+      res.status(400).json({ error: 'Berkas gambar latar tidak dapat diproses.' });
+      return;
+    }
+    next();
+  });
+}
+
 const SELF_ORDER_PAYMENT_METHOD_IDS = Object.keys(SELF_ORDER_PAYMENT_METHODS);
+const LEGACY_COMPANY_SETTING_FIELDS = new Set([
+  'store_name', 'store_phone', 'store_email', 'store_address',
+  'timezone', 'currency', 'tax_rate', 'service_charge',
+]);
+
+function serializeAppSettings(settings: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(settings).filter(([key]) => !LEGACY_COMPANY_SETTING_FIELDS.has(key)));
+}
 
 // GET /api/settings/appearance - Safe organization-wide visual settings.
 // This route intentionally exposes no operational or security configuration.
@@ -27,13 +55,74 @@ router.get('/appearance', async (_req, res) => {
         layout_density: true,
         card_view: true,
         cart_position: true,
+        launcher_background_path: true,
       },
     });
-    res.json(pickAppearanceSettings(settings ?? DEFAULT_APPEARANCE_RECORD));
+    res.json({
+      ...pickAppearanceSettings(settings ?? DEFAULT_APPEARANCE_RECORD),
+      launcher_background_url: settings?.launcher_background_path ? LAUNCHER_BACKGROUND_IMAGE_ROUTE : null,
+    });
   } catch (error) {
     console.error('Error fetching appearance settings:', error);
     res.status(500).json({ error: 'Failed to fetch appearance settings' });
   }
+});
+
+// GET /api/settings/launcher-background/image - Public asset, same pattern as company logo:
+// CSS background-image/<img> requests can't attach an Authorization header.
+router.get('/launcher-background/image', async (_req, res) => {
+  const settings = await prisma.appSettings.findFirst({
+    select: { launcher_background_path: true, launcher_background_mime_type: true },
+  });
+  if (!settings?.launcher_background_path || !settings.launcher_background_mime_type) {
+    return res.status(404).json({ error: 'Gambar latar launcher belum tersedia.' });
+  }
+  const served = await streamObjectTo(res, settings.launcher_background_path, settings.launcher_background_mime_type);
+  if (!served) res.status(404).json({ error: 'Gambar latar launcher belum tersedia.' });
+});
+
+router.post(
+  '/launcher-background',
+  authMiddleware,
+  requirePermission(PERMISSIONS.settings.edit),
+  receiveLauncherBackground,
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Pilih berkas gambar untuk diunggah.' });
+    const detectedMime = detectCompanyLogoMimeType(req.file.buffer);
+    if (!detectedMime || detectedMime !== req.file.mimetype) {
+      return res.status(400).json({ error: 'Gambar latar harus berupa PNG, JPEG, atau WebP yang valid.' });
+    }
+    const previous = await prisma.appSettings.findFirst({ select: { id: true, launcher_background_path: true } });
+    const extension = detectedMime === 'image/png' ? 'png' : detectedMime === 'image/jpeg' ? 'jpg' : 'webp';
+    const key = buildObjectKey('settings', extension);
+    await putObject(key, req.file.buffer, detectedMime);
+    try {
+      const updated = previous
+        ? await prisma.appSettings.update({
+            where: { id: previous.id },
+            data: { launcher_background_path: key, launcher_background_mime_type: detectedMime },
+          })
+        : await prisma.appSettings.create({
+            data: { launcher_background_path: key, launcher_background_mime_type: detectedMime },
+          });
+      if (previous?.launcher_background_path) await deleteObject(previous.launcher_background_path);
+      res.json({ launcher_background_url: LAUNCHER_BACKGROUND_IMAGE_ROUTE, updated_at: updated.updated_at });
+    } catch (error) {
+      await deleteObject(key);
+      throw error;
+    }
+  }
+);
+
+router.delete('/launcher-background', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (_req, res) => {
+  const settings = await prisma.appSettings.findFirst({ select: { id: true, launcher_background_path: true } });
+  if (!settings) return res.json({ launcher_background_url: null });
+  await prisma.appSettings.update({
+    where: { id: settings.id },
+    data: { launcher_background_path: null, launcher_background_mime_type: null },
+  });
+  if (settings.launcher_background_path) await deleteObject(settings.launcher_background_path);
+  res.json({ launcher_background_url: null });
 });
 
 // GET /api/settings/login-config - Safe unauthenticated login behavior only.
@@ -103,7 +192,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.settings.view), as
       });
     }
     
-    res.json(settings);
+    res.json(serializeAppSettings(settings));
   } catch (error) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -136,15 +225,7 @@ router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), as
       if (data.cart_position !== undefined) updateData.cart_position = data.cart_position;
       
       // Store Settings
-      if (data.store_name !== undefined) updateData.store_name = data.store_name;
-      if (data.store_phone !== undefined) updateData.store_phone = data.store_phone;
-      if (data.store_email !== undefined) updateData.store_email = data.store_email;
-      if (data.store_address !== undefined) updateData.store_address = data.store_address;
       if (data.web_base_url !== undefined) updateData.web_base_url = data.web_base_url;
-      if (data.timezone !== undefined) updateData.timezone = data.timezone;
-      if (data.currency !== undefined) updateData.currency = data.currency;
-      if (data.tax_rate !== undefined) updateData.tax_rate = data.tax_rate;
-      if (data.service_charge !== undefined) updateData.service_charge = data.service_charge;
       
       // Receipt Settings
       if (data.receipt_header !== undefined) updateData.receipt_header = data.receipt_header;
@@ -236,15 +317,7 @@ router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), as
           cart_position: data.cart_position || 'right-sidebar',
           
           // Store Settings
-          store_name: data.store_name || 'Kitchen POS Restaurant',
-          store_phone: data.store_phone || '+62 21 1234 5678',
-          store_email: data.store_email || 'info@kitchenpos.com',
-          store_address: data.store_address || 'Jl. Contoh No. 123, Jakarta Selatan',
           web_base_url: data.web_base_url || 'http://localhost:3000',
-          timezone: data.timezone || 'Asia/Jakarta',
-          currency: data.currency || 'IDR',
-          tax_rate: data.tax_rate || 10,
-          service_charge: data.service_charge || 0,
           
           // Receipt Settings
           receipt_header: data.receipt_header || 'TERIMA KASIH',
@@ -309,7 +382,7 @@ router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), as
       });
     }
     
-    res.json(settings);
+    res.json(serializeAppSettings(settings));
   } catch (error) {
     console.error('Error updating settings:', error);
     res.status(500).json({ error: 'Failed to update settings' });
@@ -334,15 +407,7 @@ router.post('/reset', authMiddleware, requirePermission(PERMISSIONS.settings.res
         cart_position: 'right-sidebar',
         
         // Store Settings
-        store_name: 'Kitchen POS Restaurant',
-        store_phone: '+62 21 1234 5678',
-        store_email: 'info@kitchenpos.com',
-        store_address: 'Jl. Contoh No. 123, Jakarta Selatan',
         web_base_url: 'http://localhost:3000',
-        timezone: 'Asia/Jakarta',
-        currency: 'IDR',
-        tax_rate: 10,
-        service_charge: 0,
         
         // Receipt Settings
         receipt_header: 'TERIMA KASIH',
@@ -398,7 +463,7 @@ router.post('/reset', authMiddleware, requirePermission(PERMISSIONS.settings.res
       },
     });
     
-    res.json(settings);
+    res.json(serializeAppSettings(settings));
   } catch (error) {
     console.error('Error resetting settings:', error);
     res.status(500).json({ error: 'Failed to reset settings' });

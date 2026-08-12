@@ -93,10 +93,13 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.outlets.create), 
   try {
     const data = createOutletSchema.parse(req.body);
     const outletId = randomUUID();
+    const company = await prisma.company.findFirst({ orderBy: { created_at: 'asc' }, select: { id: true } });
+    if (!company) return res.status(503).json({ error: 'Company configuration is not available' });
 
     const outlet = await prisma.outlet.create({
       data: {
         id: outletId,
+        company_id: company.id,
         ...data,
       },
     });

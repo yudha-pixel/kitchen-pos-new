@@ -18,12 +18,18 @@ async function main() {
     let outlet = await prisma.outlet.findFirst();
     if (!outlet) {
       console.log('   No outlet found, creating default outlet...');
+      const company = await prisma.company.upsert({
+        where: { id: '00000000-0000-4000-8000-000000000001' },
+        update: {},
+        create: { id: '00000000-0000-4000-8000-000000000001', name: 'Kitchen POS' },
+      });
       outlet = await prisma.outlet.create({
         data: {
           name: 'Main Outlet',
           code: 'MAIN',
           address: 'Main Location',
           is_active: true,
+          company_id: company.id,
         },
       });
       console.log(`   Created outlet: ${outlet.name} (${outlet.id})`);

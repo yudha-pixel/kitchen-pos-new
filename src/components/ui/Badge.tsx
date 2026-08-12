@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 
-type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'primary';
+export type Tone = 'success' | 'warning' | 'danger' | 'info' | 'neutral' | 'primary';
 
 const tones: Record<Tone, string> = {
   success: 'bg-success-soft text-success',

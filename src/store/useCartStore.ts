@@ -84,6 +84,7 @@ interface CartState {
   getTotal: () => number;
   getSubtotal: () => number;
   getTax: () => number;
+  getServiceCharge: () => number;
   getDiscount: () => number;
   // Reverse calculation for internal reporting (extracts tax/service from final price)
   getInternalBreakdown: (finalPrice: number) => { netSales: number; taxAmount: number; serviceChargeAmount: number };
@@ -825,6 +826,18 @@ export const useCartStore = create<CartState>()(
         return discountedSubtotal * taxRate;
       },
 
+      getServiceCharge: () => {
+        const state = get();
+        const subtotal = state.items.reduce((sum, item) => {
+          const modifierTotal = item.modifiers.reduce((mSum, m) => mSum + m.price, 0);
+          return sum + ((item.price + modifierTotal) * item.quantity);
+        }, 0);
+        const globalDiscount = state.getGlobalDiscount(); // Applied BEFORE tax/service charge
+        const discountedSubtotal = subtotal - globalDiscount;
+        const serviceChargeRate = useConfigStore.getState().getServiceChargeRateAsDecimal(); // Get dynamic service charge rate from config
+        return discountedSubtotal * serviceChargeRate;
+      },
+
       getDiscount: () => {
         const state = get();
         const subtotal = state.items.reduce((sum, item) => {
@@ -864,8 +877,10 @@ export const useCartStore = create<CartState>()(
         const discountedSubtotal = subtotal - globalDiscount - voucherDiscount - memberDiscount - promotionDiscount;
         const taxRate = useConfigStore.getState().getTaxRateAsDecimal(); // Get dynamic tax rate from config
         const tax = discountedSubtotal * taxRate; // Dynamic tax rate on discounted subtotal (free items have price 0, so they don't affect tax)
+        const serviceChargeRate = useConfigStore.getState().getServiceChargeRateAsDecimal(); // Get dynamic service charge rate from config
+        const serviceCharge = discountedSubtotal * serviceChargeRate;
         const discount = state.getDiscount(); // Regular discount applied after tax
-        return discountedSubtotal + tax - discount; // (subtotal - globalDiscount - voucherDiscount - memberDiscount - promotionDiscount) + tax - regularDiscount
+        return discountedSubtotal + tax + serviceCharge - discount; // (subtotal - globalDiscount - voucherDiscount - memberDiscount - promotionDiscount) + tax + serviceCharge - regularDiscount
       },
 
       // Reverse calculation for internal reporting

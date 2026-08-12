@@ -132,6 +132,7 @@ describe('Permission-based middleware', () => {
         'card_style',
         'card_view',
         'cart_position',
+        'launcher_background_url',
         'layout_density',
         'primary_color',
         'theme_mode',
