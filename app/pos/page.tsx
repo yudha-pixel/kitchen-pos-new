@@ -29,10 +29,11 @@ import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, Histor
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
+import { PERMISSIONS } from '@/src/config/permissions';
 
 export default function POSPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, can } = useAuth();
   const { toast } = useToast();
   const { selectedOutletId } = useOutletStore();
   const { settings } = useTheme();
@@ -79,7 +80,6 @@ export default function POSPage() {
     }
   }, [authLoading, user, router]);
 
-  const userRole = user?.role ?? 'cashier';
   const cartItemCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
 
   // Fetch data from the local API with offline support
@@ -146,33 +146,19 @@ export default function POSPage() {
   // Calculate stock for all products when products are loaded
   useEffect(() => {
     if (products && products.length > 0) {
-      console.log('🔍 [POS Page] Products loaded:', products.length, 'products');
-      console.log('🔍 [POS Page] Product IDs:', products.map(p => ({ id: p.id, name: p.name })));
-
       // Seed sample inventory data if needed
-      seedSampleInventoryData().then(() => {
-        console.log('🔍 [POS Page] Inventory data check completed');
-      }).catch(error => {
+      seedSampleInventoryData().catch(error => {
         console.error('❌ Failed to seed inventory data:', error);
       });
 
       const productIds = products.map(p => p.id);
-      console.log('🔍 [POS Page] Calculating stocks for:', productIds.length, 'products');
       calculateMenuStocks(productIds).then(stockMap => {
-        console.log('🔍 [POS Page] Stock calculation result:', Array.from(stockMap.entries()));
-        console.log('🔍 [POS Page] Setting productStocks state...');
         setProductStocks(stockMap);
-        console.log('🔍 [POS Page] productStocks state set');
       }).catch(error => {
         console.error('❌ Failed to calculate product stocks:', error);
       });
     }
   }, [products]);
-
-  // Debug log to check productStocks state changes
-  useEffect(() => {
-    console.log('🔍 [POS Page] productStocks state changed:', Array.from(productStocks.entries()));
-  }, [productStocks]);
 
   // Listen for inventory stock changes and recalculate menu stock automatically
   useEffect(() => {
@@ -181,7 +167,6 @@ export default function POSPage() {
       if (products && products.length > 0) {
         const productIds = products.map(p => p.id);
         calculateMenuStocks(productIds).then(stockMap => {
-          console.log('🔍 [POS Page] Stock recalculated after inventory change:', Array.from(stockMap.entries()));
           setProductStocks(stockMap);
         }).catch(error => {
           console.error('❌ Failed to recalculate stock after inventory change:', error);
@@ -191,13 +176,11 @@ export default function POSPage() {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('inventoryStockChanged', handleInventoryStockChanged);
-      console.log('🔍 [POS Page] Listening for inventoryStockChanged events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('inventoryStockChanged', handleInventoryStockChanged);
-        console.log('🔍 [POS Page] Stopped listening for inventoryStockChanged events');
       }
     };
   }, [products]);
@@ -205,10 +188,8 @@ export default function POSPage() {
   // Recalculate stock when outlet changes to ensure real-time data
   useEffect(() => {
     if (selectedOutletId && products && products.length > 0) {
-      console.log('🔍 [POS Page] Outlet changed to:', selectedOutletId, '- recalculating stock...');
       const productIds = products.map(p => p.id);
       calculateMenuStocks(productIds).then(stockMap => {
-        console.log('🔍 [POS Page] Stock recalculated after outlet change:', Array.from(stockMap.entries()));
         setProductStocks(stockMap);
         toast('success', 'Stok diperbarui sesuai outlet yang dipilih');
       }).catch(error => {
@@ -299,14 +280,12 @@ export default function POSPage() {
     if (typeof window !== 'undefined') {
       window.addEventListener('orderCompleted', handleOrderCompleted);
       window.addEventListener('orderCreated', handleOrderCreated);
-      console.log('🔍 [POS Page] Listening for orderCompleted and orderCreated events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderCompleted', handleOrderCompleted);
         window.removeEventListener('orderCreated', handleOrderCreated);
-        console.log('🔍 [POS Page] Stopped listening for order events');
       }
     };
   }, []);
@@ -502,14 +481,12 @@ export default function POSPage() {
     if (typeof window !== 'undefined') {
       window.addEventListener('orderReady', handleOrderReady as EventListener);
       window.addEventListener('orderCreated', handleOrderCreated);
-      console.log('🔍 [POS Page] Listening for orderReady and orderCreated events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderReady', handleOrderReady as EventListener);
         window.removeEventListener('orderCreated', handleOrderCreated);
-        console.log('🔍 [POS Page] Stopped listening for order events');
       }
     };
   }, [showTableOrders]);
@@ -1143,9 +1120,8 @@ export default function POSPage() {
   };
 
   const handleVoidPayment = (paymentId: string, amount: number) => {
-    // Check if user has admin role
-    if (user?.role !== 'admin') {
-      toast('error', 'Hanya admin yang dapat void pembayaran');
+    if (!can(PERMISSIONS.orders.void)) {
+      toast('error', 'Anda tidak memiliki izin untuk void pembayaran');
       return;
     }
     setSelectedPaymentForVoid({ id: paymentId, amount });
@@ -1564,8 +1540,7 @@ export default function POSPage() {
                             Bayar
                           </button>
                         )}
-                        {/* Void Payment button - only show for completed/paid orders and admin users */}
-                        {(order.status === 'completed' || order.status === 'paid') && user?.role === 'admin' && order.payment_method && (
+                        {(order.status === 'completed' || order.status === 'paid') && can(PERMISSIONS.orders.void) && order.payment_method && (
                           <button
                             onClick={() => {
                               const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
@@ -1918,7 +1893,7 @@ export default function POSPage() {
         products={products}
         productStocks={productStocks}
         onStockUpdate={handleRecalculateStock}
-        userRole={userRole}
+        canEditStock={can(PERMISSIONS.inventory.edit)}
         categories={productCategories}
       />
 

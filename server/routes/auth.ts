@@ -2,8 +2,10 @@ import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole, getJwtSecret } from '../middleware/auth';
+import { authMiddleware, getJwtSecret } from '../middleware/auth';
 import { loadRolePermissions } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
+import { requirePermission } from '../middleware/permissions';
 import { loginSchema, registerSchema } from '../lib/validation';
 
 const router = Router();
@@ -15,7 +17,7 @@ router.post('/login', async (req: Request, res: Response) => {
     where: { username },
     include: { role: true }
   });
-  if (!user) {
+  if (!user || !user.is_active) {
     res.status(401).json({ error: 'Invalid username or password' });
     return;
   }
@@ -34,9 +36,17 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const permissions = await loadRolePermissions(user.role_id);
 
+  const authenticatedUser = {
+    id: user.id,
+    username: user.username,
+    role: user.role.name,
+    role_id: user.role_id,
+    permissions,
+  };
+
   res.json({
     token,
-    user: { id: user.id, username: user.username, role: user.role.name, role_id: user.role_id },
+    user: authenticatedUser,
     permissions,
   });
 });
@@ -44,7 +54,7 @@ router.post('/login', async (req: Request, res: Response) => {
 router.post(
   '/register',
   authMiddleware,
-  requireRole('admin'),
+  requirePermission(PERMISSIONS.users.create),
   async (req: Request, res: Response) => {
     const { username, password, role = 'cashier' } = registerSchema.parse(req.body);
 
@@ -89,7 +99,14 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     return;
   }
 
-  res.json({ id: user.id, username: user.username, role: user.role.name });
+  const permissions = await loadRolePermissions(user.role_id);
+  res.json({
+    id: user.id,
+    username: user.username,
+    role: user.role.name,
+    role_id: user.role_id,
+    permissions,
+  });
 });
 
 export default router;

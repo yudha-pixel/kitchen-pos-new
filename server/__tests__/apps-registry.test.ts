@@ -3,8 +3,10 @@ import { describe, expect, it } from 'vitest';
 import {
   APPS_REGISTRY,
   filterApps,
+  findModuleForPath,
   getAppsRegistry,
 } from '../../src/config/navigation';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 describe('APPS_REGISTRY', () => {
   it('returns non-empty list of valid app definitions', () => {
@@ -39,9 +41,28 @@ describe('APPS_REGISTRY', () => {
     expect(emptyFilter.length).toBe(0);
   });
 
-  it('filters apps by allowed roles when specified', () => {
+  it('filters apps by required capabilities', () => {
     const apps = getAppsRegistry();
-    const adminApps = filterApps(apps, '', 'admin');
-    expect(adminApps.length).toBe(APPS_REGISTRY.length);
+    const reportOnlyApps = filterApps(apps, '', [PERMISSIONS.reports.view]);
+    expect(reportOnlyApps.map((app) => app.id)).toEqual(['reports']);
+    expect(APPS_REGISTRY.every((app) => Boolean(app.requiredPermission))).toBe(true);
+    expect(APPS_REGISTRY.every((app) => app.subLinks.every((link) => Boolean(link.requiredPermission)))).toBe(true);
+  });
+
+  it('exposes the complete inventory navigation from the approved wireframe', () => {
+    const inventory = APPS_REGISTRY.find((app) => app.id === 'inventory');
+
+    expect(inventory?.subLinks.map((link) => link.label)).toEqual([
+      'All Items',
+      'Stock Approvals',
+      'Categories',
+      'Stock Adjustments',
+      'Stock Transfers',
+      'Suppliers',
+      'Automation',
+    ]);
+    expect(inventory?.subLinks.every((link) => link.iconName)).toBe(true);
+    expect(findModuleForPath('/inventory-suppliers')?.id).toBe('inventory');
+    expect(findModuleForPath('/products')?.id).toBe('menu-products');
   });
 });

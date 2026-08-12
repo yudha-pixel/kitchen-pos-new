@@ -44,9 +44,9 @@ interface FrontendAudit {
   criticalIssues: string[];
 }
 
-const BACKEND_AUDIT_FILE = path.join(__dirname, '..', 'route-audit-backend.json');
-const FRONTEND_AUDIT_FILE = path.join(__dirname, '..', 'route-audit-frontend.json');
-const OUTPUT_FILE = path.join(__dirname, '..', 'route-access-control-report.md');
+const BACKEND_AUDIT_FILE = path.join(__dirname, '..', 'audit', 'route-audit-backend.json');
+const FRONTEND_AUDIT_FILE = path.join(__dirname, '..', 'audit', 'route-audit-frontend.json');
+const OUTPUT_FILE = path.join(__dirname, '..', 'audit', 'route-access-control-report.md');
 
 function generateReport(backendAudit: BackendAudit, frontendAudit: FrontendAudit): string {
   const lines: string[] = [];

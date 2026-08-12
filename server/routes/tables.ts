@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -21,7 +23,7 @@ const updateTableSchema = z.object({
 });
 
 // GET /tables - Get all tables with status
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.tables.view), async (req: Request, res: Response) => {
   try {
     const { status, outlet_id, table_number } = req.query;
 
@@ -77,7 +79,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /tables/summary - Get table status summary (must be before /:id to avoid route conflict)
-router.get('/summary', async (req: Request, res: Response) => {
+router.get('/summary', authMiddleware, requirePermission(PERMISSIONS.tables.view), async (req: Request, res: Response) => {
   try {
     const tables = await prisma.table.findMany({
       where: { is_active: true },
@@ -102,7 +104,7 @@ router.get('/summary', async (req: Request, res: Response) => {
 });
 
 // GET /tables/:id - Get table by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.tables.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -142,7 +144,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /tables - Create new table
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.tables.create), async (req: Request, res: Response) => {
   try {
     const data = createTableSchema.parse(req.body);
 
@@ -188,7 +190,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /tables/:id - Update table
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.tables.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -239,7 +241,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // PATCH /tables/:id/status - Update table status (admin/cashier)
-router.patch('/:id/status', async (req: Request, res: Response) => {
+router.patch('/:id/status', authMiddleware, requirePermission(PERMISSIONS.tables.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -262,7 +264,7 @@ router.patch('/:id/status', async (req: Request, res: Response) => {
 });
 
 // DELETE /tables/:id - Delete table
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.tables.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -305,7 +307,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // GET /tables/summary - Get table status summary
-router.get('/summary', async (req: Request, res: Response) => {
+router.get('/summary', authMiddleware, requirePermission(PERMISSIONS.tables.view), async (req: Request, res: Response) => {
   try {
     const tables = await prisma.table.findMany({
       where: { is_active: true },

@@ -93,7 +93,7 @@ beforeAll(async () => {
   expect(loginRes.status).toBe(200);
   token = loginRes.body.token;
 
-  const categoriesRes = await request(app).get('/api/categories');
+  const categoriesRes = await request(app).get('/api/categories').set('Authorization', `Bearer ${token}`);
   expect(categoriesRes.status).toBe(200);
   expect(categoriesRes.body.length).toBeGreaterThan(0);
   categoryId = categoriesRes.body[0].id;

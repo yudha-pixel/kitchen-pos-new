@@ -2,13 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, LogOut, Users, LayoutGrid, Menu, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
+import { ArrowLeft, ChevronRight, LogOut, Menu, Plus, Search, UserRound, Users } from 'lucide-react';
 import { TableMergeModal } from './TableMergeModal';
 import { OutletSelector } from '@/src/components/outlet/OutletSelector';
 import { useAuth } from '@/src/context/AuthContext';
 import { findModuleForPath } from '@/src/config/navigation';
-import { MODULE_ICON_MAP } from './moduleIcons';
 
 interface HeaderProps {
   title?: string;
@@ -28,11 +26,7 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
   // before the module title, so pages that don't pass an explicit title don't
   // show a redundant "Module › Module" breadcrumb.
   const matchedSubLink = currentModule?.subLinks.find((sub) => sub.href === pathname);
-  const pageTitle = title || matchedSubLink?.label || currentModule?.title || 'Kitchen POS';
-  const initial = user?.username?.charAt(0).toUpperCase() || 'U';
-  // App-launcher icon reflects the current module so it doubles as a quick module glance,
-  // falling back to the generic grid icon outside any module (e.g. /apps itself).
-  const AppIcon = (currentModule && MODULE_ICON_MAP[currentModule.iconName]) || LayoutGrid;
+  const pageTitle = matchedSubLink?.label || title || currentModule?.title || 'Kitchen POS';
 
   // Set on mount + update every minute (avoids SSR/client clock mismatch)
   useEffect(() => {
@@ -64,8 +58,14 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
     }
   };
 
+  const handleMobilePrimaryAction = () => {
+    if (pathname === '/inventory') {
+      window.dispatchEvent(new CustomEvent('inventory-add-item'));
+    }
+  };
+
   return (
-    <header className="relative z-40 flex h-16 items-center border-b border-line bg-surface px-4 shadow-xs sm:px-6">
+    <header className="app-shell-header relative z-40 flex items-center border-b border-primary bg-primary px-3 text-on-primary sm:px-6 lg:border-line lg:bg-surface lg:text-ink">
       <div className="flex w-full items-center justify-between gap-4">
         {/* Left: Hamburger, Back Button, Breadcrumb and Search */}
         <div className="flex flex-1 items-center gap-2 sm:gap-3">
@@ -73,19 +73,19 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
             onClick={handleToggleSidebar}
             aria-label="Buka menu navigasi"
             title="Buka Menu"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt lg:hidden"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-on-primary transition-colors hover:bg-primary-hover lg:hidden"
           >
             <Menu className="h-5 w-5" />
           </button>
-          <Link
-            href="/apps"
-            aria-label="Kembali ke Launcher Aplikasi"
-            title="Launcher Aplikasi (/apps)"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary shadow-xs transition-colors hover:bg-primary-hover"
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Kembali ke halaman sebelumnya"
+            className="hidden size-11 shrink-0 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt lg:flex"
           >
-            <AppIcon className="h-5 w-5" />
-          </Link>
-          <div className="hidden min-w-0 items-center gap-2 text-xs sm:flex">
+            <ArrowLeft className="size-5" aria-hidden="true" />
+          </button>
+          <div className="hidden min-w-0 items-center gap-2 text-xs lg:flex">
             {currentModule && (
               <>
                 <span className="text-ink-muted">{currentModule.title}</span>
@@ -94,6 +94,10 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
             )}
             <span className="truncate text-sm font-semibold text-ink">{pageTitle}</span>
           </div>
+
+          <span className="pointer-events-none absolute left-1/2 max-w-[12rem] -translate-x-1/2 truncate text-sm font-semibold text-on-primary lg:hidden">
+            {pageTitle}
+          </span>
 
           {onSearch && (
             <div className="relative max-w-md flex-1">
@@ -114,7 +118,7 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
         <div className="flex min-w-0 shrink items-center gap-1.5 sm:gap-4">
           {/* Current Time */}
           {currentTime && (
-            <div className="hidden text-right md:block">
+            <div className="hidden text-right lg:block">
               <p className="tnum text-sm font-semibold text-ink">
                 {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -129,26 +133,24 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
           )}
 
           {/* User Actions */}
-          <button
-            onClick={() => setShowTableMergeModal(true)}
-            aria-label="Gabung meja"
-            title="Gabung Meja"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
-          >
-            <Users className="h-5 w-5" />
-          </button>
+          {currentModule?.id === 'pos' && (
+            <button
+              onClick={() => setShowTableMergeModal(true)}
+              aria-label="Gabung meja"
+              title="Gabung Meja"
+              className="hidden min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt lg:flex"
+            >
+              <Users className="size-5" aria-hidden="true" />
+            </button>
+          )}
 
-          {/* Outlet Selector */}
-          <OutletSelector />
+          <div className="hidden lg:block">
+            <OutletSelector />
+          </div>
 
-          <div className="flex items-center gap-1 border-l border-line pl-2 sm:pl-3">
-            <span className="flex items-center gap-2 px-1 text-sm font-medium text-ink-secondary">
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary"
-                aria-hidden="true"
-              >
-                {initial}
-              </span>
+          <div className="hidden items-center gap-1 border-l border-line pl-2 sm:pl-3 lg:flex">
+            <span className="flex min-h-11 items-center gap-2 px-1 text-sm font-medium text-ink-secondary">
+              <UserRound className="size-5 shrink-0" aria-hidden="true" />
               <span className="hidden sm:inline">{user?.username}</span>
             </span>
             <button
@@ -160,6 +162,17 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
               <LogOut className="h-5 w-5" />
             </button>
           </div>
+
+          {pathname === '/inventory' && (
+            <button
+              type="button"
+              onClick={handleMobilePrimaryAction}
+              aria-label="Tambah item"
+              className="flex size-11 items-center justify-center rounded-lg text-on-primary transition-colors hover:bg-primary-hover lg:hidden"
+            >
+              <Plus className="size-5" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
 

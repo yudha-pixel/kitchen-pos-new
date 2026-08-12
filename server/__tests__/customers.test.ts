@@ -55,15 +55,15 @@ describe('Customers API', () => {
     await prisma.customer.deleteMany({
       where: { phone: { startsWith: 'TEST_' } }
     });
-    await prisma.profile.deleteMany({
-      where: { id: { in: [adminUserId, cashierUserId] } }
-    });
   });
 
   afterAll(async () => {
     // Clean up test data
     await prisma.customer.deleteMany({
       where: { phone: { startsWith: 'TEST_' } }
+    });
+    await prisma.profile.deleteMany({
+      where: { id: { in: [adminUserId, cashierUserId] } }
     });
   });
 
@@ -165,7 +165,7 @@ describe('Customers API', () => {
       expect(response.body.email).toBe('updated@example.com');
     });
 
-    it('should require admin role', async () => {
+    it('should require crm.edit capability', async () => {
       const response = await request(app)
         .put(`/api/customers/${customerId}`)
         .set('Authorization', `Bearer ${cashierToken}`)

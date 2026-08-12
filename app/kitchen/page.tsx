@@ -167,7 +167,6 @@ export default function KitchenDisplayPage() {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('orderCreated', handleOrderCreated);
-      console.log('🔍 [Kitchen Page] Listening for orderCreated events');
     }
 
     return () => {
@@ -176,7 +175,6 @@ export default function KitchenDisplayPage() {
       clearInterval(timerTick);
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderCreated', handleOrderCreated);
-        console.log('🔍 [Kitchen Page] Stopped listening for orderCreated events');
       }
     };
   }, [fetchOrders]);

@@ -12,6 +12,8 @@
 
 This file is the canonical current-state snapshot. The previous accumulated 1,157-line journal is preserved without content changes at `docs/archive/HANDOVER-history-2026-08-12.md` (Git blob `5c61668bb4a9d63945f2092040155d8756334d4f`). Detailed per-task evidence and continuation commands are in `NEXT_SESSION_HANDOVER.md`; the controlling plan is `docs/superpowers/plans/2026-08-11-release-readiness-reconciliation.md`.
 
+**Architecture update:** the canonical Business Routes and Capability RBAC migration handover is `docs/handover/route-rbac-migration/HANDOVER.md`; durable architecture is under `docs/knowledge/route-rbac-migration/`. Those documents supersede this snapshot's older `/admin` and role-based route descriptions.
+
 ## Non-Negotiable Operating Rules
 
 1. Git remains read-only: no branch/worktree, checkout, restore, reset, clean, merge, stage, commit, or push.

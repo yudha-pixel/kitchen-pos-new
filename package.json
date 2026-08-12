@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx server/prisma/seed.ts",
+    "db:permissions": "tsx server/prisma/ensure-permissions.ts",
     "db:generate": "prisma generate",
     "db:studio": "prisma studio",
     "postinstall": "prisma generate"

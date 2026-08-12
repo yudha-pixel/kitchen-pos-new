@@ -23,6 +23,7 @@ import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
 import { SplitBillModal as NewSplitBillModal } from '@/src/components/pos/SplitBillModal';
+import { PERMISSIONS } from '@/src/config/permissions';
 
 const paymentOptions = [
   { value: 'CASH', label: 'Tunai' },
@@ -42,7 +43,7 @@ interface CartPanelProps {
 
 export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNumber, customerName, deliveryAddress, courierName, courierType, receiptNumber }: CartPanelProps) => {
   const { items, removeFromCart, updateQuantity, getSubtotal, getTax, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod, discountAmount, discountType, setDiscount, freeItems, addFreeItem, removeFreeItem, clearFreeItems, getDiscount, globalDiscountAmount, globalDiscountType, setGlobalDiscount, clearGlobalDiscount, getGlobalDiscount, setVoucher, clearVoucher, voucherDiscountAmount, setMember, clearMember, member, sendToKitchen, kitchenSent } = useCartStore();
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const { toast } = useToast();
   const { setCurrentPayment, clearPayment } = usePaymentStore();
 
@@ -211,7 +212,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [voidTargetId, setVoidTargetId] = useState<string | null>(null);
 
-  const userRole = user?.role ?? 'cashier';
 
   // Escape key cancels the current order (asks first)
   useEffect(() => {
@@ -819,7 +819,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', tableNumber: propTableNum
                       </div>
                     </div>
                     <div className="ml-2 flex gap-1">
-                      {userRole === 'admin' && (
+                      {can(PERMISSIONS.orders.void) && (
                         <button
                           onClick={() => setVoidTargetId(item.id)}
                           aria-label={`Void ${item.name}`}

@@ -86,10 +86,18 @@ describe('Inventory Security Tests', () => {
     });
   });
 
-  describe('GET /ingredients - public access', () => {
-    it('allows unauthenticated users to fetch ingredients', async () => {
+  describe('GET /ingredients - capability access', () => {
+    it('rejects unauthenticated ingredient reads', async () => {
       const response = await request(app)
         .get('/api/ingredients');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('allows inventory-capable users to fetch ingredients', async () => {
+      const response = await request(app)
+        .get('/api/ingredients')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);

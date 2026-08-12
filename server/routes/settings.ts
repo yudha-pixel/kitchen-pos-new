@@ -4,10 +4,54 @@ import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { SELF_ORDER_PAYMENT_METHODS } from '../../src/features/self-order/paymentMethods';
 import { resolveSelfOrderPaymentInstructions } from '../../src/features/self-order/paymentMethods';
+import { PERMISSIONS } from '../../src/config/permissions';
+import {
+  DEFAULT_APPEARANCE_RECORD,
+  pickAppearanceSettings,
+  validateAppearanceSettingsPatch,
+} from '../../src/features/settings/settings-resolver';
 
 const router = Router();
 
 const SELF_ORDER_PAYMENT_METHOD_IDS = Object.keys(SELF_ORDER_PAYMENT_METHODS);
+
+// GET /api/settings/appearance - Safe organization-wide visual settings.
+// This route intentionally exposes no operational or security configuration.
+router.get('/appearance', async (_req, res) => {
+  try {
+    const settings = await prisma.appSettings.findFirst({
+      select: {
+        primary_color: true,
+        theme_mode: true,
+        card_style: true,
+        layout_density: true,
+        card_view: true,
+        cart_position: true,
+      },
+    });
+    res.json(pickAppearanceSettings(settings ?? DEFAULT_APPEARANCE_RECORD));
+  } catch (error) {
+    console.error('Error fetching appearance settings:', error);
+    res.status(500).json({ error: 'Failed to fetch appearance settings' });
+  }
+});
+
+// GET /api/settings/login-config - Safe unauthenticated login behavior only.
+router.get('/login-config', async (_req, res) => {
+  try {
+    const settings = await prisma.appSettings.findFirst({
+      select: { default_login_redirect: true },
+    });
+    const configuredRoute = settings?.default_login_redirect;
+    const defaultLoginRedirect =
+      configuredRoute && /^\/(?!\/)/.test(configuredRoute) ? configuredRoute : '/apps';
+
+    res.json({ default_login_redirect: defaultLoginRedirect });
+  } catch (error) {
+    console.error('Error fetching login configuration:', error);
+    res.status(500).json({ error: 'Failed to fetch login configuration' });
+  }
+});
 
 function validateSelfOrderSettings(data: any, current: any): string | null {
   const methods = data.selforder_payment_methods ?? current?.selforder_payment_methods ?? ['cashier'];
@@ -39,7 +83,7 @@ function validateSelfOrderSettings(data: any, current: any): string | null {
 }
 
 // GET /api/settings - Get app settings
-router.get('/', authMiddleware, requirePermission('settings.view'), async (req, res) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.settings.view), async (req, res) => {
   try {
     // Get the first settings record (there should only be one)
     let settings = await prisma.appSettings.findFirst();
@@ -67,9 +111,12 @@ router.get('/', authMiddleware, requirePermission('settings.view'), async (req, 
 });
 
 // PUT /api/settings - Update app settings
-router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, res) => {
+router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req, res) => {
   try {
     const data = req.body;
+
+    const appearanceValidationError = validateAppearanceSettingsPatch(data);
+    if (appearanceValidationError) return res.status(400).json({ error: appearanceValidationError });
 
     // Get the first settings record
     let settings = await prisma.appSettings.findFirst();
@@ -270,7 +317,7 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
 });
 
 // Reset settings to defaults
-router.post('/reset', authMiddleware, requirePermission('settings.edit'), async (req, res) => {
+router.post('/reset', authMiddleware, requirePermission(PERMISSIONS.settings.reset), async (req, res) => {
   try {
     // Delete existing settings
     await prisma.appSettings.deleteMany();

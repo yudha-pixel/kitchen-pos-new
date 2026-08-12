@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = express.Router();
 
@@ -42,8 +44,8 @@ export const auditLogger = (action: string, entity_type: string) => {
   };
 };
 
-// GET /audit - Get all audit logs (admin only)
-router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// GET /audit - Get all audit logs
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.audit.view), async (req: Request, res: Response) => {
   try {
     const { user_id, action, entity_type, limit = 100, offset = 0 } = req.query;
 
@@ -73,8 +75,8 @@ router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: 
   }
 });
 
-// GET /audit/:id - Get specific audit log (admin only)
-router.get('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// GET /audit/:id - Get specific audit log
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.audit.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -93,8 +95,8 @@ router.get('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
   }
 });
 
-// GET /audit/stats - Get audit statistics (admin only)
-router.get('/stats/summary', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// GET /audit/stats - Get audit statistics
+router.get('/stats/summary', authMiddleware, requirePermission(PERMISSIONS.audit.view), async (req: Request, res: Response) => {
   try {
     const { days = 30 } = req.query;
     const startDate = new Date();

@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -29,7 +31,7 @@ const generateGRNNumber = (): string => {
 };
 
 // GET /goods-received-notes - List with filters
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, purchase_order_id, supplier_id } = req.query;
     const where: any = {};
@@ -63,7 +65,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /goods-received-notes/:id - Get details with items
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const grn = await prisma.goodsReceivedNote.findUnique({
@@ -97,7 +99,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /goods-received-notes - Create from PO
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.receive), async (req: Request, res: Response) => {
   try {
     const data = createGRNSchema.parse(req.body);
     const userId = req.user?.id;
@@ -157,7 +159,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /goods-received-notes/:id/quality-check - Perform quality check
-router.patch('/:id/quality-check', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/quality-check', authMiddleware, requirePermission(PERMISSIONS.purchasing.receive), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -225,7 +227,7 @@ router.patch('/:id/quality-check', authMiddleware, async (req: Request, res: Res
 });
 
 // PATCH /goods-received-notes/:id/complete - Complete GRN
-router.patch('/:id/complete', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/complete', authMiddleware, requirePermission(PERMISSIONS.purchasing.receive), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
@@ -253,7 +255,7 @@ router.patch('/:id/complete', authMiddleware, async (req: Request, res: Response
 });
 
 // PATCH /goods-received-notes/:id/cancel - Cancel GRN
-router.patch('/:id/cancel', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/cancel', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

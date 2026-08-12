@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
 // GET /ingredients - Get all ingredients
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const ingredients = await prisma.ingredient.findMany({
       include: {
@@ -23,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /ingredients/:id - Get ingredient by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const ingredient = await prisma.ingredient.findUnique({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
@@ -42,7 +44,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /ingredients - Create new ingredient
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create), async (req: Request, res: Response) => {
   try {
     const { name, current_stock, unit, min_stock, unit_price, supplier_id } = req.body;
     
@@ -68,7 +70,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // PUT /ingredients/:id - Update ingredient
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit), async (req: Request, res: Response) => {
   try {
     const { name, current_stock, unit, min_stock, unit_price, supplier_id } = req.body;
     const userId = (req as any).user?.id;
@@ -122,7 +124,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // DELETE /ingredients/:id - Delete ingredient
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.delete), async (req: Request, res: Response) => {
   try {
     await prisma.ingredient.delete({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },

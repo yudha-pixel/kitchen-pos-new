@@ -11,7 +11,7 @@ interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProductAdded: () => void;
-  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
+  canCreateProduct: boolean;
 }
 
 interface Category {
@@ -36,7 +36,7 @@ export const AddProductModal = ({
   isOpen,
   onClose,
   onProductAdded,
-  userRole = 'cashier'
+  canCreateProduct,
 }: AddProductModalProps) => {
   const [formData, setFormData] = useState(emptyForm);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -120,10 +120,10 @@ export const AddProductModal = ({
     }
   };
 
-  if (userRole !== 'admin' && userRole !== 'management') {
+  if (!canCreateProduct) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Akses Ditolak" size="sm">
-        <p className="text-sm text-ink-secondary">Hanya admin dan management yang dapat menambahkan produk.</p>
+        <p className="text-sm text-ink-secondary">Akun Anda tidak memiliki izin products.create.</p>
       </Modal>
     );
   }

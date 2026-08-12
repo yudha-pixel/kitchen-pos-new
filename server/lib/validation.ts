@@ -39,7 +39,7 @@ export const loginSchema = z.object({
 export const registerSchema = z.object({
   username: z.string().min(3).max(50),
   password: z.string().min(4).max(100),
-  role: z.enum(['admin', 'cashier']).optional(),
+  role: z.string().min(1).max(100).optional(),
 });
 
 // Catalog

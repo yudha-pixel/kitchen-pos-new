@@ -174,15 +174,19 @@ export default function InventoryPage() {
 
   const selectedItem = items.find((i) => i.id === selectedItemId) || items[0];
 
+  useEffect(() => {
+    const handleAddItem = () => setAddItemModalOpen(true);
+    window.addEventListener('inventory-add-item', handleAddItem);
+    return () => window.removeEventListener('inventory-add-item', handleAddItem);
+  }, []);
+
   // Load inventory data from API
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        console.log('Loading inventory data from API...');
         // Fetch from API to ensure sync data is reflected
         const ingredients = await getIngredientsWithStatus();
-        console.log('Loaded ingredients from API:', ingredients.length);
         
         if (ingredients.length === 0) {
           console.warn('No ingredients returned from API');
@@ -217,7 +221,6 @@ export default function InventoryPage() {
         };
       });
         
-        console.log('Setting inventory items:', inventoryItems.length);
         setItems(inventoryItems);
       } catch (error) {
         console.error('Failed to load inventory data:', error);
@@ -380,7 +383,6 @@ export default function InventoryPage() {
       
       // Then reload inventory data from API
       const ingredients = await getIngredientsWithStatus();
-      console.log('Loaded ingredients from API after refresh:', ingredients.length);
       
       const inventoryItems: InventoryItem[] = ingredients.map(ing => {
         const status = ing.current_stock <= 0 ? 'Out of Stock' : 

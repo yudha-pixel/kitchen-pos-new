@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = express.Router();
 
 // Get all employees
-router.get('/employees', authMiddleware, async (req: Request, res: Response) => {
+router.get('/employees', authMiddleware, requirePermission(PERMISSIONS.hr.view), async (req: Request, res: Response) => {
   try {
     const { position, employment_type, is_active, search } = req.query;
 
@@ -54,7 +56,7 @@ router.get('/employees', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // Get employee by ID
-router.get('/employees/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/employees/:id', authMiddleware, requirePermission(PERMISSIONS.hr.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const employee = await prisma.employee.findUnique({
@@ -81,7 +83,7 @@ router.get('/employees/:id', authMiddleware, async (req: Request, res: Response)
 });
 
 // Create new employee
-router.post('/employees', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/employees', authMiddleware, requirePermission(PERMISSIONS.hr.create), async (req: Request, res: Response) => {
   try {
     const { name, phone, email, position, employment_type, base_salary, hourly_rate, join_date, is_active } = req.body;
 
@@ -111,7 +113,7 @@ router.post('/employees', authMiddleware, requireRole('admin'), async (req: Requ
 });
 
 // Update employee
-router.put('/employees/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/employees/:id', authMiddleware, requirePermission(PERMISSIONS.hr.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, phone, email, position, employment_type, base_salary, hourly_rate, join_date, is_active } = req.body;
@@ -139,7 +141,7 @@ router.put('/employees/:id', authMiddleware, requireRole('admin'), async (req: R
 });
 
 // Delete employee
-router.delete('/employees/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/employees/:id', authMiddleware, requirePermission(PERMISSIONS.hr.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await prisma.employee.delete({
@@ -154,7 +156,7 @@ router.delete('/employees/:id', authMiddleware, requireRole('admin'), async (req
 });
 
 // Get HR statistics
-router.get('/statistics', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.get('/statistics', authMiddleware, requirePermission(PERMISSIONS.hr.view), async (req: Request, res: Response) => {
   try {
     const totalEmployees = await prisma.employee.count();
     const activeEmployees = await prisma.employee.count({ where: { is_active: true } });
@@ -185,7 +187,7 @@ router.get('/statistics', authMiddleware, requireRole('admin'), async (req: Requ
 });
 
 // Get payroll summary by period
-router.get('/payroll-summary', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.get('/payroll-summary', authMiddleware, requirePermission(PERMISSIONS.payroll.view), async (req: Request, res: Response) => {
   try {
     const { days } = req.query;
     const periodDays = days ? parseInt(days as string) : 30;
@@ -227,7 +229,7 @@ router.get('/payroll-summary', authMiddleware, requireRole('admin'), async (req:
 });
 
 // Create payroll
-router.post('/payroll', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/payroll', authMiddleware, requirePermission(PERMISSIONS.payroll.create), async (req: Request, res: Response) => {
   try {
     const { employee_id, period_start, period_end, base_salary, overtime_hours, overtime_pay, bonus, deduction } = req.body;
 
@@ -259,7 +261,7 @@ router.post('/payroll', authMiddleware, requireRole('admin'), async (req: Reques
 });
 
 // Get all payrolls
-router.get('/payroll', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.get('/payroll', authMiddleware, requirePermission(PERMISSIONS.payroll.view), async (req: Request, res: Response) => {
   try {
     const { employee_id, status } = req.query;
 
@@ -289,7 +291,7 @@ router.get('/payroll', authMiddleware, requireRole('admin'), async (req: Request
 });
 
 // Update payroll status
-router.patch('/payroll/:id/status', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/payroll/:id/status', authMiddleware, requirePermission(PERMISSIONS.payroll.approve), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;

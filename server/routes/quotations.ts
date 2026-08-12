@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -17,7 +19,7 @@ const createQuotationSchema = z.object({
 });
 
 // GET /quotations - List with filters
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, quotation_request_id, supplier_id } = req.query;
     const where: any = {};
@@ -50,7 +52,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /quotations/:id - Get details
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const quotation = await prisma.quotation.findUnique({
@@ -82,7 +84,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /quotations/compare/:requestId - Compare quotations side-by-side
-router.get('/compare/:requestId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/compare/:requestId', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const requestId = Array.isArray(req.params.requestId) ? req.params.requestId[0] : req.params.requestId;
 
@@ -105,7 +107,7 @@ router.get('/compare/:requestId', authMiddleware, async (req: Request, res: Resp
 });
 
 // POST /quotations - Record supplier quotation
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createQuotationSchema.parse(req.body);
     const userId = req.user?.id;
@@ -143,7 +145,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /quotations/:id/select - Select quotation for PO
-router.patch('/:id/select', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/select', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -211,7 +213,7 @@ router.patch('/:id/select', authMiddleware, async (req: Request, res: Response) 
 });
 
 // PATCH /quotations/:id/reject - Reject quotation
-router.patch('/:id/reject', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/reject', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = express.Router();
 
 // Get all customers
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.crm.view), async (req: Request, res: Response) => {
   try {
     const { tier, is_active, search } = req.query;
 
@@ -40,7 +42,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Get customer by ID
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.crm.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const customer = await prisma.customer.findUnique({
@@ -65,7 +67,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Create new customer
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.crm.create), async (req: Request, res: Response) => {
   try {
     const { name, phone, email, tier, points, total_spent, discount_percentage, is_active } = req.body;
 
@@ -98,7 +100,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // Update customer
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.crm.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, phone, email, tier, points, total_spent, discount_percentage, is_active } = req.body;
@@ -135,7 +137,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // Delete customer
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.crm.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -151,7 +153,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // Toggle customer active status
-router.patch('/:id/toggle-active', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id/toggle-active', authMiddleware, requirePermission(PERMISSIONS.crm.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -176,7 +178,7 @@ router.patch('/:id/toggle-active', authMiddleware, requireRole('admin'), async (
 });
 
 // Add points to customer (any authenticated staff — routine part of checkout, not an admin action)
-router.post('/:id/points', authMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/points', authMiddleware, requirePermission(PERMISSIONS.crm.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { points, total_spent } = req.body;

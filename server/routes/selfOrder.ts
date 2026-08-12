@@ -12,6 +12,7 @@ import {
   resolveSelfOrderPaymentInstructions,
 } from '../../src/features/self-order/paymentMethods';
 import { resolveSelfOrderRouting } from '../../src/features/self-order/orderRouting';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -90,15 +91,22 @@ async function acceptCustomerOrder(customerOrderId: string, acceptedByUserId: st
   });
 }
 
-// Fan out a lightweight in-app notification to every active admin/cashier — the
-// staff-facing side of "notify kasir" / "notify kasir dan dapur". The kitchen
+// Fan out a lightweight in-app notification to every active profile that can
+// view orders — the staff-facing side of "notify kasir" / "notify kasir dan dapur". The kitchen
 // side of the "both" mode needs no separate notification: auto-routing already
 // wrote a real Order, and the KDS already polls that table (auto_refresh in
 // AppSettings), so it shows up there without any new plumbing.
 async function notifyStaffOfCustomerOrder(customerOrder: { id: string; total_amount: number; table: { table_number: string } }, mode: 'review' | 'auto') {
   try {
     const staff = await prisma.profile.findMany({
-      where: { is_active: true, role: { name: { in: ['admin', 'cashier'] } } },
+      where: {
+        is_active: true,
+        role: {
+          permissions: {
+            some: { permission: { name: PERMISSIONS.orders.view } },
+          },
+        },
+      },
       select: { id: true },
     });
     if (staff.length === 0) return;
@@ -537,7 +545,7 @@ router.post('/orders', async (req: Request, res: Response) => {
 
 // List pending guest requests for the staff review queue — oldest first (FIFO).
 // Registered before GET /orders/:id so 'pending' is never swallowed as an :id param.
-router.get('/orders/pending', authMiddleware, async (_req: Request, res: Response) => {
+router.get('/orders/pending', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (_req: Request, res: Response) => {
   try {
     const orders = await prisma.customerOrder.findMany({
       where: { status: 'pending' },
@@ -628,7 +636,7 @@ router.get('/tables/:tableId/orders', async (req: Request, res: Response) => {
 
 // Update customer order status — staff only. Guests never mutate an order once
 // submitted; the flow forward from here is accept/reject below.
-router.patch('/orders/:id/status', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/orders/:id/status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -668,14 +676,14 @@ router.patch('/orders/:id/status', authMiddleware, async (req: Request, res: Res
 // Update customer order payment status — staff only, e.g. confirming a gateway
 // callback or recording cash collected at the counter. `payment_status` is required
 // and validated rather than defaulting to 'paid' when omitted.
-router.patch('/orders/:id/payment-status', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/orders/:id/payment-status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   res.status(404).json({ error: 'Payment status mutation has been retired' });
 });
 
 router.post(
   '/orders/:id/verify-payment-and-accept',
   authMiddleware,
-  requirePermission('orders.create'),
+  requirePermission(PERMISSIONS.orders.create),
   async (req: Request, res: Response) => {
     try {
       const id = String(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
@@ -695,7 +703,7 @@ router.post(
 // Accept a guest request: convert it into a real POS Order so the KDS sees it.
 // Product/ingredient stock was already decremented when the guest submitted the
 // request (see POST /orders above) — this step does not touch stock again.
-router.post('/orders/:id/accept', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders/:id/accept', authMiddleware, requirePermission(PERMISSIONS.orders.create), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -714,7 +722,7 @@ router.post('/orders/:id/accept', authMiddleware, async (req: Request, res: Resp
 
 // Reject a guest request: it never becomes a kitchen order, and stock decremented
 // at submission time (POST /orders above) is restored since nothing was fulfilled.
-router.post('/orders/:id/reject', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders/:id/reject', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

@@ -63,7 +63,6 @@ export default function StockApprovalsPage() {
       } else {
         data = await getStockRequestsByStatus(statusFilter as 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled');
       }
-      console.log('Fetched stock requests:', data.length, 'items');
       setRequests(data);
     } catch (error) {
       console.error('Failed to fetch stock requests:', error);

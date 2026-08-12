@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import { auditLogger } from './audit';
 import {
   createCategorySchema,
@@ -15,20 +17,22 @@ import {
 } from '../lib/validation';
 
 const router = Router();
-const adminOnly = [authMiddleware, requireRole('admin')] as const;
+const canCreateProducts = [authMiddleware, requirePermission(PERMISSIONS.products.create)] as const;
+const canEditProducts = [authMiddleware, requirePermission(PERMISSIONS.products.edit)] as const;
+const canDeleteProducts = [authMiddleware, requirePermission(PERMISSIONS.products.delete)] as const;
 
 // ---------------------------------------------------------------------------
 // Categories
 // ---------------------------------------------------------------------------
 
-router.get('/categories', async (_req: Request, res: Response) => {
+router.get('/categories', authMiddleware, requirePermission(PERMISSIONS.products.view), async (_req: Request, res: Response) => {
   const categories = await prisma.category.findMany({
     orderBy: { name: 'asc' },
   });
   res.json(categories);
 });
 
-router.post('/categories', ...adminOnly, async (req: Request, res: Response) => {
+router.post('/categories', ...canCreateProducts, async (req: Request, res: Response) => {
   const data = createCategorySchema.parse(req.body);
   const created = await prisma.category.create({
     data: { name: data.name, color: data.color ?? null },
@@ -36,14 +40,14 @@ router.post('/categories', ...adminOnly, async (req: Request, res: Response) => 
   res.status(201).json(created);
 });
 
-router.patch('/categories/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.patch('/categories/:id', ...canEditProducts, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const data = updateCategorySchema.parse(req.body);
   const updated = await prisma.category.update({ where: { id }, data });
   res.json(updated);
 });
 
-router.delete('/categories/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.delete('/categories/:id', ...canDeleteProducts, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   // Products keep existing (category_id becomes null via the optional relation).
   await prisma.category.delete({ where: { id } });
@@ -54,7 +58,7 @@ router.delete('/categories/:id', ...adminOnly, async (req: Request, res: Respons
 // Modifier groups
 // ---------------------------------------------------------------------------
 
-router.get('/modifier-groups', async (_req: Request, res: Response) => {
+router.get('/modifier-groups', authMiddleware, requirePermission(PERMISSIONS.products.view), async (_req: Request, res: Response) => {
   const modifierGroups = await prisma.modifierGroup.findMany({
     include: {
       modifiers: true,
@@ -64,20 +68,20 @@ router.get('/modifier-groups', async (_req: Request, res: Response) => {
   res.json(modifierGroups);
 });
 
-router.post('/modifier-groups', ...adminOnly, async (req: Request, res: Response) => {
+router.post('/modifier-groups', ...canCreateProducts, async (req: Request, res: Response) => {
   const data = createModifierGroupSchema.parse(req.body);
   const created = await prisma.modifierGroup.create({ data });
   res.status(201).json(created);
 });
 
-router.patch('/modifier-groups/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.patch('/modifier-groups/:id', ...canEditProducts, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const data = updateModifierGroupSchema.parse(req.body);
   const updated = await prisma.modifierGroup.update({ where: { id }, data });
   res.json(updated);
 });
 
-router.delete('/modifier-groups/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.delete('/modifier-groups/:id', ...canDeleteProducts, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   // Cascades to modifiers and product links (see schema onDelete: Cascade).
   await prisma.modifierGroup.delete({ where: { id } });
@@ -88,7 +92,7 @@ router.delete('/modifier-groups/:id', ...adminOnly, async (req: Request, res: Re
 // Modifiers
 // ---------------------------------------------------------------------------
 
-router.get('/modifiers', async (req: Request, res: Response) => {
+router.get('/modifiers', authMiddleware, requirePermission(PERMISSIONS.products.view), async (req: Request, res: Response) => {
   const { productId } = req.query;
 
   if (productId) {
@@ -136,7 +140,7 @@ router.get('/modifiers', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/modifiers', ...adminOnly, async (req: Request, res: Response) => {
+router.post('/modifiers', ...canCreateProducts, async (req: Request, res: Response) => {
   const data = createModifierSchema.parse(req.body);
   const created = await prisma.modifier.create({
     data: {
@@ -148,14 +152,14 @@ router.post('/modifiers', ...adminOnly, async (req: Request, res: Response) => {
   res.status(201).json(created);
 });
 
-router.put('/modifiers/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.put('/modifiers/:id', ...canEditProducts, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const data = updateModifierSchema.parse(req.body);
   const updated = await prisma.modifier.update({ where: { id }, data });
   res.json(updated);
 });
 
-router.delete('/modifiers/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.delete('/modifiers/:id', ...canDeleteProducts, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   await prisma.modifier.delete({ where: { id } });
   res.json({ success: true });
@@ -165,7 +169,7 @@ router.delete('/modifiers/:id', ...adminOnly, async (req: Request, res: Response
 // Products
 // ---------------------------------------------------------------------------
 
-router.get('/products', async (req: Request, res: Response) => {
+router.get('/products', authMiddleware, requirePermission(PERMISSIONS.products.view), async (req: Request, res: Response) => {
   const { categoryId, includeInactive } = req.query;
   const { limit, offset } = paginationSchema.parse(req.query);
 
@@ -211,7 +215,7 @@ router.get('/products', async (req: Request, res: Response) => {
   );
 });
 
-router.post('/products', ...adminOnly, async (req: Request, res: Response) => {
+router.post('/products', ...canCreateProducts, async (req: Request, res: Response) => {
   const data = createProductSchema.parse(req.body);
 
   const category = await prisma.category.findUnique({ where: { id: data.category_id } });
@@ -247,7 +251,7 @@ router.post('/products', ...adminOnly, async (req: Request, res: Response) => {
   res.status(201).json(created);
 });
 
-router.patch('/products/:id', ...adminOnly, auditLogger('update', 'product'), async (req: Request, res: Response) => {
+router.patch('/products/:id', ...canEditProducts, auditLogger('update', 'product'), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const { modifier_group_ids, ...data } = updateProductSchema.parse(req.body);
 
@@ -285,7 +289,7 @@ router.patch('/products/:id', ...adminOnly, auditLogger('update', 'product'), as
 });
 
 // Soft delete: keeps the product row so historic order items stay intact.
-router.delete('/products/:id', ...adminOnly, auditLogger('delete', 'product'), async (req: Request, res: Response) => {
+router.delete('/products/:id', ...canDeleteProducts, auditLogger('delete', 'product'), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   await prisma.product.update({

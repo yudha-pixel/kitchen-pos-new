@@ -44,7 +44,7 @@ describe('Settings area deletion confirmation', () => {
 
   it('keeps native alert, confirm, and prompt out of covered deletion workflows', async () => {
     const sources = await Promise.all([
-      readFile(path.resolve('app/admin/settings/page.tsx'), 'utf8'),
+      readFile(path.resolve('app/settings/page.tsx'), 'utf8'),
       readFile(path.resolve('app/inventory/mapping/page.tsx'), 'utf8'),
     ]);
 

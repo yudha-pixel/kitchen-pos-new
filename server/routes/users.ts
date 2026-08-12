@@ -5,6 +5,7 @@ import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { auditLogger } from './audit';
 import bcrypt from 'bcrypt';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -29,7 +30,7 @@ const updateUserSchema = z.object({
 });
 
 // GET /users - List all users (admin/manager only)
-router.get('/', authMiddleware, requirePermission('users.view'), async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.users.view), async (req: Request, res: Response) => {
   try {
     const users = await prisma.profile.findMany({
       include: {
@@ -53,7 +54,7 @@ router.get('/', authMiddleware, requirePermission('users.view'), async (req: Req
 });
 
 // GET /users/:id - Get specific user
-router.get('/:id', authMiddleware, requirePermission('users.view'), async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.users.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -79,7 +80,7 @@ router.get('/:id', authMiddleware, requirePermission('users.view'), async (req: 
 });
 
 // POST /users - Create new user (admin only)
-router.post('/', authMiddleware, requirePermission('users.create'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.users.create), async (req: Request, res: Response) => {
   try {
     const data = createUserSchema.parse(req.body);
 
@@ -146,7 +147,7 @@ router.post('/', authMiddleware, requirePermission('users.create'), async (req: 
 });
 
 // PUT /users/:id - Update user (admin only)
-router.put('/:id', authMiddleware, requirePermission('users.update'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.users.update), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -193,7 +194,7 @@ router.put('/:id', authMiddleware, requirePermission('users.update'), async (req
 });
 
 // PATCH /users/:id/password - Change password
-router.patch('/:id/password', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/password', authMiddleware, requirePermission(PERMISSIONS.users.update), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -233,7 +234,7 @@ router.patch('/:id/password', authMiddleware, async (req: Request, res: Response
 });
 
 // PATCH /users/:id/status - Activate/deactivate user (admin only)
-router.patch('/:id/status', authMiddleware, requirePermission('users.update'), async (req: Request, res: Response) => {
+router.patch('/:id/status', authMiddleware, requirePermission(PERMISSIONS.users.update), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -260,7 +261,7 @@ router.patch('/:id/status', authMiddleware, requirePermission('users.update'), a
 });
 
 // DELETE /users/:id - Delete user (admin only)
-router.delete('/:id', authMiddleware, requirePermission('users.delete'), auditLogger('delete', 'user'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.users.delete), auditLogger('delete', 'user'), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

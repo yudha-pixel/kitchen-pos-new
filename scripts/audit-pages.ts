@@ -23,7 +23,7 @@ interface AuditResult {
 }
 
 const APP_DIR = path.join(__dirname, '..', 'app');
-const OUTPUT_FILE = path.join(__dirname, '..', 'route-audit-frontend.json');
+const OUTPUT_FILE = path.join(__dirname, '..', 'audit', 'route-audit-frontend.json');
 
 const SENSITIVE_PATHS = [
   'admin',

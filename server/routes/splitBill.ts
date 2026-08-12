@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -35,7 +37,7 @@ function calculateTaxAndService(
 }
 
 // GET /split-bill/:orderId - Get split bill options for an order
-router.get('/:orderId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:orderId', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   try {
     const { orderId } = req.params;
     const orderIdStr = Array.isArray(orderId) ? orderId[0] : orderId;
@@ -89,7 +91,7 @@ router.get('/:orderId', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /split-bill/by-items - Split bill by items
-router.post('/by-items', authMiddleware, async (req: Request, res: Response) => {
+router.post('/by-items', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const data = splitByItemsSchema.parse(req.body);
 
@@ -174,7 +176,7 @@ router.post('/by-items', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // POST /split-bill/by-amount - Split bill by custom amounts
-router.post('/by-amount', authMiddleware, async (req: Request, res: Response) => {
+router.post('/by-amount', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const data = splitByAmountSchema.parse(req.body);
 
@@ -243,7 +245,7 @@ router.post('/by-amount', authMiddleware, async (req: Request, res: Response) =>
 });
 
 // POST /split-bill/equal - Split bill equally among N people
-router.post('/equal', authMiddleware, async (req: Request, res: Response) => {
+router.post('/equal', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const { order_id, number_of_people } = req.body;
 

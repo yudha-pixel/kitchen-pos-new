@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
+import { synchronizePermissionCatalog } from '../lib/permissionBackfill';
 
 async function main() {
   console.log('🌱 Seeding local PostgreSQL database...');
@@ -34,107 +35,9 @@ async function main() {
     }
   }
 
-  // Step 1.2: Create permissions for different modules
-  const modules = [
-    { module: 'products', actions: ['view', 'create', 'edit', 'delete'] },
-    { module: 'orders', actions: ['view', 'create', 'edit', 'delete', 'void', 'refund'] },
-    { module: 'inventory', actions: ['view', 'create', 'edit', 'delete', 'adjust'] },
-    { module: 'hr', actions: ['view', 'create', 'edit', 'delete'] },
-    { module: 'finance', actions: ['view', 'create', 'edit', 'delete', 'approve'] },
-    { module: 'settings', actions: ['view', 'edit'] },
-    { module: 'reports', actions: ['view'] },
-    { module: 'users', actions: ['view', 'create', 'update', 'delete'] },
-  ];
-
-  for (const mod of modules) {
-    for (const action of mod.actions) {
-      const permissionExists = await prisma.permission.findUnique({
-        where: { module_action: { module: mod.module, action } },
-      });
-      if (!permissionExists) {
-        await prisma.permission.create({
-          data: {
-            name: `${mod.module}.${action}`,
-            description: `${action} ${mod.module}`,
-            module: mod.module,
-            action,
-          },
-        });
-      }
-    }
-  }
-  console.log('✅ Created permissions for all modules');
-
-  // Step 1.3: Assign permissions to roles
-  const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
-  const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
-  const managementRole = await prisma.role.findUnique({ where: { name: 'management' } });
-  const ownerRole = await prisma.role.findUnique({ where: { name: 'owner' } });
-
-  // Admin gets all permissions
-  const allPermissions = await prisma.permission.findMany();
-  for (const permission of allPermissions) {
-    const exists = await prisma.rolePermission.findUnique({
-      where: { role_id_permission_id: { role_id: adminRole!.id, permission_id: permission.id } },
-    });
-    if (!exists) {
-      await prisma.rolePermission.create({
-        data: { role_id: adminRole!.id, permission_id: permission.id },
-      });
-    }
-  }
-
-  // Cashier gets limited permissions
-  const cashierPermissions = await prisma.permission.findMany({
-    where: {
-      OR: [
-        { module: 'products', action: 'view' },
-        { module: 'orders', action: 'view' },
-        { module: 'orders', action: 'create' },
-        { module: 'reports', action: 'view' },
-      ],
-    },
-  });
-  for (const permission of cashierPermissions) {
-    const exists = await prisma.rolePermission.findUnique({
-      where: { role_id_permission_id: { role_id: cashierRole!.id, permission_id: permission.id } },
-    });
-    if (!exists) {
-      await prisma.rolePermission.create({
-        data: { role_id: cashierRole!.id, permission_id: permission.id },
-      });
-    }
-  }
-
-  // Management gets most permissions except finance approval
-  const managementPermissions = await prisma.permission.findMany({
-    where: {
-      NOT: { action: 'approve' },
-    },
-  });
-  for (const permission of managementPermissions) {
-    const exists = await prisma.rolePermission.findUnique({
-      where: { role_id_permission_id: { role_id: managementRole!.id, permission_id: permission.id } },
-    });
-    if (!exists) {
-      await prisma.rolePermission.create({
-        data: { role_id: managementRole!.id, permission_id: permission.id },
-      });
-    }
-  }
-
-  // Owner gets all permissions like admin
-  for (const permission of allPermissions) {
-    const exists = await prisma.rolePermission.findUnique({
-      where: { role_id_permission_id: { role_id: ownerRole!.id, permission_id: permission.id } },
-    });
-    if (!exists) {
-      await prisma.rolePermission.create({
-        data: { role_id: ownerRole!.id, permission_id: permission.id },
-      });
-    }
-  }
-  console.log('✅ Created role-permission mappings');
+  // Step 1.2: Reconcile the shared catalog for system roles only.
+  await synchronizePermissionCatalog(prisma, { dryRun: false });
+  console.log('✅ Synchronized permission catalog and system-role mappings');
 
   // Step 1.4: Create default outlets
   const outlet1 = await prisma.outlet.upsert({
@@ -161,10 +64,10 @@ async function main() {
   ];
 
   const defaultPreferences = {
-    favorites: ['/pos', '/admin/products', '/admin/settings'],
+    favorites: ['/pos', '/products', '/settings'],
     recent: [
       { route: '/pos', title: 'Point of Sale', timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString() },
-      { route: '/admin/products', title: 'Menu & Products', timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
+      { route: '/products', title: 'Menu & Products', timestamp: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
     ],
   };
 

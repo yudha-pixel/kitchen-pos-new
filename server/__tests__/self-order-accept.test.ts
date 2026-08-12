@@ -14,6 +14,7 @@ describe('Self-order accept/reject flow', () => {
   let insufficientToken: string;
   let missingProfileToken: string;
   let insufficientRoleId: string;
+  let insufficientProfileId: string;
   let tableId: string;
   let productId: string;
   const testTableNumber = 'TEST-ACCEPT-01';
@@ -32,8 +33,17 @@ describe('Self-order accept/reject flow', () => {
       data: { name: `TEST-NO-ORDER-CREATE-${crypto.randomUUID()}`, description: 'Temporary permission test role' },
     });
     insufficientRoleId = waiterRole.id;
+    const insufficientProfile = await prisma.profile.create({
+      data: {
+        username: `TEST-NO-ORDER-CREATE-${crypto.randomUUID()}`,
+        full_name: 'No Order Create Test',
+        password_hash: 'unused',
+        role_id: waiterRole.id,
+      },
+    });
+    insufficientProfileId = insufficientProfile.id;
     insufficientToken = jwt.sign(
-      { id: crypto.randomUUID(), username: 'TEST-NO-ORDER-CREATE', role: 'cashier', role_id: waiterRole.id },
+      { id: insufficientProfile.id, username: insufficientProfile.username, role: 'admin', role_id: loginResponse.body.user.role_id },
       process.env.JWT_SECRET!,
       { expiresIn: '5m' }
     );
@@ -72,6 +82,7 @@ describe('Self-order accept/reject flow', () => {
     await prisma.appSettings.updateMany({
       data: { selforder_payment_methods: ['cashier'], selforder_payment_instructions: {}, selforder_routing: 'review' },
     });
+    await prisma.profile.delete({ where: { id: insufficientProfileId } });
     await prisma.role.delete({ where: { id: insufficientRoleId } });
     await prisma.$disconnect();
   });
@@ -222,12 +233,12 @@ describe('Self-order accept/reject flow', () => {
     expect(await prisma.order.count({ where: { customer_order_id: created.body.id } })).toBe(1);
   });
 
-  it('rolls payment and acceptance back when kitchen-order creation fails', async () => {
+  it('rejects a deleted profile token before mutating payment or acceptance', async () => {
     const created = await createGuestOrder('qris');
     const failed = await request(app)
       .post(`/api/self-order/orders/${created.body.id}/verify-payment-and-accept`)
       .set('Authorization', `Bearer ${missingProfileToken}`);
-    expect(failed.status).toBe(500);
+    expect(failed.status).toBe(401);
     const saved = await prisma.customerOrder.findUnique({ where: { id: created.body.id } });
     expect(saved).toMatchObject({ status: 'pending', payment_status: 'pending' });
     expect(await prisma.order.count({ where: { customer_order_id: created.body.id } })).toBe(0);

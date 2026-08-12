@@ -16,6 +16,9 @@
 
   /* Layout Density - Dynamic from ThemeContext */
   --layout-spacing: 1rem; /* Default spacious */
+  --control-height: 2.75rem;
+  --page-padding: 1.5rem;
+  --section-gap: 1.5rem;
 
   /* Card View - Dynamic from ThemeContext */
   --card-view: grid; /* Default grid */
@@ -121,7 +124,49 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
-  transition: background-color 0.3s, color 0.3s;
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+/* Organization appearance settings consumed by the persistent app shell. */
+.app-shell-header {
+  min-height: calc(var(--control-height) + 1.25rem);
+}
+
+.app-shell-main {
+  padding: var(--page-padding);
+}
+
+.appearance-control {
+  min-height: var(--control-height);
+}
+
+.appearance-card {
+  border-radius: var(--card-radius);
+}
+
+/* Draft previews override only their own subtree; the saved app theme is untouched. */
+.appearance-preview[data-color-mode="light"] {
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --surface: #ffffff;
+  --surface-alt: #f1f5f9;
+  --border-color: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
+}
+
+.appearance-preview[data-color-mode="dark"] {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --surface: #1e293b;
+  --surface-alt: #334155;
+  --border-color: #475569;
+  --border-strong: #64748b;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
 }
 
 /* Utility class for dynamic card radius */

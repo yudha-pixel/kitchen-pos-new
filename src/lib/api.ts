@@ -1,4 +1,5 @@
 import { API_BASE_URL } from '../config/runtime';
+import type { AuthenticatedUser } from '@/src/types/auth';
 
 const TOKEN_KEY = 'kitchen-pos-token';
 
@@ -74,7 +75,7 @@ async function request<T>(
 
 // Auth
 export async function login(body: { username: string; password: string }) {
-  const data = await request<{ token: string; user: { id: string; username: string; role: 'admin' | 'cashier' } }>(
+  const data = await request<{ token: string; user: AuthenticatedUser; permissions: AuthenticatedUser['permissions'] }>(
     'POST',
     '/auth/login',
     body
@@ -83,12 +84,12 @@ export async function login(body: { username: string; password: string }) {
   return data;
 }
 
-export async function register(body: { username: string; password: string; role?: 'admin' | 'cashier' }) {
-  return request<{ id: string; username: string; role: 'admin' | 'cashier' }>('POST', '/auth/register', body);
+export async function register(body: { username: string; password: string; role?: string }) {
+  return request<AuthenticatedUser>('POST', '/auth/register', body);
 }
 
 export async function getMe() {
-  return request<{ id: string; username: string; role: 'admin' | 'cashier' }>('GET', '/auth/me');
+  return request<AuthenticatedUser>('GET', '/auth/me');
 }
 
 // Products

@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
@@ -35,7 +37,7 @@ const upload = multer({
 });
 
 // POST /ocr/scan - Upload and process image for OCR
-router.post('/scan', authMiddleware, upload.single('image'), async (req: Request, res: Response) => {
+router.post('/scan', authMiddleware, requirePermission(PERMISSIONS.finance.create), upload.single('image'), async (req: Request, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -83,7 +85,7 @@ router.post('/scan', authMiddleware, upload.single('image'), async (req: Request
 });
 
 // GET /ocr/scans - Get all OCR scans for current user
-router.get('/scans', authMiddleware, async (req: Request, res: Response) => {
+router.get('/scans', authMiddleware, requirePermission(PERMISSIONS.finance.view), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const { scan_type, status, limit = 50, offset = 0 } = req.query;
@@ -114,7 +116,7 @@ router.get('/scans', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /ocr/scans/:id - Get specific OCR scan
-router.get('/scans/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/scans/:id', authMiddleware, requirePermission(PERMISSIONS.finance.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.id;
@@ -136,7 +138,7 @@ router.get('/scans/:id', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // DELETE /ocr/scans/:id - Delete OCR scan
-router.delete('/scans/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/scans/:id', authMiddleware, requirePermission(PERMISSIONS.finance.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.id;

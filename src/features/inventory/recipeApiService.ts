@@ -232,8 +232,6 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
   failed: number;
   message: string;
 }> {
-  console.log('Starting recipe-inventory synchronization audit...');
-  
   try {
     const token = getToken();
     const headers: Record<string, string> = {};
@@ -269,19 +267,12 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
       }
     }
     
-    console.log(`Audit Results:`);
-    console.log(`- Total unique ingredients in recipes: ${recipeIngredientNames.size}`);
-    console.log(`- Total ingredients in inventory: ${inventoryIngredients.length}`);
-    
     // Find ingredients in recipes that are missing from inventory (by name)
     const missingIngredientNames = [...recipeIngredientNames].filter(
       name => !existingIngredientNames.has(name)
     );
     
-    console.log(`- Missing ingredients: ${missingIngredientNames.length}`);
-    
     if (missingIngredientNames.length === 0) {
-      console.log('✅ All recipe ingredients are already registered in inventory');
       return {
         success: true,
         added: 0,
@@ -315,31 +306,24 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
       };
     });
     
-    console.log(`Registering ${missingIngredients.length} missing ingredients...`);
-    console.log('Missing ingredients:', missingIngredients);
-    
     let successCount = 0;
     let failCount = 0;
     
     for (const ingredient of missingIngredients) {
       try {
-        console.log(`Attempting to register: ${ingredient.name} (${ingredient.unit}, ${ingredient.unit_price})`);
-        const result = await addIngredient({
+        await addIngredient({
           name: ingredient.name,
           current_stock: 0,
           unit: ingredient.unit,
           min_stock: 100,
           unit_price: ingredient.unit_price,
         });
-        console.log(`✅ Registered: ${ingredient.name} with ID: ${result}`);
         successCount++;
       } catch (error) {
         console.error(`❌ Failed to register ${ingredient.name}:`, error);
         failCount++;
       }
     }
-    
-    console.log(`Sync completed: ${successCount} added, ${failCount} failed`);
     
     return {
       success: true,

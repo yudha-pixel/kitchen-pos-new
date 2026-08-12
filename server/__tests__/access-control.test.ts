@@ -158,7 +158,7 @@ describe('Access Control Tests', () => {
     });
   });
 
-  describe('Admin-Only Routes', () => {
+  describe('Capability-Protected Routes', () => {
     it('should allow admin to access user management routes', async () => {
       const res = await request(app)
         .get('/api/users')
@@ -175,12 +175,11 @@ describe('Access Control Tests', () => {
       expect(res.body.error).toBe('Forbidden');
     });
 
-    it('should return 403 for manager accessing admin routes', async () => {
+    it('should allow management to view users through users.view', async () => {
       const res = await request(app)
         .get('/api/users')
         .set('Authorization', `Bearer ${managerToken}`);
-      expect(res.status).toBe(403);
-      expect(res.body.error).toBe('Forbidden');
+      expect(res.status).toBe(200);
     });
   });
 

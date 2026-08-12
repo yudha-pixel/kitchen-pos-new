@@ -48,7 +48,8 @@ describe('Table Management API', () => {
   describe('GET /tables', () => {
     it('should return all tables', async () => {
       const res = await request(app)
-        .get('/api/tables');
+        .get('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -56,7 +57,8 @@ describe('Table Management API', () => {
 
     it('should filter tables by status', async () => {
       const res = await request(app)
-        .get('/api/tables?status=available');
+        .get('/api/tables?status=available')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -69,7 +71,8 @@ describe('Table Management API', () => {
   describe('GET /tables/summary', () => {
     it('should return table status summary', async () => {
       const res = await request(app)
-        .get('/api/tables/summary');
+        .get('/api/tables/summary')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('total');
@@ -84,6 +87,7 @@ describe('Table Management API', () => {
     it('should create a new table', async () => {
       const res = await request(app)
         .post('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           table_number: fixtureTableNumber,
           qr_code: `${fixturePrefix}-qr`,
@@ -99,6 +103,7 @@ describe('Table Management API', () => {
     it('should reject duplicate table number', async () => {
       const res = await request(app)
         .post('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           table_number: fixtureTableNumber,
         });
@@ -110,6 +115,7 @@ describe('Table Management API', () => {
     it('should reject invalid table number', async () => {
       const res = await request(app)
         .post('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           table_number: '', // Empty string
         });
@@ -121,7 +127,8 @@ describe('Table Management API', () => {
   describe('GET /tables/:id', () => {
     it('should return a specific table', async () => {
       const res = await request(app)
-        .get(`/api/tables/${testTableId}`);
+        .get(`/api/tables/${testTableId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.id).toBe(testTableId);
@@ -129,7 +136,8 @@ describe('Table Management API', () => {
 
     it('should return 404 for non-existent table', async () => {
       const res = await request(app)
-        .get('/api/tables/00000000-0000-0000-0000-000000000000');
+        .get('/api/tables/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(404);
     });
@@ -139,6 +147,7 @@ describe('Table Management API', () => {
     it('should update table status', async () => {
       const res = await request(app)
         .patch(`/api/tables/${testTableId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'occupied' });
 
       expect(res.status).toBe(200);
@@ -148,6 +157,7 @@ describe('Table Management API', () => {
     it('should reject invalid status', async () => {
       const res = await request(app)
         .patch(`/api/tables/${testTableId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'invalid-status' });
 
       expect(res.status).toBe(400);
@@ -177,6 +187,7 @@ describe('Table Management API', () => {
     it('should update table details', async () => {
       const res = await request(app)
         .put(`/api/tables/${testTableId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           table_number: `${fixtureTableNumber}-updated`,
           status: 'available',
@@ -192,6 +203,7 @@ describe('Table Management API', () => {
       // Reset status to available first
       await request(app)
         .patch(`/api/tables/${testTableId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'available' });
 
       const res = await request(app)

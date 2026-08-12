@@ -3,6 +3,8 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import { auditLogger } from './audit';
 import {
   createOrderSchema,
@@ -108,7 +110,7 @@ async function applyIngredientRestoration(
   }
 }
 
-router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   const { cashierId, status } = req.query;
   const { limit, offset } = paginationSchema.parse(req.query);
 
@@ -129,7 +131,7 @@ router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
 // Active orders for the Kitchen Display: one call returns orders still being
 // worked on, with items joined to product + category for station filtering.
 // Filter orders that have at least one item not completed/cancelled
-router.get('/orders/active', authMiddleware, async (_req: Request, res: Response) => {
+router.get('/orders/active', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (_req: Request, res: Response) => {
   const orders = await prisma.order.findMany({
     where: {
       items: {
@@ -156,7 +158,7 @@ router.get('/orders/active', authMiddleware, async (_req: Request, res: Response
   res.json(orders);
 });
 
-router.get('/orders/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders/:id', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   const order = await prisma.order.findUnique({
@@ -176,7 +178,7 @@ router.get('/orders/:id', authMiddleware, async (req: Request, res: Response) =>
   res.json(order);
 });
 
-router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders/:id/items', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   const items = await prisma.orderItem.findMany({
@@ -191,7 +193,7 @@ router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Respon
   res.json(items);
 });
 
-router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.create), async (req: Request, res: Response) => {
   const { order, items } = createOrderSchema.parse(req.body);
   const orderId = order.id ?? randomUUID();
 
@@ -414,7 +416,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/orders/:id/status', authMiddleware, auditLogger('update', 'order'), async (req: Request, res: Response) => {
+router.patch('/orders/:id/status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), auditLogger('update', 'order'), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const { status } = updateOrderStatusSchema.parse(req.body);
 
@@ -525,7 +527,7 @@ router.patch('/orders/:id/status', authMiddleware, auditLogger('update', 'order'
   }
 });
 
-router.post('/order-items', authMiddleware, async (req: Request, res: Response) => {
+router.post('/order-items', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   const { items } = createOrderItemsSchema.parse(req.body);
 
   await prisma.orderItem.createMany({
@@ -547,7 +549,7 @@ router.post('/order-items', authMiddleware, async (req: Request, res: Response) 
   res.json({ success: true });
 });
 
-router.patch('/order-items/:id/status', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/order-items/:id/status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const { status } = updateOrderStatusSchema.parse(req.body);
 
@@ -570,7 +572,7 @@ router.patch('/order-items/:id/status', authMiddleware, async (req: Request, res
   res.json(updated);
 });
 
-router.post('/void-logs', authMiddleware, auditLogger('void', 'order'), async (req: Request, res: Response) => {
+router.post('/void-logs', authMiddleware, requirePermission(PERMISSIONS.orders.void), auditLogger('void', 'order'), async (req: Request, res: Response) => {
   const { voidLogs } = createVoidLogsSchema.parse(req.body);
 
   await prisma.$transaction(async (tx) => {
@@ -635,7 +637,7 @@ router.post('/void-logs', authMiddleware, auditLogger('void', 'order'), async (r
   res.json({ success: true });
 });
 
-router.post('/orders/merge-table', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders/merge-table', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   const { sourceTable, targetTable } = mergeTableSchema.parse(req.body);
 
   const result = await prisma.order.updateMany({

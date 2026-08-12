@@ -24,7 +24,7 @@ interface ProductListModalProps {
   products: Product[];
   productStocks: Map<string, number | null>;
   onStockUpdate?: () => void;
-  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
+  canEditStock?: boolean;
   categories?: Array<{ id: string; name: string }>;
 }
 
@@ -34,7 +34,7 @@ export const ProductListModal = ({
   products, 
   productStocks,
   onStockUpdate,
-  userRole,
+  canEditStock = false,
   categories = []
 }: ProductListModalProps) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -58,8 +58,6 @@ export const ProductListModal = ({
     if (stock <= 10) return { status: 'low', label: `Stok: ${stock}`, color: 'text-yellow-600', bg: 'bg-yellow-100' };
     return { status: 'ok', label: `Stok: ${stock}`, color: 'text-green-600', bg: 'bg-green-100' };
   };
-
-  const canEditStock = userRole === 'admin' || userRole === 'management';
 
   const handleStockUpdate = async (productId: string, newStock: number) => {
     setStockError('');

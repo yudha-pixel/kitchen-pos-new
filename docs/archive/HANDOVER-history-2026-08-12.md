@@ -830,7 +830,7 @@ Scope note: re-read the original Phase 4 plan before starting and cut two items 
 ### Documentation
 - `README.md`: rewritten for the local PostgreSQL stack.
 - `DEPLOYMENT.md`: local deployment guide.
-- `knowledge/` folder created with seven reference files:
+- `../knowledge/` folder created with seven reference files:
   1. `01-current-tech-stack.md`
   2. `02-pos-domain-and-kitchen-workflows.md`
   3. `03-inventory-procurement-and-ocr.md`
@@ -1039,7 +1039,7 @@ The `src/features/pos/components/ProductCard.tsx` component has a layout issue w
 | `src/hooks/useSyncManager.ts` | Offline-to-online sync |
 | `src/features/pos/components/ProductCard.tsx` | **DEFERRED**: Layout issues with empty/broken images |
 | `server/prisma/seed.ts` | Product image URLs updated to picsum.photos |
-| `knowledge/07-odoo-alternative-and-roadmap.md` | Phased roadmap against the full requirements |
+| `../knowledge/07-odoo-alternative-and-roadmap.md` | Phased roadmap against the full requirements |
 
 ## Recommended Next Steps
 
@@ -1090,7 +1090,7 @@ Pick one lane based on business priority:
    - Add email and WhatsApp integrations.
 
 6. **Odoo evaluation**
-   - Review `knowledge/07-odoo-alternative-and-roadmap.md`.
+   - Review `../knowledge/07-odoo-alternative-and-roadmap.md`.
    - Decide whether to stay on the custom stack, migrate to Odoo, or use a hybrid model.
 
 ## How to Resume

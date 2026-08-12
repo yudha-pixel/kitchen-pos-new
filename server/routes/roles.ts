@@ -1,8 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
-import { clearRolePermissionsCache } from '../middleware/permissions';
+import { authMiddleware } from '../middleware/auth';
+import { clearRolePermissionsCache, requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ const assignPermissionSchema = z.object({
 });
 
 // GET /roles - List all roles
-router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.roles.view), async (req: Request, res: Response) => {
   try {
     const roles = await prisma.role.findMany({
       include: {
@@ -48,7 +49,7 @@ router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: 
 });
 
 // GET /roles/:id - Get specific role with permissions
-router.get('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.roles.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -84,7 +85,7 @@ router.get('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // POST /roles - Create new role (admin only)
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.roles.create), async (req: Request, res: Response) => {
   try {
     const data = createRoleSchema.parse(req.body);
 
@@ -112,7 +113,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // PUT /roles/:id - Update role (admin only)
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.roles.update), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -159,7 +160,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // DELETE /roles/:id - Delete role (admin only)
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.roles.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -205,7 +206,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // POST /roles/:id/permissions - Assign permission to role
-router.post('/:id/permissions', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/:id/permissions', authMiddleware, requirePermission(PERMISSIONS.roles.assign), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -265,7 +266,7 @@ router.post('/:id/permissions', authMiddleware, requireRole('admin'), async (req
 });
 
 // DELETE /roles/:id/permissions/:permissionId - Remove permission from role
-router.delete('/:id/permissions/:permissionId', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id/permissions/:permissionId', authMiddleware, requirePermission(PERMISSIONS.roles.assign), async (req: Request, res: Response) => {
   try {
     const { id, permissionId } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

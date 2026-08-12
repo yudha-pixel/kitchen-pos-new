@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -23,7 +25,7 @@ const updateTransferSchema = z.object({
 });
 
 // GET /stock-transfers - List all transfers
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const { status, from_warehouse, to_warehouse } = req.query;
 
@@ -62,7 +64,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /stock-transfers/:id - Get specific transfer
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -100,7 +102,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /stock-transfers - Create new transfer request
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.transfer), async (req: Request, res: Response) => {
   try {
     const data = createTransferSchema.parse(req.body);
     const userId = (req as any).user?.id;
@@ -187,7 +189,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /stock-transfers/:id - Update transfer status (approve/reject/complete/cancel)
-router.patch('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.transfer), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -325,7 +327,7 @@ router.patch('/:id', authMiddleware, requireRole('admin'), async (req: Request, 
 });
 
 // DELETE /stock-transfers/:id - Delete transfer (admin only, only if pending)
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

@@ -15,16 +15,12 @@ interface ProductCardProps {
   cardView?: 'grid' | 'list' | 'minimalist';
 }
 
-export const ProductCard = ({ product, onAddToCart, modifiers = [], stockCount, cardView = 'grid' }: ProductCardProps) => {
+export const ProductCard = ({ product, onAddToCart, modifiers = [], stockCount }: ProductCardProps) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [imageError, setImageError] = useState(false);
 
   const isOutOfStock = stockCount === 0;
-  const hasLimitedStock = stockCount !== null && stockCount !== undefined;
   const isUnlimited = stockCount === null;
-
-  // Debug log to check if stockCount is received
-  console.log(`🔍 [ProductCard] ${product.name} (ID: ${product.id}): stockCount=${stockCount}, isOutOfStock=${isOutOfStock}, hasLimitedStock=${hasLimitedStock}, isUnlimited=${isUnlimited}, cardView=${cardView}`);
 
   const handleAddToCart = () => {
     if (isOutOfStock) {

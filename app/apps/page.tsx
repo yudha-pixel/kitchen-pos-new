@@ -126,8 +126,8 @@ export default function AppsPage() {
   }, [authLoading, user, router]);
 
   const filteredApps = useMemo(
-    () => filterApps(APPS_REGISTRY, searchQuery, user?.role),
-    [searchQuery, user?.role]
+    () => filterApps(APPS_REGISTRY, searchQuery, user?.permissions ?? []),
+    [searchQuery, user?.permissions]
   );
 
   const handleLogout = () => {

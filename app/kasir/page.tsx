@@ -9,6 +9,7 @@ import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { useCartStore } from '@/src/store/useCartStore';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
+import { PERMISSIONS } from '@/src/config/permissions';
 
 interface Product {
   id: string;
@@ -58,7 +59,7 @@ const categoryIcons: Record<string, any> = {
 };
 
 export default function KasirPage() {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState('Semua');
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -184,9 +185,8 @@ export default function KasirPage() {
   };
 
   const handleVoidPayment = (paymentId: string, amount: number) => {
-    // Check if user has admin role
-    if (user?.role !== 'admin') {
-      toast('error', 'Hanya admin yang dapat void pembayaran');
+    if (!can(PERMISSIONS.orders.void)) {
+      toast('error', 'Anda tidak memiliki izin untuk void pembayaran');
       return;
     }
     setSelectedPaymentForVoid({ id: paymentId, amount });

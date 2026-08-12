@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import {
   createPrinterSchema,
   updatePrinterSchema,
@@ -8,7 +10,7 @@ import {
 } from '../lib/validation';
 
 const router = Router();
-const adminOnly = [authMiddleware, requireRole('admin')] as const;
+const canManagePrinters = [authMiddleware, requirePermission(PERMISSIONS.printing.manage)] as const;
 
 // Get all printers
 router.get('/printers', async (_req: Request, res: Response) => {
@@ -45,7 +47,7 @@ router.get('/printers/category/:categoryId', async (req: Request, res: Response)
 });
 
 // Create printer
-router.post('/printers', ...adminOnly, async (req: Request, res: Response) => {
+router.post('/printers', ...canManagePrinters, async (req: Request, res: Response) => {
   const { name, type, ip_address, port } = createPrinterSchema.parse(req.body);
 
   const printer = await prisma.printer.create({
@@ -61,7 +63,7 @@ router.post('/printers', ...adminOnly, async (req: Request, res: Response) => {
 });
 
 // Update printer
-router.patch('/printers/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.patch('/printers/:id', ...canManagePrinters, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const data = updatePrinterSchema.parse(req.body);
 
@@ -74,7 +76,7 @@ router.patch('/printers/:id', ...adminOnly, async (req: Request, res: Response) 
 });
 
 // Delete printer
-router.delete('/printers/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.delete('/printers/:id', ...canManagePrinters, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   await prisma.printer.delete({
@@ -85,7 +87,7 @@ router.delete('/printers/:id', ...adminOnly, async (req: Request, res: Response)
 });
 
 // Route category to printer
-router.post('/printers/route', ...adminOnly, async (req: Request, res: Response) => {
+router.post('/printers/route', ...canManagePrinters, async (req: Request, res: Response) => {
   const { category_id, printer_id } = printerRouteSchema.parse(req.body);
 
   const categoryPrinter = await prisma.categoryPrinter.create({
@@ -99,7 +101,7 @@ router.post('/printers/route', ...adminOnly, async (req: Request, res: Response)
 });
 
 // Remove category from printer
-router.delete('/printers/route/:id', ...adminOnly, async (req: Request, res: Response) => {
+router.delete('/printers/route/:id', ...canManagePrinters, async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   await prisma.categoryPrinter.delete({

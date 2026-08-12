@@ -1,6 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -48,7 +50,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /suppliers - Create new supplier
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const { name, phone, email, address } = req.body;
     
@@ -69,7 +71,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // PUT /suppliers/:id - Update supplier
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const { name, phone, email, address } = req.body;
     
@@ -91,7 +93,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // DELETE /suppliers/:id - Delete supplier
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.delete), async (req: Request, res: Response) => {
   try {
     await prisma.supplier.delete({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
@@ -104,7 +106,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // POST /suppliers/:id/purchase-orders - Create purchase order
-router.post('/:id/purchase-orders', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/:id/purchase-orders', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const { ingredient_id, quantity, unit_price, notes } = req.body;
     const supplierId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
@@ -154,7 +156,7 @@ router.post('/:id/purchase-orders', authMiddleware, requireRole('admin'), async 
 });
 
 // PATCH /suppliers/:id/purchase-orders/:poId/receive - Receive purchase order (adds stock)
-router.patch('/:id/purchase-orders/:poId/receive', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id/purchase-orders/:poId/receive', authMiddleware, requirePermission(PERMISSIONS.purchasing.receive), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
     const supplierId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;

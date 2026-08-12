@@ -11,6 +11,13 @@ import {
   Wallet,
   BarChart3,
   Settings,
+  PackageOpen,
+  ClipboardCheck,
+  Tags,
+  SlidersHorizontal,
+  ArrowLeftRight,
+  Truck,
+  Workflow,
 } from 'lucide-react';
 
 // Shared between Header (breadcrumb icon) and Sidebar (module rail icon) so
@@ -28,4 +35,14 @@ export const MODULE_ICON_MAP: Record<string, React.ComponentType<{ className?: s
   Wallet,
   BarChart3,
   Settings,
+};
+
+export const NAVIGATION_ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  PackageOpen,
+  ClipboardCheck,
+  Tags,
+  SlidersHorizontal,
+  ArrowLeftRight,
+  Truck,
+  Workflow,
 };

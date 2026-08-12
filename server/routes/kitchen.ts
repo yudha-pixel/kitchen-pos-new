@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = express.Router();
 
 // GET /kitchen/stations - Get all kitchen stations
-router.get('/stations', authMiddleware, async (req: Request, res: Response) => {
+router.get('/stations', authMiddleware, requirePermission(PERMISSIONS.kitchen.view), async (req: Request, res: Response) => {
   try {
     const { outlet_id, is_active } = req.query;
 
@@ -34,7 +36,7 @@ router.get('/stations', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /kitchen/stations - Create kitchen station (admin only)
-router.post('/stations', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/stations', authMiddleware, requirePermission(PERMISSIONS.kitchen.manage), async (req: Request, res: Response) => {
   try {
     const { name, code, description, outlet_id, is_active } = req.body;
 
@@ -60,7 +62,7 @@ router.post('/stations', authMiddleware, requireRole('admin'), async (req: Reque
 });
 
 // PUT /kitchen/stations/:id - Update kitchen station (admin only)
-router.put('/stations/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/stations/:id', authMiddleware, requirePermission(PERMISSIONS.kitchen.manage), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { name, code, description, outlet_id, is_active } = req.body;
@@ -84,7 +86,7 @@ router.put('/stations/:id', authMiddleware, requireRole('admin'), async (req: Re
 });
 
 // DELETE /kitchen/stations/:id - Delete kitchen station (admin only)
-router.delete('/stations/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/stations/:id', authMiddleware, requirePermission(PERMISSIONS.kitchen.manage), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await prisma.kitchenStation.delete({
@@ -99,7 +101,7 @@ router.delete('/stations/:id', authMiddleware, requireRole('admin'), async (req:
 });
 
 // POST /kitchen/stations/:id/categories - Assign category to station (admin only)
-router.post('/stations/:id/categories', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/stations/:id/categories', authMiddleware, requirePermission(PERMISSIONS.kitchen.manage), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { category_id } = req.body;
@@ -126,7 +128,7 @@ router.post('/stations/:id/categories', authMiddleware, requireRole('admin'), as
 });
 
 // DELETE /kitchen/stations/:id/categories/:categoryId - Remove category from station (admin only)
-router.delete('/stations/:id/categories/:categoryId', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/stations/:id/categories/:categoryId', authMiddleware, requirePermission(PERMISSIONS.kitchen.manage), async (req: Request, res: Response) => {
   try {
     const { id, categoryId } = req.params;
 
@@ -145,7 +147,7 @@ router.delete('/stations/:id/categories/:categoryId', authMiddleware, requireRol
 });
 
 // GET /kitchen/orders - Get orders routed to specific station
-router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders', authMiddleware, requirePermission(PERMISSIONS.kitchen.view), async (req: Request, res: Response) => {
   try {
     const { station_id, status } = req.query;
 
