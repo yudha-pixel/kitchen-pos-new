@@ -7,6 +7,7 @@ export const comprehensiveIngredients = [
   // Rice & Grains
   {
     name: 'Beras',
+    category: 'Grains & Pasta',
     current_stock: 2.0,
     unit: 'kg',
     min_stock: 50.0,
@@ -15,6 +16,7 @@ export const comprehensiveIngredients = [
   // Meats
   {
     name: 'Daging Ayam',
+    category: 'Meat & Poultry',
     current_stock: 4.0,
     unit: 'kg',
     min_stock: 20.0,
@@ -22,6 +24,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Daging Sapi',
+    category: 'Meat & Poultry',
     current_stock: 0.0,
     unit: 'kg',
     min_stock: 10.0,
@@ -29,6 +32,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Daging Sapi Cincang',
+    category: 'Meat & Poultry',
     current_stock: 1.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -36,6 +40,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Daging Burger Sapi',
+    category: 'Meat & Poultry',
     current_stock: 0.8,
     unit: 'kg',
     min_stock: 5.0,
@@ -43,6 +48,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Dada Ayam',
+    category: 'Meat & Poultry',
     current_stock: 0.8,
     unit: 'kg',
     min_stock: 10.0,
@@ -50,6 +56,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Dada Ayam Crispy',
+    category: 'Meat & Poultry',
     current_stock: 0.9,
     unit: 'kg',
     min_stock: 5.0,
@@ -57,6 +64,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Ayam Suwir',
+    category: 'Meat & Poultry',
     current_stock: 0.4,
     unit: 'kg',
     min_stock: 5.0,
@@ -64,6 +72,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Daging Sapi Asap',
+    category: 'Meat & Poultry',
     current_stock: 0.4,
     unit: 'kg',
     min_stock: 3.0,
@@ -71,6 +80,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Fillet Ikan Dory',
+    category: 'Meat & Poultry',
     current_stock: 1.5,
     unit: 'kg',
     min_stock: 5.0,
@@ -79,6 +89,7 @@ export const comprehensiveIngredients = [
   // Oils
   {
     name: 'Minyak Goreng',
+    category: 'Oils & Condiments',
     current_stock: 2.55,
     unit: 'liter',
     min_stock: 10.0,
@@ -86,6 +97,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Minyak',
+    category: 'Oils & Condiments',
     current_stock: 0.45,
     unit: 'liter',
     min_stock: 5.0,
@@ -94,6 +106,7 @@ export const comprehensiveIngredients = [
   // Coffee
   {
     name: 'Biji Kopi',
+    category: 'Beverage & Coffee',
     current_stock: 3.7,
     unit: 'kg',
     min_stock: 5.0,
@@ -101,6 +114,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Biji Kopi Murni',
+    category: 'Beverage & Coffee',
     current_stock: 0.54,
     unit: 'kg',
     min_stock: 3.0,
@@ -108,6 +122,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Biji Kopi Kasar',
+    category: 'Beverage & Coffee',
     current_stock: 1.0,
     unit: 'kg',
     min_stock: 3.0,
@@ -115,6 +130,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Biji Kopi Vietnam',
+    category: 'Beverage & Coffee',
     current_stock: 0.2,
     unit: 'kg',
     min_stock: 3.0,
@@ -123,6 +139,7 @@ export const comprehensiveIngredients = [
   // Dairy & Milk
   {
     name: 'Susu',
+    category: 'Dairy & Cheese',
     current_stock: 20.3,
     unit: 'liter',
     min_stock: 20.0,
@@ -130,6 +147,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Susu Segar',
+    category: 'Dairy & Cheese',
     current_stock: 4.1,
     unit: 'liter',
     min_stock: 20.0,
@@ -137,6 +155,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Susu Kental Manis',
+    category: 'Dairy & Cheese',
     current_stock: 0.7,
     unit: 'liter',
     min_stock: 3.0,
@@ -144,6 +163,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Susu Evaporasi',
+    category: 'Dairy & Cheese',
     current_stock: 0.3,
     unit: 'liter',
     min_stock: 3.0,
@@ -151,6 +171,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Krim Segar',
+    category: 'Dairy & Cheese',
     current_stock: 0.3,
     unit: 'liter',
     min_stock: 3.0,
@@ -158,6 +179,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Krim Kocok',
+    category: 'Dairy & Cheese',
     current_stock: 0.4,
     unit: 'liter',
     min_stock: 3.0,
@@ -165,6 +187,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Krim Susu',
+    category: 'Dairy & Cheese',
     current_stock: 2.2,
     unit: 'liter',
     min_stock: 3.0,
@@ -172,6 +195,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Busa Susu',
+    category: 'Dairy & Cheese',
     current_stock: 0.6,
     unit: 'liter',
     min_stock: 3.0,
@@ -179,6 +203,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Kuning Telur',
+    category: 'Meat & Poultry',
     current_stock: 10.0,
     unit: 'butir',
     min_stock: 50.0,
@@ -187,6 +212,7 @@ export const comprehensiveIngredients = [
   // Bakery
   {
     name: 'Tepung Terigu',
+    category: 'Dry Goods & Baking',
     current_stock: 7.4,
     unit: 'kg',
     min_stock: 20.0,
@@ -194,6 +220,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Gula',
+    category: 'Dry Goods & Baking',
     current_stock: 4.75,
     unit: 'kg',
     min_stock: 10.0,
@@ -201,6 +228,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Gula Cokelat',
+    category: 'Dry Goods & Baking',
     current_stock: 0.3,
     unit: 'kg',
     min_stock: 3.0,
@@ -208,6 +236,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Mentega',
+    category: 'Dairy & Cheese',
     current_stock: 2.25,
     unit: 'kg',
     min_stock: 5.0,
@@ -215,6 +244,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Mentega Berkualitas Tinggi',
+    category: 'Dairy & Cheese',
     current_stock: 0.4,
     unit: 'kg',
     min_stock: 3.0,
@@ -222,6 +252,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Telur',
+    category: 'Meat & Poultry',
     current_stock: 90.0,
     unit: 'butir',
     min_stock: 100.0,
@@ -229,6 +260,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Ragi',
+    category: 'Dry Goods & Baking',
     current_stock: 0.02,
     unit: 'kg',
     min_stock: 1.0,
@@ -237,6 +269,7 @@ export const comprehensiveIngredients = [
   // Cheese
   {
     name: 'Keju',
+    category: 'Dairy & Cheese',
     current_stock: 0.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -244,6 +277,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Keju Mozzarella',
+    category: 'Dairy & Cheese',
     current_stock: 0.5,
     unit: 'kg',
     min_stock: 3.0,
@@ -251,6 +285,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Keju Parmesan',
+    category: 'Dairy & Cheese',
     current_stock: 0.35,
     unit: 'kg',
     min_stock: 2.0,
@@ -258,6 +293,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Keju Slice',
+    category: 'Dairy & Cheese',
     current_stock: 0.2,
     unit: 'kg',
     min_stock: 2.0,
@@ -265,6 +301,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Keju Krim',
+    category: 'Dairy & Cheese',
     current_stock: 1.6,
     unit: 'kg',
     min_stock: 3.0,
@@ -273,6 +310,7 @@ export const comprehensiveIngredients = [
   // Cream
   {
     name: 'Krim',
+    category: 'Dairy & Cheese',
     current_stock: 0.0,
     unit: 'liter',
     min_stock: 5.0,
@@ -280,6 +318,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Krim Mentega',
+    category: 'Dairy & Cheese',
     current_stock: 0.2,
     unit: 'liter',
     min_stock: 2.0,
@@ -288,6 +327,7 @@ export const comprehensiveIngredients = [
   // Fruits
   {
     name: 'Pisang',
+    category: 'Produce & Herbs',
     current_stock: 1.2,
     unit: 'kg',
     min_stock: 10.0,
@@ -295,6 +335,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Blueberry',
+    category: 'Produce & Herbs',
     current_stock: 0.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -302,6 +343,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Buah Blueberry',
+    category: 'Produce & Herbs',
     current_stock: 0.3,
     unit: 'kg',
     min_stock: 5.0,
@@ -309,6 +351,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Jeruk',
+    category: 'Produce & Herbs',
     current_stock: 1.5,
     unit: 'kg',
     min_stock: 10.0,
@@ -316,6 +359,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Wortel Parut',
+    category: 'Produce & Herbs',
     current_stock: 0.6,
     unit: 'kg',
     min_stock: 5.0,
@@ -323,6 +367,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Buah Persik Potong',
+    category: 'Produce & Herbs',
     current_stock: 0.3,
     unit: 'kg',
     min_stock: 3.0,
@@ -331,6 +376,7 @@ export const comprehensiveIngredients = [
   // Vegetables
   {
     name: 'Selada',
+    category: 'Produce & Herbs',
     current_stock: 0.3,
     unit: 'kg',
     min_stock: 3.0,
@@ -338,6 +384,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Selada Romaine',
+    category: 'Produce & Herbs',
     current_stock: 1.0,
     unit: 'kg',
     min_stock: 3.0,
@@ -345,6 +392,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Sayuran',
+    category: 'Produce & Herbs',
     current_stock: 0.5,
     unit: 'kg',
     min_stock: 5.0,
@@ -352,6 +400,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Kol',
+    category: 'Produce & Herbs',
     current_stock: 0.3,
     unit: 'kg',
     min_stock: 3.0,
@@ -360,6 +409,7 @@ export const comprehensiveIngredients = [
   // Pasta & Noodles
   {
     name: 'Lembaran Lasagna',
+    category: 'Grains & Pasta',
     current_stock: 0.4,
     unit: 'kg',
     min_stock: 3.0,
@@ -367,6 +417,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Pasta Spaghetti',
+    category: 'Grains & Pasta',
     current_stock: 1.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -374,6 +425,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Mie Kuning',
+    category: 'Grains & Pasta',
     current_stock: 2.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -381,6 +433,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Mie Kering',
+    category: 'Grains & Pasta',
     current_stock: 0.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -388,6 +441,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Kentang Goreng',
+    category: 'Produce & Herbs',
     current_stock: 1.0,
     unit: 'kg',
     min_stock: 5.0,
@@ -396,6 +450,7 @@ export const comprehensiveIngredients = [
   // Bread & Bakery
   {
     name: 'Roti Burger',
+    category: 'Dry Goods & Baking',
     current_stock: 10.0,
     unit: 'biji',
     min_stock: 10.0,
@@ -403,6 +458,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Roti Tawar',
+    category: 'Dry Goods & Baking',
     current_stock: 20.0,
     unit: 'lembar',
     min_stock: 50.0,
@@ -410,6 +466,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Biskuit Regal',
+    category: 'Dry Goods & Baking',
     current_stock: 0.4,
     unit: 'kg',
     min_stock: 2.0,
@@ -417,6 +474,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Adonan Croissant Puff',
+    category: 'Dry Goods & Baking',
     current_stock: 0.8,
     unit: 'kg',
     min_stock: 3.0,
@@ -424,6 +482,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Crouton',
+    category: 'Dry Goods & Baking',
     current_stock: 0.2,
     unit: 'kg',
     min_stock: 2.0,
@@ -432,6 +491,7 @@ export const comprehensiveIngredients = [
   // Spices & Seasonings
   {
     name: 'Bumbu Dasar',
+    category: 'Dry Goods & Baking',
     current_stock: 0.8,
     unit: 'kg',
     min_stock: 5.0,
@@ -439,6 +499,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Bumbu Spesial Jawa',
+    category: 'Dry Goods & Baking',
     current_stock: 0.3,
     unit: 'kg',
     min_stock: 2.0,
@@ -446,6 +507,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Bumbu Kacang',
+    category: 'Dry Goods & Baking',
     current_stock: 0.5,
     unit: 'kg',
     min_stock: 3.0,
@@ -453,6 +515,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Garam',
+    category: 'Dry Goods & Baking',
     current_stock: 0.0,
     unit: 'kg',
     min_stock: 2.0,
@@ -460,6 +523,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Merica',
+    category: 'Dry Goods & Baking',
     current_stock: 0.0,
     unit: 'kg',
     min_stock: 1.0,
@@ -467,6 +531,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Kecap Manis',
+    category: 'Oils & Condiments',
     current_stock: 0.6,
     unit: 'liter',
     min_stock: 5.0,
@@ -474,6 +539,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Kayu Manis',
+    category: 'Dry Goods & Baking',
     current_stock: 0.02,
     unit: 'kg',
     min_stock: 0.5,
@@ -481,6 +547,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Bubuk Kayu Manis',
+    category: 'Dry Goods & Baking',
     current_stock: 0.03,
     unit: 'kg',
     min_stock: 0.5,
@@ -489,6 +556,7 @@ export const comprehensiveIngredients = [
   // Tea
   {
     name: 'Teh Hitam',
+    category: 'Beverage & Coffee',
     current_stock: 0.08,
     unit: 'kg',
     min_stock: 2.0,
@@ -496,6 +564,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Daun Teh Earl Grey',
+    category: 'Beverage & Coffee',
     current_stock: 0.03,
     unit: 'kg',
     min_stock: 1.0,
@@ -503,6 +572,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Daun Teh Melati',
+    category: 'Beverage & Coffee',
     current_stock: 0.03,
     unit: 'kg',
     min_stock: 1.0,
@@ -510,6 +580,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Teh Thailand',
+    category: 'Beverage & Coffee',
     current_stock: 0.1,
     unit: 'kg',
     min_stock: 1.0,
@@ -517,6 +588,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Teh Rempah Chai',
+    category: 'Beverage & Coffee',
     current_stock: 0.03,
     unit: 'kg',
     min_stock: 1.0,
@@ -524,6 +596,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Rempah Chai',
+    category: 'Dry Goods & Baking',
     current_stock: 0.03,
     unit: 'kg',
     min_stock: 0.5,
@@ -532,6 +605,7 @@ export const comprehensiveIngredients = [
   // Chocolate
   {
     name: 'Cokelat Bubuk',
+    category: 'Dry Goods & Baking',
     current_stock: 0.87,
     unit: 'kg',
     min_stock: 3.0,
@@ -539,6 +613,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Cokelat',
+    category: 'Dry Goods & Baking',
     current_stock: 0.5,
     unit: 'kg',
     min_stock: 3.0,
@@ -547,6 +622,7 @@ export const comprehensiveIngredients = [
   // Syrups & Sauces
   {
     name: 'Sirup Karamel',
+    category: 'Oils & Condiments',
     current_stock: 0.4,
     unit: 'liter',
     min_stock: 2.0,
@@ -554,6 +630,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Sirup Buah Persik',
+    category: 'Oils & Condiments',
     current_stock: 0.25,
     unit: 'liter',
     min_stock: 2.0,
@@ -561,6 +638,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Saus Tomat',
+    category: 'Oils & Condiments',
     current_stock: 0.6,
     unit: 'liter',
     min_stock: 3.0,
@@ -568,6 +646,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Saus',
+    category: 'Oils & Condiments',
     current_stock: 0.2,
     unit: 'liter',
     min_stock: 3.0,
@@ -575,6 +654,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Dressing Caesar',
+    category: 'Oils & Condiments',
     current_stock: 0.3,
     unit: 'liter',
     min_stock: 2.0,
@@ -582,6 +662,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Mayones',
+    category: 'Oils & Condiments',
     current_stock: 0.2,
     unit: 'liter',
     min_stock: 2.0,
@@ -590,6 +671,7 @@ export const comprehensiveIngredients = [
   // Ice Cream & Frozen
   {
     name: 'Es Krim Vanila',
+    category: 'Dry Goods & Baking',
     current_stock: 0.5,
     unit: 'kg',
     min_stock: 3.0,
@@ -597,6 +679,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Es Batu',
+    category: 'Others',
     current_stock: 12.5,
     unit: 'kg',
     min_stock: 2.0,
@@ -605,6 +688,7 @@ export const comprehensiveIngredients = [
   // Nuts
   {
     name: 'Kacang Almond',
+    category: 'Dry Goods & Baking',
     current_stock: 0.15,
     unit: 'kg',
     min_stock: 2.0,
@@ -613,6 +697,7 @@ export const comprehensiveIngredients = [
   // Alcoholic
   {
     name: 'Whiskey Irlandia',
+    category: 'Beverage & Coffee',
     current_stock: 0.3,
     unit: 'liter',
     min_stock: 2.0,
@@ -621,6 +706,7 @@ export const comprehensiveIngredients = [
   // Others
   {
     name: 'Air',
+    category: 'Others',
     current_stock: 7.2,
     unit: 'liter',
     min_stock: 100.0,
@@ -628,6 +714,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Air Panas',
+    category: 'Others',
     current_stock: 4.0,
     unit: 'liter',
     min_stock: 100.0,
@@ -635,6 +722,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Air Dingin',
+    category: 'Others',
     current_stock: 5.0,
     unit: 'liter',
     min_stock: 100.0,
@@ -642,6 +730,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Air Tonik',
+    category: 'Beverage & Coffee',
     current_stock: 3.0,
     unit: 'liter',
     min_stock: 10.0,
@@ -649,6 +738,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Perasan Lemon',
+    category: 'Oils & Condiments',
     current_stock: 0.2,
     unit: 'liter',
     min_stock: 3.0,
@@ -656,6 +746,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Bubuk Matcha',
+    category: 'Beverage & Coffee',
     current_stock: 0.32,
     unit: 'kg',
     min_stock: 1.0,
@@ -663,6 +754,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Pewarna Merah Makanan',
+    category: 'Dry Goods & Baking',
     current_stock: 0.05,
     unit: 'liter',
     min_stock: 0.5,
@@ -670,6 +762,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Tepung Bumbu',
+    category: 'Dry Goods & Baking',
     current_stock: 0.4,
     unit: 'kg',
     min_stock: 3.0,
@@ -677,6 +770,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Tusuk Sate',
+    category: 'Others',
     current_stock: 50.0,
     unit: 'tusuk',
     min_stock: 200.0,
@@ -684,6 +778,7 @@ export const comprehensiveIngredients = [
   },
   {
     name: 'Gas Nitrogen',
+    category: 'Others',
     current_stock: 0.1,
     unit: 'liter',
     min_stock: 20.0,

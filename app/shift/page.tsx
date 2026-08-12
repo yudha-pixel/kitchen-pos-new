@@ -120,6 +120,34 @@ export default function ShiftPage() {
     if (saved) {
       setShiftData(JSON.parse(saved));
     }
+
+    // Load petty cash expenses for current shift
+    const loadPettyCashExpenses = async () => {
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`${API_BASE_URL}/api/petty-cash`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const expenses = await response.json();
+          // Calculate total petty cash expenses
+          const totalPettyCash = expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+          
+          // Update shift data with petty cash expenses
+          setShiftData(prev => ({
+            ...prev,
+            totalExpenses: totalPettyCash,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load petty cash expenses:', error);
+      }
+    };
+
+    loadPettyCashExpenses();
   }, []);
 
   // Save shift data to localStorage whenever it changes
@@ -180,7 +208,7 @@ export default function ShiftPage() {
     setEndingCashInput('');
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     setExpenseError('');
     const amount = parseFloat(expenseInput);
     if (isNaN(amount) || amount <= 0) {
@@ -190,6 +218,27 @@ export default function ShiftPage() {
     if (!expenseReason.trim()) {
       setExpenseError('Masukkan alasan pengeluaran');
       return;
+    }
+
+    // Create petty cash expense record
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = localStorage.getItem('token');
+      
+      await fetch(`${API_BASE_URL}/api/petty-cash`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: amount,
+          description: expenseReason,
+          category: 'operational',
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to create petty cash expense:', error);
     }
 
     setShiftData({

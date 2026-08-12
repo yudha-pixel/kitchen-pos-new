@@ -5,6 +5,7 @@ import { convertToSmallestUnit } from '@/src/features/inventory/unitConversion';
 export interface Ingredient {
   id: string;
   name: string;
+  category?: string;
   current_stock: number;
   unit: string;
   min_stock: number;
@@ -593,7 +594,10 @@ export async function createStockRequest(params: any): Promise<string> {
       body: JSON.stringify(params),
     });
 
-    if (!response.ok) throw new Error('Failed to create stock request');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Failed to create stock request');
+    }
 
     const result = await response.json();
     return result.id;

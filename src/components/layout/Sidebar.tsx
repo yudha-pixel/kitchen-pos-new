@@ -15,6 +15,8 @@ export interface SidebarProps {
 export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: SidebarProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+  const [stockApprovalsPendingCount, setStockApprovalsPendingCount] = useState(0);
+  const [pendingPRCount, setPendingPRCount] = useState(0);
   const pathname = usePathname();
   const { user } = useAuth();
 
@@ -62,6 +64,66 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileDrawerActive, handleCloseMobile]);
 
+  // Fetch stock approvals pending count from server
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests?status=Pending`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setStockApprovalsPendingCount(data.length);
+        }
+      } catch (error) {
+        console.error('Failed to fetch pending count:', error);
+      }
+    };
+
+    fetchPendingCount();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Fetch pending PR count from server
+  useEffect(() => {
+    const fetchPendingPRCount = async () => {
+      try {
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const token = localStorage.getItem('token');
+        
+        const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions?status=Pending Approval`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setPendingPRCount(data.length);
+        }
+      } catch (error) {
+        console.error('Failed to fetch pending PR count:', error);
+      }
+    };
+
+    fetchPendingPRCount();
+    
+    // Refresh every 30 seconds
+    const interval = setInterval(fetchPendingPRCount, 30000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   const navLinkClass = (active: boolean) =>
     `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
       active ? 'bg-primary-soft text-primary font-semibold' : 'text-ink-secondary hover:bg-surface-alt'
@@ -96,15 +158,33 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
         {moduleLinks.length > 0 ? (
           moduleLinks.map((sub) => {
             const active = pathname === sub.href;
+            const showStockBadge = sub.href === '/inventory/stock-approvals' && stockApprovalsPendingCount > 0;
+            const showPRBadge = sub.href === '/inventory/purchase-requisitions' && pendingPRCount > 0;
+            const showBadge = showStockBadge || showPRBadge;
+            const badgeCount = showStockBadge ? stockApprovalsPendingCount : showPRBadge ? pendingPRCount : 0;
             return (
               <Link
                 key={sub.href}
                 href={sub.href}
                 aria-current={active ? 'page' : undefined}
                 title={expanded ? undefined : sub.label}
-                className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'}`}
+                className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'} ${!expanded && showBadge ? 'relative' : ''}`}
               >
-                {expanded && <span className="truncate">{sub.label}</span>}
+                {expanded && (
+                  <div className="flex items-center justify-between w-full">
+                    <span className="truncate">{sub.label}</span>
+                    {showBadge && (
+                      <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-medium text-white">
+                        {badgeCount}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {!expanded && showBadge && (
+                  <span className="absolute top-1 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-medium text-white">
+                    {badgeCount}
+                  </span>
+                )}
                 {!expanded && <span className="sr-only">{sub.label}</span>}
               </Link>
             );

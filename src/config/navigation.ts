@@ -34,6 +34,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
       { label: 'Manajemen Meja', href: '/pos/meja' },
       { label: 'Buka/Tutup Shift', href: '/shift' },
       { label: 'Kasir Klasik', href: '/kasir' },
+      { label: 'Kitchen/Warehouse Request', href: '/kasir/stock-request' },
     ],
   },
   {
@@ -90,6 +91,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     keywords: ['pembelian', 'supplier', 'pemasok', 'order', 'po', 'pembayaran', 'quotation', 'invoice', 'grn'],
     subLinks: [
       { label: 'Manajemen Supplier', href: '/inventory-suppliers' },
+      { label: 'Purchase Requisition', href: '/inventory/purchase-requisitions' },
       { label: 'Permintaan Penawaran', href: '/inventory/quotation-requests' },
       { label: 'Penawaran Supplier', href: '/inventory/quotations' },
       { label: 'Purchase Order', href: '/inventory/purchase-orders' },
@@ -161,9 +163,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Wallet',
     route: '/finance/ocr',
     allowedRoles: ['admin', 'owner', 'management'],
-    keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'ocr', 'faktur'],
+    keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'ocr', 'faktur', 'petty cash'],
     subLinks: [
       { label: 'Pemindaian Faktur (OCR)', href: '/finance/ocr' },
+      { label: 'Riwayat Petty Cash', href: '/finance/petty-cash' },
     ],
   },
   {

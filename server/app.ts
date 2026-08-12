@@ -44,6 +44,9 @@ import kitchenRoutes from './routes/kitchen';
 import backupRoutes from './routes/backup';
 import auditRoutes from './routes/audit';
 import userPreferencesRoutes from './routes/userPreferences';
+import stockApprovalRequestRoutes from './routes/stockApprovalRequests';
+import purchaseRequisitionRoutes from './routes/purchaseRequisitions';
+import pettyCashRoutes from './routes/pettyCash';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -157,6 +160,9 @@ app.use('/api/kitchen', kitchenRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/user/preferences', userPreferencesRoutes);
+app.use('/api/stock-approval-requests', stockApprovalRequestRoutes);
+app.use('/api/purchase-requisitions', purchaseRequisitionRoutes);
+app.use('/api/petty-cash', pettyCashRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });

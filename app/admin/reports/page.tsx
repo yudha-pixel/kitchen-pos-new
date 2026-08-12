@@ -6,8 +6,16 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useConfigStore } from '@/src/store/useConfigStore';
 import { getSalesDataByPeriod, getExpensesDataByPeriod, getPaymentMethodSummary, getBestSellingProducts } from '@/src/features/reports/reportsService';
 import { getPayrollSummaryByPeriod, PayrollSummary } from '@/src/features/hr/hrService';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Download, Filter, CreditCard, Wallet, AlertCircle, IdCard } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Download, Filter, CreditCard, Wallet, AlertCircle, IdCard, Trash2, Package } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+
+interface WastageData {
+  ingredient_name: string;
+  total_quantity: number;
+  unit: string;
+  total_loss: number;
+  request_count: number;
+}
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -29,13 +37,17 @@ export default function ReportsPage() {
     totalOvertime: 0,
     totalHRExpenses: 0
   });
+  const [wastageData, setWastageData] = useState<WastageData[]>([]);
+  const [loadingWastage, setLoadingWastage] = useState(false);
 
   useEffect(() => {
     loadChartData();
+    loadWastageData();
   }, []);
 
   useEffect(() => {
     loadChartData();
+    loadWastageData();
   }, [chartPeriod]);
 
   const loadChartData = async () => {
@@ -57,6 +69,63 @@ export default function ReportsPage() {
       console.error('Failed to load chart data:', error);
     } finally {
       setLoadingChart(false);
+    }
+  };
+
+  const loadWastageData = async () => {
+    setLoadingWastage(true);
+    try {
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests?status=approved&period=${chartPeriod}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Group by ingredient and calculate total loss
+        const wastageMap = new Map<string, WastageData>();
+        
+        for (const request of data) {
+          if (request.type === 'Stock Out') {
+            const key = request.item_name;
+            const existing = wastageMap.get(key) || {
+              ingredient_name: request.item_name,
+              total_quantity: 0,
+              unit: request.unit,
+              total_loss: 0,
+              request_count: 0
+            };
+            
+            existing.total_quantity += request.quantity;
+            existing.request_count += 1;
+            
+            // Calculate loss based on unit price (need to fetch ingredient price)
+            const ingredientResponse = await fetch(`${API_BASE_URL}/api/ingredients?name=${encodeURIComponent(request.item_name)}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (ingredientResponse.ok) {
+              const ingredients = await ingredientResponse.json();
+              const ingredient = ingredients.find((ing: any) => ing.name === request.item_name);
+              if (ingredient) {
+                existing.total_loss += request.quantity * ingredient.unit_price;
+                existing.unit = ingredient.unit;
+              }
+            }
+            
+            wastageMap.set(key, existing);
+          }
+        }
+        
+        setWastageData(Array.from(wastageMap.values()).sort((a, b) => b.total_loss - a.total_loss));
+      }
+    } catch (error) {
+      console.error('Failed to load wastage data:', error);
+    } finally {
+      setLoadingWastage(false);
     }
   };
 
@@ -84,9 +153,10 @@ export default function ReportsPage() {
     const totalServiceCharge = salesData.reduce((sum, d) => sum + (d.serviceChargeAmount || 0), 0);
     const totalOperationalExpenses = expensesData.reduce((sum, d) => sum + d.total, 0);
     const totalHRExpenses = payrollSummary.totalHRExpenses;
-    const totalExpenses = totalOperationalExpenses + totalHRExpenses;
+    const totalWastageLoss = wastageData.reduce((sum, d) => sum + d.total_loss, 0);
+    const totalExpenses = totalOperationalExpenses + totalHRExpenses + totalWastageLoss;
     const netProfit = totalRevenue - totalExpenses;
-    return { totalRevenue, totalNetSales, totalTax, totalServiceCharge, totalOperationalExpenses, totalHRExpenses, totalExpenses, netProfit };
+    return { totalRevenue, totalNetSales, totalTax, totalServiceCharge, totalOperationalExpenses, totalHRExpenses, totalWastageLoss, totalExpenses, netProfit };
   };
 
   const formatRupiah = (value: number) => {
@@ -466,6 +536,67 @@ export default function ReportsPage() {
                       </tbody>
                     </table>
                   </div>
+                )}
+              </div>
+            </div>
+
+            {/* Wastage Reporting */}
+            <div className="bg-white rounded-lg shadow mb-3">
+              <div className="p-3 border-b">
+                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                  <Trash2 className="h-4 w-4 text-red-600" />
+                  Laporan Kerugian (Wastage)
+                </h2>
+              </div>
+              <div className="p-3">
+                {loadingWastage ? (
+                  <div className="text-center text-gray-500 py-4">Memuat data...</div>
+                ) : wastageData.length === 0 ? (
+                  <div className="text-center text-gray-500 py-4">Tidak ada data kerugian</div>
+                ) : (
+                  <>
+                    <div className="mb-3 p-3 bg-red-50 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-red-700">Total Kerugian:</span>
+                        <span className="text-lg font-bold text-red-700">
+                          {formatRupiah(wastageData.reduce((sum, d) => sum + d.total_loss, 0))}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead className="bg-gray-50">
+                          <tr>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bahan Baku</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah</th>
+                            <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
+                            <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Kerugian</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {wastageData.map((item, index) => (
+                            <tr key={index} className="hover:bg-gray-50">
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-4 w-4 text-gray-400" />
+                                  <div className="text-xs font-medium text-gray-900">{item.ingredient_name}</div>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
+                                {item.total_quantity.toFixed(2)} {item.unit}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-xs text-gray-600">
+                                {item.request_count}x
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap text-right text-xs font-bold text-red-600">
+                                {formatRupiah(item.total_loss)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

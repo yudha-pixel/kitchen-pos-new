@@ -26,6 +26,7 @@ model Profile {
   outlet        Outlet?          @relation(fields: [outlet_id], references: [id])
   role          Role             @relation(fields: [role_id], references: [id])
   notifications Notification[]
+  pettyCashExpenses PettyCash[]   @relation("PettyCashCreatedBy")
 
   @@index([outlet_id])
   @@index([role_id])
@@ -127,10 +128,12 @@ model Product {
   description           String?
   is_active             Boolean                @default(true)
   outlet_id             String?                @db.Uuid
+  hpp                   Float                  @default(0) // HPP/COGS calculated from recipe
   customerOrderItems    CustomerOrderItem[]
   order_items           OrderItem[]
   void_logs             OrderVoidLog[]
   productModifierGroups ProductModifierGroup[]
+  recipes               Recipe[]
   category              Category?              @relation(fields: [category_id], references: [id])
   outlet                Outlet?                @relation(fields: [outlet_id], references: [id])
 
@@ -422,6 +425,7 @@ model AppSettings {
   notify_low_stock   Boolean  @default(true)
   show_pos_warning   Boolean  @default(true)
   email_manager      Boolean  @default(true)
+  auto_restock_enabled Boolean @default(false)
   
   // Security Settings
   manager_pin        String   @default("1234")
@@ -579,11 +583,15 @@ model Payroll {
 model Ingredient {
   id              String          @id @default(uuid()) @db.Uuid
   name            String
+  category        String?         @db.Text
   current_stock   Float           @default(0)
   unit            String
   min_stock       Float           @default(0)
+  restock_quantity Float          @default(0)
   unit_price      Float           @default(0)
   supplier_id     String?         @db.Uuid
+  ad_hoc_supplier String?         @db.Text
+  ad_hoc_price    Float?          @default(0)
   warehouse_id    String?         @db.Uuid
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
@@ -596,6 +604,8 @@ model Ingredient {
   stockRequests   StockRequest[]
   stockWriteOffs  StockWriteOff[]
   grnItems        GoodsReceivedNoteItem[]
+  prItems         PurchaseRequisitionItem[]
+  pettyCashExpenses PettyCash[]   @relation("PettyCashIngredient")
 
   @@index([name])
   @@index([supplier_id])
@@ -697,6 +707,66 @@ model StockRequest {
   @@map("stock_requests")
 }
 
+// Simplified Stock Approval Request for the Stock Approvals UI
+model StockApprovalRequest {
+  id              String   @id @default(uuid()) @db.Uuid
+  request_number  String   @unique // Auto-increment string like #REQ-XXX
+  type            String   // 'Stock In' or 'Stock Out'
+  requester_name  String
+  item_name       String
+  quantity        Float
+  unit            String
+  status          String   @default("Pending") // 'Pending', 'Approved', 'Rejected'
+  manager_notes   String?
+  processed_at    DateTime?
+  processed_by    String?
+  evidence_image  String?  // Base64 encoded image for evidence
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  @@index([status])
+  @@index([request_number])
+  @@map("stock_approval_requests")
+}
+
+model PurchaseRequisition {
+  id               String   @id @default(uuid()) @db.Uuid
+  pr_number        String   @unique // Auto-increment like #PR-001
+  status           String   @default("Pending Approval") // 'Pending Approval', 'Approved', 'Rejected', 'Converted to PO'
+  requested_by     String
+  total_estimated  Float
+  notes            String?
+  approved_at      DateTime?
+  approved_by      String?
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  prItems          PurchaseRequisitionItem[]
+
+  @@index([status])
+  @@index([pr_number])
+  @@map("purchase_requisitions")
+}
+
+model PurchaseRequisitionItem {
+  id                    String   @id @default(uuid()) @db.Uuid
+  purchase_requisition_id String  @db.Uuid
+  ingredient_id         String   @db.Uuid
+  ingredient_name       String
+  quantity              Float
+  unit                  String
+  estimated_price       Float
+  supplier_id           String?  @db.Uuid
+
+  purchaseRequisition   PurchaseRequisition @relation(fields: [purchase_requisition_id], references: [id])
+  ingredient            Ingredient @relation(fields: [ingredient_id], references: [id])
+
+  @@index([purchase_requisition_id])
+  @@index([ingredient_id])
+  @@index([supplier_id])
+  @@map("purchase_requisition_items")
+}
+
 model StockWriteOff {
   id                    String    @id @default(uuid()) @db.Uuid
   ingredient_id         String    @db.Uuid
@@ -753,6 +823,7 @@ model Recipe {
   unit              String?
   created_at        DateTime   @default(now())
   ingredient        Ingredient @relation(fields: [ingredient_id], references: [id])
+  product           Product    @relation(fields: [menu_item_id], references: [id])
 
   @@index([menu_item_id])
   @@index([ingredient_id])
@@ -1128,4 +1199,32 @@ model AuditLog {
   @@index([entity_type])
   @@index([created_at])
   @@map("audit_logs")
+}
+
+// Petty Cash Model for tracking small cash expenses
+model PettyCash {
+  id              String   @id @default(uuid()) @db.Uuid
+  amount          Float
+  description     String   @db.Text
+  category        String?  // 'ad_hoc_purchase', 'operational', 'misc', etc.
+  receipt_url     String?  // URL to receipt image
+  expense_date    DateTime @default(now())
+  created_by      String?  @db.Uuid
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  // Optional relation to ingredient if from ad-hoc purchase
+  ingredient_id   String?  @db.Uuid
+  ingredient      Ingredient? @relation("PettyCashIngredient", fields: [ingredient_id], references: [id])
+  
+  // Optional relation to shift if tracked per shift
+  shift_id        String?  @db.Uuid
+  
+  created_by_user Profile?  @relation("PettyCashCreatedBy", fields: [created_by], references: [id])
+
+  @@index([created_by])
+  @@index([expense_date])
+  @@index([ingredient_id])
+  @@index([shift_id])
+  @@map("petty_cash")
 }
