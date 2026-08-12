@@ -44,6 +44,8 @@ import {
   MapPin,
   Palette,
   Puzzle,
+  Package,
+  FileStack,
 } from 'lucide-react';
 
 // Shared between Header (breadcrumb icon) and Sidebar (module rail icon) so
@@ -97,4 +99,7 @@ export const NAVIGATION_ICON_MAP: Record<string, React.ComponentType<{ className
   MapPin,
   Palette,
   Puzzle,
+  Wallet,
+  Package,
+  FileStack,
 };

@@ -217,11 +217,23 @@ router.get('/products', authMiddleware, requirePermission(PERMISSIONS.products.v
 
 router.post('/products', ...canCreateProducts, async (req: Request, res: Response) => {
   const data = createProductSchema.parse(req.body);
+  const { recipes } = req.body as { recipes?: Array<{ ingredient_id: string; quantity_required: number; unit: string }> };
 
   const category = await prisma.category.findUnique({ where: { id: data.category_id } });
   if (!category) {
     res.status(400).json({ error: 'Category not found' });
     return;
+  }
+
+  // Calculate HPP (COGS) from the recipe, if provided.
+  let hpp = 0;
+  if (recipes && recipes.length > 0) {
+    for (const recipe of recipes) {
+      const ingredient = await prisma.ingredient.findUnique({ where: { id: recipe.ingredient_id } });
+      if (ingredient) {
+        hpp += ingredient.unit_price * recipe.quantity_required;
+      }
+    }
   }
 
   const created = await prisma.product.create({
@@ -232,6 +244,7 @@ router.post('/products', ...canCreateProducts, async (req: Request, res: Respons
       image_url: data.image_url ?? null,
       sku: data.sku ?? null,
       description: data.description ?? null,
+      hpp,
       category_id: data.category_id,
       productModifierGroups: data.modifier_group_ids?.length
         ? {
@@ -240,11 +253,21 @@ router.post('/products', ...canCreateProducts, async (req: Request, res: Respons
             })),
           }
         : undefined,
+      recipes: recipes && recipes.length > 0
+        ? {
+            create: recipes.map((recipe) => ({
+              ingredient_id: recipe.ingredient_id,
+              quantity_required: recipe.quantity_required,
+              unit: recipe.unit,
+            })),
+          }
+        : undefined,
     },
     include: {
       productModifierGroups: {
         include: { modifierGroup: { include: { modifiers: true } } },
       },
+      recipes: true,
     },
   });
 

@@ -7,6 +7,8 @@ import { ChevronLeft, Circle, LayoutGrid, X } from 'lucide-react';
 
 import { findModuleForPath } from '@/src/config/navigation';
 import { useAuth } from '@/src/context/AuthContext';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 import { MODULE_ICON_MAP, NAVIGATION_ICON_MAP } from './moduleIcons';
 
 export interface SidebarProps {
@@ -17,6 +19,8 @@ export interface SidebarProps {
 export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: SidebarProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
+  const [stockApprovalsPendingCount, setStockApprovalsPendingCount] = useState(0);
+  const [pendingPRCount, setPendingPRCount] = useState(0);
   const pathname = usePathname();
   const { can } = useAuth();
 
@@ -43,6 +47,51 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileDrawerActive, handleCloseMobile]);
+
+  // Poll pending counts for the quick stock-request and purchase-requisition
+  // approval queues so their sidebar links can show an unread-style badge.
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests?status=Pending`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setStockApprovalsPendingCount(data.length);
+        }
+      } catch (error) {
+        console.error('Failed to fetch stock approval pending count:', error);
+      }
+    };
+
+    fetchPendingCount();
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    const fetchPendingPRCount = async () => {
+      try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          // The list endpoint doesn't support server-side status filtering, so filter here.
+          setPendingPRCount(data.filter((pr: any) => pr.status === 'Pending Approval').length);
+        }
+      } catch (error) {
+        console.error('Failed to fetch pending PR count:', error);
+      }
+    };
+
+    fetchPendingPRCount();
+    const interval = setInterval(fetchPendingPRCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
 
   const navLinkClass = (active: boolean) =>
     `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
@@ -89,6 +138,10 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
           moduleLinks.map((sub) => {
             const active = pathname === sub.href;
             const NavigationIcon = sub.iconName ? NAVIGATION_ICON_MAP[sub.iconName] : Circle;
+            const showStockBadge = sub.href === '/inventory/quick-stock-requests' && stockApprovalsPendingCount > 0;
+            const showPRBadge = sub.href === '/inventory/purchase-requisitions' && pendingPRCount > 0;
+            const showBadge = showStockBadge || showPRBadge;
+            const badgeCount = showStockBadge ? stockApprovalsPendingCount : showPRBadge ? pendingPRCount : 0;
             return (
               <Link
                 key={`${sub.label}-${sub.href}`}
@@ -96,10 +149,24 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
                 onClick={mobile ? handleCloseMobile : undefined}
                 aria-current={active ? 'page' : undefined}
                 title={expanded ? undefined : sub.label}
-                className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'}`}
+                className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'} ${!expanded && showBadge ? 'relative' : ''}`}
               >
                 <NavigationIcon className="size-5 shrink-0" aria-hidden="true" />
-                {expanded && <span className="truncate">{sub.label}</span>}
+                {expanded && (
+                  <div className="flex items-center justify-between w-full">
+                    <span className="truncate">{sub.label}</span>
+                    {showBadge && (
+                      <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-medium text-white">
+                        {badgeCount}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {!expanded && showBadge && (
+                  <span className="absolute top-1 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-medium text-white">
+                    {badgeCount}
+                  </span>
+                )}
                 {!expanded && <span className="sr-only">{sub.label}</span>}
               </Link>
             );

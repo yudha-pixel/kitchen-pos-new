@@ -393,13 +393,65 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
         // "0.0000000000001" or "-0.0000000000001".
         const updated = await tx.ingredient.findUnique({
           where: { id: ingredientId },
-          select: { current_stock: true },
+          select: { current_stock: true, min_stock: true, name: true, unit: true },
         });
         if (updated && updated.current_stock !== 0 && Math.abs(updated.current_stock) < STOCK_DUST_EPSILON) {
           await tx.ingredient.update({
             where: { id: ingredientId },
             data: { current_stock: 0 },
           });
+        }
+
+        // Auto-generate a Purchase Requisition once stock falls below min_stock,
+        // if the "Otomatisasi Stok" auto-restock setting is enabled.
+        if (updated && updated.current_stock <= updated.min_stock) {
+          const settings = await tx.appSettings.findFirst();
+          if (settings?.auto_restock_enabled) {
+            const existingPR = await tx.purchaseRequisition.findFirst({
+              where: {
+                status: 'Pending Approval',
+                prItems: { some: { ingredient_id: ingredientId } },
+              },
+            });
+
+            if (!existingPR) {
+              const lastPR = await tx.purchaseRequisition.findFirst({ orderBy: { created_at: 'desc' } });
+              let nextNumber = 1;
+              if (lastPR?.pr_number) {
+                const lastNum = parseInt(lastPR.pr_number.replace('#PR-', ''));
+                nextNumber = lastNum + 1;
+              }
+              const pr_number = `#PR-${String(nextNumber).padStart(3, '0')}`;
+
+              const ingredientWithRestock = await tx.ingredient.findUnique({
+                where: { id: ingredientId },
+                select: { restock_quantity: true, supplier_id: true },
+              });
+              const reorderQuantity = ingredientWithRestock?.restock_quantity && ingredientWithRestock.restock_quantity > 0
+                ? ingredientWithRestock.restock_quantity
+                : (updated.min_stock * 2) - updated.current_stock;
+
+              await tx.purchaseRequisition.create({
+                data: {
+                  pr_number,
+                  status: 'Pending Approval',
+                  requested_by: 'System (Auto-Restock)',
+                  total_estimated: 0,
+                  notes: `Automated restock triggered: stock fell below safety threshold of ${updated.min_stock}. Current stock: ${updated.current_stock}`,
+                  prItems: {
+                    create: {
+                      ingredient_id: ingredientId,
+                      ingredient_name: updated.name,
+                      quantity: reorderQuantity,
+                      unit: updated.unit,
+                      estimated_price: 0,
+                      supplier_id: ingredientWithRestock?.supplier_id || null,
+                    },
+                  },
+                },
+              });
+            }
+          }
         }
       }
 

@@ -112,6 +112,49 @@ router.get('/adjustments', authMiddleware, requirePermission(PERMISSIONS.invento
   }
 });
 
+// GET /ingredients/low-stock - Ingredients at/below min_stock with a restock quantity set,
+// used to seed the Purchase Requisition form. Registered before /:id so "low-stock" isn't
+// swallowed as an id param.
+router.get('/low-stock', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
+  try {
+    const { supplier_id } = req.query;
+
+    // Only surface candidates when auto-restock is enabled — otherwise this list has no purpose.
+    const settings = await prisma.appSettings.findFirst();
+    if (!settings?.auto_restock_enabled) {
+      return res.json([]);
+    }
+
+    const where: any = {
+      current_stock: {
+        lte: prisma.ingredient.fields.min_stock,
+      },
+      restock_quantity: {
+        gt: 0,
+      },
+    };
+
+    if (supplier_id && supplier_id !== 'all') {
+      where.supplier_id = supplier_id as string;
+    }
+
+    const ingredients = await prisma.ingredient.findMany({
+      where,
+      include: {
+        supplier: true,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    res.json(ingredients);
+  } catch (error) {
+    console.error('Error fetching low-stock ingredients:', error);
+    res.status(500).json({ error: 'Failed to fetch low-stock ingredients' });
+  }
+});
+
 // GET /ingredients/:id - Get ingredient by ID
 router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
@@ -135,7 +178,7 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view)
 // POST /ingredients - Create new ingredient
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create), async (req: Request, res: Response) => {
   try {
-    const { name, current_stock, unit, min_stock, unit_price, supplier_id, category_id } = req.body;
+    const { name, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id } = req.body;
 
     const ingredient = await prisma.ingredient.create({
       data: {
@@ -143,8 +186,11 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create)
         current_stock: parseFloat(current_stock) || 0,
         unit,
         min_stock: parseFloat(min_stock) || 0,
+        restock_quantity: parseFloat(restock_quantity) || 0,
         unit_price: parseFloat(unit_price) || 0,
         supplier_id: supplier_id || null,
+        ad_hoc_supplier: ad_hoc_supplier || null,
+        ad_hoc_price: ad_hoc_price ? parseFloat(ad_hoc_price) : null,
         category_id: category_id || null,
       },
       include: {
@@ -163,7 +209,7 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create)
 // PUT /ingredients/:id - Update ingredient
 router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit), async (req: Request, res: Response) => {
   try {
-    const { name, current_stock, unit, min_stock, unit_price, supplier_id, category_id, adjustment_type, reason } = req.body;
+    const { name, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id, adjustment_type, reason } = req.body;
     const userId = (req as any).user?.id;
     
     // Get current ingredient for audit log
@@ -185,8 +231,11 @@ router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit)
         current_stock: newStock,
         unit,
         min_stock: parseFloat(min_stock) || 0,
+        restock_quantity: parseFloat(restock_quantity) || 0,
         unit_price: parseFloat(unit_price) || 0,
         supplier_id: supplier_id || null,
+        ad_hoc_supplier: ad_hoc_supplier || null,
+        ad_hoc_price: ad_hoc_price ? parseFloat(ad_hoc_price) : null,
         // Falls back to the existing value when omitted (e.g. the stock-adjustment
         // flow doesn't send category_id) instead of silently clearing it — unlike
         // the other fields above, callers of this endpoint aren't guaranteed to

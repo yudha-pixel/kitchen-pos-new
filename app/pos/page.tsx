@@ -26,7 +26,7 @@ import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
 import { useGlobalHotkey } from '@/src/hooks/useGlobalHotkey';
 import { useMnemonic } from '@/src/hooks/useMnemonic';
 import { Menu } from '@base-ui/react/menu';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, Users } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, Users, DollarSign } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
 import { calculateMenuStocks, seedSampleInventoryData, forceReseedInventoryData, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
@@ -52,6 +52,10 @@ export default function POSPage() {
   const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false);
   const [deleteOrderConfirmOpen, setDeleteOrderConfirmOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<any>(null);
+  const [pettyCashModalOpen, setPettyCashModalOpen] = useState(false);
+  const [pettyCashAmount, setPettyCashAmount] = useState('');
+  const [pettyCashReason, setPettyCashReason] = useState('');
+  const [pettyCashError, setPettyCashError] = useState('');
   const [orderCategory, setOrderCategory] = useState<'dine-in' | 'takeaway' | 'delivery'>('dine-in');
   const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
@@ -627,6 +631,46 @@ export default function POSPage() {
     } catch (error) {
       console.error('Failed to delete history:', error);
       toast('error', 'Gagal menghapus riwayat transaksi');
+    }
+  };
+
+  const handlePettyCashSubmit = async () => {
+    setPettyCashError('');
+    const amount = parseFloat(pettyCashAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setPettyCashError('Masukkan jumlah yang valid');
+      return;
+    }
+    if (!pettyCashReason.trim()) {
+      setPettyCashError('Masukkan keterangan pengeluaran');
+      return;
+    }
+
+    try {
+      const { getToken } = await import('@/src/lib/api');
+      const { API_BASE_URL } = await import('@/src/config/runtime');
+      const token = getToken();
+
+      await fetch(`${API_BASE_URL}/api/petty-cash`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: amount,
+          description: pettyCashReason,
+          category: 'operational',
+        }),
+      });
+
+      toast('success', 'Pengeluaran petty cash berhasil dicatat');
+      setPettyCashAmount('');
+      setPettyCashReason('');
+      setPettyCashModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create petty cash expense:', error);
+      toast('error', 'Gagal mencatat pengeluaran petty cash');
     }
   };
 
@@ -1427,15 +1471,24 @@ export default function POSPage() {
                   <h2 className="text-2xl font-bold text-ink">Riwayat Transaksi</h2>
                   <p className="text-sm text-ink-muted">Menampilkan {transactionHistory.length} transaksi terakhir</p>
                 </div>
-                {transactionHistory.length > 0 && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setDeleteHistoryConfirmOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    onClick={() => setPettyCashModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 font-medium text-ink-muted hover:text-ink transition-colors"
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Hapus Riwayat
+                    <DollarSign className="h-4 w-4" />
+                    Kas Keluar
                   </button>
-                )}
+                  {transactionHistory.length > 0 && (
+                    <button
+                      onClick={() => setDeleteHistoryConfirmOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Hapus Riwayat
+                    </button>
+                  )}
+                </div>
               </div>
 
               {transactionHistory.length === 0 ? (
@@ -1801,6 +1854,84 @@ export default function POSPage() {
           paymentAmount={selectedPaymentForVoid.amount}
           onVoided={handleVoidPaymentComplete}
         />
+      )}
+
+      {/* Petty Cash Modal */}
+      {pettyCashModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                Kas Keluar / Petty Cash
+              </h3>
+              <button
+                onClick={() => {
+                  setPettyCashModalOpen(false);
+                  setPettyCashAmount('');
+                  setPettyCashReason('');
+                  setPettyCashError('');
+                }}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="pettyCashAmount" className="mb-2 block text-sm font-medium text-gray-700">
+                  Jumlah (Rp)
+                </label>
+                <div className="relative">
+                  <DollarSign className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <input
+                    id="pettyCashAmount"
+                    type="number"
+                    value={pettyCashAmount}
+                    onChange={(e) => setPettyCashAmount(e.target.value)}
+                    placeholder="0"
+                    className="w-full rounded-lg border-2 border-gray-300 bg-gray-50 px-4 py-3 pl-10 text-gray-900 placeholder:text-gray-400 focus:border-green-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="pettyCashReason" className="mb-2 block text-sm font-medium text-gray-700">
+                  Keterangan Pengeluaran
+                </label>
+                <input
+                  id="pettyCashReason"
+                  type="text"
+                  value={pettyCashReason}
+                  onChange={(e) => setPettyCashReason(e.target.value)}
+                  placeholder="Contoh: Beli plastik, Uang kembalian, dll."
+                  className="w-full rounded-lg border-2 border-gray-300 bg-gray-50 px-4 py-3 text-gray-900 placeholder:text-gray-400 focus:border-green-500 focus:outline-none"
+                />
+              </div>
+              {pettyCashError && (
+                <p role="alert" className="text-sm text-red-600">{pettyCashError}</p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setPettyCashModalOpen(false);
+                    setPettyCashAmount('');
+                    setPettyCashReason('');
+                    setPettyCashError('');
+                  }}
+                  className="flex-1 py-3 bg-gray-200 text-gray-800 rounded-lg font-bold hover:bg-gray-300 hover:text-gray-900 active:bg-gray-400 border border-gray-300"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={handlePettyCashSubmit}
+                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 active:bg-green-800 border border-green-700"
+                >
+                  Catat Pengeluaran
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Delete History Confirmation Modal */}

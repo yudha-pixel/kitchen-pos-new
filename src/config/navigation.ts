@@ -47,6 +47,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
       { label: 'Pesanan Waiter', href: '/waiter', iconName: 'ConciergeBell', requiredPermission: PERMISSIONS.orders.create },
       { label: 'Denah Meja', href: '/pos/meja', iconName: 'Armchair', requiredPermission: PERMISSIONS.tables.view },
       { label: 'Sesi Kasir', href: '/shift', iconName: 'Clock', requiredPermission: PERMISSIONS.orders.create },
+      { label: 'Permintaan Dapur/Gudang', href: '/kasir/stock-request', iconName: 'Package', requiredPermission: PERMISSIONS.inventory.adjust },
     ],
   },
   {
@@ -93,6 +94,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
     subLinks: [
       { label: 'Data Barang & Bahan', href: '/inventory', iconName: 'PackageOpen', requiredPermission: PERMISSIONS.inventory.view },
       { label: 'Persetujuan Stok', href: '/inventory/stock-approvals', iconName: 'ClipboardCheck', requiredPermission: PERMISSIONS.inventory.approve },
+      { label: 'Persetujuan Stok Cepat', href: '/inventory/quick-stock-requests', iconName: 'ClipboardCheck', requiredPermission: PERMISSIONS.inventory.approve },
       { label: 'Kategori Barang', href: '/inventory/categories', iconName: 'Tags', requiredPermission: PERMISSIONS.inventory.view },
       { label: 'Penyesuaian Stok', href: '/inventory/stock-adjustments', iconName: 'SlidersHorizontal', requiredPermission: PERMISSIONS.inventory.adjust },
       { label: 'Transfer Stok', href: '/inventory/stock-transfers', iconName: 'ArrowLeftRight', requiredPermission: PERMISSIONS.inventory.transfer },
@@ -109,9 +111,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     route: '/inventory-suppliers',
     requiredPermission: PERMISSIONS.purchasing.view,
     badge: { label: 'BOH', tone: 'neutral' },
-    keywords: ['pembelian', 'supplier', 'pemasok', 'pesanan pembelian', 'penerimaan barang', 'faktur', 'pembayaran', 'quotation', 'po', 'grn', 'invoice', 'purchase order', 'goods received note'],
+    keywords: ['pembelian', 'supplier', 'pemasok', 'pesanan pembelian', 'penerimaan barang', 'faktur', 'pembayaran', 'quotation', 'po', 'grn', 'invoice', 'purchase order', 'goods received note', 'purchase requisition', 'pr'],
     subLinks: [
       { label: 'Data Supplier', href: '/inventory-suppliers', iconName: 'Truck', requiredPermission: PERMISSIONS.purchasing.view },
+      { label: 'Purchase Requisition', href: '/inventory/purchase-requisitions', iconName: 'FileStack', requiredPermission: PERMISSIONS.purchasing.view },
       { label: 'Permintaan Penawaran', href: '/inventory/quotation-requests', iconName: 'FileSearch', requiredPermission: PERMISSIONS.purchasing.create },
       { label: 'Penawaran Supplier', href: '/inventory/quotations', iconName: 'FileText', requiredPermission: PERMISSIONS.purchasing.edit },
       { label: 'Pesanan Pembelian', href: '/inventory/purchase-orders', iconName: 'ClipboardList', requiredPermission: PERMISSIONS.purchasing.create },
@@ -188,9 +191,10 @@ export const APPS_REGISTRY: AppDefinition[] = [
     iconName: 'Wallet',
     route: '/finance/ocr',
     requiredPermission: PERMISSIONS.finance.view,
-    keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'pemindaian faktur', 'ocr', 'faktur', 'invoice', 'optical character recognition'],
+    keywords: ['finance', 'keuangan', 'kas', 'bank', 'biaya', 'jurnal', 'pemindaian faktur', 'ocr', 'faktur', 'invoice', 'optical character recognition', 'petty cash', 'kas kecil'],
     subLinks: [
       { label: 'Pemindaian Faktur', href: '/finance/ocr', iconName: 'ScanLine', requiredPermission: PERMISSIONS.finance.view },
+      { label: 'Riwayat Petty Cash', href: '/finance/petty-cash', iconName: 'Wallet', requiredPermission: PERMISSIONS.finance.view },
     ],
   },
   {

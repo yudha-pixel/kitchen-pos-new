@@ -580,7 +580,10 @@ export async function createStockRequest(params: any): Promise<string> {
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok) throw new Error('Failed to create stock request');
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(errorData.error || 'Failed to create stock request');
+    }
 
     const result = await response.json();
     return result.id;
@@ -1719,6 +1722,14 @@ export interface Supplier {
   phone: string;
   email?: string;
   address?: string;
+  pic_name?: string | null;
+  pic_mobile?: string | null;
+  category?: string | null;
+  moq_amount?: number | null;
+  moq_unit?: string | null;
+  payment_terms?: string | null;
+  performance_notes?: string | null;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }

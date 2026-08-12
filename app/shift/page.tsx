@@ -9,6 +9,8 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle, CheckCircle, ArrowLeft, Printer, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface ShiftData {
   isOpen: boolean;
@@ -127,6 +129,35 @@ export default function ShiftPage() {
     localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shiftData));
   }, [shiftData]);
 
+  // Load petty cash expenses for current shift
+  useEffect(() => {
+    const loadPettyCashExpenses = async () => {
+      try {
+        const token = getToken();
+
+        const response = await fetch(`${API_BASE_URL}/api/petty-cash`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+
+        if (response.ok) {
+          const expenses = await response.json();
+          // Calculate total petty cash expenses
+          const totalPettyCash = expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+
+          // Update shift data with petty cash expenses
+          setShiftData(prev => ({
+            ...prev,
+            totalExpenses: totalPettyCash,
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load petty cash expenses:', error);
+      }
+    };
+
+    loadPettyCashExpenses();
+  }, []);
+
   // Calculate total sales dynamically from all transactions
   const calculateTotalSales = () => {
     return mockTransactions
@@ -180,7 +211,7 @@ export default function ShiftPage() {
     setEndingCashInput('');
   };
 
-  const handleAddExpense = () => {
+  const handleAddExpense = async () => {
     setExpenseError('');
     const amount = parseFloat(expenseInput);
     if (isNaN(amount) || amount <= 0) {
@@ -196,6 +227,27 @@ export default function ShiftPage() {
       ...shiftData,
       totalExpenses: shiftData.totalExpenses + amount,
     });
+
+    // Create petty cash expense record
+    try {
+      const token = getToken();
+
+      await fetch(`${API_BASE_URL}/api/petty-cash`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: amount,
+          description: expenseReason,
+          category: 'operational',
+        }),
+      });
+    } catch (error) {
+      console.error('Failed to create petty cash expense:', error);
+    }
+
     setExpenseInput('');
     setExpenseReason('');
     setShowExpenseForm(false);

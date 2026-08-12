@@ -116,8 +116,13 @@ export async function addProduct(data: {
   sku?: string;
   description?: string;
   modifier_group_ids?: string[];
+  recipes?: Array<{ ingredient_id: string; quantity_required: number; unit: string }>;
 }) {
   return request<unknown>('POST', '/api/products', data);
+}
+
+export async function fetchIngredients() {
+  return request<unknown>('GET', '/api/ingredients');
 }
 
 export async function updateProduct(id: string, data: unknown) {
