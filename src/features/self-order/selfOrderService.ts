@@ -2,6 +2,15 @@ import { TableEntity, Product, Category, CustomerOrder, CustomerOrderItem } from
 import { API_BASE_URL } from '@/src/config/runtime';
 import { resolveSelfOrderPaymentMethods, type SelfOrderPaymentMethod } from '@/src/features/self-order/paymentMethods';
 
+export interface GuestSelfOrderPaymentMethod extends SelfOrderPaymentMethod {
+  instructions?: string;
+  image_url?: string;
+}
+export interface GuestSelfOrderConfig {
+  methods: GuestSelfOrderPaymentMethod[];
+  counter_routing: 'review' | 'auto';
+}
+
 export interface TableInfo extends TableEntity {
   outlet?: {
     id: string;
@@ -96,17 +105,16 @@ export async function getSelfOrderCategories(): Promise<Category[]> {
 // against, so an unknown/stale id in settings can't reach the picker UI.
 // Falls back to the pay-at-cashier default on any fetch failure — a guest must
 // always have a way to order even if the settings call is unreachable.
-export async function getSelfOrderPaymentMethods(): Promise<SelfOrderPaymentMethod[]> {
+export async function getSelfOrderConfig(): Promise<GuestSelfOrderConfig> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/settings`);
+    const response = await fetch(`${API_BASE_URL}/api/self-order/config`);
     if (!response.ok) {
-      return resolveSelfOrderPaymentMethods(undefined);
+      return { methods: resolveSelfOrderPaymentMethods(undefined), counter_routing: 'review' };
     }
-    const settings = await response.json();
-    return resolveSelfOrderPaymentMethods(settings.selforder_payment_methods);
+    return await response.json();
   } catch (error) {
-    console.error('Error fetching self-order payment methods:', error);
-    return resolveSelfOrderPaymentMethods(undefined);
+    console.error('Error fetching self-order config:', error);
+    return { methods: resolveSelfOrderPaymentMethods(undefined), counter_routing: 'review' };
   }
 }
 
@@ -120,6 +128,7 @@ export async function createCustomerOrder(
   tableId: string,
   customerName: string | undefined,
   paymentMethod: string,
+  paymentReference: string | undefined,
   items: Array<{
     product_id: string;
     quantity: number;
@@ -136,6 +145,7 @@ export async function createCustomerOrder(
       table_id: tableId,
       customer_name: customerName,
       payment_method: paymentMethod,
+      payment_reference: paymentReference,
       items,
     }),
   });
@@ -202,35 +212,6 @@ export async function updateCustomerOrderStatus(
     return await response.json();
   } catch (error) {
     console.error('Error updating order status:', error);
-    return null;
-  }
-}
-
-// Update customer order payment status
-export async function updateCustomerOrderPaymentStatus(
-  orderId: string,
-  paymentStatus: 'unpaid' | 'paid',
-  paymentMethod?: string
-): Promise<CustomerOrderWithItems | null> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/api/self-order/orders/${orderId}/payment-status`, {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        payment_status: paymentStatus,
-        payment_method: paymentMethod,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to update payment status');
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Error updating payment status:', error);
     return null;
   }
 }

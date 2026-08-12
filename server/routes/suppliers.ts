@@ -107,9 +107,13 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 router.post('/:id/purchase-orders', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const { ingredient_id, quantity, unit_price, notes } = req.body;
-    const userId = (req as any).user?.id;
     const supplierId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    
+
+    const ingredient = await prisma.ingredient.findUnique({ where: { id: ingredient_id } });
+    if (!ingredient) {
+      return res.status(404).json({ error: 'Ingredient not found' });
+    }
+
     const total_price = quantity * unit_price;
 
     const purchaseOrder = await prisma.purchaseOrder.create({
@@ -119,13 +123,14 @@ router.post('/:id/purchase-orders', authMiddleware, requireRole('admin'), async 
         subtotal: total_price,
         tax: 0,
         total: total_price,
+        status: 'pending',
         notes: notes || null,
         items: {
           create: {
             ingredient_id,
-            ingredient_name: '', // Will be filled from ingredient lookup
+            ingredient_name: ingredient.name,
             quantity,
-            unit: 'kg', // Default unit
+            unit: ingredient.unit,
             unit_price,
             total_price,
           },
@@ -152,61 +157,57 @@ router.post('/:id/purchase-orders', authMiddleware, requireRole('admin'), async 
 router.patch('/:id/purchase-orders/:poId/receive', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?.id;
+    const supplierId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const poId = Array.isArray(req.params.poId) ? req.params.poId[0] : req.params.poId;
-    
+
     // Use transaction to ensure atomicity
     const result = await prisma.$transaction(async (tx: any) => {
-      // Get current purchase order and ingredient
-      const purchaseOrder = await tx.purchaseOrder.findUnique({
-        where: { id: poId },
-        include: {
-          ingredient: true,
-        },
+      const purchaseOrder = await tx.purchaseOrder.findFirst({
+        where: { id: poId, supplier_id: supplierId },
+        include: { items: true },
       });
-      
+
       if (!purchaseOrder) {
         throw new Error('Purchase order not found');
       }
-      
+
       if (purchaseOrder.status !== 'pending') {
         throw new Error('Purchase order is not in pending status');
       }
-      
-      const previousStock = purchaseOrder.ingredient.current_stock;
-      const newStock = previousStock + purchaseOrder.quantity;
-      
-      // Update purchase order status
-      const updatedPO = await tx.purchaseOrder.update({
+
+      const claimed = await tx.purchaseOrder.updateMany({
+        where: { id: poId, status: 'pending' },
+        data: { status: 'received' },
+      });
+      if (claimed.count !== 1) {
+        throw new Error('Purchase order is not in pending status');
+      }
+
+      for (const item of purchaseOrder.items) {
+        const updatedIngredient = await tx.ingredient.update({
+          where: { id: item.ingredient_id },
+          data: { current_stock: { increment: item.quantity } },
+        });
+        const previousStock = updatedIngredient.current_stock - item.quantity;
+
+        await tx.stockAdjustmentLog.create({
+          data: {
+            ingredient_id: item.ingredient_id,
+            previous_stock: previousStock,
+            new_stock: updatedIngredient.current_stock,
+            adjustment_type: 'purchase',
+            reason: `Purchase order #${poId} received`,
+            user_id: userId,
+          },
+        });
+      }
+
+      return tx.purchaseOrder.findUnique({
         where: { id: poId },
-        data: {
-          status: 'received',
-          received_date: new Date(),
-        },
+        include: { items: true },
       });
-      
-      // Update ingredient stock
-      await tx.ingredient.update({
-        where: { id: purchaseOrder.ingredient_id },
-        data: {
-          current_stock: newStock,
-        },
-      });
-      
-      // Log stock adjustment
-      await tx.stockAdjustmentLog.create({
-        data: {
-          ingredient_id: purchaseOrder.ingredient_id,
-          previous_stock: previousStock,
-          new_stock: newStock,
-          adjustment_type: 'purchase',
-          reason: `Purchase order #${poId} received`,
-          user_id: userId,
-        },
-      });
-      
-      return updatedPO;
     });
-    
+
     res.json(result);
   } catch (error: any) {
     console.error('Error receiving purchase order:', error);

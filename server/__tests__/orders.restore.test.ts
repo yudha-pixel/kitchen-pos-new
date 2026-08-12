@@ -30,7 +30,7 @@ const createdOrderIds: string[] = [];
 
 async function createTestIngredient(currentStock: number, unit = 'kg') {
   const res = await request(app)
-    .post('/ingredients')
+    .post('/api/ingredients')
     .set('Authorization', `Bearer ${token}`)
     .send({
       name: `TestRestoreIngredient-${randomUUID()}`,
@@ -46,7 +46,7 @@ async function createTestIngredient(currentStock: number, unit = 'kg') {
 
 async function createTestProduct(stockQuantity = 1000) {
   const res = await request(app)
-    .post('/products')
+    .post('/api/products')
     .set('Authorization', `Bearer ${token}`)
     .send({
       name: `TestRestoreProduct-${randomUUID()}`,
@@ -61,7 +61,7 @@ async function createTestProduct(stockQuantity = 1000) {
 
 async function createTestRecipe(menuItemId: string, ingredientId: string, quantityRequired: number, unit: string) {
   const res = await request(app)
-    .post('/recipes')
+    .post('/api/recipes')
     .set('Authorization', `Bearer ${token}`)
     .send({ menu_item_id: menuItemId, ingredient_id: ingredientId, quantity_required: quantityRequired, unit });
   expect(res.status).toBe(201);
@@ -71,7 +71,7 @@ async function createOrder(productId: string, quantity: number) {
   const orderId = randomUUID();
   createdOrderIds.push(orderId);
   const res = await request(app)
-    .post('/orders')
+    .post('/api/orders')
     .set('Authorization', `Bearer ${token}`)
     .send({
       order: { id: orderId, total_amount: quantity * 10000, payment_method: 'cash' },
@@ -83,14 +83,14 @@ async function createOrder(productId: string, quantity: number) {
 
 function patchStatus(orderId: string, status: string) {
   return request(app)
-    .patch(`/orders/${orderId}/status`)
+    .patch(`/api/orders/${orderId}/status`)
     .set('Authorization', `Bearer ${token}`)
     .send({ status });
 }
 
 function postVoidLog(orderId: string, productId: string, quantity: number, id = randomUUID()) {
   return request(app)
-    .post('/void-logs')
+    .post('/api/void-logs')
     .set('Authorization', `Bearer ${token}`)
     .send({ voidLogs: [{ id, order_id: orderId, product_id: productId, quantity, reason: 'test void' }] });
 }
@@ -100,7 +100,7 @@ beforeAll(async () => {
   expect(loginRes.status).toBe(200);
   token = loginRes.body.token;
 
-  const categoriesRes = await request(app).get('/categories');
+  const categoriesRes = await request(app).get('/api/categories');
   expect(categoriesRes.status).toBe(200);
   expect(categoriesRes.body.length).toBeGreaterThan(0);
   categoryId = categoriesRes.body[0].id;
@@ -116,7 +116,7 @@ afterAll(async () => {
   await prisma.order.deleteMany({ where: { id: { in: createdOrderIds } } });
 
   for (const productId of createdProductIds) {
-    await request(app).delete(`/recipes/menu/${productId}`).set('Authorization', `Bearer ${token}`);
+    await request(app).delete(`/api/recipes/menu/${productId}`).set('Authorization', `Bearer ${token}`);
   }
   // Now that every order/order_item referencing these test products has been
   // removed above, they can be hard-deleted directly instead of only
@@ -349,7 +349,7 @@ describe('Stock restoration on cancel/void', () => {
     const orderId = randomUUID();
     createdOrderIds.push(orderId);
     const createRes = await request(app)
-      .post('/orders')
+      .post('/api/orders')
       .set('Authorization', `Bearer ${token}`)
       .send({
         order: { id: orderId, total_amount: 90000, payment_method: 'cash' },

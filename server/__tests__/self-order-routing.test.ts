@@ -29,22 +29,32 @@ describe('Self-order routing modes and idempotent submission', () => {
     const product = await prisma.product.findFirst({ where: { is_active: true } });
     if (!product) throw new Error('No active product found to seed test order items');
     productId = product.id;
+    await prisma.appSettings.updateMany({
+      data: {
+        selforder_payment_methods: ['cashier', 'qris'],
+        selforder_payment_instructions: { qris: { instructions: 'Instruksi QRIS pengujian.' } },
+      },
+    });
   });
 
   afterEach(async () => {
     // Restore the default so other suites (and re-runs) start from a known state.
     await request(app)
-      .put('/settings')
+      .put('/api/settings')
       .set('Authorization', `Bearer ${authToken}`)
       .send({ selforder_routing: 'review' });
   });
 
   afterAll(async () => {
+    await prisma.notification.deleteMany({ where: { message: { contains: testTableNumber } } });
     await prisma.orderItem.deleteMany({ where: { order: { table_number: testTableNumber } } });
     await prisma.order.deleteMany({ where: { table_number: testTableNumber } });
     await prisma.customerOrderItem.deleteMany({ where: { order: { table_id: tableId } } });
     await prisma.customerOrder.deleteMany({ where: { table_id: tableId } });
     await prisma.table.deleteMany({ where: { table_number: testTableNumber } });
+    await prisma.appSettings.updateMany({
+      data: { selforder_payment_methods: ['cashier'], selforder_payment_instructions: {}, selforder_routing: 'review' },
+    });
     await prisma.$disconnect();
   });
 
@@ -54,38 +64,67 @@ describe('Self-order routing modes and idempotent submission', () => {
       table_id: tableId,
       customer_name: 'TEST-ROUTING guest',
       payment_method: paymentMethod,
+      ...(paymentMethod === 'cashier' ? {} : { payment_reference: 'TEST-ROUTING-REF' }),
       items: [{ product_id: productId, quantity: 1 }],
     };
   }
 
   it('rejects an unknown routing value at the settings boundary', async () => {
     const res = await request(app)
-      .put('/settings')
+      .put('/api/settings')
       .set('Authorization', `Bearer ${authToken}`)
       .send({ selforder_routing: 'yolo' });
     expect(res.status).toBe(400);
   });
 
+  it('returns only sanitized guest self-order configuration', async () => {
+    const res = await request(app).get('/api/self-order/config');
+    expect(res.status).toBe(200);
+    expect(res.body.counter_routing).toBe('review');
+    expect(res.body.methods.map((method: any) => method.id)).toEqual(['cashier', 'qris']);
+    expect(res.body.methods.find((method: any) => method.id === 'qris').instructions).toBeTruthy();
+    expect(res.body).not.toHaveProperty('manager_pin');
+    expect(res.body).not.toHaveProperty('store_email');
+  });
+
+  it('rejects enabled digital methods without instructions and non-HTTPS QR images', async () => {
+    const missing = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({ selforder_payment_methods: ['cashier', 'transfer'], selforder_payment_instructions: {} });
+    expect(missing.status).toBe(400);
+
+    const insecure = await request(app)
+      .put('/api/settings')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        selforder_payment_methods: ['cashier', 'qris'],
+        selforder_payment_instructions: { qris: { instructions: 'Test', image_url: 'http://example.test/qr.png' } },
+      });
+    expect(insecure.status).toBe(400);
+    expect(insecure.body.error).toMatch(/HTTPS/);
+  });
+
   it('review mode (default): counter-method order stays pending for staff to accept', async () => {
     const id = crypto.randomUUID();
-    const res = await request(app).post('/self-order/orders').send(orderPayload(id));
+    const res = await request(app).post('/api/self-order/orders').send(orderPayload(id));
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('pending');
     expect(res.body.routing).toBe('review');
 
     const pos = await request(app)
-      .get(`/self-order/orders/${id}`);
+      .get(`/api/self-order/orders/${id}`);
     expect(pos.body.status).toBe('pending');
   });
 
   it('auto mode: counter-method order is immediately accepted into a kitchen-visible Order', async () => {
     await request(app)
-      .put('/settings')
+      .put('/api/settings')
       .set('Authorization', `Bearer ${authToken}`)
       .send({ selforder_routing: 'auto' });
 
     const id = crypto.randomUUID();
-    const res = await request(app).post('/self-order/orders').send(orderPayload(id));
+    const res = await request(app).post('/api/self-order/orders').send(orderPayload(id));
     expect(res.status).toBe(201);
     expect(res.body.status).toBe('accepted');
     expect(res.body.routing).toBe('auto');
@@ -97,12 +136,12 @@ describe('Self-order routing modes and idempotent submission', () => {
 
   it('auto mode: an online method still waits for payment confirmation, not auto-accepted', async () => {
     await request(app)
-      .put('/settings')
+      .put('/api/settings')
       .set('Authorization', `Bearer ${authToken}`)
       .send({ selforder_routing: 'auto' });
 
     const id = crypto.randomUUID();
-    const res = await request(app).post('/self-order/orders').send(orderPayload(id, 'qris'));
+    const res = await request(app).post('/api/self-order/orders').send(orderPayload(id, 'qris'));
     expect(res.status).toBe(201);
     // Payment is 'pending' (unconfirmed) — acceptCustomerOrder must refuse it even
     // in auto mode, same guard as the manual accept endpoint.
@@ -115,12 +154,12 @@ describe('Self-order routing modes and idempotent submission', () => {
 
   it('a repeated submission with the same client id resolves to the one order, not a duplicate', async () => {
     const id = crypto.randomUUID();
-    const first = await request(app).post('/self-order/orders').send(orderPayload(id));
+    const first = await request(app).post('/api/self-order/orders').send(orderPayload(id));
     expect(first.status).toBe(201);
 
     const stockAfterFirst = await prisma.product.findUnique({ where: { id: productId } });
 
-    const second = await request(app).post('/self-order/orders').send(orderPayload(id));
+    const second = await request(app).post('/api/self-order/orders').send(orderPayload(id));
     expect(second.status).toBe(200);
     expect(second.body.id).toBe(id);
     expect(second.body.alreadyExisted).toBe(true);
@@ -135,7 +174,7 @@ describe('Self-order routing modes and idempotent submission', () => {
   it('notifies active admin/cashier staff when a guest order is submitted', async () => {
     const before = await prisma.notification.count({ where: { type: 'self_order_pending' } });
     const id = crypto.randomUUID();
-    await request(app).post('/self-order/orders').send(orderPayload(id));
+    await request(app).post('/api/self-order/orders').send(orderPayload(id));
     const after = await prisma.notification.count({ where: { type: 'self_order_pending' } });
     expect(after).toBeGreaterThan(before);
   });

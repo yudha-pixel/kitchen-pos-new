@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Edit, Trash2, Filter, Package } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Filter, Package, AlertCircle } from 'lucide-react';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { EditProductModal } from '@/src/features/pos/components/EditProductModal';
 import { AddProductModal } from '@/src/features/pos/components/AddProductModal';

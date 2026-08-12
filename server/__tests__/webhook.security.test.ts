@@ -84,7 +84,7 @@ describe('POST /webhooks/payment - signature verification', () => {
   describe('Midtrans webhook signature verification', () => {
     it('rejects webhook without signature header (401)', async () => {
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .send({
           gateway: 'midtrans',
           gateway_tx_id: testGatewayTxId,
@@ -105,7 +105,7 @@ describe('POST /webhooks/payment - signature verification', () => {
 
     it('rejects webhook with invalid signature (401)', async () => {
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .set('X-Signature-Key', 'invalid_signature_12345')
         .send({
           gateway: 'midtrans',
@@ -138,7 +138,7 @@ describe('POST /webhooks/payment - signature verification', () => {
         .digest('hex');
 
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .set('X-Signature-Key', validSignature)
         .send({
           gateway: 'midtrans',
@@ -164,7 +164,7 @@ describe('POST /webhooks/payment - signature verification', () => {
 
     it('rejects webhook without signature header (401)', async () => {
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .send({
           gateway: 'xendit',
           gateway_tx_id: xenditGatewayTxId,
@@ -183,7 +183,7 @@ describe('POST /webhooks/payment - signature verification', () => {
 
     it('rejects webhook with invalid signature (401)', async () => {
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .set('X-Callback-Token', 'invalid_token_12345')
         .send({
           gateway: 'xendit',
@@ -218,7 +218,7 @@ describe('POST /webhooks/payment - signature verification', () => {
         .digest('hex');
 
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .set('X-Callback-Token', validSignature)
         .send({
           gateway: 'xendit',
@@ -294,7 +294,7 @@ describe('POST /webhooks/payment - signature verification', () => {
         .digest('hex');
 
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .set('X-Signature-Key', validSignature)
         .send({
           gateway: 'midtrans',
@@ -336,7 +336,7 @@ describe('POST /webhooks/payment - signature verification', () => {
         .digest('hex');
 
       const response = await request(app)
-        .post('/webhooks/payment')
+        .post('/api/webhooks/payment')
         .set('X-Signature-Key', validSignature)
         .send({
           gateway: 'midtrans',

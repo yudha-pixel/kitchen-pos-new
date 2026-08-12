@@ -33,7 +33,7 @@ describe('User Management API', () => {
   describe('GET /users', () => {
     it('should return all users', async () => {
       const response = await request(app)
-        .get('/users')
+        .get('/api/users')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -44,7 +44,7 @@ describe('User Management API', () => {
   describe('POST /users', () => {
     it('should create a new user', async () => {
       const response = await request(app)
-        .post('/users')
+        .post('/api/users')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           username: 'TEST-user1',
@@ -62,7 +62,7 @@ describe('User Management API', () => {
 
     it('should reject duplicate username', async () => {
       const response = await request(app)
-        .post('/users')
+        .post('/api/users')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           username: 'TEST-user1',
@@ -77,7 +77,7 @@ describe('User Management API', () => {
 
     it('should reject invalid email', async () => {
       const response = await request(app)
-        .post('/users')
+        .post('/api/users')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           username: 'TEST-user2',
@@ -93,7 +93,7 @@ describe('User Management API', () => {
   describe('GET /users/:id', () => {
     it('should return specific user', async () => {
       const response = await request(app)
-        .get(`/users/${testUserId}`)
+        .get(`/api/users/${testUserId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -103,7 +103,7 @@ describe('User Management API', () => {
 
     it('should return 404 for non-existent user', async () => {
       const response = await request(app)
-        .get('/users/00000000-0000-0000-0000-000000000000')
+        .get('/api/users/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -113,7 +113,7 @@ describe('User Management API', () => {
   describe('PUT /users/:id', () => {
     it('should update user', async () => {
       const response = await request(app)
-        .put(`/users/${testUserId}`)
+        .put(`/api/users/${testUserId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           full_name: 'Updated Test User',
@@ -127,7 +127,7 @@ describe('User Management API', () => {
 
     it('should return 404 for non-existent user', async () => {
       const response = await request(app)
-        .put('/users/00000000-0000-0000-0000-000000000000')
+        .put('/api/users/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
         .send({ full_name: 'Test' });
 
@@ -138,7 +138,7 @@ describe('User Management API', () => {
   describe('PATCH /users/:id/status', () => {
     it('should deactivate user', async () => {
       const response = await request(app)
-        .patch(`/users/${testUserId}/status`)
+        .patch(`/api/users/${testUserId}/status`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ is_active: false });
 
@@ -148,7 +148,7 @@ describe('User Management API', () => {
 
     it('should reactivate user', async () => {
       const response = await request(app)
-        .patch(`/users/${testUserId}/status`)
+        .patch(`/api/users/${testUserId}/status`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ is_active: true });
 
@@ -160,7 +160,7 @@ describe('User Management API', () => {
   describe('DELETE /users/:id', () => {
     it('should delete user', async () => {
       const createResponse = await request(app)
-        .post('/users')
+        .post('/api/users')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           username: 'TEST-delete-user',
@@ -171,7 +171,7 @@ describe('User Management API', () => {
       const userIdToDelete = createResponse.body.id;
 
       const response = await request(app)
-        .delete(`/users/${userIdToDelete}`)
+        .delete(`/api/users/${userIdToDelete}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -189,7 +189,7 @@ describe('User Management API', () => {
       }
 
       const response = await request(app)
-        .delete(`/users/${adminUser.id}`)
+        .delete(`/api/users/${adminUser.id}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(403);

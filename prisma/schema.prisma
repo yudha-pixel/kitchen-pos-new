@@ -323,6 +323,9 @@ model CustomerOrder {
   // one of src/features/self-order/paymentMethods.ts's ids ('cashier', 'qris', ...)
   payment_method String?
   payment_status String              @default("unpaid")
+  payment_reference String?
+  payment_verified_at DateTime?      @db.Timestamptz(6)
+  payment_verified_by String?        @db.Uuid
   created_at     DateTime            @default(now())
   updated_at     DateTime            @updatedAt
   items          CustomerOrderItem[]
@@ -455,9 +458,11 @@ model AppSettings {
 
   // Self-Order Settings
   // Which payment methods the QR self-order flow offers. Ids only — each method's
-  // type (counter vs online) is fixed in src/features/self-order/paymentMethods.ts
+  // type (counter vs manual verification) is fixed in src/features/self-order/paymentMethods.ts
   // because it governs whether a guest can settle their own order.
   selforder_payment_methods Json?  @default("[\"cashier\"]")
+  // Public instructions shown to guests. Shape is validated at the settings API.
+  selforder_payment_instructions Json? @default("{}")
   // 'review' = guest request sits in the staff queue until a cashier accepts it
   // into the kitchen (see POST /self-order/orders/:id/accept). 'auto' = accepted
   // immediately on submission and both cashier and kitchen are notified at once —

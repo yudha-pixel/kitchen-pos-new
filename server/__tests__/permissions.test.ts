@@ -93,21 +93,21 @@ describe('Permission-based middleware', () => {
   describe('Permission middleware on real routes', () => {
     it('allows admin to view users', async () => {
       const res = await request(app)
-        .get('/users')
+        .get('/api/users')
         .set('Authorization', `Bearer ${adminToken}`);
       expect(res.status).toBe(200);
     });
 
     it('denies cashier to view users', async () => {
       const res = await request(app)
-        .get('/users')
+        .get('/api/users')
         .set('Authorization', `Bearer ${cashierToken}`);
       expect(res.status).toBe(403);
     });
 
     it('allows admin to update settings', async () => {
       const res = await request(app)
-        .put('/settings')
+        .put('/api/settings')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ store_name: 'Updated Test Store' });
       expect(res.status).toBe(200);
@@ -115,7 +115,7 @@ describe('Permission-based middleware', () => {
 
     it('denies cashier to update settings', async () => {
       const res = await request(app)
-        .put('/settings')
+        .put('/api/settings')
         .set('Authorization', `Bearer ${cashierToken}`)
         .send({ store_name: 'Hacked' });
       expect(res.status).toBe(403);

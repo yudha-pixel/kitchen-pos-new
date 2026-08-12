@@ -61,14 +61,14 @@ describe('Kitchen Routing API', () => {
   describe('GET /kitchen/stations', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/kitchen/stations');
+        .get('/api/kitchen/stations');
 
       expect(response.status).toBe(401);
     });
 
     it('should get all stations with authentication', async () => {
       const response = await request(app)
-        .get('/kitchen/stations')
+        .get('/api/kitchen/stations')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -79,7 +79,7 @@ describe('Kitchen Routing API', () => {
   describe('POST /kitchen/stations', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .post('/kitchen/stations')
+        .post('/api/kitchen/stations')
         .send({ name: 'Test Station', code: 'TEST-STATION' });
 
       expect(response.status).toBe(401);
@@ -89,31 +89,32 @@ describe('Kitchen Routing API', () => {
       // Create a non-admin user
       const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
       if (cashierRole) {
+        const cashierUsername = `UXR-${Date.now()}-kitchen-cashier`;
         const passwordHash = await bcrypt.hash('cashier123', 10);
         const cashier = await prisma.profile.create({
           data: {
-            username: 'test-cashier',
+            username: cashierUsername,
             full_name: 'Test Cashier',
             password_hash: passwordHash,
             role_id: cashierRole.id,
           },
         });
 
-        const loginResponse = await request(app)
-          .post('/auth/login')
-          .send({ username: 'test-cashier', password: 'cashier123' });
-        
-        const cashierToken = loginResponse.body.token;
+        try {
+          const loginResponse = await request(app)
+            .post('/auth/login')
+            .send({ username: cashierUsername, password: 'cashier123' });
+          const cashierToken = loginResponse.body.token;
 
-        const response = await request(app)
-          .post('/kitchen/stations')
-          .set('Authorization', `Bearer ${cashierToken}`)
-          .send({ name: 'Test Station', code: 'TEST-STATION' });
+          const response = await request(app)
+            .post('/api/kitchen/stations')
+            .set('Authorization', `Bearer ${cashierToken}`)
+            .send({ name: 'Test Station', code: 'TEST-STATION' });
 
-        expect(response.status).toBe(403);
-
-        // Cleanup
-        await prisma.profile.delete({ where: { id: cashier.id } });
+          expect(response.status).toBe(403);
+        } finally {
+          await prisma.profile.delete({ where: { id: cashier.id } });
+        }
       }
     });
 
@@ -123,7 +124,7 @@ describe('Kitchen Routing API', () => {
       }
 
       const response = await request(app)
-        .post('/kitchen/stations')
+        .post('/api/kitchen/stations')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Test Kitchen Station',
@@ -139,7 +140,7 @@ describe('Kitchen Routing API', () => {
 
     it('should reject duplicate code', async () => {
       const response = await request(app)
-        .post('/kitchen/stations')
+        .post('/api/kitchen/stations')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Another Station',
@@ -153,7 +154,7 @@ describe('Kitchen Routing API', () => {
   describe('POST /kitchen/stations/:id/categories', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .post(`/kitchen/stations/${testStationId}/categories`)
+        .post(`/api/kitchen/stations/${testStationId}/categories`)
         .send({ category_id: testCategoryId });
 
       expect(response.status).toBe(401);
@@ -165,7 +166,7 @@ describe('Kitchen Routing API', () => {
       }
 
       const response = await request(app)
-        .post(`/kitchen/stations/${testStationId}/categories`)
+        .post(`/api/kitchen/stations/${testStationId}/categories`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ category_id: testCategoryId });
 
@@ -177,14 +178,14 @@ describe('Kitchen Routing API', () => {
   describe('GET /kitchen/orders', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/kitchen/orders');
+        .get('/api/kitchen/orders');
 
       expect(response.status).toBe(401);
     });
 
     it('should reject without station_id', async () => {
       const response = await request(app)
-        .get('/kitchen/orders')
+        .get('/api/kitchen/orders')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(400);
@@ -196,7 +197,7 @@ describe('Kitchen Routing API', () => {
       }
 
       const response = await request(app)
-        .get(`/kitchen/orders?station_id=${testStationId}`)
+        .get(`/api/kitchen/orders?station_id=${testStationId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -207,7 +208,7 @@ describe('Kitchen Routing API', () => {
   describe('DELETE /kitchen/stations/:id', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .delete(`/kitchen/stations/${testStationId}`);
+        .delete(`/api/kitchen/stations/${testStationId}`);
 
       expect(response.status).toBe(401);
     });
@@ -218,7 +219,7 @@ describe('Kitchen Routing API', () => {
       }
 
       const response = await request(app)
-        .delete(`/kitchen/stations/${testStationId}`)
+        .delete(`/api/kitchen/stations/${testStationId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(204);

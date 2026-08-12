@@ -3,85 +3,84 @@ import request from 'supertest';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 
 describe('Audit Trail API', () => {
   let authToken: string;
+  let cashierToken: string;
+  let adminUserId: string | undefined;
+  let cashierUserId: string | undefined;
 
   beforeAll(async () => {
-    // Create admin user for testing
     const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
-    const adminUser = await prisma.profile.findUnique({ where: { username: 'admin' } });
-    
-    if (!adminUser && adminRole) {
-      const passwordHash = await bcrypt.hash('admin', 10);
-      await prisma.profile.create({
-        data: {
-          username: 'admin',
-          full_name: 'Admin User',
-          password_hash: passwordHash,
-          role_id: adminRole.id,
-        },
-      });
+    const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+    if (!adminRole || !cashierRole) {
+      throw new Error('Audit tests require seeded admin and cashier roles');
     }
 
-    // Get auth token
-    const loginResponse = await request(app)
+    const fixturePrefix = `UXR-${Date.now()}-audit-${randomUUID().slice(0, 8)}`;
+    const passwordHash = await bcrypt.hash('test123', 10);
+
+    const adminUser = await prisma.profile.create({
+      data: {
+        username: `${fixturePrefix}-admin`,
+        full_name: 'Audit Admin Fixture',
+        password_hash: passwordHash,
+        role_id: adminRole.id,
+      },
+    });
+    adminUserId = adminUser.id;
+
+    const cashierUser = await prisma.profile.create({
+      data: {
+        username: `${fixturePrefix}-cashier`,
+        full_name: 'Audit Cashier Fixture',
+        password_hash: passwordHash,
+        role_id: cashierRole.id,
+      },
+    });
+    cashierUserId = cashierUser.id;
+
+    const adminLoginResponse = await request(app)
       .post('/auth/login')
-      .send({ username: 'admin', password: 'admin' });
-    
-    authToken = loginResponse.body.token;
+      .send({ username: adminUser.username, password: 'test123' });
+    authToken = adminLoginResponse.body.token;
+
+    const cashierLoginResponse = await request(app)
+      .post('/auth/login')
+      .send({ username: cashierUser.username, password: 'test123' });
+    cashierToken = cashierLoginResponse.body.token;
   });
 
   afterAll(async () => {
-    // Clean up test audit logs
-    await prisma.auditLog.deleteMany({
-      where: { description: { contains: 'TEST' } },
-    });
-    await prisma.$disconnect();
+    const profileIds = [adminUserId, cashierUserId].filter(
+      (id): id is string => Boolean(id),
+    );
+    if (profileIds.length > 0) {
+      await prisma.auditLog.deleteMany({ where: { user_id: { in: profileIds } } });
+      await prisma.profile.deleteMany({ where: { id: { in: profileIds } } });
+    }
   });
 
   describe('GET /audit', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/audit');
+        .get('/api/audit');
 
       expect(response.status).toBe(401);
     });
 
     it('should reject without admin role', async () => {
-      // Create a non-admin user
-      const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
-      if (cashierRole) {
-        const passwordHash = await bcrypt.hash('cashier123', 10);
-        const cashier = await prisma.profile.create({
-          data: {
-            username: 'test-cashier-audit',
-            full_name: 'Test Cashier Audit',
-            password_hash: passwordHash,
-            role_id: cashierRole.id,
-          },
-        });
+      const response = await request(app)
+        .get('/api/audit')
+        .set('Authorization', `Bearer ${cashierToken}`);
 
-        const loginResponse = await request(app)
-          .post('/auth/login')
-          .send({ username: 'test-cashier-audit', password: 'cashier123' });
-        
-        const cashierToken = loginResponse.body.token;
-
-        const response = await request(app)
-          .get('/audit')
-          .set('Authorization', `Bearer ${cashierToken}`);
-
-        expect(response.status).toBe(403);
-
-        // Cleanup
-        await prisma.profile.delete({ where: { id: cashier.id } });
-      }
+      expect(response.status).toBe(403);
     });
 
     it('should get audit logs with admin role', async () => {
       const response = await request(app)
-        .get('/audit')
+        .get('/api/audit')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -91,7 +90,7 @@ describe('Audit Trail API', () => {
 
     it('should filter by action', async () => {
       const response = await request(app)
-        .get('/audit?action=create')
+        .get('/api/audit?action=create')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -100,7 +99,7 @@ describe('Audit Trail API', () => {
 
     it('should filter by entity_type', async () => {
       const response = await request(app)
-        .get('/audit?entity_type=order')
+        .get('/api/audit?entity_type=order')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -111,14 +110,14 @@ describe('Audit Trail API', () => {
   describe('GET /audit/:id', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/audit/00000000-0000-0000-0000-000000000000');
+        .get('/api/audit/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(401);
     });
 
     it('should return 404 for non-existent log', async () => {
       const response = await request(app)
-        .get('/audit/00000000-0000-0000-0000-000000000000')
+        .get('/api/audit/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -128,43 +127,22 @@ describe('Audit Trail API', () => {
   describe('GET /audit/stats/summary', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/audit/stats/summary');
+        .get('/api/audit/stats/summary');
 
       expect(response.status).toBe(401);
     });
 
     it('should reject without admin role', async () => {
-      const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
-      if (cashierRole) {
-        const passwordHash = await bcrypt.hash('cashier123', 10);
-        const cashier = await prisma.profile.create({
-          data: {
-            username: 'test-cashier-audit2',
-            full_name: 'Test Cashier Audit 2',
-            password_hash: passwordHash,
-            role_id: cashierRole.id,
-          },
-        });
+      const response = await request(app)
+        .get('/api/audit/stats/summary')
+        .set('Authorization', `Bearer ${cashierToken}`);
 
-        const loginResponse = await request(app)
-          .post('/auth/login')
-          .send({ username: 'test-cashier-audit2', password: 'cashier123' });
-        
-        const cashierToken = loginResponse.body.token;
-
-        const response = await request(app)
-          .get('/audit/stats/summary')
-          .set('Authorization', `Bearer ${cashierToken}`);
-
-        expect(response.status).toBe(403);
-
-        await prisma.profile.delete({ where: { id: cashier.id } });
-      }
+      expect(response.status).toBe(403);
     });
 
     it('should get audit statistics with admin role', async () => {
       const response = await request(app)
-        .get('/audit/stats/summary')
+        .get('/api/audit/stats/summary')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);

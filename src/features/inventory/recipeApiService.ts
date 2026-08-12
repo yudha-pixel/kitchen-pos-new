@@ -372,15 +372,15 @@ export async function checkStockAvailability(productId: string, quantity: number
     // Get recipes for the product
     const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes/menu/${productId}`, { headers });
     if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
-    const recipes = await recipesResponse.json();
+    const recipes: Recipe[] = await recipesResponse.json();
     
     // Get current inventory
     const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
     if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
-    const ingredients = await ingredientsResponse.json();
+    const ingredients: Ingredient[] = await ingredientsResponse.json();
     
     // Create a map of ingredient ID to current stock
-    const stockMap = new Map(ingredients.map((ing: any) => [ing.id, ing]));
+    const stockMap = new Map<string, Ingredient>(ingredients.map((ingredient) => [ingredient.id, ingredient]));
     
     const insufficientIngredients: Array<{ name: string; required: number; available: number; unit: string }> = [];
     
@@ -391,7 +391,7 @@ export async function checkStockAvailability(productId: string, quantity: number
           name: recipe.ingredient?.name || 'Unknown',
           required: recipe.quantity_required * quantity,
           available: 0,
-          unit: recipe.unit || ingredient?.unit || 'g',
+          unit: recipe.unit || 'g',
         });
         continue;
       }
@@ -439,15 +439,15 @@ export async function deductStockForSale(productId: string, quantity: number = 1
     // Get recipes for the product
     const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes/menu/${productId}`, { headers });
     if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
-    const recipes = await recipesResponse.json();
+    const recipes: Recipe[] = await recipesResponse.json();
     
     // Get current inventory
     const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
     if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
-    const ingredients = await ingredientsResponse.json();
+    const ingredients: Ingredient[] = await ingredientsResponse.json();
     
     // Create a map of ingredient ID to current stock
-    const stockMap = new Map(ingredients.map((ing: any) => [ing.id, ing]));
+    const stockMap = new Map<string, Ingredient>(ingredients.map((ingredient) => [ingredient.id, ingredient]));
     
     const deductedIngredients: Array<{ name: string; quantity: number; unit: string }> = [];
     const failedIngredients: Array<{ name: string; error: string }> = [];
@@ -584,13 +584,16 @@ export interface StockRequest {
 export async function createStockRequest(params: any): Promise<string> {
   try {
     const token = getToken();
+    const payload = params.supplier_id == null
+      ? { ...params, supplier_id: undefined }
+      : params;
     const response = await fetch(`${API_BASE_URL}/api/stock-requests`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) throw new Error('Failed to create stock request');

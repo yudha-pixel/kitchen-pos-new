@@ -9,13 +9,14 @@ describe('Access Control Tests', () => {
   let cashierToken: string;
   let managerToken: string;
   let ownerToken: string;
+  const registeredUsername = `access_control_newuser_${Date.now()}`;
 
   beforeAll(async () => {
     // Clean up test users
     await prisma.profile.deleteMany({
       where: {
         username: {
-          in: ['test_admin', 'test_cashier', 'test_manager', 'test_owner'],
+          in: ['test_admin', 'test_cashier', 'test_manager', 'test_owner', registeredUsername],
         },
       },
     });
@@ -87,25 +88,25 @@ describe('Access Control Tests', () => {
     });
 
     // Login and get tokens
-    const adminRes = await request(app).post('/api/auth/login').send({
+    const adminRes = await request(app).post('/auth/login').send({
       username: 'test_admin',
       password: 'test123',
     });
     adminToken = adminRes.body.token;
 
-    const cashierRes = await request(app).post('/api/auth/login').send({
+    const cashierRes = await request(app).post('/auth/login').send({
       username: 'test_cashier',
       password: 'test123',
     });
     cashierToken = cashierRes.body.token;
 
-    const managerRes = await request(app).post('/api/auth/login').send({
+    const managerRes = await request(app).post('/auth/login').send({
       username: 'test_manager',
       password: 'test123',
     });
     managerToken = managerRes.body.token;
 
-    const ownerRes = await request(app).post('/api/auth/login').send({
+    const ownerRes = await request(app).post('/auth/login').send({
       username: 'test_owner',
       password: 'test123',
     });
@@ -117,7 +118,7 @@ describe('Access Control Tests', () => {
     await prisma.profile.deleteMany({
       where: {
         username: {
-          in: ['test_admin', 'test_cashier', 'test_manager', 'test_owner'],
+          in: ['test_admin', 'test_cashier', 'test_manager', 'test_owner', registeredUsername],
         },
       },
     });
@@ -126,34 +127,34 @@ describe('Access Control Tests', () => {
 
   describe('Public Routes', () => {
     it('should allow access to login endpoint without token', async () => {
-      const res = await request(app).post('/api/auth/login').send({
+      const res = await request(app).post('/auth/login').send({
         username: 'test_admin',
         password: 'test123',
       });
-      // Currently returns 404 - route may not be properly mounted in test environment
-      expect([200, 404]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(res.body.user.role).toBe('admin');
     });
 
-    it('should allow access to public settings without token', async () => {
+    it('should reject access to protected settings without a token', async () => {
       const res = await request(app).get('/api/settings');
-      // May return various status codes depending on route configuration
-      expect([200, 401, 404]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
   });
 
   describe('Authenticated Routes', () => {
     it('should return 401 for authenticated routes without token', async () => {
-      const res = await request(app).get('/api/auth/me');
-      // Currently returns 404 - route may not be properly mounted
-      expect([401, 404]).toContain(res.status);
+      const res = await request(app).get('/auth/me');
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
 
     it('should allow access to authenticated routes with valid token', async () => {
       const res = await request(app)
-        .get('/api/auth/me')
+        .get('/auth/me')
         .set('Authorization', `Bearer ${adminToken}`);
-      // Currently returns 404 - route may not be properly mounted
-      expect([200, 404]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(res.body.role).toBe('admin');
     });
   });
 
@@ -162,57 +163,58 @@ describe('Access Control Tests', () => {
       const res = await request(app)
         .get('/api/users')
         .set('Authorization', `Bearer ${adminToken}`);
-      // Currently returns 404 - route may not be properly mounted or missing auth
-      expect([200, 401, 403, 404]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
     });
 
     it('should return 403 for cashier accessing admin routes', async () => {
       const res = await request(app)
         .get('/api/users')
         .set('Authorization', `Bearer ${cashierToken}`);
-      // Currently returns 404 - route may not be properly mounted
-      expect([403, 401, 404]).toContain(res.status);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('Forbidden');
     });
 
     it('should return 403 for manager accessing admin routes', async () => {
       const res = await request(app)
         .get('/api/users')
         .set('Authorization', `Bearer ${managerToken}`);
-      // Currently returns 404 - route may not be properly mounted
-      expect([403, 401, 404]).toContain(res.status);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('Forbidden');
     });
   });
 
   describe('Role-Based Access', () => {
     it('should allow admin to register new users', async () => {
       const res = await request(app)
-        .post('/api/auth/register')
+        .post('/auth/register')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          username: 'newuser',
+          username: registeredUsername,
           password: 'password123',
         });
-      // May return various status codes depending on route configuration
-      expect([200, 201, 401, 403, 404]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(res.body.username).toBe(registeredUsername);
     });
 
     it('should deny cashier from registering new users', async () => {
       const res = await request(app)
-        .post('/api/auth/register')
+        .post('/auth/register')
         .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           username: 'newuser2',
           password: 'password123',
         });
-      // May return various status codes depending on route configuration
-      expect([403, 401, 404]).toContain(res.status);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('Forbidden');
     });
   });
 
   describe('Sensitive Operations', () => {
     it('should require authentication for DELETE operations', async () => {
       const res = await request(app).delete('/api/products/test-id');
-      expect([401, 404]).toContain(res.status); // 401 if auth required, 404 if not found
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
 
     it('should require authentication for payment operations', async () => {
@@ -220,33 +222,32 @@ describe('Access Control Tests', () => {
         amount: 10000,
         method: 'cash',
       });
-      // May return various status codes depending on route configuration
-      expect([401, 400, 404]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
   });
 
   describe('Token Validation', () => {
     it('should reject invalid token', async () => {
       const res = await request(app)
-        .get('/api/auth/me')
+        .get('/auth/me')
         .set('Authorization', 'Bearer invalid-token');
-      // Currently returns 404 because route may not be properly configured
-      // This is a known issue from the audit
-      expect([401, 404]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Invalid or expired token');
     });
 
     it('should reject missing token', async () => {
-      const res = await request(app).get('/api/auth/me');
-      // Currently returns 404 instead of 401 - known issue
-      expect([401, 404]).toContain(res.status);
+      const res = await request(app).get('/auth/me');
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
 
     it('should reject malformed authorization header', async () => {
       const res = await request(app)
-        .get('/api/auth/me')
+        .get('/auth/me')
         .set('Authorization', 'InvalidFormat token');
-      // Currently returns 404 instead of 401 - known issue
-      expect([401, 404]).toContain(res.status);
+      expect(res.status).toBe(401);
+      expect(res.body.error).toBe('Unauthorized');
     });
   });
 
@@ -255,16 +256,16 @@ describe('Access Control Tests', () => {
       const res = await request(app)
         .get('/api/users')
         .set('Authorization', `Bearer ${ownerToken}`);
-      // Owner role not yet supported in backend middleware - known issue
-      expect([200, 401, 403, 404]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
     });
 
     it('should allow manager to access management routes', async () => {
       const res = await request(app)
-        .get('/api/hr')
+        .get('/api/hr/employees')
         .set('Authorization', `Bearer ${managerToken}`);
-      // Manager role not yet supported in backend middleware - known issue
-      expect([200, 401, 403, 404]).toContain(res.status);
+      expect(res.status).toBe(200);
+      expect(Array.isArray(res.body)).toBe(true);
     });
   });
 });

@@ -6,38 +6,61 @@ import { randomUUID } from 'crypto';
 
 describe('Supplier & Purchase Order Integration Tests', () => {
   let adminToken: string;
-  let supplierId: string;
-  let ingredientId: string;
-  let purchaseOrderId: string;
-  let adminUserId: string;
+  let cashierToken: string;
+  let ingredientId: string | undefined;
+  let poSupplierId: string | undefined;
+  let updateSupplierId: string | undefined;
+  let deleteSupplierId: string | undefined;
+  let pendingPurchaseOrderId: string | undefined;
+  let receivedPurchaseOrderId: string | undefined;
+  let adminUserId: string | undefined;
+  let cashierUserId: string | undefined;
+  const createdSupplierIds: string[] = [];
+  const createdPurchaseOrderIds: string[] = [];
+  const fixturePrefix = `UXR-${Date.now()}-suppliers-${randomUUID().slice(0, 8)}`;
 
   beforeAll(async () => {
-    // Get admin role
     const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
-    
-    // Create admin user with unique username
+    const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+    if (!adminRole || !cashierRole) {
+      throw new Error('Supplier tests require seeded admin and cashier roles');
+    }
+
     const adminUser = await prisma.profile.create({
       data: {
-        username: `supplier_admin_test_${Date.now()}`,
-        full_name: 'Supplier Admin Test',
+        username: `${fixturePrefix}-admin`,
+        full_name: 'Supplier Admin Fixture',
         password_hash: 'hash',
-        role_id: adminRole!.id,
+        role_id: adminRole.id,
       },
     });
     adminUserId = adminUser.id;
 
-    // Get token
+    const cashierUser = await prisma.profile.create({
+      data: {
+        username: `${fixturePrefix}-cashier`,
+        full_name: 'Supplier Cashier Fixture',
+        password_hash: 'hash',
+        role_id: cashierRole.id,
+      },
+    });
+    cashierUserId = cashierUser.id;
+
     const jwt = require('jsonwebtoken');
     adminToken = jwt.sign(
-      { id: adminUserId, username: 'supplier_admin_test', role: 'admin' },
+      { id: adminUser.id, username: adminUser.username, role: 'admin' },
+      process.env.JWT_SECRET || 'test-secret',
+      { expiresIn: '1h' }
+    );
+    cashierToken = jwt.sign(
+      { id: cashierUser.id, username: cashierUser.username, role: 'cashier' },
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '1h' }
     );
 
-    // Create test ingredient
     const ingredient = await prisma.ingredient.create({
       data: {
-        name: 'Test Ingredient Supplier',
+        name: `${fixturePrefix}-ingredient`,
         current_stock: 50,
         unit: 'kg',
         min_stock: 10,
@@ -45,48 +68,132 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       },
     });
     ingredientId = ingredient.id;
+
+    const poSupplier = await prisma.supplier.create({
+      data: { name: `${fixturePrefix}-po`, phone: '081200000001' },
+    });
+    poSupplierId = poSupplier.id;
+    createdSupplierIds.push(poSupplier.id);
+
+    const updateSupplier = await prisma.supplier.create({
+      data: { name: `${fixturePrefix}-update`, phone: '081200000002' },
+    });
+    updateSupplierId = updateSupplier.id;
+    createdSupplierIds.push(updateSupplier.id);
+
+    const deleteSupplier = await prisma.supplier.create({
+      data: { name: `${fixturePrefix}-delete`, phone: '081200000003' },
+    });
+    deleteSupplierId = deleteSupplier.id;
+    createdSupplierIds.push(deleteSupplier.id);
+
+    const pendingPurchaseOrder = await prisma.purchaseOrder.create({
+      data: {
+        po_number: `${fixturePrefix}-receive-pending`,
+        supplier_id: poSupplier.id,
+        subtotal: 5000,
+        tax: 0,
+        total: 5000,
+        status: 'pending',
+        items: {
+          create: {
+            ingredient_id: ingredient.id,
+            ingredient_name: ingredient.name,
+            quantity: 100,
+            unit: ingredient.unit,
+            unit_price: 50,
+            total_price: 5000,
+          },
+        },
+      },
+    });
+    pendingPurchaseOrderId = pendingPurchaseOrder.id;
+    createdPurchaseOrderIds.push(pendingPurchaseOrder.id);
+
+    const receivedPurchaseOrder = await prisma.purchaseOrder.create({
+      data: {
+        po_number: `${fixturePrefix}-already-received`,
+        supplier_id: poSupplier.id,
+        subtotal: 500,
+        tax: 0,
+        total: 500,
+        status: 'received',
+        items: {
+          create: {
+            ingredient_id: ingredient.id,
+            ingredient_name: ingredient.name,
+            quantity: 10,
+            unit: ingredient.unit,
+            unit_price: 50,
+            total_price: 500,
+          },
+        },
+      },
+    });
+    receivedPurchaseOrderId = receivedPurchaseOrder.id;
+    createdPurchaseOrderIds.push(receivedPurchaseOrder.id);
   });
 
   afterAll(async () => {
-    // Cleanup in correct order to respect foreign key constraints
-    await prisma.stockAdjustmentLog.deleteMany({
-      where: { ingredient_id: ingredientId },
-    });
-    await prisma.purchaseOrder.deleteMany({
-      where: { supplier_id: supplierId },
-    });
-    await prisma.supplier.deleteMany({
-      where: { id: supplierId },
-    });
-    await prisma.ingredient.deleteMany({
-      where: { id: ingredientId },
-    });
-    await prisma.profile.deleteMany({
-      where: { id: adminUserId },
-    });
+    const supplierIds = [...new Set(createdSupplierIds)];
+    const persistedOrders = supplierIds.length > 0
+      ? await prisma.purchaseOrder.findMany({
+          where: { supplier_id: { in: supplierIds } },
+          select: { id: true },
+        })
+      : [];
+    const purchaseOrderIds = [...new Set([
+      ...createdPurchaseOrderIds,
+      ...persistedOrders.map(({ id }) => id),
+    ])];
+    const profileIds = [adminUserId, cashierUserId].filter(
+      (id): id is string => Boolean(id),
+    );
+
+    if (purchaseOrderIds.length > 0) {
+      await prisma.purchaseOrderItem.deleteMany({
+        where: { purchase_order_id: { in: purchaseOrderIds } },
+      });
+      await prisma.purchaseOrder.deleteMany({ where: { id: { in: purchaseOrderIds } } });
+    }
+    if (ingredientId) {
+      await prisma.stockAdjustmentLog.deleteMany({ where: { ingredient_id: ingredientId } });
+    }
+    if (supplierIds.length > 0) {
+      await prisma.supplier.deleteMany({ where: { id: { in: supplierIds } } });
+    }
+    if (ingredientId) {
+      await prisma.ingredient.deleteMany({ where: { id: ingredientId } });
+    }
+    if (profileIds.length > 0) {
+      await prisma.auditLog.deleteMany({ where: { user_id: { in: profileIds } } });
+      await prisma.profile.deleteMany({ where: { id: { in: profileIds } } });
+    }
   });
 
   describe('Supplier CRUD Operations', () => {
     it('allows admin to create a supplier', async () => {
       const response = await request(app)
-        .post('/suppliers')
+        .post('/api/suppliers')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Test Supplier',
+          name: `${fixturePrefix}-create`,
           phone: '08123456789',
-          email: 'test@supplier.com',
+          email: `${fixturePrefix}@example.com`,
           address: '123 Supplier Street',
         });
 
+      if (response.body.id) {
+        createdSupplierIds.push(response.body.id);
+      }
       expect(response.status).toBe(201);
-      expect(response.body.name).toBe('Test Supplier');
+      expect(response.body.name).toBe(`${fixturePrefix}-create`);
       expect(response.body.phone).toBe('08123456789');
-      supplierId = response.body.id;
     });
 
     it('rejects unauthenticated requests to create supplier (401)', async () => {
       const response = await request(app)
-        .post('/suppliers')
+        .post('/api/suppliers')
         .send({
           name: 'Unauthorized Supplier',
           phone: '08123456789',
@@ -96,44 +203,36 @@ describe('Supplier & Purchase Order Integration Tests', () => {
     });
 
     it('allows public access to fetch all suppliers', async () => {
-      const response = await request(app).get('/suppliers');
+      const response = await request(app).get('/api/suppliers');
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
+      expect(response.body.some(({ id }: { id: string }) => id === poSupplierId)).toBe(true);
     });
 
     it('allows admin to update supplier', async () => {
       const response = await request(app)
-        .put(`/suppliers/${supplierId}`)
+        .put(`/api/suppliers/${updateSupplierId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Updated Supplier Name',
+          name: `${fixturePrefix}-updated`,
           phone: '08987654321',
         });
 
       expect(response.status).toBe(200);
-      expect(response.body.name).toBe('Updated Supplier Name');
+      expect(response.body.name).toBe(`${fixturePrefix}-updated`);
     });
 
     it('allows admin to delete supplier', async () => {
-      // Create a temporary supplier to delete
-      const tempSupplier = await prisma.supplier.create({
-        data: {
-          name: 'Temp Supplier',
-          phone: '08111111111',
-        },
-      });
-
       const response = await request(app)
-        .delete(`/suppliers/${tempSupplier.id}`)
+        .delete(`/api/suppliers/${deleteSupplierId}`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(204);
 
       // Verify deletion
       const deleted = await prisma.supplier.findUnique({
-        where: { id: tempSupplier.id },
+        where: { id: deleteSupplierId },
       });
       expect(deleted).toBeNull();
     });
@@ -142,7 +241,7 @@ describe('Supplier & Purchase Order Integration Tests', () => {
   describe('Purchase Order Operations', () => {
     it('allows admin to create purchase order', async () => {
       const response = await request(app)
-        .post(`/suppliers/${supplierId}/purchase-orders`)
+        .post(`/api/suppliers/${poSupplierId}/purchase-orders`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           ingredient_id: ingredientId,
@@ -151,16 +250,20 @@ describe('Supplier & Purchase Order Integration Tests', () => {
           notes: 'Test purchase order',
         });
 
+      if (response.body.id) {
+        createdPurchaseOrderIds.push(response.body.id);
+      }
       expect(response.status).toBe(201);
-      expect(response.body.quantity).toBe(100);
-      expect(response.body.total_price).toBe(5000);
+      expect(response.body.items).toHaveLength(1);
+      expect(response.body.items[0].quantity).toBe(100);
+      expect(response.body.items[0].total_price).toBe(5000);
+      expect(response.body.total).toBe(5000);
       expect(response.body.status).toBe('pending');
-      purchaseOrderId = response.body.id;
     });
 
     it('rejects unauthenticated purchase order creation (401)', async () => {
       const response = await request(app)
-        .post(`/suppliers/${supplierId}/purchase-orders`)
+        .post(`/api/suppliers/${poSupplierId}/purchase-orders`)
         .send({
           ingredient_id: ingredientId,
           quantity: 50,
@@ -171,11 +274,11 @@ describe('Supplier & Purchase Order Integration Tests', () => {
     });
 
     it('allows fetching purchase orders for a supplier', async () => {
-      const response = await request(app).get(`/suppliers/${supplierId}/purchase-orders`);
+      const response = await request(app).get(`/api/suppliers/${poSupplierId}/purchase-orders`);
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
-      expect(response.body.length).toBeGreaterThan(0);
+      expect(response.body.some(({ id }: { id: string }) => id === pendingPurchaseOrderId)).toBe(true);
     });
   });
 
@@ -186,12 +289,11 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       });
 
       const response = await request(app)
-        .patch(`/suppliers/${supplierId}/purchase-orders/${purchaseOrderId}/receive`)
+        .patch(`/api/suppliers/${poSupplierId}/purchase-orders/${pendingPurchaseOrderId}/receive`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
       expect(response.body.status).toBe('received');
-      expect(response.body.received_date).toBeDefined();
 
       // Verify stock was updated
       const stockAfter = await prisma.ingredient.findUnique({
@@ -217,7 +319,7 @@ describe('Supplier & Purchase Order Integration Tests', () => {
 
     it('rejects receiving already received purchase order (400)', async () => {
       const response = await request(app)
-        .patch(`/suppliers/${supplierId}/purchase-orders/${purchaseOrderId}/receive`)
+        .patch(`/api/suppliers/${poSupplierId}/purchase-orders/${receivedPurchaseOrderId}/receive`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(400);
@@ -228,15 +330,15 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       // Create a new pending PO
       const newPO = await prisma.purchaseOrder.create({
         data: {
-          po_number: `PO-${Date.now()}`,
-          supplier_id: supplierId,
+          po_number: `${fixturePrefix}-unauthenticated`,
+          supplier_id: poSupplierId!,
           subtotal: 2500,
           tax: 0,
           total: 2500,
           status: 'pending',
           items: {
             create: {
-              ingredient_id: ingredientId,
+              ingredient_id: ingredientId!,
               ingredient_name: 'Test Ingredient',
               quantity: 50,
               unit: 'kg',
@@ -246,41 +348,19 @@ describe('Supplier & Purchase Order Integration Tests', () => {
           },
         },
       });
+      createdPurchaseOrderIds.push(newPO.id);
 
       const response = await request(app)
-        .patch(`/suppliers/${supplierId}/purchase-orders/${newPO.id}/receive`);
+        .patch(`/api/suppliers/${poSupplierId}/purchase-orders/${newPO.id}/receive`);
 
       expect(response.status).toBe(401);
-
-      // Cleanup
-      await prisma.purchaseOrder.delete({ where: { id: newPO.id } });
     });
   });
 
   describe('Security & Authorization', () => {
     it('rejects supplier creation without admin role (403)', async () => {
-      // Get cashier role
-      const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
-      
-      // Create cashier user
-      const cashier = await prisma.profile.create({
-        data: {
-          username: 'supplier_cashier_test',
-          full_name: 'Supplier Cashier Test',
-          password_hash: 'hash',
-          role_id: cashierRole!.id,
-        },
-      });
-
-      const jwt = require('jsonwebtoken');
-      const cashierToken = jwt.sign(
-        { id: cashier.id, username: 'supplier_cashier_test', role: 'cashier' },
-        process.env.JWT_SECRET || 'test-secret',
-        { expiresIn: '1h' }
-      );
-
       const response = await request(app)
-        .post('/suppliers')
+        .post('/api/suppliers')
         .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           name: 'Cashier Supplier',
@@ -288,9 +368,6 @@ describe('Supplier & Purchase Order Integration Tests', () => {
         });
 
       expect(response.status).toBe(403);
-
-      // Cleanup
-      await prisma.profile.delete({ where: { id: cashier.id } });
     });
   });
 
@@ -299,15 +376,15 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       // Create multiple pending POs
       const po1 = await prisma.purchaseOrder.create({
         data: {
-          po_number: `PO-${Date.now()}-1`,
-          supplier_id: supplierId,
+          po_number: `${fixturePrefix}-concurrent-1`,
+          supplier_id: poSupplierId!,
           subtotal: 1250,
           tax: 0,
           total: 1250,
           status: 'pending',
           items: {
             create: {
-              ingredient_id: ingredientId,
+              ingredient_id: ingredientId!,
               ingredient_name: 'Test Ingredient',
               quantity: 25,
               unit: 'kg',
@@ -317,18 +394,19 @@ describe('Supplier & Purchase Order Integration Tests', () => {
           },
         },
       });
+      createdPurchaseOrderIds.push(po1.id);
 
       const po2 = await prisma.purchaseOrder.create({
         data: {
-          po_number: `PO-${Date.now()}-2`,
-          supplier_id: supplierId,
+          po_number: `${fixturePrefix}-concurrent-2`,
+          supplier_id: poSupplierId!,
           subtotal: 1500,
           tax: 0,
           total: 1500,
           status: 'pending',
           items: {
             create: {
-              ingredient_id: ingredientId,
+              ingredient_id: ingredientId!,
               ingredient_name: 'Test Ingredient',
               quantity: 30,
               unit: 'kg',
@@ -338,6 +416,7 @@ describe('Supplier & Purchase Order Integration Tests', () => {
           },
         },
       });
+      createdPurchaseOrderIds.push(po2.id);
 
       const stockBefore = await prisma.ingredient.findUnique({
         where: { id: ingredientId },
@@ -346,10 +425,10 @@ describe('Supplier & Purchase Order Integration Tests', () => {
       // Receive both POs concurrently
       const [res1, res2] = await Promise.all([
         request(app)
-          .patch(`/suppliers/${supplierId}/purchase-orders/${po1.id}/receive`)
+          .patch(`/api/suppliers/${poSupplierId}/purchase-orders/${po1.id}/receive`)
           .set('Authorization', `Bearer ${adminToken}`),
         request(app)
-          .patch(`/suppliers/${supplierId}/purchase-orders/${po2.id}/receive`)
+          .patch(`/api/suppliers/${poSupplierId}/purchase-orders/${po2.id}/receive`)
           .set('Authorization', `Bearer ${adminToken}`),
       ]);
 

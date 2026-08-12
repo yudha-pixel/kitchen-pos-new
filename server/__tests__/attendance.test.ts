@@ -9,15 +9,19 @@ describe('Attendance API', () => {
   let employeeId: string;
   let attendanceId: string;
   let adminUserId: string;
+  let cashierUserId: string;
+  let cashierToken: string;
 
   beforeAll(async () => {
-    // Get admin role
+    // Get admin and cashier roles
     const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+    const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+    const fixtureSuffix = `${Date.now()}_${randomUUID().slice(0, 8)}`;
     
     // Create admin user for testing
     const adminUser = await prisma.profile.create({
       data: {
-        username: `attendance_admin_test_${Date.now()}`,
+        username: `attendance_admin_test_${fixtureSuffix}`,
         full_name: 'Attendance Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
@@ -25,10 +29,25 @@ describe('Attendance API', () => {
     });
     adminUserId = adminUser.id;
 
-    // Generate auth token
+    const cashierUser = await prisma.profile.create({
+      data: {
+        username: `attendance_cashier_test_${fixtureSuffix}`,
+        full_name: 'Attendance Cashier Test',
+        password_hash: 'hash',
+        role_id: cashierRole!.id,
+      },
+    });
+    cashierUserId = cashierUser.id;
+
+    // Generate production-shaped auth tokens backed by real users
     const jwt = require('jsonwebtoken');
     authToken = jwt.sign(
-      { userId: adminUserId, role: 'admin' },
+      { id: adminUserId, username: adminUser.username, role: 'admin' },
+      process.env.JWT_SECRET || 'test-secret',
+      { expiresIn: '1h' }
+    );
+    cashierToken = jwt.sign(
+      { id: cashierUserId, username: cashierUser.username, role: 'cashier' },
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '1h' }
     );
@@ -63,15 +82,15 @@ describe('Attendance API', () => {
     await prisma.employee.delete({
       where: { id: employeeId }
     });
-    await prisma.profile.delete({
-      where: { id: adminUserId }
+    await prisma.profile.deleteMany({
+      where: { id: { in: [adminUserId, cashierUserId] } }
     });
   });
 
   describe('POST /attendance/check-in', () => {
     it('should check in an employee', async () => {
       const response = await request(app)
-        .post('/attendance/check-in')
+        .post('/api/attendance/check-in')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           employee_id: employeeId,
@@ -88,7 +107,7 @@ describe('Attendance API', () => {
 
     it('should require employee_id', async () => {
       const response = await request(app)
-        .post('/attendance/check-in')
+        .post('/api/attendance/check-in')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           shift_type: 'morning'
@@ -100,7 +119,7 @@ describe('Attendance API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .post('/attendance/check-in')
+        .post('/api/attendance/check-in')
         .send({
           employee_id: employeeId,
           shift_type: 'morning'
@@ -113,7 +132,7 @@ describe('Attendance API', () => {
   describe('GET /attendance', () => {
     it('should get all attendance records', async () => {
       const response = await request(app)
-        .get('/attendance')
+        .get('/api/attendance')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -122,7 +141,7 @@ describe('Attendance API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .get('/attendance');
+        .get('/api/attendance');
 
       expect(response.status).toBe(401);
     });
@@ -131,7 +150,7 @@ describe('Attendance API', () => {
   describe('GET /attendance/:id', () => {
     it('should get attendance by ID', async () => {
       const response = await request(app)
-        .get(`/attendance/${attendanceId}`)
+        .get(`/api/attendance/${attendanceId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -140,7 +159,7 @@ describe('Attendance API', () => {
 
     it('should return 404 for non-existent attendance', async () => {
       const response = await request(app)
-        .get(`/attendance/${randomUUID()}`)
+        .get(`/api/attendance/${randomUUID()}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -150,7 +169,7 @@ describe('Attendance API', () => {
   describe('POST /attendance/check-out', () => {
     it('should check out an employee', async () => {
       const response = await request(app)
-        .post('/attendance/check-out')
+        .post('/api/attendance/check-out')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           attendance_id: attendanceId,
@@ -163,7 +182,7 @@ describe('Attendance API', () => {
 
     it('should require attendance_id', async () => {
       const response = await request(app)
-        .post('/attendance/check-out')
+        .post('/api/attendance/check-out')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           notes: 'Test check-out'
@@ -176,7 +195,7 @@ describe('Attendance API', () => {
   describe('PUT /attendance/:id', () => {
     it('should update attendance', async () => {
       const response = await request(app)
-        .put(`/attendance/${attendanceId}`)
+        .put(`/api/attendance/${attendanceId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           notes: 'Updated notes'
@@ -187,15 +206,9 @@ describe('Attendance API', () => {
     });
 
     it('should require admin role', async () => {
-      const jwt = require('jsonwebtoken');
-      const userToken = jwt.sign(
-        { userId: randomUUID(), role: 'user' },
-        process.env.JWT_SECRET || 'test-secret',
-        { expiresIn: '1h' }
-      );
       const response = await request(app)
-        .put(`/attendance/${attendanceId}`)
-        .set('Authorization', `Bearer ${userToken}`)
+        .put(`/api/attendance/${attendanceId}`)
+        .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           notes: 'Updated notes'
         });
@@ -207,7 +220,7 @@ describe('Attendance API', () => {
   describe('DELETE /attendance/:id', () => {
     it('should delete attendance', async () => {
       const response = await request(app)
-        .delete(`/attendance/${attendanceId}`)
+        .delete(`/api/attendance/${attendanceId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(204);
@@ -215,7 +228,7 @@ describe('Attendance API', () => {
 
     it('should return 404 for deleted attendance', async () => {
       const response = await request(app)
-        .get(`/attendance/${attendanceId}`)
+        .get(`/api/attendance/${attendanceId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -225,7 +238,7 @@ describe('Attendance API', () => {
   describe('GET /attendance/summary/today', () => {
     it('should get today\'s attendance summary', async () => {
       const response = await request(app)
-        .get('/attendance/summary/today')
+        .get('/api/attendance/summary/today')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);

@@ -8,15 +8,19 @@ describe('HR API', () => {
   let authToken: string;
   let employeeId: string;
   let adminUserId: string;
+  let cashierUserId: string;
+  let cashierToken: string;
 
   beforeAll(async () => {
-    // Get admin role
+    // Get admin and cashier roles
     const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+    const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+    const fixtureSuffix = `${Date.now()}_${randomUUID().slice(0, 8)}`;
     
     // Create admin user for testing
     const adminUser = await prisma.profile.create({
       data: {
-        username: `hr_admin_test_${Date.now()}`,
+        username: `hr_admin_test_${fixtureSuffix}`,
         full_name: 'HR Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
@@ -24,10 +28,25 @@ describe('HR API', () => {
     });
     adminUserId = adminUser.id;
 
-    // Generate auth token
+    const cashierUser = await prisma.profile.create({
+      data: {
+        username: `hr_cashier_test_${fixtureSuffix}`,
+        full_name: 'HR Cashier Test',
+        password_hash: 'hash',
+        role_id: cashierRole!.id,
+      },
+    });
+    cashierUserId = cashierUser.id;
+
+    // Generate production-shaped auth tokens backed by real users
     const jwt = require('jsonwebtoken');
     authToken = jwt.sign(
-      { userId: adminUserId, role: 'admin' },
+      { id: adminUserId, username: adminUser.username, role: 'admin' },
+      process.env.JWT_SECRET || 'test-secret',
+      { expiresIn: '1h' }
+    );
+    cashierToken = jwt.sign(
+      { id: cashierUserId, username: cashierUser.username, role: 'cashier' },
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '1h' }
     );
@@ -43,15 +62,15 @@ describe('HR API', () => {
     await prisma.employee.deleteMany({
       where: { phone: { startsWith: 'TEST_' } }
     });
-    await prisma.profile.delete({
-      where: { id: adminUserId }
+    await prisma.profile.deleteMany({
+      where: { id: { in: [adminUserId, cashierUserId] } }
     });
   });
 
   describe('POST /hr/employees', () => {
     it('should create a new employee', async () => {
       const response = await request(app)
-        .post('/hr/employees')
+        .post('/api/hr/employees')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Test Employee',
@@ -74,7 +93,7 @@ describe('HR API', () => {
 
     it('should require name, phone, and position', async () => {
       const response = await request(app)
-        .post('/hr/employees')
+        .post('/api/hr/employees')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           email: 'test@example.com'
@@ -86,7 +105,7 @@ describe('HR API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .post('/hr/employees')
+        .post('/api/hr/employees')
         .send({
           name: 'Test Employee',
           phone: 'TEST_08123456789',
@@ -100,7 +119,7 @@ describe('HR API', () => {
   describe('GET /hr/employees', () => {
     it('should get all employees', async () => {
       const response = await request(app)
-        .get('/hr/employees')
+        .get('/api/hr/employees')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -109,7 +128,7 @@ describe('HR API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .get('/hr/employees');
+        .get('/api/hr/employees');
 
       expect(response.status).toBe(401);
     });
@@ -118,7 +137,7 @@ describe('HR API', () => {
   describe('GET /hr/employees/:id', () => {
     it('should get an employee by ID', async () => {
       const response = await request(app)
-        .get(`/hr/employees/${employeeId}`)
+        .get(`/api/hr/employees/${employeeId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -127,7 +146,7 @@ describe('HR API', () => {
 
     it('should return 404 for non-existent employee', async () => {
       const response = await request(app)
-        .get(`/hr/employees/${randomUUID()}`)
+        .get(`/api/hr/employees/${randomUUID()}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -137,7 +156,7 @@ describe('HR API', () => {
   describe('PUT /hr/employees/:id', () => {
     it('should update an employee', async () => {
       const response = await request(app)
-        .put(`/hr/employees/${employeeId}`)
+        .put(`/api/hr/employees/${employeeId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Updated Employee',
@@ -150,15 +169,9 @@ describe('HR API', () => {
     });
 
     it('should require admin role', async () => {
-      const jwt = require('jsonwebtoken');
-      const userToken = jwt.sign(
-        { userId: randomUUID(), role: 'user' },
-        process.env.JWT_SECRET || 'test-secret',
-        { expiresIn: '1h' }
-      );
       const response = await request(app)
-        .put(`/hr/employees/${employeeId}`)
-        .set('Authorization', `Bearer ${userToken}`)
+        .put(`/api/hr/employees/${employeeId}`)
+        .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           name: 'Updated Employee'
         });
@@ -170,7 +183,7 @@ describe('HR API', () => {
   describe('DELETE /hr/employees/:id', () => {
     it('should delete an employee', async () => {
       const response = await request(app)
-        .delete(`/hr/employees/${employeeId}`)
+        .delete(`/api/hr/employees/${employeeId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(204);
@@ -178,7 +191,7 @@ describe('HR API', () => {
 
     it('should return 404 for deleted employee', async () => {
       const response = await request(app)
-        .get(`/hr/employees/${employeeId}`)
+        .get(`/api/hr/employees/${employeeId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -188,7 +201,7 @@ describe('HR API', () => {
   describe('GET /hr/statistics', () => {
     it('should get HR statistics', async () => {
       const response = await request(app)
-        .get('/hr/statistics')
+        .get('/api/hr/statistics')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);

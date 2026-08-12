@@ -36,6 +36,7 @@ describe('Self-order total_amount includes modifier prices, from the DB not the 
   });
 
   afterAll(async () => {
+    await prisma.notification.deleteMany({ where: { message: { contains: testTableNumber } } });
     await prisma.customerOrderItem.deleteMany({ where: { order: { table_id: tableId } } });
     await prisma.customerOrder.deleteMany({ where: { table_id: tableId } });
     await prisma.table.deleteMany({ where: { table_number: testTableNumber } });
@@ -46,7 +47,7 @@ describe('Self-order total_amount includes modifier prices, from the DB not the 
     const product = await prisma.product.findUnique({ where: { id: productId } });
 
     const res = await request(app)
-      .post('/self-order/orders')
+      .post('/api/self-order/orders')
       .send({
         id: crypto.randomUUID(),
         table_id: tableId,
@@ -66,7 +67,7 @@ describe('Self-order total_amount includes modifier prices, from the DB not the 
     const product = await prisma.product.findUnique({ where: { id: productId } });
 
     const res = await request(app)
-      .post('/self-order/orders')
+      .post('/api/self-order/orders')
       .send({
         id: crypto.randomUUID(),
         table_id: tableId,
@@ -89,7 +90,7 @@ describe('Self-order total_amount includes modifier prices, from the DB not the 
     const product = await prisma.product.findUnique({ where: { id: productId } });
 
     const res = await request(app)
-      .post('/self-order/orders')
+      .post('/api/self-order/orders')
       .send({
         id: crypto.randomUUID(),
         table_id: tableId,

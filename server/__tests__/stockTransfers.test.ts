@@ -174,7 +174,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .post('/stock-transfers')
+        .post('/api/stock-transfers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           from_warehouse_id: testWarehouse1Id,
@@ -201,7 +201,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .post('/stock-transfers')
+        .post('/api/stock-transfers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           from_warehouse_id: testWarehouse1Id,
@@ -225,7 +225,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .post('/stock-transfers')
+        .post('/api/stock-transfers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           from_warehouse_id: testWarehouse1Id,
@@ -247,7 +247,7 @@ describe('Stock Transfer API', () => {
   describe('GET /stock-transfers', () => {
     it('should return all transfers', async () => {
       const response = await request(app)
-        .get('/stock-transfers')
+        .get('/api/stock-transfers')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -256,7 +256,7 @@ describe('Stock Transfer API', () => {
 
     it('should filter by status', async () => {
       const response = await request(app)
-        .get('/stock-transfers?status=pending')
+        .get('/api/stock-transfers?status=pending')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -274,7 +274,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .patch(`/stock-transfers/${testTransferId}`)
+        .patch(`/api/stock-transfers/${testTransferId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ status: 'approved' });
 
@@ -289,7 +289,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .patch(`/stock-transfers/${testTransferId}`)
+        .patch(`/api/stock-transfers/${testTransferId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ status: 'completed' });
 
@@ -303,7 +303,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .patch(`/stock-transfers/${testTransferId}`)
+        .patch(`/api/stock-transfers/${testTransferId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({ status: 'pending' });
 
@@ -325,7 +325,7 @@ describe('Stock Transfer API', () => {
 
       // Create a pending transfer to delete
       const createResponse = await request(app)
-        .post('/stock-transfers')
+        .post('/api/stock-transfers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           from_warehouse_id: testWarehouse1Id,
@@ -342,7 +342,7 @@ describe('Stock Transfer API', () => {
       const transferIdToDelete = createResponse.body.id;
 
       const response = await request(app)
-        .delete(`/stock-transfers/${transferIdToDelete}`)
+        .delete(`/api/stock-transfers/${transferIdToDelete}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -355,7 +355,7 @@ describe('Stock Transfer API', () => {
       }
 
       const response = await request(app)
-        .delete(`/stock-transfers/${testTransferId}`)
+        .delete(`/api/stock-transfers/${testTransferId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(400);

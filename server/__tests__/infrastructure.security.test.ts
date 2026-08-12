@@ -44,11 +44,11 @@ describe('Infrastructure Security Tests', () => {
       expect(response.headers['ratelimit-reset']).toBeDefined();
     });
 
-    it('applies general rate limiting to API routes', async () => {
-      // Test with payment routes which have rate limiting applied
-      const response = await request(app).get('/payments');
+    it('applies rate limiting to payment routes', async () => {
+      const response = await request(app)
+        .get('/api/payments/00000000-0000-0000-0000-000000000000');
 
-      // The response should include rate limit headers
+      expect(response.status).toBe(401);
       expect(response.headers['ratelimit-limit']).toBeDefined();
       expect(response.headers['ratelimit-remaining']).toBeDefined();
       expect(response.headers['ratelimit-reset']).toBeDefined();

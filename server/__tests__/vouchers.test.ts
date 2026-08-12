@@ -8,15 +8,19 @@ describe('Vouchers API', () => {
   let authToken: string;
   let voucherId: string;
   let adminUserId: string;
+  let cashierUserId: string;
+  let cashierToken: string;
 
   beforeAll(async () => {
-    // Get admin role
+    // Get admin and cashier roles
     const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+    const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+    const fixtureSuffix = `${Date.now()}_${randomUUID().slice(0, 8)}`;
     
     // Create admin user for testing
     const adminUser = await prisma.profile.create({
       data: {
-        username: `voucher_admin_test_${Date.now()}`,
+        username: `voucher_admin_test_${fixtureSuffix}`,
         full_name: 'Voucher Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
@@ -24,10 +28,25 @@ describe('Vouchers API', () => {
     });
     adminUserId = adminUser.id;
 
-    // Generate auth token
+    const cashierUser = await prisma.profile.create({
+      data: {
+        username: `voucher_cashier_test_${fixtureSuffix}`,
+        full_name: 'Voucher Cashier Test',
+        password_hash: 'hash',
+        role_id: cashierRole!.id,
+      },
+    });
+    cashierUserId = cashierUser.id;
+
+    // Generate production-shaped auth tokens backed by real users
     const jwt = require('jsonwebtoken');
     authToken = jwt.sign(
-      { userId: adminUserId, role: 'admin' },
+      { id: adminUserId, username: adminUser.username, role: 'admin' },
+      process.env.JWT_SECRET || 'test-secret',
+      { expiresIn: '1h' }
+    );
+    cashierToken = jwt.sign(
+      { id: cashierUserId, username: cashierUser.username, role: 'cashier' },
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '1h' }
     );
@@ -43,8 +62,8 @@ describe('Vouchers API', () => {
     await prisma.voucher.deleteMany({
       where: { code: { startsWith: 'TEST_' } }
     });
-    await prisma.profile.delete({
-      where: { id: adminUserId }
+    await prisma.profile.deleteMany({
+      where: { id: { in: [adminUserId, cashierUserId] } }
     });
   });
 
@@ -55,7 +74,7 @@ describe('Vouchers API', () => {
       validUntil.setDate(validUntil.getDate() + 30);
 
       const response = await request(app)
-        .post('/vouchers')
+        .post('/api/vouchers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: 'TEST_PROMO20',
@@ -79,7 +98,7 @@ describe('Vouchers API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .post('/vouchers')
+        .post('/api/vouchers')
         .send({
           code: 'TEST_PROMO10',
           name: 'Test Promo'
@@ -92,7 +111,7 @@ describe('Vouchers API', () => {
   describe('GET /vouchers', () => {
     it('should get all vouchers', async () => {
       const response = await request(app)
-        .get('/vouchers')
+        .get('/api/vouchers')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -101,7 +120,7 @@ describe('Vouchers API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .get('/vouchers');
+        .get('/api/vouchers');
 
       expect(response.status).toBe(401);
     });
@@ -110,7 +129,7 @@ describe('Vouchers API', () => {
   describe('GET /vouchers/:id', () => {
     it('should get a voucher by ID', async () => {
       const response = await request(app)
-        .get(`/vouchers/${voucherId}`)
+        .get(`/api/vouchers/${voucherId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -119,7 +138,7 @@ describe('Vouchers API', () => {
 
     it('should return 404 for non-existent voucher', async () => {
       const response = await request(app)
-        .get(`/vouchers/${randomUUID()}`)
+        .get(`/api/vouchers/${randomUUID()}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -129,7 +148,7 @@ describe('Vouchers API', () => {
   describe('POST /vouchers/validate', () => {
     it('should validate a valid voucher code', async () => {
       const response = await request(app)
-        .post('/vouchers/validate')
+        .post('/api/vouchers/validate')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: 'TEST_PROMO20',
@@ -142,7 +161,7 @@ describe('Vouchers API', () => {
 
     it('should reject invalid voucher code', async () => {
       const response = await request(app)
-        .post('/vouchers/validate')
+        .post('/api/vouchers/validate')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           code: 'INVALID_CODE',
@@ -156,7 +175,7 @@ describe('Vouchers API', () => {
   describe('PUT /vouchers/:id', () => {
     it('should update a voucher', async () => {
       const response = await request(app)
-        .put(`/vouchers/${voucherId}`)
+        .put(`/api/vouchers/${voucherId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Updated Test Promo',
@@ -168,15 +187,9 @@ describe('Vouchers API', () => {
     });
 
     it('should require admin role', async () => {
-      const jwt = require('jsonwebtoken');
-      const userToken = jwt.sign(
-        { userId: randomUUID(), role: 'user' },
-        process.env.JWT_SECRET || 'test-secret',
-        { expiresIn: '1h' }
-      );
       const response = await request(app)
-        .put(`/vouchers/${voucherId}`)
-        .set('Authorization', `Bearer ${userToken}`)
+        .put(`/api/vouchers/${voucherId}`)
+        .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           name: 'Updated Test Promo'
         });
@@ -188,7 +201,7 @@ describe('Vouchers API', () => {
   describe('PATCH /vouchers/:id/toggle-active', () => {
     it('should toggle voucher active status', async () => {
       const response = await request(app)
-        .patch(`/vouchers/${voucherId}/toggle-active`)
+        .patch(`/api/vouchers/${voucherId}/toggle-active`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -199,7 +212,7 @@ describe('Vouchers API', () => {
   describe('DELETE /vouchers/:id', () => {
     it('should delete a voucher', async () => {
       const response = await request(app)
-        .delete(`/vouchers/${voucherId}`)
+        .delete(`/api/vouchers/${voucherId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(204);
@@ -207,7 +220,7 @@ describe('Vouchers API', () => {
 
     it('should return 404 for deleted voucher', async () => {
       const response = await request(app)
-        .get(`/vouchers/${voucherId}`)
+        .get(`/api/vouchers/${voucherId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);

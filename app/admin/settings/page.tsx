@@ -7,6 +7,10 @@ import { getToken } from '@/src/lib/api';
 import { useConfigStore } from '@/src/store/useConfigStore';
 import { API_BASE_URL } from '@/src/config/runtime';
 import { Modal } from '@/src/components/ui/Modal';
+import {
+  confirmAreaDeletion,
+  requestAreaDeletion,
+} from '@/src/features/settings/areaDeletion';
 import { 
   Store, 
   Printer, 
@@ -16,11 +20,13 @@ import {
   ChefHat, 
   Package, 
   Shield,
+  CreditCard,
+  AlertTriangle,
   Save,
   RefreshCw
 } from 'lucide-react';
 
-type SettingsTab = 'store' | 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security';
+type SettingsTab = 'store' | 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder';
 
 // Default settings values
 const defaultStoreSettings = {
@@ -98,6 +104,15 @@ const defaultUserSettings = {
   require_2fa: false,
 };
 
+const defaultSelfOrderSettings = {
+  selforder_payment_methods: ['cashier'] as string[],
+  selforder_payment_instructions: {
+    qris: { instructions: '', image_url: '' },
+    transfer: { instructions: '' },
+  },
+  selforder_routing: 'review' as 'review' | 'auto',
+};
+
 export default function SettingsPage() {
   const { toast } = useToast();
   const { updateFromSettings: updateConfig } = useConfigStore();
@@ -116,6 +131,7 @@ export default function SettingsPage() {
   const [kitchenSettings, setKitchenSettings] = useState(defaultKitchenSettings);
   const [tableSettings, setTableSettings] = useState(defaultTableSettings);
   const [userSettings, setUserSettings] = useState(defaultUserSettings);
+  const [selfOrderSettings, setSelfOrderSettings] = useState(defaultSelfOrderSettings);
 
   // Load settings from API on mount
   useEffect(() => {
@@ -209,6 +225,22 @@ export default function SettingsPage() {
         require_2fa: settings.require_2fa !== undefined ? settings.require_2fa : defaultUserSettings.require_2fa,
       });
 
+      setSelfOrderSettings({
+        selforder_payment_methods: Array.isArray(settings.selforder_payment_methods)
+          ? settings.selforder_payment_methods
+          : ['cashier'],
+        selforder_payment_instructions: {
+          qris: {
+            instructions: settings.selforder_payment_instructions?.qris?.instructions ?? '',
+            image_url: settings.selforder_payment_instructions?.qris?.image_url ?? '',
+          },
+          transfer: {
+            instructions: settings.selforder_payment_instructions?.transfer?.instructions ?? '',
+          },
+        },
+        selforder_routing: settings.selforder_routing === 'auto' ? 'auto' : 'review',
+      });
+
       // Sync with global config store
       updateConfig({ taxRate: settings.tax_rate, serviceCharge: settings.service_charge });
     } catch (error) {
@@ -225,10 +257,34 @@ export default function SettingsPage() {
     { id: 'kitchen' as SettingsTab, label: 'Dapur & KDS', icon: ChefHat },
     { id: 'inventory' as SettingsTab, label: 'Inventori & Stok', icon: Package },
     { id: 'security' as SettingsTab, label: 'Keamanan', icon: Shield },
+    { id: 'selforder' as SettingsTab, label: 'Self-Order', icon: CreditCard },
   ];
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (selfOrderSettings.selforder_payment_methods.length === 0) {
+      toast('error', 'Pilih minimal satu metode pembayaran self-order');
+      setActiveTab('selforder');
+      return;
+    }
+    for (const method of ['qris', 'transfer'] as const) {
+      if (selfOrderSettings.selforder_payment_methods.includes(method)
+        && !selfOrderSettings.selforder_payment_instructions[method].instructions.trim()) {
+        toast('error', `Instruksi ${method.toUpperCase()} wajib diisi`);
+        setActiveTab('selforder');
+        return;
+      }
+    }
+    const qrisImageUrl = selfOrderSettings.selforder_payment_instructions.qris.image_url.trim();
+    if (qrisImageUrl) {
+      try {
+        if (new URL(qrisImageUrl).protocol !== 'https:') throw new Error('not https');
+      } catch {
+        toast('error', 'URL gambar QRIS harus berupa URL HTTPS yang valid');
+        setActiveTab('selforder');
+        return;
+      }
+    }
     setSaving(true);
     
     try {
@@ -244,6 +300,7 @@ export default function SettingsPage() {
         ...kitchenSettings,
         ...tableSettings,
         ...userSettings,
+        ...selfOrderSettings,
       };
 
       const response = await fetch(`${API_BASE_URL}/api/settings`, {
@@ -256,7 +313,8 @@ export default function SettingsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings');
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to save settings');
       }
       
       // Sync tax, service charge rates, and web base URL with global config store
@@ -269,7 +327,7 @@ export default function SettingsPage() {
       toast('success', 'Pengaturan berhasil disimpan');
     } catch (error) {
       console.error('Failed to save settings:', error);
-      toast('error', 'Gagal menyimpan pengaturan');
+      toast('error', error instanceof Error ? error.message : 'Gagal menyimpan pengaturan');
     } finally {
       setTimeout(() => {
         setSaving(false);
@@ -323,13 +381,14 @@ export default function SettingsPage() {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
+                    aria-pressed={activeTab === tab.id}
                     className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                       activeTab === tab.id
                         ? 'bg-primary text-white shadow-md'
                         : 'bg-surface text-ink-secondary hover:bg-surface-alt hover:text-ink'
                     }`}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className="h-4 w-4" aria-hidden="true" />
                     {tab.label}
                   </button>
                 );
@@ -386,6 +445,9 @@ export default function SettingsPage() {
                   onChange={setSecuritySettings} 
                   toast={toast}
                 />
+              )}
+              {activeTab === 'selforder' && (
+                <SelfOrderSettings settings={selfOrderSettings} onChange={setSelfOrderSettings} />
               )}
             </div>
 
@@ -453,6 +515,115 @@ export default function SettingsPage() {
 interface StoreSettingsProps {
   settings: typeof defaultStoreSettings;
   onChange: (settings: typeof defaultStoreSettings) => void;
+}
+
+type SelfOrderSettingsValue = typeof defaultSelfOrderSettings;
+
+function SelfOrderSettings({
+  settings,
+  onChange,
+}: {
+  settings: SelfOrderSettingsValue;
+  onChange: (value: SelfOrderSettingsValue) => void;
+}) {
+  const toggleMethod = (id: string) => {
+    const enabled = settings.selforder_payment_methods.includes(id);
+    onChange({
+      ...settings,
+      selforder_payment_methods: enabled
+        ? settings.selforder_payment_methods.filter((method) => method !== id)
+        : [...settings.selforder_payment_methods, id],
+    });
+  };
+
+  return (
+    <section aria-labelledby="self-order-settings-heading" className="space-y-6">
+      <div>
+        <h2 id="self-order-settings-heading" className="text-xl font-semibold text-ink">Self-Order</h2>
+        <p className="mt-1 text-sm text-ink-muted">Atur metode yang dilihat tamu. Jenis dan aturan keamanan setiap metode tidak dapat diubah.</p>
+      </div>
+
+      <fieldset>
+        <legend className="mb-3 font-medium text-ink">Metode pembayaran</legend>
+        <div className="space-y-3">
+          {[
+            ['cashier', 'Bayar di Kasir', 'Tunai, debit, atau kartu diproses staf di kasir.'],
+            ['qris', 'QRIS', 'Referensi wajib diverifikasi staf sebelum masuk dapur.'],
+            ['transfer', 'Transfer Bank', 'Referensi wajib diverifikasi staf sebelum masuk dapur.'],
+          ].map(([id, label, description]) => (
+            <label key={id} className="flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-line p-3 hover:bg-surface-alt">
+              <input
+                type="checkbox"
+                checked={settings.selforder_payment_methods.includes(id)}
+                onChange={() => toggleMethod(id)}
+                className="mt-1 size-5 accent-primary"
+              />
+              <span><span className="block font-medium text-ink">{label}</span><span className="text-sm text-ink-muted">{description}</span></span>
+            </label>
+          ))}
+        </div>
+        {settings.selforder_payment_methods.length === 0 && (
+          <p role="alert" className="mt-2 text-sm text-danger">Pilih minimal satu metode.</p>
+        )}
+      </fieldset>
+
+      {settings.selforder_payment_methods.includes('qris') && (
+        <div className="space-y-3 rounded-lg border border-line p-4">
+          <label htmlFor="qris-instructions" className="block text-sm font-medium text-ink">Instruksi QRIS <span aria-hidden="true">*</span></label>
+          <textarea
+            id="qris-instructions"
+            required
+            value={settings.selforder_payment_instructions.qris.instructions}
+            onChange={(event) => onChange({ ...settings, selforder_payment_instructions: { ...settings.selforder_payment_instructions, qris: { ...settings.selforder_payment_instructions.qris, instructions: event.target.value } } })}
+            className="min-h-28 w-full rounded-lg border border-line p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Contoh: scan QRIS resmi, lalu masukkan nomor referensi transaksi."
+          />
+          <label htmlFor="qris-image-url" className="block text-sm font-medium text-ink">URL gambar QRIS HTTPS (opsional)</label>
+          <input
+            id="qris-image-url"
+            type="url"
+            inputMode="url"
+            pattern="https://.*"
+            value={settings.selforder_payment_instructions.qris.image_url}
+            onChange={(event) => onChange({ ...settings, selforder_payment_instructions: { ...settings.selforder_payment_instructions, qris: { ...settings.selforder_payment_instructions.qris, image_url: event.target.value } } })}
+            className="min-h-11 w-full rounded-lg border border-line px-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="https://.../qris.png"
+          />
+        </div>
+      )}
+
+      {settings.selforder_payment_methods.includes('transfer') && (
+        <div className="space-y-3 rounded-lg border border-line p-4">
+          <label htmlFor="transfer-instructions" className="block text-sm font-medium text-ink">Instruksi transfer <span aria-hidden="true">*</span></label>
+          <textarea
+            id="transfer-instructions"
+            required
+            value={settings.selforder_payment_instructions.transfer.instructions}
+            onChange={(event) => onChange({ ...settings, selforder_payment_instructions: { ...settings.selforder_payment_instructions, transfer: { instructions: event.target.value } } })}
+            className="min-h-28 w-full rounded-lg border border-line p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            placeholder="Bank, nomor rekening, nama penerima, dan langkah konfirmasi."
+          />
+        </div>
+      )}
+
+      <fieldset>
+        <legend className="mb-3 font-medium text-ink">Routing Bayar di Kasir</legend>
+        {([['review', 'Tinjau di kasir', 'Kasir menerima sebelum pesanan masuk dapur.'], ['auto', 'Langsung ke dapur', 'Pesanan masuk dapur segera tetapi tetap berstatus belum dibayar.']] as const).map(([value, label, description]) => (
+          <label key={value} className="mb-2 flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border border-line p-3">
+            <input type="radio" name="selforder-routing" value={value} checked={settings.selforder_routing === value} onChange={() => onChange({ ...settings, selforder_routing: value })} className="mt-1 size-5 accent-primary" />
+            <span><span className="block font-medium text-ink">{label}</span><span className="text-sm text-ink-muted">{description}</span></span>
+          </label>
+        ))}
+      </fieldset>
+
+      {settings.selforder_routing === 'auto' && (
+        <div role="alert" className="flex gap-3 rounded-lg border border-warning/40 bg-warning-soft p-4 text-sm text-ink">
+          <AlertTriangle className="mt-0.5 size-5 shrink-0 text-warning" aria-hidden="true" />
+          <p><strong>Pesanan belum dibayar akan langsung masuk dapur.</strong> Mode ini hanya berlaku untuk Bayar di Kasir; QRIS dan transfer tetap wajib diverifikasi.</p>
+        </div>
+      )}
+    </section>
+  );
 }
 
 function StoreProfileSettings({ settings, onChange }: StoreSettingsProps) {
@@ -840,6 +1011,9 @@ function TableAreaSettings({ settings, onChange }: TableSettingsProps) {
   const [editingArea, setEditingArea] = useState<Area | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'add' | 'edit'>('add');
+  const [areaToDelete, setAreaToDelete] = useState<Area | null>(null);
+  const [deletingArea, setDeletingArea] = useState(false);
+  const [deleteAreaError, setDeleteAreaError] = useState('');
 
   const handleChange = (field: keyof typeof defaultTableSettings, value: any) => {
     onChange({ ...settings, [field]: value });
@@ -877,9 +1051,36 @@ function TableAreaSettings({ settings, onChange }: TableSettingsProps) {
   };
 
   const handleDeleteArea = (areaId: string) => {
-    if (confirm('Apakah Anda yakin ingin menghapus area ini?')) {
-      const updatedAreas = settings.areas.filter(a => a.id !== areaId);
-      handleChange('areas', updatedAreas);
+    const request = requestAreaDeletion(settings.areas, areaId);
+    setDeleteAreaError('');
+    setAreaToDelete(request.areaToDelete);
+  };
+
+  const closeDeleteAreaDialog = () => {
+    if (deletingArea) return;
+
+    setDeleteAreaError('');
+    setAreaToDelete(null);
+  };
+
+  const confirmDeleteArea = async () => {
+    if (!areaToDelete || deletingArea) return;
+
+    setDeletingArea(true);
+    setDeleteAreaError('');
+
+    try {
+      await Promise.resolve();
+      handleChange(
+        'areas',
+        confirmAreaDeletion(settings.areas, areaToDelete),
+      );
+      setAreaToDelete(null);
+    } catch (error) {
+      console.error('Failed to remove area from settings:', error);
+      setDeleteAreaError('Gagal menghapus area. Silakan coba lagi.');
+    } finally {
+      setDeletingArea(false);
     }
   };
 
@@ -913,6 +1114,7 @@ function TableAreaSettings({ settings, onChange }: TableSettingsProps) {
                 <Button 
                   variant="ghost" 
                   size="sm"
+                  aria-label={`Hapus area ${area.name}`}
                   onClick={() => handleDeleteArea(area.id)}
                 >
                   Hapus
@@ -1011,6 +1213,54 @@ function TableAreaSettings({ settings, onChange }: TableSettingsProps) {
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={Boolean(areaToDelete)}
+        onClose={closeDeleteAreaDialog}
+        title="Hapus area?"
+        role="alertdialog"
+        descriptionId="delete-area-description"
+        closeOnBackdrop={false}
+        showCloseButton={false}
+        size="sm"
+        footer={(
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={closeDeleteAreaDialog}
+              disabled={deletingArea}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              onClick={confirmDeleteArea}
+              loading={deletingArea}
+              disabled={deletingArea}
+            >
+              Hapus area
+            </Button>
+          </>
+        )}
+      >
+        <div aria-busy={deletingArea}>
+          <p id="delete-area-description" className="text-pretty text-sm text-ink-secondary">
+            Area <strong className="text-ink">{areaToDelete?.name}</strong> akan dihapus dari konfigurasi.
+            Simpan perubahan pengaturan untuk menerapkannya.
+          </p>
+          {deleteAreaError && (
+            <p
+              role="alert"
+              aria-live="assertive"
+              className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+            >
+              {deleteAreaError}
+            </p>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 }

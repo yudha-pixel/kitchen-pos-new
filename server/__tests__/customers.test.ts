@@ -8,15 +8,19 @@ describe('Customers API', () => {
   let authToken: string;
   let customerId: string;
   let adminUserId: string;
+  let cashierUserId: string;
+  let cashierToken: string;
 
   beforeAll(async () => {
-    // Get admin role
+    // Get admin and cashier roles
     const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+    const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+    const fixtureSuffix = `${Date.now()}_${randomUUID().slice(0, 8)}`;
     
     // Create admin user for testing
     const adminUser = await prisma.profile.create({
       data: {
-        username: `customer_admin_test_${Date.now()}`,
+        username: `customer_admin_test_${fixtureSuffix}`,
         full_name: 'Customer Admin Test',
         password_hash: 'hash',
         role_id: adminRole!.id,
@@ -24,10 +28,25 @@ describe('Customers API', () => {
     });
     adminUserId = adminUser.id;
 
-    // Generate auth token
+    const cashierUser = await prisma.profile.create({
+      data: {
+        username: `customer_cashier_test_${fixtureSuffix}`,
+        full_name: 'Customer Cashier Test',
+        password_hash: 'hash',
+        role_id: cashierRole!.id,
+      },
+    });
+    cashierUserId = cashierUser.id;
+
+    // Generate production-shaped auth tokens backed by real users
     const jwt = require('jsonwebtoken');
     authToken = jwt.sign(
-      { userId: adminUserId, role: 'admin' },
+      { id: adminUserId, username: adminUser.username, role: 'admin' },
+      process.env.JWT_SECRET || 'test-secret',
+      { expiresIn: '1h' }
+    );
+    cashierToken = jwt.sign(
+      { id: cashierUserId, username: cashierUser.username, role: 'cashier' },
       process.env.JWT_SECRET || 'test-secret',
       { expiresIn: '1h' }
     );
@@ -35,6 +54,9 @@ describe('Customers API', () => {
     // Clean up test data
     await prisma.customer.deleteMany({
       where: { phone: { startsWith: 'TEST_' } }
+    });
+    await prisma.profile.deleteMany({
+      where: { id: { in: [adminUserId, cashierUserId] } }
     });
   });
 
@@ -48,7 +70,7 @@ describe('Customers API', () => {
   describe('POST /customers', () => {
     it('should create a new customer', async () => {
       const response = await request(app)
-        .post('/customers')
+        .post('/api/customers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Test Customer',
@@ -69,7 +91,7 @@ describe('Customers API', () => {
 
     it('should require name and phone', async () => {
       const response = await request(app)
-        .post('/customers')
+        .post('/api/customers')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           email: 'test@example.com'
@@ -81,7 +103,7 @@ describe('Customers API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .post('/customers')
+        .post('/api/customers')
         .send({
           name: 'Test Customer',
           phone: 'TEST_08123456789'
@@ -94,7 +116,7 @@ describe('Customers API', () => {
   describe('GET /customers', () => {
     it('should get all customers', async () => {
       const response = await request(app)
-        .get('/customers')
+        .get('/api/customers')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -103,7 +125,7 @@ describe('Customers API', () => {
 
     it('should require authentication', async () => {
       const response = await request(app)
-        .get('/customers');
+        .get('/api/customers');
 
       expect(response.status).toBe(401);
     });
@@ -112,7 +134,7 @@ describe('Customers API', () => {
   describe('GET /customers/:id', () => {
     it('should get a customer by ID', async () => {
       const response = await request(app)
-        .get(`/customers/${customerId}`)
+        .get(`/api/customers/${customerId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -121,7 +143,7 @@ describe('Customers API', () => {
 
     it('should return 404 for non-existent customer', async () => {
       const response = await request(app)
-        .get(`/customers/${randomUUID()}`)
+        .get(`/api/customers/${randomUUID()}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -131,7 +153,7 @@ describe('Customers API', () => {
   describe('PUT /customers/:id', () => {
     it('should update a customer', async () => {
       const response = await request(app)
-        .put(`/customers/${customerId}`)
+        .put(`/api/customers/${customerId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Updated Customer',
@@ -144,15 +166,9 @@ describe('Customers API', () => {
     });
 
     it('should require admin role', async () => {
-      const jwt = require('jsonwebtoken');
-      const userToken = jwt.sign(
-        { userId: randomUUID(), role: 'user' },
-        process.env.JWT_SECRET || 'test-secret',
-        { expiresIn: '1h' }
-      );
       const response = await request(app)
-        .put(`/customers/${customerId}`)
-        .set('Authorization', `Bearer ${userToken}`)
+        .put(`/api/customers/${customerId}`)
+        .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           name: 'Updated Customer'
         });
@@ -164,7 +180,7 @@ describe('Customers API', () => {
   describe('PATCH /customers/:id/toggle-active', () => {
     it('should toggle customer active status', async () => {
       const response = await request(app)
-        .patch(`/customers/${customerId}/toggle-active`)
+        .patch(`/api/customers/${customerId}/toggle-active`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -175,7 +191,7 @@ describe('Customers API', () => {
   describe('DELETE /customers/:id', () => {
     it('should delete a customer', async () => {
       const response = await request(app)
-        .delete(`/customers/${customerId}`)
+        .delete(`/api/customers/${customerId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(204);
@@ -183,7 +199,7 @@ describe('Customers API', () => {
 
     it('should return 404 for deleted customer', async () => {
       const response = await request(app)
-        .get(`/customers/${customerId}`)
+        .get(`/api/customers/${customerId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);

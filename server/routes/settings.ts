@@ -3,10 +3,40 @@ import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { SELF_ORDER_PAYMENT_METHODS } from '../../src/features/self-order/paymentMethods';
+import { resolveSelfOrderPaymentInstructions } from '../../src/features/self-order/paymentMethods';
 
 const router = Router();
 
 const SELF_ORDER_PAYMENT_METHOD_IDS = Object.keys(SELF_ORDER_PAYMENT_METHODS);
+
+function validateSelfOrderSettings(data: any, current: any): string | null {
+  const methods = data.selforder_payment_methods ?? current?.selforder_payment_methods ?? ['cashier'];
+  const instructions = resolveSelfOrderPaymentInstructions(
+    data.selforder_payment_instructions ?? current?.selforder_payment_instructions
+  );
+
+  if (!Array.isArray(methods)) return 'selforder_payment_methods must be an array of method ids';
+  if (methods.length === 0) return 'At least one self-order payment method must be enabled';
+  const unknown = methods.filter((id: unknown) => typeof id !== 'string' || !SELF_ORDER_PAYMENT_METHOD_IDS.includes(id as string));
+  if (unknown.length) return `Unknown payment method id(s): ${unknown.join(', ')}. Allowed: ${SELF_ORDER_PAYMENT_METHOD_IDS.join(', ')}`;
+  for (const id of ['qris', 'transfer'] as const) {
+    if (methods.includes(id) && !instructions[id]?.instructions) {
+      return `${id.toUpperCase()} instructions are required when the method is enabled`;
+    }
+  }
+  const imageUrl = instructions.qris?.image_url;
+  if (imageUrl) {
+    try {
+      if (new URL(imageUrl).protocol !== 'https:') return 'QRIS image URL must use HTTPS';
+    } catch {
+      return 'QRIS image URL must be a valid HTTPS URL';
+    }
+  }
+  if (data.selforder_routing !== undefined && !['review', 'auto'].includes(data.selforder_routing)) {
+    return "selforder_routing must be 'review' or 'auto'";
+  }
+  return null;
+}
 
 // GET /api/settings - Get app settings
 router.get('/', authMiddleware, requirePermission('settings.view'), async (req, res) => {
@@ -43,6 +73,8 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
 
     // Get the first settings record
     let settings = await prisma.appSettings.findFirst();
+    const validationError = validateSelfOrderSettings(data, settings);
+    if (validationError) return res.status(400).json({ error: validationError });
     
     if (settings) {
       // Update existing settings - only update fields that are provided
@@ -129,27 +161,14 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
       // An unknown id here would silently disappear at render time; rejecting it at
       // the boundary makes the misconfiguration visible instead.
       if (data.selforder_payment_methods !== undefined) {
-        if (!Array.isArray(data.selforder_payment_methods)) {
-          return res.status(400).json({ error: 'selforder_payment_methods must be an array of method ids' });
-        }
-        const unknown = data.selforder_payment_methods.filter(
-          (id: unknown) => typeof id !== 'string' || !SELF_ORDER_PAYMENT_METHOD_IDS.includes(id)
-        );
-        if (unknown.length > 0) {
-          return res.status(400).json({
-            error: `Unknown payment method id(s): ${unknown.join(', ')}. Allowed: ${SELF_ORDER_PAYMENT_METHOD_IDS.join(', ')}`,
-          });
-        }
-        if (data.selforder_payment_methods.length === 0) {
-          return res.status(400).json({ error: 'At least one self-order payment method must be enabled' });
-        }
         updateData.selforder_payment_methods = data.selforder_payment_methods;
       }
 
+      if (data.selforder_payment_instructions !== undefined) {
+        updateData.selforder_payment_instructions = resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions);
+      }
+
       if (data.selforder_routing !== undefined) {
-        if (!['review', 'auto'].includes(data.selforder_routing)) {
-          return res.status(400).json({ error: "selforder_routing must be 'review' or 'auto'" });
-        }
         updateData.selforder_routing = data.selforder_routing;
       }
 
@@ -236,6 +255,9 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
           cashier_count: data.cashier_count || 2,
           waiter_count: data.waiter_count || 3,
           require_2fa: data.require_2fa !== undefined ? data.require_2fa : false,
+          selforder_payment_methods: data.selforder_payment_methods ?? ['cashier'],
+          selforder_payment_instructions: resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions) as any,
+          selforder_routing: data.selforder_routing ?? 'review',
         },
       });
     }

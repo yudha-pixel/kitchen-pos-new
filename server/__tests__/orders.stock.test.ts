@@ -32,7 +32,7 @@ const createdOrderIds: string[] = [];
 
 async function createTestIngredient(overrides: Partial<{ current_stock: number; unit: string; min_stock: number }> = {}) {
   const res = await request(app)
-    .post('/ingredients')
+    .post('/api/ingredients')
     .set('Authorization', `Bearer ${token}`)
     .send({
       name: `TestIngredient-${randomUUID()}`,
@@ -48,7 +48,7 @@ async function createTestIngredient(overrides: Partial<{ current_stock: number; 
 
 async function createTestProduct() {
   const res = await request(app)
-    .post('/products')
+    .post('/api/products')
     .set('Authorization', `Bearer ${token}`)
     .send({
       name: `TestProduct-${randomUUID()}`,
@@ -63,7 +63,7 @@ async function createTestProduct() {
 
 async function createTestRecipe(menuItemId: string, ingredientId: string, quantityRequired: number, unit: string) {
   const res = await request(app)
-    .post('/recipes')
+    .post('/api/recipes')
     .set('Authorization', `Bearer ${token}`)
     .send({
       menu_item_id: menuItemId,
@@ -78,7 +78,7 @@ async function createTestRecipe(menuItemId: string, ingredientId: string, quanti
 function postOrder(productId: string, quantity: number, id = randomUUID()) {
   createdOrderIds.push(id);
   return request(app)
-    .post('/orders')
+    .post('/api/orders')
     .set('Authorization', `Bearer ${token}`)
     .send({
       order: { id, total_amount: quantity * 10000, payment_method: 'cash' },
@@ -93,7 +93,7 @@ beforeAll(async () => {
   expect(loginRes.status).toBe(200);
   token = loginRes.body.token;
 
-  const categoriesRes = await request(app).get('/categories');
+  const categoriesRes = await request(app).get('/api/categories');
   expect(categoriesRes.status).toBe(200);
   expect(categoriesRes.body.length).toBeGreaterThan(0);
   categoryId = categoriesRes.body[0].id;
@@ -112,7 +112,7 @@ afterAll(async () => {
   // Recipes must be deleted before their ingredients (FK restrict).
   for (const productId of createdProductIds) {
     await request(app)
-      .delete(`/recipes/menu/${productId}`)
+      .delete(`/api/recipes/menu/${productId}`)
       .set('Authorization', `Bearer ${token}`);
   }
   // Now that every order/order_item referencing these test products has been
@@ -147,7 +147,7 @@ describe('POST /orders - Recipe -> Ingredient stock consumption', () => {
     const orderId = randomUUID();
     createdOrderIds.push(orderId);
     const res = await request(app)
-      .post('/orders')
+      .post('/api/orders')
       .set('Authorization', `Bearer ${token}`)
       .send({
         order: { id: orderId, total_amount: 20000, payment_method: 'cash' },

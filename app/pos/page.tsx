@@ -12,7 +12,7 @@ import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { db } from '@/src/lib/db';
 import { PaymentModal } from '@/src/components/pos/PaymentModal';
 import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
-import { formatCurrency } from '@/src/lib/utils';
+import { formatRupiah as formatCurrency } from '@/src/lib/format';
 import { checkStockAvailability, deductStockForSale } from '@/src/features/inventory/recipeApiService';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useTables } from '@/src/hooks/useTables';
@@ -974,7 +974,7 @@ export default function POSPage() {
       
       if (insufficientStockItems.length > 0) {
         const errorMessages = insufficientStockItems.map(item => {
-          const ingredients = item.insufficientIngredients.map(ing => 
+          const ingredients = item.insufficientIngredients.map((ing: { name: string; required: number; available: number; unit: string }) =>
             `${ing.name} (butuh: ${ing.required}, tersedia: ${ing.available} ${ing.unit})`
           ).join(', ');
           return `${item.productName}: ${ingredients}`;

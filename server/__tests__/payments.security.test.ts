@@ -29,7 +29,7 @@ const createdPaymentIds: string[] = [];
 
 async function createTestOrder(totalAmount: number) {
   const res = await request(app)
-    .post('/orders')
+    .post('/api/orders')
     .set('Authorization', `Bearer ${token}`)
     .send({
       order: { id: randomUUID(), total_amount: totalAmount, payment_method: 'cash' },
@@ -45,7 +45,7 @@ beforeAll(async () => {
   expect(loginRes.status).toBe(200);
   token = loginRes.body.token;
 
-  const categoriesRes = await request(app).get('/categories');
+  const categoriesRes = await request(app).get('/api/categories');
   expect(categoriesRes.status).toBe(200);
   categoryId = categoriesRes.body[0]?.id;
 });
@@ -65,7 +65,7 @@ describe('POST /payments - security hardening', () => {
     const order = await createTestOrder(50000);
 
     const res = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .send({ order_id: order.id, gateway: 'midtrans', payment_method: 'qris' });
 
     expect(res.status).toBe(401);
@@ -75,7 +75,7 @@ describe('POST /payments - security hardening', () => {
     const order = await createTestOrder(75000);
 
     const res = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({
         order_id: order.id,
@@ -98,7 +98,7 @@ describe('POST /payments - security hardening', () => {
     const order = await createTestOrder(123000);
 
     const res = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: order.id, gateway: 'xendit', payment_method: 'va' });
 
@@ -109,7 +109,7 @@ describe('POST /payments - security hardening', () => {
 
   it('returns 404 for a non-existent order', async () => {
     const res = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: randomUUID(), gateway: 'midtrans', payment_method: 'qris' });
 
@@ -120,14 +120,14 @@ describe('POST /payments - security hardening', () => {
     const order = await createTestOrder(20000);
 
     const first = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: order.id, gateway: 'midtrans', payment_method: 'qris' });
     expect(first.status).toBe(201);
     createdPaymentIds.push(first.body.id);
 
     const second = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: order.id, gateway: 'midtrans', payment_method: 'qris' });
     expect(second.status).toBe(400);
@@ -143,14 +143,14 @@ describe('PATCH /payments/:id/status - security hardening', () => {
   it('rejects requests without an auth token (401)', async () => {
     const order = await createTestOrder(40000);
     const paymentRes = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: order.id, gateway: 'midtrans', payment_method: 'qris' });
     expect(paymentRes.status).toBe(201);
     createdPaymentIds.push(paymentRes.body.id);
 
     const res = await request(app)
-      .patch(`/payments/${paymentRes.body.id}/status`)
+      .patch(`/api/payments/${paymentRes.body.id}/status`)
       .send({ status: 'paid' });
 
     expect(res.status).toBe(401);
@@ -166,14 +166,14 @@ describe('PATCH /payments/:id/status - security hardening', () => {
   it('allows an authenticated request to update payment status and cascades order completion', async () => {
     const order = await createTestOrder(60000);
     const paymentRes = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: order.id, gateway: 'midtrans', payment_method: 'qris' });
     expect(paymentRes.status).toBe(201);
     createdPaymentIds.push(paymentRes.body.id);
 
     const res = await request(app)
-      .patch(`/payments/${paymentRes.body.id}/status`)
+      .patch(`/api/payments/${paymentRes.body.id}/status`)
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'paid' });
 
@@ -187,14 +187,14 @@ describe('PATCH /payments/:id/status - security hardening', () => {
   it('rejects a request with an invalid/expired token (401)', async () => {
     const order = await createTestOrder(30000);
     const paymentRes = await request(app)
-      .post('/payments')
+      .post('/api/payments')
       .set('Authorization', `Bearer ${token}`)
       .send({ order_id: order.id, gateway: 'midtrans', payment_method: 'qris' });
     expect(paymentRes.status).toBe(201);
     createdPaymentIds.push(paymentRes.body.id);
 
     const res = await request(app)
-      .patch(`/payments/${paymentRes.body.id}/status`)
+      .patch(`/api/payments/${paymentRes.body.id}/status`)
       .set('Authorization', 'Bearer not-a-real-token')
       .send({ status: 'paid' });
 

@@ -18,8 +18,8 @@ interface OrderStatusInfo {
 
 const statusMap: Record<OrderStatus, OrderStatusInfo> = {
   pending: {
-    label: 'Menunggu Konfirmasi',
-    description: 'Pesanan Anda sedang diverifikasi oleh restoran',
+    label: 'Menunggu verifikasi pembayaran',
+    description: 'Staf akan memeriksa referensi pembayaran sebelum pesanan dikirim ke dapur.',
     icon: Clock,
     color: 'text-yellow-600',
   },
@@ -87,10 +87,11 @@ export default function OrderStatusPage() {
 
       if (isOnline) {
         try {
-          const api = await import('@/src/lib/api');
-          const order = await api.fetchOrder(orderId) as any;
+          const { getCustomerOrder } = await import('@/src/features/self-order/selfOrderService');
+          const customerOrder = await getCustomerOrder(orderId) as any;
+          const order = customerOrder ?? await (await import('@/src/lib/api')).fetchOrder(orderId) as any;
           setOrderData(order);
-          setOrderStatus(order.status as OrderStatus);
+          setOrderStatus(customerOrder && order.status === 'accepted' ? 'confirmed' : order.status as OrderStatus);
           setLoading(false);
           return;
         } catch (apiErr) {
@@ -172,7 +173,9 @@ export default function OrderStatusPage() {
     );
   }
 
-  const statusInfo = statusMap[orderStatus];
+  const statusInfo = orderStatus === 'pending' && orderData?.payment_status === 'unpaid'
+    ? { ...statusMap.pending, label: 'Menunggu konfirmasi kasir', description: 'Pesanan akan diproses sesuai routing Bayar di Kasir restoran.' }
+    : statusMap[orderStatus];
   const StatusIcon = statusInfo.icon;
 
   return (
