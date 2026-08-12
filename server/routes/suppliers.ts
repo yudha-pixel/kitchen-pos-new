@@ -50,7 +50,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 // POST /suppliers - Create new supplier
 router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { name, phone, email, address } = req.body;
+    const { name, phone, email, address, pic_name, pic_mobile, category, moq_amount, moq_unit, payment_terms, performance_notes, is_active } = req.body;
     
     const supplier = await prisma.supplier.create({
       data: {
@@ -58,6 +58,14 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
         phone,
         email: email || null,
         address: address || null,
+        pic_name: pic_name || null,
+        pic_mobile: pic_mobile || null,
+        category: category || null,
+        moq_amount: moq_amount ? parseFloat(moq_amount) : null,
+        moq_unit: moq_unit || null,
+        payment_terms: payment_terms || 'net 30',
+        performance_notes: performance_notes || null,
+        is_active: is_active !== undefined ? is_active : true,
       },
     });
     
@@ -71,7 +79,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 // PUT /suppliers/:id - Update supplier
 router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
   try {
-    const { name, phone, email, address } = req.body;
+    const { name, phone, email, address, pic_name, pic_mobile, category, moq_amount, moq_unit, payment_terms, performance_notes, is_active } = req.body;
     
     const supplier = await prisma.supplier.update({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
@@ -80,6 +88,14 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
         phone,
         email: email || null,
         address: address || null,
+        pic_name: pic_name || null,
+        pic_mobile: pic_mobile || null,
+        category: category || null,
+        moq_amount: moq_amount ? parseFloat(moq_amount) : null,
+        moq_unit: moq_unit || null,
+        payment_terms: payment_terms || 'net 30',
+        performance_notes: performance_notes || null,
+        is_active: is_active !== undefined ? is_active : true,
       },
     });
     

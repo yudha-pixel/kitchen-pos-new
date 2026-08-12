@@ -838,6 +838,12 @@ model Supplier {
   address         String?
   payment_terms   String?        @default("net 30") // Default payment terms
   tax_id          String?        // NPWP for Indonesia
+  pic_name        String?        // Contact Person name
+  pic_mobile      String?        // Contact Person mobile/WhatsApp
+  category        String?        // Supply category (e.g., Dairy & Cheese, Meat, Dry Goods, Vegetables)
+  moq_amount      Decimal?       @db.Decimal(15, 2) // Minimum Order Quantity (nominal)
+  moq_unit        String?        // MOQ unit (e.g., "Rp", "kg", "pcs")
+  performance_notes String?      @db.Text // Vendor performance notes (delivery quality, timeliness, etc.)
   is_active       Boolean        @default(true)
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
@@ -850,6 +856,7 @@ model Supplier {
 
   @@index([name])
   @@index([is_active])
+  @@index([category])
   @@map("suppliers")
 }
 
