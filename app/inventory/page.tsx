@@ -24,9 +24,11 @@ import { useToast } from '@/src/components/ui/Toast';
 import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
 import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
 import { getIngredientsWithStatus, syncRecipeIngredientsToInventory } from '@/src/features/inventory/recipeApiService';
-import { validateUnitPrice, convertToSmallestUnit, convertFromSmallestUnit, getSmallestUnit, calculateUnitCostFromPackage } from '@/src/features/inventory/unitConversion';
+import { validateUnitPrice, convertToSmallestUnit, calculateUnitCostFromPackage } from '@/src/features/inventory/unitConversion';
 import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
+import { createStockRequest } from '@/src/features/inventory/recipeApiService';
+import { useRouter } from 'next/navigation';
 
 interface InventoryItem {
   id: string;
@@ -143,7 +145,9 @@ const MOCK_ITEMS: InventoryItem[] = [
 export default function InventoryPage() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const router = useRouter();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [detailTab, setDetailTab] = useState<'details' | 'activity'>('details');
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -153,6 +157,8 @@ export default function InventoryPage() {
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [columnsModalOpen, setColumnsModalOpen] = useState(false);
   const [addItemModalOpen, setAddItemModalOpen] = useState(false);
+  const [editItemModalOpen, setEditItemModalOpen] = useState(false);
+  const [bulkRequestModalOpen, setBulkRequestModalOpen] = useState(false);
   const [adjustmentType, setAdjustmentType] = useState<StockAdjustmentType>('add');
   const [adjustmentQuantity, setAdjustmentQuantity] = useState('');
   const [adjustmentReason, setAdjustmentReason] = useState('');
@@ -161,9 +167,15 @@ export default function InventoryPage() {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
   const [visibleColumns, setVisibleColumns] = useState<string[]>(['name', 'sku', 'category', 'onHand', 'status', 'unitCost']);
+  const [bulkRequestType, setBulkRequestType] = useState('restock');
+  const [bulkDestination, setBulkDestination] = useState('');
+  const [bulkRequesterRole, setBulkRequesterRole] = useState('Kitchen Staff');
+  const [outlets, setOutlets] = useState<any[]>([]);
+  const [customQuantities, setCustomQuantities] = useState<Record<string, string>>({});
   const [newItem, setNewItem] = useState({
     name: '',
     sku: '',
+    barcode: '',
     category: '',
     categoryId: '',
     unit: '',
@@ -173,6 +185,17 @@ export default function InventoryPage() {
     packagePrice: '',
     packageSize: '',
     packageUnit: '',
+  });
+  const [editItem, setEditItem] = useState({
+    id: '',
+    name: '',
+    sku: '',
+    barcode: '',
+    categoryId: '',
+    unit: '',
+    unitPrice: '',
+    minStock: '',
+    supplierId: '',
   });
   const [ingredientCategories, setIngredientCategories] = useState<{ id: string; name: string }[]>([]);
 
@@ -201,6 +224,25 @@ export default function InventoryPage() {
     loadIngredientCategories();
   }, []);
 
+  // Fetch outlets for bulk request modal
+  useEffect(() => {
+    const fetchOutlets = async () => {
+      try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/api/outlets`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setOutlets(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch outlets:', error);
+      }
+    };
+    fetchOutlets();
+  }, []);
+
   // Load inventory data from API
   useEffect(() => {
     const loadData = async () => {
@@ -216,22 +258,22 @@ export default function InventoryPage() {
         }
         
         const inventoryItems: InventoryItem[] = ingredients.map(ing => {
-          const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+          const status = ing.current_stock <= 0 ? 'Out of Stock' :
                         ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
-        
-        // Convert price back to original unit for display
-        const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
-        
+
+        // Use database price directly (already in correct unit)
+        const displayPrice = ing.unit_price;
+
         return {
           id: ing.id,
           name: ing.name,
-          sku: undefined,
-          category: undefined,
+          sku: ing.sku || undefined,
+          category: ing.category_name || undefined,
           onHand: `${ing.current_stock} ${ing.unit}`,
           status,
           unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
           unit: ing.unit,
-          barcode: undefined,
+          barcode: ing.barcode || undefined,
           supplier: ing.supplier_name || 'Unknown',
           sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString('id-ID')}`,
           reorderPoint: `${ing.min_stock} ${ing.unit}`,
@@ -257,10 +299,32 @@ export default function InventoryPage() {
 
   const loadAdjustmentHistory = async (ingredientId: string) => {
     try {
-      const history = await getStockAdjustmentHistory(ingredientId, 10);
+      const token = getToken();
+      const res = await fetch(`${API_BASE_URL}/api/ingredients/${ingredientId}/stock-logs?page=1&limit=10`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Failed to load stock logs: ${res.status}`);
+      const data = await res.json();
+      // Transform StockLog data to match the expected format
+      const history: StockAdjustment[] = data.logs.map((log: any) => ({
+        id: log.id,
+        adjustmentType: log.type,
+        adjustmentQuantity: log.quantity,
+        previousStock: 0, // StockLog doesn't track previous stock
+        newStock: 0, // StockLog doesn't track new stock directly
+        adjustedAt: log.created_at,
+        reason: log.notes,
+      }));
       setAdjustmentHistory(history);
     } catch (error) {
       console.error('Failed to load adjustment history:', error);
+      // Fallback to old method if API fails
+      try {
+        const history = await getStockAdjustmentHistory(ingredientId, 10);
+        setAdjustmentHistory(history);
+      } catch (fallbackError) {
+        console.error('Fallback also failed:', fallbackError);
+      }
     }
   };
 
@@ -289,9 +353,8 @@ export default function InventoryPage() {
 
   const handleImport = async () => {
     const fileInput = document.getElementById('csvFile') as HTMLInputElement;
-    const typeSelect = document.getElementById('importType') as HTMLSelectElement;
     const file = fileInput.files?.[0];
-    
+
     if (!file) {
       toast('error', 'Please select a CSV file');
       return;
@@ -300,28 +363,69 @@ export default function InventoryPage() {
     setProcessing(true);
     try {
       const csvData = await file.text();
-      const importType = typeSelect.value as 'ingredients' | 'suppliers' | 'all';
-      const result = await importInventoryData(
-        csvData,
-        importType,
-        user?.id || 'system',
-        user?.username || 'System'
-      );
-      
+      const token = getToken();
+
+      const response = await fetch(`${API_BASE_URL}/api/ingredients/import`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ csvData }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Failed to import data');
+      }
+
+      const result = await response.json();
+
       if (result.success) {
-        toast('success', `Imported ${result.imported} records successfully`);
-        window.location.reload();
+        toast('success', result.message || `Imported ${result.imported} records successfully`);
         setImportModalOpen(false);
+
+        // Log errors if any
+        if (result.errors && result.errors.length > 0) {
+          console.warn('Import errors:', result.errors);
+          toast('warning', `${result.errors.length} rows had errors. Check console for details.`);
+        }
+
+        // Reload data from API
+        const ingredients = await getIngredientsWithStatus();
+        const inventoryItems: InventoryItem[] = ingredients.map(ing => {
+          const status = ing.current_stock <= 0 ? 'Out of Stock' :
+                        ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
+
+          const displayPrice = ing.unit_price;
+
+          return {
+            id: ing.id,
+            name: ing.name,
+            sku: ing.sku || undefined,
+            category: ing.category_name || undefined,
+            onHand: `${ing.current_stock} ${ing.unit}`,
+            status,
+            unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
+            unit: ing.unit,
+            barcode: ing.barcode || undefined,
+            supplier: ing.supplier_name || 'Unknown',
+            sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString('id-ID')}`,
+            reorderPoint: `${ing.min_stock} ${ing.unit}`,
+            description: '',
+            committed: '0',
+            available: `${ing.current_stock} ${ing.unit}`,
+            lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+          };
+        });
+
+        setItems(inventoryItems);
       } else {
         toast('error', result.message || 'Failed to import data');
       }
-      
-      if (result.errors.length > 0) {
-        console.warn('Import errors:', result.errors);
-      }
     } catch (error) {
       console.error('Import error:', error);
-      toast('error', 'Failed to import inventory data');
+      toast('error', error instanceof Error ? error.message : 'Failed to import inventory data');
     } finally {
       setProcessing(false);
     }
@@ -357,8 +461,8 @@ export default function InventoryPage() {
           const status = ing.current_stock <= 0 ? 'Out of Stock' : 
                         ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
           
-          // Convert price back to original unit for display
-          const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
+          // Use database price directly (already in correct unit)
+          const displayPrice = ing.unit_price;
           
           return {
             id: ing.id!,
@@ -393,6 +497,95 @@ export default function InventoryPage() {
     }
   };
 
+  const handleEditItem = async () => {
+    if (!editItem.name || !editItem.unit) {
+      toast('error', 'Name and Unit are required');
+      return;
+    }
+
+    // Validate unit price
+    const unitPrice = parseFloat(editItem.unitPrice);
+    if (isNaN(unitPrice) || unitPrice < 0) {
+      toast('error', 'Unit Cost must be a valid positive number');
+      return;
+    }
+
+    // Validate min stock
+    const minStock = parseFloat(editItem.minStock);
+    if (isNaN(minStock) || minStock < 0) {
+      toast('error', 'Reorder Point must be a valid positive number');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      // Convert to smallest unit for storage consistency
+      const converted = convertToSmallestUnit(unitPrice, editItem.unit);
+
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/ingredients/${editItem.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: editItem.name,
+          sku: editItem.sku || null,
+          barcode: editItem.barcode || null,
+          unit: editItem.unit,
+          min_stock: minStock,
+          unit_price: converted.price,
+          supplier_id: editItem.supplierId || null,
+          category_id: editItem.categoryId || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Gagal mengupdate item');
+      }
+
+      toast('success', 'Item updated successfully');
+      setEditItemModalOpen(false);
+
+      // Reload data from API
+      const ingredients = await getIngredientsWithStatus();
+      const inventoryItems: InventoryItem[] = ingredients.map(ing => {
+        const status = ing.current_stock <= 0 ? 'Out of Stock' :
+                      ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
+
+        const displayPrice = ing.unit_price;
+
+        return {
+          id: ing.id,
+          name: ing.name,
+          sku: ing.sku || undefined,
+          category: ing.category_name || undefined,
+          onHand: `${ing.current_stock} ${ing.unit}`,
+          status,
+          unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
+          unit: ing.unit,
+          barcode: ing.barcode || undefined,
+          supplier: ing.supplier_name || 'Unknown',
+          sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString('id-ID')}`,
+          reorderPoint: `${ing.min_stock} ${ing.unit}`,
+          description: '',
+          committed: '0',
+          available: `${ing.current_stock} ${ing.unit}`,
+          lastUpdated: new Date(ing.updated_at).toLocaleString('id-ID'),
+        };
+      });
+
+      setItems(inventoryItems);
+    } catch (error) {
+      console.error('Edit item error:', error);
+      toast('error', 'Failed to update item');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const handleRefresh = async () => {
     setLoading(true);
     try {
@@ -406,12 +599,11 @@ export default function InventoryPage() {
       const ingredients = await getIngredientsWithStatus();
       
       const inventoryItems: InventoryItem[] = ingredients.map(ing => {
-        const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+        const status = ing.current_stock <= 0 ? 'Out of Stock' :
                       ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
-        
-        // Convert price back to original unit for display
-        const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
-        
+
+        const displayPrice = ing.unit_price;
+
         return {
           id: ing.id,
           name: ing.name,
@@ -444,6 +636,177 @@ export default function InventoryPage() {
 
   const handleAddItem = async () => {
     setAddItemModalOpen(true);
+  };
+
+  const handleToggleSelectItem = (itemId: string) => {
+    const newSelected = new Set(selectedItemIds);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItemIds(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    if (selectedItemIds.size === filteredItems.length) {
+      setSelectedItemIds(new Set());
+    } else {
+      setSelectedItemIds(new Set(filteredItems.map(item => item.id)));
+    }
+  };
+
+  const handleBulkRequest = async () => {
+    if (selectedItemIds.size === 0) {
+      toast('error', 'Pilih minimal satu item untuk diajukan');
+      return;
+    }
+    // Initialize custom quantities with auto-calculated values
+    const initialQuantities: Record<string, string> = {};
+    items.filter(item => selectedItemIds.has(item.id)).forEach(item => {
+      const currentStock = parseFloat(item.onHand.split(' ')[0]) || 0;
+      const minStock = parseFloat(item.reorderPoint.split(' ')[0]) || 0;
+      const autoQuantity = Math.max(minStock * 2 - currentStock, minStock);
+      initialQuantities[item.id] = autoQuantity.toString();
+    });
+    setCustomQuantities(initialQuantities);
+    // Set default role based on user role if available
+    if (user?.role) {
+      const roleMapping: Record<string, string> = {
+        'admin': 'System Administrator',
+        'manager': 'Operations Manager',
+        'kitchen_staff': 'Kitchen Staff',
+        'bar_staff': 'Bar / Front of House',
+        'inventory_manager': 'Inventory/Store Manager',
+      };
+      setBulkRequesterRole(roleMapping[user.role] || 'Kitchen Staff');
+    }
+    setBulkRequestModalOpen(true);
+  };
+
+  const handleAutoRestock = async () => {
+    const outOfStockItems = items.filter(item => item.status === 'Out of Stock' || item.status === 'Low Stock');
+    if (outOfStockItems.length === 0) {
+      toast('info', 'Tidak ada item yang perlu di-restock');
+      return;
+    }
+    setSelectedItemIds(new Set(outOfStockItems.map(item => item.id)));
+    
+    // Initialize custom quantities with auto-calculated values
+    const initialQuantities: Record<string, string> = {};
+    outOfStockItems.forEach(item => {
+      const currentStock = parseFloat(item.onHand.split(' ')[0]) || 0;
+      const minStock = parseFloat(item.reorderPoint.split(' ')[0]) || 0;
+      const autoQuantity = Math.max(minStock * 2 - currentStock, minStock);
+      initialQuantities[item.id] = autoQuantity.toString();
+    });
+    setCustomQuantities(initialQuantities);
+    
+    // Set default role based on user role if available
+    if (user?.role) {
+      const roleMapping: Record<string, string> = {
+        'admin': 'System Administrator',
+        'manager': 'Operations Manager',
+        'kitchen_staff': 'Kitchen Staff',
+        'bar_staff': 'Bar / Front of House',
+        'inventory_manager': 'Inventory/Store Manager',
+      };
+      setBulkRequesterRole(roleMapping[user.role] || 'Kitchen Staff');
+    }
+    
+    setBulkRequestModalOpen(true);
+  };
+
+  const handleBulkRequestSubmit = async () => {
+    if (selectedItemIds.size === 0) {
+      toast('error', 'Pilih minimal satu item');
+      return;
+    }
+
+    if (!bulkDestination) {
+      toast('error', 'Mohon pilih lokasi tujuan / cabang');
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const selectedItems = items.filter(item => selectedItemIds.has(item.id));
+      let successCount = 0;
+      let failCount = 0;
+
+      for (const item of selectedItems) {
+        try {
+          // Use custom quantity if provided, otherwise calculate auto quantity
+          const quantityToRequest = customQuantities[item.id] 
+            ? parseFloat(customQuantities[item.id])
+            : (() => {
+                const currentStock = parseFloat(item.onHand.split(' ')[0]) || 0;
+                const minStock = parseFloat(item.reorderPoint.split(' ')[0]) || 0;
+                return Math.max(minStock * 2 - currentStock, minStock);
+              })();
+
+          if (quantityToRequest <= 0) {
+            console.warn(`Skipping ${item.name} - invalid quantity`);
+            continue;
+          }
+
+          let combinedNotes = '';
+          if (bulkRequestType || bulkDestination || bulkRequesterRole) {
+            const additionalInfo = [];
+            if (bulkRequestType) {
+              const typeLabels = {
+                restock: 'Restock',
+                transfer: 'Transfer Antar Gudang',
+                production: 'Keperluan Produksi',
+              };
+              additionalInfo.push(`Tipe: ${typeLabels[bulkRequestType as keyof typeof typeLabels] || bulkRequestType}`);
+            }
+            if (bulkDestination) {
+              const outlet = outlets.find((o: any) => o.id === bulkDestination);
+              additionalInfo.push(`Tujuan: ${outlet?.name || bulkDestination}`);
+            }
+            if (bulkRequesterRole) {
+              additionalInfo.push(`Pengaju: ${bulkRequesterRole}`);
+            }
+            if (additionalInfo.length > 0) {
+              combinedNotes = additionalInfo.join(' | ');
+            }
+          }
+
+          await createStockRequest({
+            ingredient_id: item.id,
+            ingredient_name: item.name,
+            quantity_requested: quantityToRequest,
+            unit: item.unit,
+            notes: combinedNotes || undefined,
+          });
+          successCount++;
+        } catch (error) {
+          console.error(`Failed to create request for ${item.name}:`, error);
+          failCount++;
+        }
+      }
+
+      if (successCount > 0) {
+        toast('success', `${successCount} permintaan stok berhasil dibuat${failCount > 0 ? `, ${failCount} gagal` : ''}`);
+        setBulkRequestModalOpen(false);
+        setSelectedItemIds(new Set());
+        setBulkRequestType('restock');
+        setBulkDestination('');
+        setBulkRequesterRole('Kitchen Staff');
+        setCustomQuantities({});
+        
+        // Navigate to stock approvals page
+        router.push('/inventory/stock-approvals');
+      } else {
+        toast('error', 'Semua permintaan gagal dibuat');
+      }
+    } catch (error) {
+      console.error('Bulk request error:', error);
+      toast('error', 'Gagal membuat permintaan massal');
+    } finally {
+      setProcessing(false);
+    }
   };
 
   const handleSaveNewItem = async () => {
@@ -533,6 +896,7 @@ export default function InventoryPage() {
       setNewItem({
         name: '',
         sku: '',
+        barcode: '',
         category: '',
         categoryId: '',
         unit: '',
@@ -550,12 +914,11 @@ export default function InventoryPage() {
       
       const inventoryItems: InventoryItem[] = ingredients.map(ing => {
         const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
-        const status = ing.current_stock <= 0 ? 'Out of Stock' : 
+        const status = ing.current_stock <= 0 ? 'Out of Stock' :
                       ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
-        
-        // Convert price back to original unit for display
-        const displayPrice = convertFromSmallestUnit(ing.unit_price, getSmallestUnit(ing.unit), ing.unit).price;
-        
+
+        const displayPrice = ing.unit_price;
+
         return {
           id: ing.id!,
           name: ing.name,
@@ -635,7 +998,21 @@ export default function InventoryPage() {
                   <DollarSign className="h-4 w-4 text-green-500" />
                   <span className="text-xs font-medium text-green-700">Total Value</span>
                 </div>
-                <div className="text-2xl font-bold text-green-900">Rp 12.5M</div>
+                <div className="text-2xl font-bold text-green-900">
+                  Rp {(() => {
+                    const totalValue = items.reduce((sum, item) => {
+                      const price = parseFloat(item.unitCost.replace(/[^0-9]/g, '')) || 0;
+                      const stock = parseFloat(item.onHand.split(' ')[0]) || 0;
+                      return sum + (price * stock);
+                    }, 0);
+                    if (totalValue >= 1000000) {
+                      return `${(totalValue / 1000000).toFixed(1)}M`;
+                    } else if (totalValue >= 1000) {
+                      return `${(totalValue / 1000).toFixed(1)}K`;
+                    }
+                    return totalValue.toLocaleString('id-ID');
+                  })()}
+                </div>
               </div>
             </div>
           </div>
@@ -674,6 +1051,16 @@ export default function InventoryPage() {
                   <RotateCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
                   Refresh
                 </button>
+                {selectedItemIds.size > 0 && (
+                  <button onClick={handleBulkRequest} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+                    <Plus className="h-4 w-4" />
+                    Ajukan Permintaan ({selectedItemIds.size})
+                  </button>
+                )}
+                <button onClick={handleAutoRestock} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700">
+                  <RotateCw className="h-4 w-4" />
+                  Auto-Restock Kritis
+                </button>
                 <button onClick={handleAddItem} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700">
                   <Plus className="h-4 w-4" />
                   Add Item
@@ -688,12 +1075,21 @@ export default function InventoryPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedItemIds.size === filteredItems.length && filteredItems.length > 0}
+                        onChange={handleSelectAll}
+                        className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                      />
+                    </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Item Name</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">SKU</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">On-Hand</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Unit Cost</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Reorder Point</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200">
@@ -705,6 +1101,14 @@ export default function InventoryPage() {
                         selectedItemId === item.id ? 'bg-violet-50' : ''
                       }`}
                     >
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selectedItemIds.has(item.id)}
+                          onChange={() => handleToggleSelectItem(item.id)}
+                          className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                        />
+                      </td>
                       <td className="px-4 py-3 text-sm font-medium text-slate-900">{item.name}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{item.sku}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{item.category}</td>
@@ -726,6 +1130,7 @@ export default function InventoryPage() {
                         </span>
                       </td>
                       <td className="px-4 py-3 text-sm text-slate-600">{item.unitCost}</td>
+                      <td className="px-4 py-3 text-sm text-slate-600">{item.reorderPoint}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -866,14 +1271,47 @@ export default function InventoryPage() {
                       </div>
                     </div>
 
-                    {/* Stock Adjustment Button */}
-                    <button
-                      onClick={() => setAdjustmentModalOpen(true)}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
-                    >
-                      <Sliders className="h-4 w-4" />
-                      Adjust Stock
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => {
+                          if (selectedItem) {
+                            // Find the category ID from the category name
+                            const category = ingredientCategories.find(c => c.name === selectedItem.category);
+                            const categoryId = category?.id || '';
+
+                            // Extract numeric value from unit cost (format: "Rp 15000")
+                            const unitCostValue = selectedItem.unitCost.replace(/[^0-9]/g, '');
+
+                            // Extract numeric value from reorder point (format: "10 kg")
+                            const minStockValue = selectedItem.reorderPoint.split(' ')[0] || '0';
+
+                            setEditItem({
+                              id: selectedItem.id,
+                              name: selectedItem.name,
+                              sku: selectedItem.sku || '',
+                              barcode: selectedItem.barcode || '',
+                              categoryId: categoryId,
+                              unit: selectedItem.unit,
+                              unitPrice: unitCostValue,
+                              minStock: minStockValue,
+                              supplierId: '',
+                            });
+                            setEditItemModalOpen(true);
+                          }
+                        }}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-slate-600 text-white text-sm font-medium hover:bg-slate-700"
+                      >
+                        Edit Item
+                      </button>
+                      <button
+                        onClick={() => setAdjustmentModalOpen(true)}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
+                      >
+                        <Sliders className="h-4 w-4" />
+                        Adjust Stock
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <div className="space-y-3">
@@ -981,16 +1419,9 @@ export default function InventoryPage() {
               </button>
             </div>
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium text-slate-700">Import Type</label>
-                <select
-                  id="importType"
-                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                >
-                  <option value="ingredients">Ingredients Only</option>
-                  <option value="suppliers">Suppliers Only</option>
-                  <option value="all">All Data</option>
-                </select>
+              <div className="text-sm text-slate-600 mb-2">
+                <p className="font-medium mb-1">CSV Format:</p>
+                <p className="text-xs">Item Name, SKU, Category, Unit, Unit Cost, Selling Price, Reorder Point</p>
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">CSV File</label>
@@ -1170,6 +1601,16 @@ export default function InventoryPage() {
                 />
               </div>
               <div>
+                <label className="text-sm font-medium text-slate-700">Barcode</label>
+                <input
+                  type="text"
+                  value={newItem.barcode}
+                  onChange={(e) => setNewItem({ ...newItem, barcode: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter Barcode"
+                />
+              </div>
+              <div>
                 <label className="text-sm font-medium text-slate-700">Category</label>
                 <select
                   value={newItem.categoryId}
@@ -1185,13 +1626,21 @@ export default function InventoryPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700">Unit *</label>
-                  <input
-                    type="text"
+                  <select
                     value={newItem.unit}
                     onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
                     className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                    placeholder="e.g., g, ml, pcs"
-                  />
+                  >
+                    <option value="">Pilih satuan</option>
+                    <option value="kg">kg</option>
+                    <option value="liter">liter</option>
+                    <option value="pack">pack</option>
+                    <option value="botol">botol</option>
+                    <option value="kaleng">kaleng</option>
+                    <option value="sisir">sisir</option>
+                    <option value="tabung">tabung</option>
+                    <option value="box">box</option>
+                  </select>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-slate-700">Unit Price (Direct)</label>
@@ -1269,7 +1718,307 @@ export default function InventoryPage() {
           </div>
         </div>
       )}
+
+      {/* Edit Item Modal */}
+      {editItemModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-slate-900">Edit Item</h2>
+              <button
+                onClick={() => setEditItemModalOpen(false)}
+                className="p-1 rounded hover:bg-slate-100"
+              >
+                <X className="h-4 w-4 text-slate-400" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700">Name *</label>
+                <input
+                  type="text"
+                  value={editItem.name}
+                  onChange={(e) => setEditItem({ ...editItem, name: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter item name"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">SKU</label>
+                <input
+                  type="text"
+                  value={editItem.sku}
+                  onChange={(e) => setEditItem({ ...editItem, sku: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter SKU"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Barcode</label>
+                <input
+                  type="text"
+                  value={editItem.barcode}
+                  onChange={(e) => setEditItem({ ...editItem, barcode: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="Enter Barcode"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Category</label>
+                <select
+                  value={editItem.categoryId}
+                  onChange={(e) => setEditItem({ ...editItem, categoryId: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Tanpa kategori</option>
+                  {ingredientCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Unit *</label>
+                <select
+                  value={editItem.unit}
+                  onChange={(e) => setEditItem({ ...editItem, unit: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                >
+                  <option value="">Pilih satuan</option>
+                  <option value="kg">kg</option>
+                  <option value="liter">liter</option>
+                  <option value="pack">pack</option>
+                  <option value="botol">botol</option>
+                  <option value="kaleng">kaleng</option>
+                  <option value="sisir">sisir</option>
+                  <option value="tabung">tabung</option>
+                  <option value="box">box</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Unit Cost *</label>
+                <input
+                  type="number"
+                  value={editItem.unitPrice}
+                  onChange={(e) => setEditItem({ ...editItem, unitPrice: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-slate-700">Reorder Point *</label>
+                <input
+                  type="number"
+                  value={editItem.minStock}
+                  onChange={(e) => setEditItem({ ...editItem, minStock: e.target.value })}
+                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                  placeholder="0"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  onClick={() => setEditItemModalOpen(false)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEditItem}
+                  disabled={processing}
+                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {processing ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
+    {/* Bulk Request Modal */}
+    {bulkRequestModalOpen && (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-slate-200">
+            <div>
+              <h2 className="text-lg font-bold text-slate-900">Ajukan Permintaan Massal</h2>
+              <p className="text-xs text-slate-500 mt-1">Permintaan Pembelian/Restock ke Manajemen & Supplier</p>
+            </div>
+            <button
+              onClick={() => setBulkRequestModalOpen(false)}
+              className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+            >
+              <X className="h-5 w-5 text-slate-400" />
+            </button>
+          </div>
+
+          {/* Modal Body */}
+          <div className="p-6 space-y-4">
+            <div className="bg-blue-50 rounded-lg p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
+                  Purchase Request
+                </span>
+                <span className="text-xs text-blue-600">Permintaan Pembelian Baru (Bukan Transfer Internal)</span>
+              </div>
+              <p className="text-sm text-blue-800">
+                <span className="font-medium">{selectedItemIds.size} item terpilih</span> akan diajukan untuk restock.
+              </p>
+              <p className="text-xs text-blue-600 mt-1">
+                Jumlah dapat disesuaikan di bawah ini. Default dihitung otomatis (2x min_stock - stok saat ini).
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Tipe Permintaan
+              </label>
+              <select
+                value={bulkRequestType}
+                onChange={(e) => setBulkRequestType(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              >
+                <option value="restock">Restock</option>
+                <option value="transfer">Transfer Antar Gudang</option>
+                <option value="production">Keperluan Produksi</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Pengaju / Requester
+              </label>
+              <select
+                value={bulkRequesterRole}
+                onChange={(e) => setBulkRequesterRole(e.target.value)}
+                className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              >
+                <option value="Kitchen Staff">Staf Dapur (Kitchen Staff)</option>
+                <option value="Bar / Front of House">Staf Bar / Front of House</option>
+                <option value="Operations Manager">Manajer Operasional (Operations Manager)</option>
+                <option value="Inventory/Store Manager">Kepala Gudang (Inventory/Store Manager)</option>
+                <option value="System Administrator">System Administrator</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                Lokasi Tujuan / Cabang <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={bulkDestination}
+                onChange={(e) => setBulkDestination(e.target.value)}
+                className={`w-full px-4 py-2 rounded-lg border text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent ${
+                  !bulkDestination ? 'border-red-300 bg-red-50' : 'border-slate-200'
+                }`}
+              >
+                <option value="">Pilih lokasi tujuan...</option>
+                {outlets.map((outlet: any) => (
+                  <option key={outlet.id} value={outlet.id}>
+                    {outlet.name} ({outlet.code})
+                  </option>
+                ))}
+              </select>
+              {!bulkDestination && (
+                <p className="text-xs text-red-600 mt-1">Lokasi tujuan wajib dipilih</p>
+              )}
+            </div>
+
+            {/* Selected Items with Custom Quantities */}
+            <div className="bg-slate-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+              <p className="text-xs font-medium text-slate-500 mb-3">Item yang akan diajukan (sesuaikan jumlah jika perlu):</p>
+              <div className="space-y-3">
+                {items.filter(item => selectedItemIds.has(item.id)).map((item) => {
+                  const currentStock = parseFloat(item.onHand.split(' ')[0]) || 0;
+                  const minStock = parseFloat(item.reorderPoint.split(' ')[0]) || 0;
+                  const autoQuantity = Math.max(minStock * 2 - currentStock, minStock);
+                  const customQuantity = customQuantities[item.id] || autoQuantity.toString();
+                  const unitPrice = parseFloat(item.unitCost.replace(/[^0-9]/g, '')) || 0;
+                  const itemCost = parseFloat(customQuantity) * unitPrice;
+
+                  return (
+                    <div key={item.id} className="flex items-center gap-3 text-xs">
+                      <div className="flex-1">
+                        <p className="font-medium text-slate-900">{item.name}</p>
+                        <p className="text-slate-500">Stok: {item.onHand} | Min: {item.reorderPoint}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={customQuantity}
+                          onChange={(e) => setCustomQuantities(prev => ({
+                            ...prev,
+                            [item.id]: e.target.value
+                          }))}
+                          min="0.01"
+                          step="0.01"
+                          className="w-20 px-2 py-1 rounded border border-slate-200 text-right focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        />
+                        <span className="text-slate-500 w-8">{item.unit}</span>
+                      </div>
+                      <div className="text-right w-24">
+                        <p className="font-medium text-slate-900">Rp {itemCost.toLocaleString('id-ID')}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Estimated Total Cost */}
+            <div className="bg-green-50 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-green-800">Estimasi Total Biaya</p>
+                  <p className="text-xs text-green-600">Berdasarkan harga satuan saat ini</p>
+                </div>
+                <p className="text-lg font-bold text-green-900">
+                  Rp {(() => {
+                    const total = items
+                      .filter(item => selectedItemIds.has(item.id))
+                      .reduce((sum, item) => {
+                        const customQuantity = customQuantities[item.id] || '0';
+                        const unitPrice = parseFloat(item.unitCost.replace(/[^0-9]/g, '')) || 0;
+                        return sum + (parseFloat(customQuantity) * unitPrice);
+                      }, 0);
+                    return total.toLocaleString('id-ID');
+                  })()}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+            <button
+              onClick={() => {
+                setBulkRequestModalOpen(false);
+                setSelectedItemIds(new Set());
+                setBulkRequestType('restock');
+                setBulkDestination('');
+                setCustomQuantities({});
+              }}
+              disabled={processing}
+              className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleBulkRequestSubmit}
+              disabled={processing || !bulkDestination}
+              className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? 'Memproses...' : 'Ajukan Permintaan'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </ResponsiveShell>
   );
 }

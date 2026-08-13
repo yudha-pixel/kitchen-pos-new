@@ -22,14 +22,28 @@ const rejectStockRequestSchema = z.object({
   rejection_reason: z.string().optional(),
 });
 
-// GET /stock-requests - List all requests, optionally filtered by status, level, or user
-router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
+// GET /stock-requests - List all requests, optionally filtered by status, level, user, or date range
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
-    const { status, approval_level, requested_by } = req.query;
+    const { status, approval_level, requested_by, dateFrom, dateTo } = req.query;
     const where: any = {};
     if (status) where.status = status as string;
     if (approval_level) where.approval_level = parseInt(approval_level as string);
     if (requested_by) where.requested_by = requested_by as string;
+    
+    // Date range filtering
+    if (dateFrom || dateTo) {
+      where.requested_at = {};
+      if (dateFrom) {
+        where.requested_at.gte = new Date(dateFrom as string);
+      }
+      if (dateTo) {
+        // Include the entire end date by setting to end of day
+        const endDate = new Date(dateTo as string);
+        endDate.setHours(23, 59, 59, 999);
+        where.requested_at.lte = endDate;
+      }
+    }
 
     const requests = await prisma.stockRequest.findMany({
       where,
@@ -48,7 +62,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), 
 });
 
 // GET /stock-requests/:id - Get details with approval history
-router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const request = await prisma.stockRequest.findUnique({
@@ -243,7 +257,12 @@ router.patch('/:id/approve-finance', authMiddleware, requirePermission(PERMISSIO
     const username = req.user?.username;
     const { notes } = req.body;
 
-    const request = await prisma.stockRequest.findUnique({ where: { id } });
+    const request = await prisma.stockRequest.findUnique({ 
+      where: { id },
+      include: {
+        ingredient: true,
+      },
+    });
     if (!request) {
       return res.status(404).json({ error: 'Stock request not found' });
     }
@@ -266,6 +285,27 @@ router.patch('/:id/approve-finance', authMiddleware, requirePermission(PERMISSIO
         supplier: true,
       },
     });
+
+    // Update ingredient stock when approved by finance
+    if (request.ingredient) {
+      const newStock = request.ingredient.current_stock + request.quantity_requested;
+      await prisma.ingredient.update({
+        where: { id: request.ingredient_id },
+        data: { current_stock: newStock },
+      });
+
+      // Create stock adjustment log
+      await prisma.stockAdjustmentLog.create({
+        data: {
+          ingredient_id: request.ingredient_id,
+          previous_stock: request.ingredient.current_stock,
+          new_stock: newStock,
+          adjustment_type: 'purchase',
+          reason: `Stock request #${request.id} approved`,
+          user_id: userId,
+        },
+      });
+    }
 
     // Create quotation request automatically
     await prisma.quotationRequest.create({

@@ -751,8 +751,8 @@ export async function cancelStockRequest(
 ): Promise<{ success: boolean; message: string }> {
   try {
     const token = getToken();
-    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}/cancel`, {
-      method: 'PATCH',
+    const response = await fetch(`${API_BASE_URL}/api/stock-requests/${requestId}`, {
+      method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` },
     });
     if (!response.ok) {

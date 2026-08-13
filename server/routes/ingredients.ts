@@ -4,6 +4,7 @@ import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
 import { createCategorySchema, updateCategorySchema } from '../lib/validation';
+import { getStockLogs, getActiveBatches, getInventoryKPI } from '../lib/inventoryService';
 
 const router = Router();
 
@@ -67,7 +68,13 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), a
         name: 'asc',
       },
     });
-    res.json(ingredients);
+    // Add supplier_name and category_name for easier frontend access
+    const enrichedIngredients = ingredients.map(ing => ({
+      ...ing,
+      supplier_name: ing.supplier?.name || ing.ad_hoc_supplier || null,
+      category_name: ing.category?.name || null,
+    }));
+    res.json(enrichedIngredients);
   } catch (error) {
     console.error('Error fetching ingredients:', error);
     res.status(500).json({ error: 'Failed to fetch ingredients' });
@@ -178,11 +185,13 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view)
 // POST /ingredients - Create new ingredient
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create), async (req: Request, res: Response) => {
   try {
-    const { name, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id } = req.body;
+    const { name, sku, barcode, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id } = req.body;
 
     const ingredient = await prisma.ingredient.create({
       data: {
         name,
+        sku: sku || null,
+        barcode: barcode || null,
         current_stock: parseFloat(current_stock) || 0,
         unit,
         min_stock: parseFloat(min_stock) || 0,
@@ -198,8 +207,14 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create)
         category: true,
       },
     });
-    
-    res.status(201).json(ingredient);
+
+    const enrichedIngredient = {
+      ...ingredient,
+      supplier_name: ingredient.supplier?.name || ingredient.ad_hoc_supplier || null,
+      category_name: ingredient.category?.name || null,
+    };
+
+    res.status(201).json(enrichedIngredient);
   } catch (error) {
     console.error('Error creating ingredient:', error);
     res.status(500).json({ error: 'Failed to create ingredient' });
@@ -209,9 +224,9 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create)
 // PUT /ingredients/:id - Update ingredient
 router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit), async (req: Request, res: Response) => {
   try {
-    const { name, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id, adjustment_type, reason } = req.body;
+    const { name, sku, barcode, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id, adjustment_type, reason } = req.body;
     const userId = (req as any).user?.id;
-    
+
     // Get current ingredient for audit log
     const currentIngredient = await prisma.ingredient.findUnique({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
@@ -228,6 +243,8 @@ router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit)
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
       data: {
         name,
+        sku: sku !== undefined ? (sku || null) : currentIngredient.sku,
+        barcode: barcode !== undefined ? (barcode || null) : currentIngredient.barcode,
         current_stock: newStock,
         unit,
         min_stock: parseFloat(min_stock) || 0,
@@ -261,8 +278,14 @@ router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit)
         },
       });
     }
-    
-    res.json(ingredient);
+
+    const enrichedIngredient = {
+      ...ingredient,
+      supplier_name: ingredient.supplier?.name || ingredient.ad_hoc_supplier || null,
+      category_name: ingredient.category?.name || null,
+    };
+
+    res.json(enrichedIngredient);
   } catch (error) {
     console.error('Error updating ingredient:', error);
     res.status(500).json({ error: 'Failed to update ingredient' });
@@ -279,6 +302,170 @@ router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.de
   } catch (error) {
     console.error('Error deleting ingredient:', error);
     res.status(500).json({ error: 'Failed to delete ingredient' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Feature 5: Stock Logs and Active Batches Endpoints
+// ---------------------------------------------------------------------------
+
+// GET /ingredients/:id/stock-logs - Get paginated stock logs for an ingredient
+router.get('/:id/stock-logs', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const page = parseInt(String(req.query.page ?? '1'), 10);
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? '50'), 10) || 50, 1), 200);
+
+    const result = await getStockLogs(id, page, limit);
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching stock logs:', error);
+    res.status(500).json({ error: 'Failed to fetch stock logs' });
+  }
+});
+
+// GET /ingredients/:id/active-batches - Get active batches for an ingredient
+router.get('/:id/active-batches', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
+  try {
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const batches = await getActiveBatches(id);
+    res.json(batches);
+  } catch (error) {
+    console.error('Error fetching active batches:', error);
+    res.status(500).json({ error: 'Failed to fetch active batches' });
+  }
+});
+
+// GET /ingredients/kpi - Get inventory KPI summary for dashboard
+router.get('/kpi', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (_req: Request, res: Response) => {
+  try {
+    const kpi = await getInventoryKPI();
+    res.json(kpi);
+  } catch (error) {
+    console.error('Error fetching inventory KPI:', error);
+    res.status(500).json({ error: 'Failed to fetch inventory KPI' });
+  }
+});
+
+// POST /ingredients/import - Import ingredients from CSV
+router.post('/import', authMiddleware, requirePermission(PERMISSIONS.inventory.create), async (req: Request, res: Response) => {
+  try {
+    const { csvData } = req.body;
+
+    if (!csvData || typeof csvData !== 'string') {
+      return res.status(400).json({ error: 'CSV data is required' });
+    }
+
+    const lines = csvData.split('\n').filter(line => line.trim());
+    const errors: string[] = [];
+    let imported = 0;
+    let updated = 0;
+
+    // Parse CSV with flexible column mapping
+    // Expected headers: Item Name, SKU, Category, Unit, Unit Cost, Selling Price, Reorder Point
+    const headerLine = lines[0];
+    const headers = headerLine.split(',').map(h => h.trim().toLowerCase().replace(/"/g, ''));
+
+    // Create column index mapping
+    const colMap: Record<string, number> = {};
+    headers.forEach((h, idx) => {
+      if (h.includes('name') || h.includes('item')) colMap.name = idx;
+      else if (h.includes('sku')) colMap.sku = idx;
+      else if (h.includes('category')) colMap.category = idx;
+      else if (h.includes('unit')) colMap.unit = idx;
+      else if (h.includes('cost') || h.includes('price')) colMap.unitCost = idx;
+      else if (h.includes('selling')) colMap.sellingPrice = idx;
+      else if (h.includes('reorder') || h.includes('min') || h.includes('stock')) colMap.reorderPoint = idx;
+    });
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      try {
+        const values = line.split(',').map(v => v.trim().replace(/"/g, ''));
+
+        const name = values[colMap.name] || '';
+        const sku = values[colMap.sku] || '';
+        const category = values[colMap.category] || '';
+        const unit = values[colMap.unit] || 'pcs';
+        const unitCost = parseFloat(values[colMap.unitCost]) || 0;
+        const reorderPoint = parseFloat(values[colMap.reorderPoint]) || 0;
+
+        if (!name) {
+          errors.push(`Row ${i + 1}: Name is required`);
+          continue;
+        }
+
+        // Find or create category
+        let categoryId: string | null = null;
+        if (category) {
+          const existingCategory = await prisma.ingredientCategory.findFirst({
+            where: { name: { equals: category, mode: 'insensitive' } }
+          });
+          if (existingCategory) {
+            categoryId = existingCategory.id;
+          } else {
+            const newCategory = await prisma.ingredientCategory.create({
+              data: { name: category }
+            });
+            categoryId = newCategory.id;
+          }
+        }
+
+        // Check if ingredient with same SKU exists
+        const existing = await prisma.ingredient.findFirst({
+          where: { sku: sku || name }
+        });
+
+        if (existing) {
+          // Update existing
+          await prisma.ingredient.update({
+            where: { id: existing.id },
+            data: {
+              name,
+              sku: sku || null,
+              category_id: categoryId,
+              unit,
+              unit_price: unitCost,
+              min_stock: reorderPoint,
+            }
+          });
+          updated++;
+          console.log(`✅ Updated ingredient: ${name}`);
+        } else {
+          // Create new
+          await prisma.ingredient.create({
+            data: {
+              name,
+              sku: sku || null,
+              category_id: categoryId,
+              unit,
+              unit_price: unitCost,
+              min_stock: reorderPoint,
+              current_stock: 0,
+            }
+          });
+          imported++;
+          console.log(`✅ Imported ingredient: ${name}`);
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        errors.push(`Row ${i + 1}: ${errorMsg}`);
+        console.error(`❌ Failed to import row ${i + 1}:`, err);
+      }
+    }
+
+    res.json({
+      success: true,
+      imported,
+      updated,
+      errors,
+      message: `Imported ${imported} new ingredients, updated ${updated} existing ingredients`
+    });
+  } catch (error) {
+    console.error('Import error:', error);
+    res.status(500).json({ error: 'Failed to import ingredients' });
   }
 });
 

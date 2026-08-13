@@ -19,17 +19,16 @@ import {
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import { getToken } from '@/src/lib/api';
 import {
   StockRequest,
-  getStockRequests, 
-  getStockRequestsByStatus,
   approveStockRequestSupervisor,
   approveStockRequestManager,
   approveStockRequestFinance,
   rejectStockRequest,
   recallStockRequest,
   cancelStockRequest,
-  createStockRequest 
+  createStockRequest
 } from '@/src/features/inventory/recipeApiService';
 
 type ApprovalStatus = 'all' | 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
@@ -43,26 +42,64 @@ export default function StockApprovalsPage() {
   const [loading, setLoading] = useState(true);
   const [selectedRequest, setSelectedRequest] = useState<StockRequest | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvalNotes, setApprovalNotes] = useState('');
-  const [showCreateTest, setShowCreateTest] = useState(false);
+  
+  // Create form states
+  const [ingredients, setIngredients] = useState<any[]>([]);
+  const [outlets, setOutlets] = useState<any[]>([]);
+  const [selectedIngredient, setSelectedIngredient] = useState('');
+  const [quantity, setQuantity] = useState('');
+  const [requestType, setRequestType] = useState('restock');
+  const [destinationLocation, setDestinationLocation] = useState('');
+  const [requesterRole, setRequesterRole] = useState('Kitchen Staff');
+  const [notes, setNotes] = useState('');
   
   // Filter states
   const [statusFilter, setStatusFilter] = useState<ApprovalStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [advancedFilterOpen, setAdvancedFilterOpen] = useState(false);
+  const [filterCategory, setFilterCategory] = useState('');
+  const [filterRequester, setFilterRequester] = useState('');
+  const [filterSupplier, setFilterSupplier] = useState('');
 
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      let data: StockRequest[];
-      if (statusFilter === 'all') {
-        data = await getStockRequests();
-      } else {
-        data = await getStockRequestsByStatus(statusFilter as 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled');
+      const token = getToken();
+      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (statusFilter !== 'all') {
+        params.append('status', statusFilter);
       }
+      if (dateFrom) {
+        params.append('dateFrom', dateFrom);
+      }
+      if (dateTo) {
+        params.append('dateTo', dateTo);
+      }
+      
+      const url = `${API_BASE_URL}/api/stock-requests${params.toString() ? '?' + params.toString() : ''}`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      
+      if (!response.ok) {
+        const errorBody = await response.json().catch(() => ({}));
+        console.error('API Error:', response.status, errorBody);
+        throw new Error(errorBody.error || `Failed to fetch stock requests (${response.status})`);
+      }
+      
+      const data: StockRequest[] = await response.json();
       setRequests(data);
     } catch (error) {
       console.error('Failed to fetch stock requests:', error);
@@ -71,11 +108,42 @@ export default function StockApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  }, [statusFilter, toast]);
+  }, [statusFilter, dateFrom, dateTo, toast]);
 
   useEffect(() => {
     fetchRequests();
   }, [fetchRequests]);
+
+  // Fetch ingredients and outlets for create modal
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const token = getToken();
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        
+        // Fetch ingredients
+        const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (ingredientsResponse.ok) {
+          const data = await ingredientsResponse.json();
+          setIngredients(data);
+        }
+
+        // Fetch outlets
+        const outletsResponse = await fetch(`${API_BASE_URL}/api/outlets`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (outletsResponse.ok) {
+          const data = await outletsResponse.json();
+          setOutlets(data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data:', error);
+      }
+    };
+    fetchData();
+  }, []);
 
   const handleViewDetails = (request: StockRequest) => {
     setSelectedRequest(request);
@@ -187,68 +255,81 @@ export default function StockApprovalsPage() {
     }
   };
 
-  const handleCreateTestRequest = async () => {
-    if (!user?.id) {
-      toast('error', 'Anda harus login untuk membuat permintaan');
+  const handleCreateRequest = async () => {
+    if (!selectedIngredient || !quantity) {
+      toast('error', 'Mohon pilih item dan isi jumlah');
       return;
+    }
+
+    const ingredient = ingredients.find((ing: any) => ing.id === selectedIngredient);
+    if (!ingredient) {
+      toast('error', 'Item tidak valid');
+      return;
+    }
+
+    // Build notes with additional information
+    let combinedNotes = notes || '';
+    if (requestType || destinationLocation || requesterRole) {
+      const additionalInfo = [];
+      if (requestType) {
+        const typeLabels = {
+          restock: 'Restock',
+          transfer: 'Transfer Antar Gudang',
+          production: 'Keperluan Produksi',
+        };
+        additionalInfo.push(`Tipe: ${typeLabels[requestType as keyof typeof typeLabels] || requestType}`);
+      }
+      if (destinationLocation) {
+        const outlet = outlets.find((o: any) => o.id === destinationLocation);
+        additionalInfo.push(`Tujuan: ${outlet?.name || destinationLocation}`);
+      }
+      if (requesterRole) {
+        additionalInfo.push(`Pengaju: ${requesterRole}`);
+      }
+      if (additionalInfo.length > 0) {
+        combinedNotes = combinedNotes ? `${combinedNotes}\n\n${additionalInfo.join(' | ')}` : additionalInfo.join(' | ');
+      }
     }
 
     setProcessing(true);
     try {
-      // Fetch ingredients from the API to get valid PostgreSQL IDs
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch ingredients from API');
-      }
-      
-      const ingredients = await response.json();
-      
-      if (!ingredients || ingredients.length === 0) {
-        toast('error', 'Tidak ada ingredient di database. Silakan tambahkan ingredient terlebih dahulu.');
-        return;
-      }
-      
-      // Use the first available ingredient from PostgreSQL
-      const ingredient = ingredients[0];
-      
-      // Create a test stock request with valid ingredient ID
       const requestId = await createStockRequest({
         ingredient_id: ingredient.id,
         ingredient_name: ingredient.name,
-        quantity_requested: 10,
+        quantity_requested: parseFloat(quantity),
         unit: ingredient.unit,
-        notes: 'Permintaan stok test untuk persediaan',
-        supplier_id: ingredient.supplier_id,
+        notes: combinedNotes || undefined,
+        supplier_id: ingredient.supplier_id || undefined,
       });
-      toast('success', 'Permintaan stok test berhasil dibuat');
+      toast('success', 'Permintaan stok berhasil dibuat');
+      setCreateModalOpen(false);
+      setSelectedIngredient('');
+      setQuantity('');
+      setRequestType('restock');
+      setDestinationLocation('');
+      setRequesterRole('Kitchen Staff');
+      setNotes('');
       fetchRequests();
     } catch (error) {
-      console.error('Failed to create test request:', error);
-      toast('error', 'Gagal membuat permintaan test: ' + (error instanceof Error ? error.message : 'Unknown error'));
+      console.error('Failed to create request:', error);
+      toast('error', 'Gagal membuat permintaan stok');
     } finally {
       setProcessing(false);
     }
   };
 
-  // Filter requests based on search query and date range
+  // Filter requests based on search query and advanced filters (date filtering is done on server)
   const filteredRequests = requests.filter(request => {
     const matchesSearch = 
       request.requested_by_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       request.ingredient_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (request.supplier_name && request.supplier_name.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    const matchesDateFrom = !dateFrom || new Date(request.requested_at) >= new Date(dateFrom);
-    const matchesDateTo = !dateTo || new Date(request.requested_at) <= new Date(dateTo);
+    const matchesCategory = !filterCategory || request.ingredient_name.toLowerCase().includes(filterCategory.toLowerCase());
+    const matchesRequester = !filterRequester || request.requested_by_name.toLowerCase().includes(filterRequester.toLowerCase());
+    const matchesSupplier = !filterSupplier || (request.supplier_name && request.supplier_name.toLowerCase().includes(filterSupplier.toLowerCase()));
     
-    return matchesSearch && matchesDateFrom && matchesDateTo;
+    return matchesSearch && matchesCategory && matchesRequester && matchesSupplier;
   });
 
   const getStatusBadge = (status: string) => {
@@ -291,12 +372,11 @@ export default function StockApprovalsPage() {
               <p className="text-sm text-slate-500">Kelola permintaan dan transfer stok</p>
             </div>
             <button
-              onClick={handleCreateTestRequest}
-              disabled={processing}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50"
+              onClick={() => setCreateModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
             >
               <Plus className="h-4 w-4" />
-              {processing ? 'Memproses...' : 'Buat Test Request'}
+              Buat Permintaan Stok
             </button>
           </div>
         </div>
@@ -364,10 +444,22 @@ export default function StockApprovalsPage() {
                 setStatusFilter('all');
                 setDateFrom('');
                 setDateTo('');
+                setFilterCategory('');
+                setFilterRequester('');
+                setFilterSupplier('');
               }}
               className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
             >
               Reset
+            </button>
+
+            {/* Advanced Filter Button */}
+            <button
+              onClick={() => setAdvancedFilterOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+            >
+              <Filter className="h-4 w-4" />
+              Filter Lanjutan
             </button>
           </div>
         </div>
@@ -442,13 +534,46 @@ export default function StockApprovalsPage() {
                         {getStatusBadge(request.status)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => handleViewDetails(request)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Detail
-                        </button>
+                        <div className="flex items-center justify-end gap-2">
+                          {/* Quick Action Buttons for pending requests */}
+                          {(request.status === 'pending_supervisor' || request.status === 'pending_manager' || request.status === 'pending_finance') && (
+                            <>
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setApprovalNotes('');
+                                  setRejectionReason('');
+                                  handleApprove(request.status === 'pending_supervisor' ? 'supervisor' : request.status === 'pending_manager' ? 'manager' : 'finance');
+                                }}
+                                disabled={processing}
+                                className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
+                                title="Setujui"
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedRequest(request);
+                                  setApprovalNotes('');
+                                  setRejectionReason('');
+                                  setModalOpen(true);
+                                }}
+                                disabled={processing}
+                                className="p-2 rounded-lg bg-red-100 text-red-600 hover:bg-red-200 transition-colors disabled:opacity-50"
+                                title="Tolak"
+                              >
+                                <XCircle className="h-4 w-4" />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => handleViewDetails(request)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
+                          >
+                            <Eye className="h-4 w-4" />
+                            Detail
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -524,38 +649,107 @@ export default function StockApprovalsPage() {
                 )}
               </div>
 
-              {/* Approval History */}
-              {(selectedRequest.supervisor_approved_at || selectedRequest.manager_approved_at || selectedRequest.finance_approved_at) && (
-                <div className="col-span-2">
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Riwayat Persetujuan</label>
-                  <div className="mt-2 space-y-2">
-                    {selectedRequest.supervisor_approved_at && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-slate-600">
-                          Supervisor: {selectedRequest.supervisor_name} - {formatDate(selectedRequest.supervisor_approved_at)}
-                        </span>
-                      </div>
-                    )}
-                    {selectedRequest.manager_approved_at && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-slate-600">
-                          Manager: {selectedRequest.manager_name} - {formatDate(selectedRequest.manager_approved_at)}
-                        </span>
-                      </div>
-                    )}
-                    {selectedRequest.finance_approved_at && (
-                      <div className="flex items-center gap-2 text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                        <span className="text-slate-600">
-                          Finance Director: {selectedRequest.finance_name} - {formatDate(selectedRequest.finance_approved_at)}
-                        </span>
-                      </div>
-                    )}
+              {/* Audit Trail - Riwayat Aksi */}
+              <div className="col-span-2">
+                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Riwayat Aksi (Audit Trail)</label>
+                <div className="mt-2 bg-slate-50 rounded-lg p-4 space-y-3">
+                  {/* Request Created */}
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                      <Package className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-slate-900">Permintaan Dibuat</p>
+                      <p className="text-xs text-slate-600">Oleh: {selectedRequest.requested_by_name}</p>
+                      <p className="text-xs text-slate-500">{formatDate(selectedRequest.requested_at)}</p>
+                    </div>
                   </div>
+
+                  {/* Supervisor Approval */}
+                  {selectedRequest.supervisor_approved_at && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Disetujui Supervisor</p>
+                        <p className="text-xs text-slate-600">Oleh: {selectedRequest.supervisor_name}</p>
+                        <p className="text-xs text-slate-500">{formatDate(selectedRequest.supervisor_approved_at)}</p>
+                        {selectedRequest.supervisor_notes && (
+                          <p className="text-xs text-slate-600 italic mt-1">Catatan: {selectedRequest.supervisor_notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Manager Approval */}
+                  {selectedRequest.manager_approved_at && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 text-purple-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Disetujui Manager</p>
+                        <p className="text-xs text-slate-600">Oleh: {selectedRequest.manager_name}</p>
+                        <p className="text-xs text-slate-500">{formatDate(selectedRequest.manager_approved_at)}</p>
+                        {selectedRequest.manager_notes && (
+                          <p className="text-xs text-slate-600 italic mt-1">Catatan: {selectedRequest.manager_notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Finance Approval */}
+                  {selectedRequest.finance_approved_at && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-orange-100 flex items-center justify-center">
+                        <CheckCircle className="h-4 w-4 text-orange-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Disetujui Finance Director</p>
+                        <p className="text-xs text-slate-600">Oleh: {selectedRequest.finance_name}</p>
+                        <p className="text-xs text-slate-500">{formatDate(selectedRequest.finance_approved_at)}</p>
+                        {selectedRequest.finance_notes && (
+                          <p className="text-xs text-slate-600 italic mt-1">Catatan: {selectedRequest.finance_notes}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejection */}
+                  {selectedRequest.status === 'rejected' && selectedRequest.rejected_at && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                        <XCircle className="h-4 w-4 text-red-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Ditolak</p>
+                        <p className="text-xs text-slate-600">Oleh: {selectedRequest.rejected_by_name}</p>
+                        <p className="text-xs text-slate-500">{formatDate(selectedRequest.rejected_at)}</p>
+                        {selectedRequest.rejection_reason && (
+                          <p className="text-xs text-red-600 italic mt-1">Alasan: {selectedRequest.rejection_reason}</p>
+                        )}
+                        {selectedRequest.rejection_level && (
+                          <p className="text-xs text-slate-500 mt-1">Level: {selectedRequest.rejection_level}</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cancelled */}
+                  {selectedRequest.status === 'cancelled' && (
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center">
+                        <XCircle className="h-4 w-4 text-gray-600" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-slate-900">Dibatalkan</p>
+                        <p className="text-xs text-slate-600">Oleh: {selectedRequest.requested_by_name}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
 
               {/* Approval Notes Input (for pending statuses) */}
               {(selectedRequest.status === 'pending_supervisor' || selectedRequest.status === 'pending_manager' || selectedRequest.status === 'pending_finance') && (
@@ -700,6 +894,263 @@ export default function StockApprovalsPage() {
                   )}
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Advanced Filter Modal */}
+      {advancedFilterOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <h2 className="text-lg font-bold text-slate-900">Filter Lanjutan</h2>
+              <button
+                onClick={() => setAdvancedFilterOpen(false)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Kategori / Nama Item
+                </label>
+                <input
+                  type="text"
+                  value={filterCategory}
+                  onChange={(e) => setFilterCategory(e.target.value)}
+                  placeholder="Cari berdasarkan nama item..."
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Staf Pemohon
+                </label>
+                <input
+                  type="text"
+                  value={filterRequester}
+                  onChange={(e) => setFilterRequester(e.target.value)}
+                  placeholder="Cari berdasarkan nama staf..."
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Supplier
+                </label>
+                <input
+                  type="text"
+                  value={filterSupplier}
+                  onChange={(e) => setFilterSupplier(e.target.value)}
+                  placeholder="Cari berdasarkan nama supplier..."
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="bg-slate-50 rounded-lg p-4">
+                <p className="text-xs text-slate-500">
+                  Filter ini akan bekerja bersama dengan filter status dan tanggal yang sudah ada.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+              <button
+                onClick={() => {
+                  setFilterCategory('');
+                  setFilterRequester('');
+                  setFilterSupplier('');
+                }}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              >
+                Reset Filter
+              </button>
+              <button
+                onClick={() => setAdvancedFilterOpen(false)}
+                className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Stock Request Modal */}
+      {createModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Buat Permintaan Stok</h2>
+                <p className="text-xs text-slate-500 mt-1">Permintaan Pembelian/Restock ke Manajemen & Supplier</p>
+              </div>
+              <button
+                onClick={() => setCreateModalOpen(false)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="bg-blue-50 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-600 text-white">
+                    Purchase Request
+                  </span>
+                  <span className="text-xs text-blue-600">Permintaan Pembelian Baru (Bukan Transfer Internal)</span>
+                </div>
+                <p className="text-sm text-blue-800">
+                  Formulir ini untuk mengajukan permintaan pembelian stok baru ke manajemen dan supplier.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Item Bahan Baku <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedIngredient}
+                  onChange={(e) => setSelectedIngredient(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <option value="">Pilih item...</option>
+                  {ingredients.map((ing: any) => (
+                    <option key={ing.id} value={ing.id}>
+                      {ing.name} (Stok: {ing.current_stock} {ing.unit})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Tipe Permintaan
+                </label>
+                <select
+                  value={requestType}
+                  onChange={(e) => setRequestType(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <option value="restock">Restock</option>
+                  <option value="transfer">Transfer Antar Gudang</option>
+                  <option value="production">Keperluan Produksi</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Pengaju / Requester
+                </label>
+                <select
+                  value={requesterRole}
+                  onChange={(e) => setRequesterRole(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <option value="Kitchen Staff">Staf Dapur (Kitchen Staff)</option>
+                  <option value="Bar / Front of House">Staf Bar / Front of House</option>
+                  <option value="Operations Manager">Manajer Operasional (Operations Manager)</option>
+                  <option value="Inventory/Store Manager">Kepala Gudang (Inventory/Store Manager)</option>
+                  <option value="System Administrator">System Administrator</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Lokasi Tujuan / Cabang
+                </label>
+                <select
+                  value={destinationLocation}
+                  onChange={(e) => setDestinationLocation(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <option value="">Pilih lokasi tujuan...</option>
+                  {outlets.map((outlet: any) => (
+                    <option key={outlet.id} value={outlet.id}>
+                      {outlet.name} ({outlet.code})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Jumlah <span className="text-red-500">*</span>
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(e.target.value)}
+                    placeholder="Masukkan jumlah..."
+                    min="0.01"
+                    step="0.01"
+                    className="flex-1 px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  />
+                  {selectedIngredient && (
+                    <span className="px-3 py-2 bg-slate-100 rounded-lg text-sm font-medium text-slate-700 min-w-[60px] text-center">
+                      {ingredients.find((ing: any) => ing.id === selectedIngredient)?.unit}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Catatan (opsional)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Masukkan catatan atau alasan permintaan..."
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+
+              {selectedIngredient && (
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <p className="text-sm text-slate-600">
+                    <span className="font-medium">Info Item:</span> {ingredients.find((ing: any) => ing.id === selectedIngredient)?.name}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    <span className="font-medium">Stok Saat Ini:</span> {ingredients.find((ing: any) => ing.id === selectedIngredient)?.current_stock} {ingredients.find((ing: any) => ing.id === selectedIngredient)?.unit}
+                  </p>
+                  <p className="text-sm text-slate-600">
+                    <span className="font-medium">Min Stok:</span> {ingredients.find((ing: any) => ing.id === selectedIngredient)?.min_stock} {ingredients.find((ing: any) => ing.id === selectedIngredient)?.unit}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+              <button
+                onClick={() => setCreateModalOpen(false)}
+                disabled={processing}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleCreateRequest}
+                disabled={processing}
+                className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50"
+              >
+                {processing ? 'Memproses...' : 'Buat Permintaan'}
+              </button>
             </div>
           </div>
         </div>

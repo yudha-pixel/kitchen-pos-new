@@ -615,6 +615,8 @@ model Payroll {
 model Ingredient {
   id              String          @id @default(uuid()) @db.Uuid
   name            String
+  sku             String?         @db.Text
+  barcode         String?         @db.Text
   current_stock   Float           @default(0)
   unit            String
   min_stock       Float           @default(0)
@@ -625,6 +627,11 @@ model Ingredient {
   ad_hoc_price    Float?          @default(0)
   warehouse_id    String?         @db.Uuid
   category_id     String?         @db.Uuid
+  // Multi-unit conversion support (optional fields for future use)
+  base_unit       String?         @db.Text  // Smallest unit (e.g., 'g', 'ml', 'pcs')
+  conversion_factor Float?        @default(1) // How many base units in main unit (e.g., 1000 for kg to g)
+  secondary_unit  String?         @db.Text  // Optional secondary unit for display
+  secondary_conversion_factor Float? @default(1) // Conversion to secondary unit
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
   supplier        Supplier?       @relation("IngredientSupplier", fields: [supplier_id], references: [id])
@@ -639,12 +646,53 @@ model Ingredient {
   grnItems        GoodsReceivedNoteItem[]
   prItems         PurchaseRequisitionItem[]
   pettyCashExpenses PettyCash[]   @relation("PettyCashIngredient")
+  stockBatches    StockBatch[]
+  stockLogs       StockLog[]
 
   @@index([name])
+  @@index([sku])
+  @@index([barcode])
   @@index([supplier_id])
   @@index([warehouse_id])
   @@index([category_id])
   @@map("ingredients")
+}
+
+// Stock Batch for FIFO tracking (Feature 3)
+model StockBatch {
+  id              String   @id @default(uuid()) @db.Uuid
+  ingredient_id   String   @db.Uuid
+  batch_code      String   @unique // Auto-generated batch identifier
+  quantity        Float    @default(0)
+  cost_price      Float    @default(0)
+  expiry_date     DateTime?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  ingredient      Ingredient @relation(fields: [ingredient_id], references: [id], onDelete: Cascade)
+
+  @@index([ingredient_id])
+  @@index([expiry_date])
+  @@index([created_at])
+  @@map("stock_batches")
+}
+
+// Stock Log for movement tracking (Feature 5)
+model StockLog {
+  id              String   @id @default(uuid()) @db.Uuid
+  ingredient_id   String   @db.Uuid
+  quantity        Float    // Positive for STOCK_IN, negative for STOCK_OUT
+  type            String   // STOCK_IN, STOCK_OUT, ADJUSTMENT, WASTAGE
+  reference_id    String?  // Reference to PO, GRN, Order, etc.
+  reference_type  String?  // purchase_order, goods_received_note, order, etc.
+  notes           String?
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+  ingredient      Ingredient @relation(fields: [ingredient_id], references: [id])
+
+  @@index([ingredient_id])
+  @@index([type])
+  @@index([created_at])
+  @@index([reference_id])
+  @@map("stock_logs")
 }
 
 // Ingredient categorization (e.g. "Protein", "Dairy", "Produce") — a distinct

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { createStockLog } from '../lib/inventoryService';
 
 const router = Router();
 
@@ -28,6 +29,16 @@ const generateGRNNumber = (): string => {
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
   return `GRN-${year}${month}-${random}`;
+};
+
+// Generate batch code
+const generateBatchCode = (ingredientId: string): string => {
+  const date = new Date();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
+  return `BATCH-${year}${month}${day}-${random}`;
 };
 
 // GET /goods-received-notes - List with filters
@@ -188,11 +199,44 @@ router.patch('/:id/quality-check', authMiddleware, requirePermission(PERMISSIONS
         },
       });
 
-      // Update stock for approved items
+      // Update stock for approved items (Feature 4: Create StockBatch and StockLog)
       if (item.quality_status === 'approved' && !item.stock_updated) {
+        // Get PO item to get unit cost
+        const poItem = await prisma.purchaseOrderItem.findFirst({
+          where: {
+            purchase_order_id: grn.purchase_order_id,
+            ingredient_id: item.ingredient_id,
+          },
+        });
+
+        const unitCost = poItem?.unit_price || 0;
+
+        // Create StockBatch record
+        const batchCode = item.batch_number || generateBatchCode(item.ingredient_id);
+        await prisma.stockBatch.create({
+          data: {
+            ingredient_id: item.ingredient_id,
+            batch_code: batchCode,
+            quantity: item.received_qty,
+            cost_price: unitCost,
+            expiry_date: item.expiry_date,
+          },
+        });
+
+        // Update ingredient current_stock
         await prisma.ingredient.update({
           where: { id: item.ingredient_id },
           data: { current_stock: { increment: item.received_qty } },
+        });
+
+        // Create STOCK_IN log (Feature 5)
+        await createStockLog({
+          ingredientId: item.ingredient_id,
+          quantity: item.received_qty,
+          type: 'STOCK_IN',
+          referenceId: grn.id,
+          referenceType: 'goods_received_note',
+          notes: `Stock received via GRN ${grn.grn_number}, batch ${batchCode}`,
         });
 
         await prisma.goodsReceivedNoteItem.update({
