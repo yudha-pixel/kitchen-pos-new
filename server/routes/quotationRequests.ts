@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -11,7 +13,7 @@ const createQuotationRequestSchema = z.object({
 });
 
 // GET /quotation-requests - List all quotation requests
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, stock_request_id } = req.query;
     const where: any = {};
@@ -44,7 +46,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /quotation-requests/:id - Get details
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const request = await prisma.quotationRequest.findUnique({
@@ -76,7 +78,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /quotation-requests - Create from approved stock request
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createQuotationRequestSchema.parse(req.body);
 
@@ -116,7 +118,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /quotation-requests/:id/close - Close request
-router.patch('/:id/close', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/close', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
@@ -140,7 +142,7 @@ router.patch('/:id/close', authMiddleware, async (req: Request, res: Response) =
 });
 
 // DELETE /quotation-requests/:id - Cancel request
-router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.delete), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

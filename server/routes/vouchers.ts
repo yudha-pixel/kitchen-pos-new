@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = express.Router();
 
 // Get all vouchers
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.promotions.view), async (req: Request, res: Response) => {
   try {
     const { is_active, search } = req.query;
 
@@ -35,7 +37,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Get voucher by ID
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.promotions.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const voucher = await prisma.voucher.findUnique({
@@ -54,7 +56,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Validate voucher code
-router.post('/validate', authMiddleware, async (req: Request, res: Response) => {
+router.post('/validate', authMiddleware, requirePermission(PERMISSIONS.promotions.view), async (req: Request, res: Response) => {
   try {
     const { code, purchaseAmount } = req.body;
 
@@ -97,7 +99,7 @@ router.post('/validate', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // Create new voucher
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.promotions.create), async (req: Request, res: Response) => {
   try {
     const { 
       code, 
@@ -149,7 +151,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // Update voucher
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.promotions.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { 
@@ -191,7 +193,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // Delete voucher
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.promotions.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await prisma.voucher.delete({
@@ -206,7 +208,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // Toggle voucher active status
-router.patch('/:id/toggle-active', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id/toggle-active', authMiddleware, requirePermission(PERMISSIONS.promotions.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const voucher = await prisma.voucher.findUnique({
@@ -230,7 +232,7 @@ router.patch('/:id/toggle-active', authMiddleware, requireRole('admin'), async (
 });
 
 // Increment voucher usage count
-router.post('/:id/use', authMiddleware, async (req: Request, res: Response) => {
+router.post('/:id/use', authMiddleware, requirePermission(PERMISSIONS.promotions.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const voucher = await prisma.voucher.findUnique({

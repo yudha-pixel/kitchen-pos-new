@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -30,7 +32,7 @@ const generatePONumber = (): string => {
 };
 
 // GET /purchase-orders - List with filters
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, supplier_id } = req.query;
     const where: any = {};
@@ -59,7 +61,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /purchase-orders/:id - Get details with items
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const order = await prisma.purchaseOrder.findUnique({
@@ -88,7 +90,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /purchase-orders - Create from quotation
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createPurchaseOrderSchema.parse(req.body);
     const userId = req.user?.id;
@@ -145,7 +147,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /purchase-orders/:id/review - Manager review
-router.patch('/:id/review', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/review', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -178,7 +180,7 @@ router.patch('/:id/review', authMiddleware, async (req: Request, res: Response) 
 });
 
 // PATCH /purchase-orders/:id/send - Send to supplier
-router.patch('/:id/send', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/send', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
@@ -210,7 +212,7 @@ router.patch('/:id/send', authMiddleware, async (req: Request, res: Response) =>
 });
 
 // PATCH /purchase-orders/:id/acknowledge - Supplier acknowledgement
-router.patch('/:id/acknowledge', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/acknowledge', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
@@ -234,7 +236,7 @@ router.patch('/:id/acknowledge', authMiddleware, async (req: Request, res: Respo
 });
 
 // PATCH /purchase-orders/:id/cancel - Cancel PO
-router.patch('/:id/cancel', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/cancel', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

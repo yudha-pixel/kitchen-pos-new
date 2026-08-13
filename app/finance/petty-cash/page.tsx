@@ -5,7 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
-import { DollarSign, Calendar, Filter, Download, RefreshCw, TrendingDown, TrendingUp, AlertCircle } from 'lucide-react';
+import { DollarSign, Filter, RefreshCw, TrendingDown, TrendingUp, AlertCircle } from 'lucide-react';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface PettyCashExpense {
   id: string;
@@ -50,13 +52,13 @@ export default function PettyCashPage() {
 
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, categoryFilter]);
 
   const loadData = async () => {
     setLoading(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
 
       // Build query params
       const params = new URLSearchParams();
@@ -132,7 +134,7 @@ export default function PettyCashPage() {
 
   if (authLoading || loading) {
     return (
-      <ResponsiveShell>
+      <ResponsiveShell title="Riwayat Petty Cash">
         <div className="flex items-center justify-center h-64">
           <RefreshCw className="h-8 w-8 animate-spin text-primary" />
         </div>
@@ -141,7 +143,7 @@ export default function PettyCashPage() {
   }
 
   return (
-    <ResponsiveShell>
+    <ResponsiveShell title="Riwayat Petty Cash">
       <div className="space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

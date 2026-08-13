@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -20,7 +22,7 @@ const updateWarehouseSchema = z.object({
 });
 
 // GET /warehouses - List all warehouses
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const warehouses = await prisma.warehouse.findMany({
       include: {
@@ -44,7 +46,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /warehouses/:id - Get specific warehouse
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -87,7 +89,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /warehouses - Create new warehouse (admin/manager only)
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create), async (req: Request, res: Response) => {
   try {
     const data = createWarehouseSchema.parse(req.body);
 
@@ -127,7 +129,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PUT /warehouses/:id - Update warehouse (admin/manager only)
-router.put('/:id', async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -161,7 +163,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /warehouses/:id - Delete warehouse (admin only)
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

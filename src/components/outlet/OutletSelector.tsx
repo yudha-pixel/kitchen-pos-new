@@ -9,14 +9,14 @@ export function OutletSelector() {
 
   useEffect(() => {
     loadOutlets();
-  }, []);
+  }, [loadOutlets]);
 
   if (outlets.length === 0) {
     return null;
   }
 
   return (
-    <div className="flex min-w-0 items-center gap-2 rounded-lg bg-surface px-3 py-2 shadow-sm">
+    <div className="flex min-h-11 min-w-0 items-center gap-2 rounded-lg border border-line bg-surface px-3 shadow-xs">
       <Store className="h-4 w-4 shrink-0 text-ink-muted" />
       <select
         value={selectedOutletId || ''}

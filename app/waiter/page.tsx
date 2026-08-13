@@ -396,7 +396,6 @@ export default function WaiterPage() {
           <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
             <div className="p-4 border-b">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-bold">Keranjang</h2>
                 <button
                   onClick={() => setIsCartOpen(false)}
                   className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"

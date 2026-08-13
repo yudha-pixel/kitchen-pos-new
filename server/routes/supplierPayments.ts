@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -15,7 +17,7 @@ const createPaymentSchema = z.object({
 });
 
 // GET /supplier-payments - List with filters
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, invoice_id, supplier_id } = req.query;
     const where: any = {};
@@ -43,7 +45,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /supplier-payments/:id - Get details
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const payment = await prisma.payment.findUnique({
@@ -70,7 +72,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /supplier-payments/invoice/:invoiceId - Get payments for invoice
-router.get('/invoice/:invoiceId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/invoice/:invoiceId', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const invoiceId = Array.isArray(req.params.invoiceId) ? req.params.invoiceId[0] : req.params.invoiceId;
 
@@ -90,7 +92,7 @@ router.get('/invoice/:invoiceId', authMiddleware, async (req: Request, res: Resp
 });
 
 // GET /supplier-payments/supplier/:supplierId - Get payment history
-router.get('/supplier/:supplierId', authMiddleware, async (req: Request, res: Response) => {
+router.get('/supplier/:supplierId', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const supplierId = Array.isArray(req.params.supplierId) ? req.params.supplierId[0] : req.params.supplierId;
 
@@ -110,7 +112,7 @@ router.get('/supplier/:supplierId', authMiddleware, async (req: Request, res: Re
 });
 
 // POST /supplier-payments - Record payment
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.pay), async (req: Request, res: Response) => {
   try {
     const data = createPaymentSchema.parse(req.body);
     const userId = req.user?.id;
@@ -179,7 +181,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /supplier-payments/:id/cancel - Cancel payment
-router.patch('/:id/cancel', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/cancel', authMiddleware, requirePermission(PERMISSIONS.purchasing.pay), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

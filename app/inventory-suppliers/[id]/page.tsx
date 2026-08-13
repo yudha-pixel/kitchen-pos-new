@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
+import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 import { Building2, Phone, Mail, MapPin, User, Tag, Package, Clock, CheckCircle, XCircle, ArrowLeft, FileText, Calendar, DollarSign } from 'lucide-react';
 
 export default function SupplierDetailPage() {
@@ -27,8 +30,7 @@ export default function SupplierDetailPage() {
 
   const loadSupplierData = async () => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
 
       // Fetch supplier details
       const supplierResponse = await fetch(`${API_BASE_URL}/api/suppliers/${params.id}`, {
@@ -109,29 +111,27 @@ export default function SupplierDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <div className="flex-1 flex items-center justify-center">
+      <ResponsiveShell title="Detail Supplier">
+        <div className="flex items-center justify-center py-24">
           <div className="text-gray-500">Memuat data supplier...</div>
         </div>
-      </div>
+      </ResponsiveShell>
     );
   }
 
   if (!supplier) {
     return (
-      <div className="flex h-screen bg-gray-50">
-        <div className="flex-1 flex items-center justify-center">
+      <ResponsiveShell title="Detail Supplier">
+        <div className="flex items-center justify-center py-24">
           <div className="text-gray-500">Supplier tidak ditemukan</div>
         </div>
-      </div>
+      </ResponsiveShell>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <div className="flex-1 flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-7xl mx-auto">
+    <ResponsiveShell title={supplier.name}>
+      <div className="max-w-7xl mx-auto">
             {/* Header */}
             <div className="mb-6">
               <button
@@ -341,9 +341,7 @@ export default function SupplierDetailPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </main>
       </div>
-    </div>
+    </ResponsiveShell>
   );
 }

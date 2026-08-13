@@ -11,7 +11,7 @@ interface AddProductModalProps {
   isOpen: boolean;
   onClose: () => void;
   onProductAdded: () => void;
-  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
+  canCreateProduct: boolean;
 }
 
 interface Category {
@@ -53,7 +53,7 @@ export const AddProductModal = ({
   isOpen,
   onClose,
   onProductAdded,
-  userRole = 'cashier'
+  canCreateProduct,
 }: AddProductModalProps) => {
   const [formData, setFormData] = useState(emptyForm);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -83,19 +83,8 @@ export const AddProductModal = ({
 
   const fetchIngredients = async () => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setIngredients(data);
-      }
+      const data = await api.fetchIngredients();
+      setIngredients(data as Ingredient[]);
     } catch (error) {
       console.error('Failed to fetch ingredients:', error);
     }
@@ -108,6 +97,42 @@ export const AddProductModal = ({
     }
   }, [isOpen]);
 
+  // Calculate HPP (COGS) from recipe items
+  const calculateHPP = () => recipeItems.reduce((sum, item) => sum + item.total_cost, 0);
+
+  // Add recipe item
+  const handleAddRecipeItem = () => {
+    if (!selectedIngredient || !recipeQuantity) {
+      setError('Pilih ingredient dan quantity');
+      return;
+    }
+
+    const ingredient = ingredients.find((ing) => ing.id === selectedIngredient);
+    if (!ingredient) return;
+
+    const quantity = parseFloat(recipeQuantity);
+    const totalCost = ingredient.unit_price * quantity;
+
+    setRecipeItems([
+      ...recipeItems,
+      {
+        ingredient_id: ingredient.id,
+        ingredient_name: ingredient.name,
+        quantity_required: quantity,
+        unit: ingredient.unit,
+        unit_price: ingredient.unit_price,
+        total_cost: totalCost,
+      },
+    ]);
+    setSelectedIngredient('');
+    setRecipeQuantity('');
+  };
+
+  // Remove recipe item
+  const handleRemoveRecipeItem = (index: number) => {
+    setRecipeItems(recipeItems.filter((_, i) => i !== index));
+  };
+
   const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
@@ -118,43 +143,6 @@ export const AddProductModal = ({
       const imageUrl = URL.createObjectURL(file);
       setFormData(prev => ({ ...prev, image_url: imageUrl }));
     }
-  };
-
-  // Calculate HPP (COGS) from recipe items
-  const calculateHPP = () => {
-    return recipeItems.reduce((sum, item) => sum + item.total_cost, 0);
-  };
-
-  // Add recipe item
-  const handleAddRecipeItem = () => {
-    if (!selectedIngredient || !recipeQuantity) {
-      setError('Pilih ingredient dan quantity');
-      return;
-    }
-
-    const ingredient = ingredients.find(ing => ing.id === selectedIngredient);
-    if (!ingredient) return;
-
-    const quantity = parseFloat(recipeQuantity);
-    const totalCost = ingredient.unit_price * quantity;
-
-    const newItem: RecipeItem = {
-      ingredient_id: ingredient.id,
-      ingredient_name: ingredient.name,
-      quantity_required: quantity,
-      unit: ingredient.unit,
-      unit_price: ingredient.unit_price,
-      total_cost: totalCost
-    };
-
-    setRecipeItems([...recipeItems, newItem]);
-    setSelectedIngredient('');
-    setRecipeQuantity('');
-  };
-
-  // Remove recipe item
-  const handleRemoveRecipeItem = (index: number) => {
-    setRecipeItems(recipeItems.filter((_, i) => i !== index));
   };
 
   const validateForm = () => {
@@ -183,42 +171,26 @@ export const AddProductModal = ({
     setIsSaving(true);
     setError('');
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-      
-      const payload = {
+      await api.addProduct({
         name: formData.name,
         price: Number(formData.price),
         stock_quantity: Number(formData.stock_quantity),
         image_url: formData.image_url || undefined,
         category_id: formData.category_id,
         description: formData.description || undefined,
-        recipes: recipeItems.length > 0 ? recipeItems.map(item => ({
-          ingredient_id: item.ingredient_id,
-          quantity_required: item.quantity_required,
-          unit: item.unit
-        })) : undefined
-      };
-
-      const response = await fetch(`${API_BASE_URL}/api/products/products`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload)
+        recipes: recipeItems.length > 0
+          ? recipeItems.map((item) => ({
+              ingredient_id: item.ingredient_id,
+              quantity_required: item.quantity_required,
+              unit: item.unit,
+            }))
+          : undefined,
       });
-
-      if (response.ok) {
-        toast('success', 'Produk berhasil ditambahkan');
-        onProductAdded();
-        onClose();
-        setFormData(emptyForm);
-        setRecipeItems([]);
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Gagal menambahkan produk');
-      }
+      toast('success', 'Produk berhasil ditambahkan');
+      onProductAdded();
+      onClose();
+      setFormData(emptyForm);
+      setRecipeItems([]);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Gagal menambahkan produk');
     } finally {
@@ -226,10 +198,10 @@ export const AddProductModal = ({
     }
   };
 
-  if (userRole !== 'admin' && userRole !== 'management') {
+  if (!canCreateProduct) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Akses Ditolak" size="sm">
-        <p className="text-sm text-ink-secondary">Hanya admin dan management yang dapat menambahkan produk.</p>
+        <p className="text-sm text-ink-secondary">Akun Anda tidak memiliki izin products.create.</p>
       </Modal>
     );
   }
@@ -448,7 +420,7 @@ export const AddProductModal = ({
                           {new Intl.NumberFormat('id-ID', {
                             style: 'currency',
                             currency: 'IDR',
-                            minimumFractionDigits: 0
+                            minimumFractionDigits: 0,
                           }).format(item.total_cost)}
                         </td>
                         <td className="px-3 py-2">
@@ -473,7 +445,7 @@ export const AddProductModal = ({
                     {new Intl.NumberFormat('id-ID', {
                       style: 'currency',
                       currency: 'IDR',
-                      minimumFractionDigits: 0
+                      minimumFractionDigits: 0,
                     }).format(calculateHPP())}
                   </span>
                 </div>

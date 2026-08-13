@@ -23,6 +23,7 @@ interface PendingOrder {
   total_amount: number;
   payment_method: string | null;
   payment_status: string;
+  payment_reference: string | null;
   created_at: string;
   table: { table_number: string };
   items: PendingOrderItem[];
@@ -64,7 +65,7 @@ export default function SelfOrderRequestsPage() {
     return () => clearInterval(interval);
   }, [fetchPending]);
 
-  const act = async (orderId: string, action: 'accept' | 'reject') => {
+  const act = async (orderId: string, action: 'accept' | 'reject' | 'verify-payment-and-accept') => {
     setActingOnId(orderId);
     try {
       const token = getToken();
@@ -73,9 +74,9 @@ export default function SelfOrderRequestsPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       const body = await res.json().catch(() => null);
-      if (!res.ok) throw new Error(body?.error || `Gagal ${action === 'accept' ? 'menerima' : 'menolak'} pesanan`);
+      if (!res.ok) throw new Error(body?.error || 'Gagal memproses pesanan');
 
-      toast('success', action === 'accept' ? 'Pesanan dikirim ke dapur' : 'Pesanan ditolak');
+      toast('success', action === 'reject' ? 'Pesanan ditolak' : 'Pesanan dikirim ke dapur');
       setOrders((prev) => prev.filter((o) => o.id !== orderId));
     } catch (err) {
       toast('error', err instanceof Error ? err.message : 'Terjadi kesalahan');
@@ -160,6 +161,15 @@ export default function SelfOrderRequestsPage() {
                     ))}
                   </div>
 
+                  {['qris', 'transfer'].includes(order.payment_method ?? '') && (
+                    <div className={`mb-3 rounded-lg border p-3 text-sm ${order.payment_reference ? 'border-line bg-surface-alt' : 'border-warning/40 bg-warning-soft'}`}>
+                      <p className="font-medium text-ink">Referensi pembayaran</p>
+                      <p className="mt-1 break-all text-ink-secondary">
+                        {order.payment_reference ?? 'Pesanan lama: tidak ada referensi. Verifikasi bukti secara manual sebelum melanjutkan.'}
+                      </p>
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between border-t border-line pt-3">
                     <span className="font-bold text-primary">{formatRupiah(order.total_amount)}</span>
                     <div className="flex gap-2">
@@ -172,13 +182,19 @@ export default function SelfOrderRequestsPage() {
                         Tolak
                       </button>
                       <button
-                        onClick={() => act(order.id, 'accept')}
-                        disabled={actingOnId === order.id || order.payment_status === 'pending'}
-                        title={order.payment_status === 'pending' ? 'Menunggu konfirmasi pembayaran' : undefined}
+                        onClick={() => act(
+                          order.id,
+                          ['qris', 'transfer'].includes(order.payment_method ?? '')
+                            ? 'verify-payment-and-accept'
+                            : 'accept'
+                        )}
+                        disabled={actingOnId === order.id}
                         className="flex min-h-11 items-center gap-2 rounded-lg bg-success px-4 text-sm font-medium text-on-primary hover:opacity-90 disabled:opacity-50"
                       >
                         <Check className="h-4 w-4" aria-hidden="true" />
-                        Kirim ke Dapur
+                        {['qris', 'transfer'].includes(order.payment_method ?? '')
+                          ? 'Verifikasi Pembayaran & Kirim ke Dapur'
+                          : 'Kirim ke Dapur'}
                       </button>
                     </div>
                   </div>

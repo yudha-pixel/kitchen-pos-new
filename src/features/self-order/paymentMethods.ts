@@ -8,7 +8,7 @@
  * misconfiguration hand guests the ability to mark their own bill paid.
  */
 
-export type SelfOrderPaymentType = 'counter' | 'online';
+export type SelfOrderPaymentType = 'counter' | 'manual_verification';
 
 export interface SelfOrderPaymentMethod {
   id: string;
@@ -17,29 +17,36 @@ export interface SelfOrderPaymentMethod {
   type: SelfOrderPaymentType;
 }
 
+export interface SelfOrderPaymentInstruction {
+  instructions: string;
+  image_url?: string;
+}
+
+export type SelfOrderPaymentInstructions = Partial<Record<'qris' | 'transfer', SelfOrderPaymentInstruction>>;
+
 export const SELF_ORDER_PAYMENT_METHODS: Record<string, SelfOrderPaymentMethod> = {
+  cashier: {
+    id: 'cashier',
+    label: 'Bayar di Kasir',
+    description: 'Bayar tunai, debit, atau kartu di kasir',
+    type: 'counter',
+  },
   qris: {
     id: 'qris',
     label: 'QRIS',
-    description: 'Bayar sekarang dengan scan QRIS',
-    type: 'online',
-  },
-  debit: {
-    id: 'debit',
-    label: 'Debit/Kartu',
-    description: 'Bayar sekarang dengan kartu debit/kredit',
-    type: 'online',
+    description: 'Kirim bukti referensi QRIS untuk diverifikasi staf',
+    type: 'manual_verification',
   },
   transfer: {
     id: 'transfer',
     label: 'Transfer Bank',
-    description: 'Bayar sekarang dengan transfer bank',
-    type: 'online',
+    description: 'Kirim referensi transfer untuk diverifikasi staf',
+    type: 'manual_verification',
   },
 };
 
-/** Digital payment methods only for self-order */
-export const DEFAULT_SELF_ORDER_PAYMENT_METHODS = ['qris', 'debit', 'transfer'];
+/** Safe default for fresh or invalid configuration. */
+export const DEFAULT_SELF_ORDER_PAYMENT_METHODS = ['cashier'];
 
 /**
  * Turn whatever is stored in settings into a usable method list.
@@ -61,10 +68,27 @@ export function resolveSelfOrderPaymentMethods(configured: unknown): SelfOrderPa
   return methods;
 }
 
+export function resolveSelfOrderPaymentInstructions(configured: unknown): SelfOrderPaymentInstructions {
+  if (!configured || typeof configured !== 'object' || Array.isArray(configured)) return {};
+  const source = configured as Record<string, unknown>;
+  const result: SelfOrderPaymentInstructions = {};
+
+  for (const id of ['qris', 'transfer'] as const) {
+    const raw = source[id];
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+    const value = raw as Record<string, unknown>;
+    const instructions = typeof value.instructions === 'string' ? value.instructions.trim() : '';
+    const imageUrl = typeof value.image_url === 'string' ? value.image_url.trim() : '';
+    if (instructions) result[id] = { instructions, ...(imageUrl ? { image_url: imageUrl } : {}) };
+  }
+
+  return result;
+}
+
 /**
  * The payment_status a guest-created order starts in.
  * Never 'paid' — a guest cannot confirm their own payment. `counter` methods are
- * settled by a cashier; `online` methods wait for server-side gateway verification.
+ * settled by a cashier; manual digital methods wait for staff verification.
  */
 export function initialPaymentStatus(method: SelfOrderPaymentMethod): 'unpaid' | 'pending' {
   return method.type === 'counter' ? 'unpaid' : 'pending';

@@ -9,13 +9,14 @@ import {
   FileText,
   X,
   Plus,
-  Send,
-  Package
+  Send
 } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface PRItem {
   ingredient_id: string;
@@ -87,8 +88,7 @@ export default function PurchaseRequisitionsPage() {
   const fetchRequisitions = useCallback(async () => {
     setLoading(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions`, {
         headers: {
@@ -110,8 +110,7 @@ export default function PurchaseRequisitionsPage() {
 
   const fetchIngredients = useCallback(async () => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
         headers: {
@@ -130,8 +129,7 @@ export default function PurchaseRequisitionsPage() {
 
   const fetchSuppliers = useCallback(async () => {
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/suppliers`, {
         headers: {
@@ -183,8 +181,7 @@ export default function PurchaseRequisitionsPage() {
   const handleLoadAutoRestock = async () => {
     setProcessing(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const supplierParam = selectedSupplierFilter === 'all' ? '' : selectedSupplierFilter;
       const response = await fetch(`${API_BASE_URL}/api/ingredients/low-stock?supplier_id=${supplierParam}`, {
@@ -231,8 +228,7 @@ export default function PurchaseRequisitionsPage() {
 
     setProcessing(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const totalEstimated = prItems.reduce((sum, item) => sum + item.estimated_price, 0);
       
@@ -270,8 +266,7 @@ export default function PurchaseRequisitionsPage() {
   const handleApprove = async (prId: string) => {
     setProcessing(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions/${prId}/approve`, {
         method: 'PATCH',
@@ -301,8 +296,7 @@ export default function PurchaseRequisitionsPage() {
   const handleReject = async (prId: string) => {
     setProcessing(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions/${prId}/reject`, {
         method: 'PATCH',
@@ -329,8 +323,7 @@ export default function PurchaseRequisitionsPage() {
   const handleConvertToPO = async (prId: string) => {
     setProcessing(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
       
       const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions/${prId}/convert-to-po`, {
         method: 'POST',
@@ -675,7 +668,7 @@ export default function PurchaseRequisitionsPage() {
             </div>
             <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
               <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => {
                   setCreateModalOpen(false);
                   setPrItems([]);

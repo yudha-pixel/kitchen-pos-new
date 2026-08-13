@@ -25,6 +25,8 @@ import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/
 import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
 import { getIngredientsWithStatus, syncRecipeIngredientsToInventory } from '@/src/features/inventory/recipeApiService';
 import { validateUnitPrice, convertToSmallestUnit, convertFromSmallestUnit, getSmallestUnit, calculateUnitCostFromPackage } from '@/src/features/inventory/unitConversion';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface InventoryItem {
   id: string;
@@ -46,733 +48,95 @@ interface InventoryItem {
 }
 
 const MOCK_ITEMS: InventoryItem[] = [
-  // Meat & Poultry
   {
     id: '1',
-    name: 'Bacon',
-    sku: 'BAC-001',
-    category: 'Meat & Poultry',
-    onHand: '1000 g',
+    name: 'Chicken Breast',
+    sku: 'CHB-001',
+    category: 'Protein',
+    onHand: '45 kg',
     status: 'In Stock',
-    unitCost: 'Rp 60.000',
-    unit: 'g',
+    unitCost: 'Rp 45.000',
+    unit: 'kg',
     barcode: '8991234567890',
     supplier: 'PT. Sentosa Food',
-    sellingPrice: 'Rp 90.000',
-    reorderPoint: '500 g',
-    description: 'Smoked bacon strips.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
+    sellingPrice: 'Rp 85.000',
+    reorderPoint: '10 kg',
+    description: 'Premium chicken breast, skinless.',
+    committed: '8 kg',
+    available: '37 kg',
+    lastUpdated: '10 Aug 2024, 03:15 by admin',
   },
   {
     id: '2',
-    name: 'Beef Steak',
-    sku: 'BFS-002',
-    category: 'Meat & Poultry',
-    onHand: '2000 g',
-    status: 'In Stock',
+    name: 'Beef Tenderloin',
+    sku: 'BFT-002',
+    category: 'Protein',
+    onHand: '12 kg',
+    status: 'Low Stock',
     unitCost: 'Rp 120.000',
-    unit: 'g',
+    unit: 'kg',
     barcode: '8991234567891',
     supplier: 'PT. Sentosa Food',
-    sellingPrice: 'Rp 180.000',
-    reorderPoint: '1000 g',
-    description: 'Premium beef steak cuts.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
+    sellingPrice: 'Rp 220.000',
+    reorderPoint: '15 kg',
+    description: 'Fresh Australian beef tenderloin.',
+    committed: '2 kg',
+    available: '10 kg',
+    lastUpdated: '10 Aug 2024, 01:20 by admin',
   },
   {
     id: '3',
-    name: 'Chicken Breast',
-    sku: 'CHB-003',
-    category: 'Meat & Poultry',
-    onHand: '2000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 45.000',
-    unit: 'g',
+    name: 'Cheddar Cheese',
+    sku: 'CHS-003',
+    category: 'Dairy',
+    onHand: '2 kg',
+    status: 'Low Stock',
+    unitCost: 'Rp 85.000',
+    unit: 'kg',
     barcode: '8991234567892',
-    supplier: 'PT. Sentosa Food',
-    sellingPrice: 'Rp 67.500',
-    reorderPoint: '1000 g',
-    description: 'Skinless chicken breast.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
+    supplier: 'Dairy Master Ltd',
+    sellingPrice: 'Rp 130.000',
+    reorderPoint: '5 kg',
+    description: 'Aged cheddar cheese blocks.',
+    committed: '0 kg',
+    available: '2 kg',
+    lastUpdated: '9 Aug 2024, 16:40 by admin',
   },
-  // Dairy & Cheese
   {
     id: '4',
-    name: 'Butter',
-    sku: 'BTR-004',
-    category: 'Dairy & Cheese',
-    onHand: '2000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 35.000',
-    unit: 'g',
+    name: 'Olive Oil',
+    sku: 'OIL-004',
+    category: 'Oil',
+    onHand: '0 L',
+    status: 'Out of Stock',
+    unitCost: 'Rp 150.000',
+    unit: 'L',
     barcode: '8991234567893',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 52.500',
-    reorderPoint: '1000 g',
-    description: 'Unsalted butter.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
+    supplier: 'Mediterranean Imports',
+    sellingPrice: 'Rp 250.000',
+    reorderPoint: '10 L',
+    description: 'Extra virgin olive oil.',
+    committed: '0 L',
+    available: '0 L',
+    lastUpdated: '9 Aug 2024, 09:30 by admin',
   },
   {
     id: '5',
-    name: 'Cold Milk',
-    sku: 'CMK-005',
-    category: 'Dairy & Cheese',
-    onHand: '5000 ml',
+    name: 'Tomato Sauce',
+    sku: 'TMS-005',
+    category: 'Sauces',
+    onHand: '18 pcs',
     status: 'In Stock',
-    unitCost: 'Rp 20.000',
-    unit: 'ml',
+    unitCost: 'Rp 28.000',
+    unit: 'pcs',
     barcode: '8991234567894',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 30.000',
-    reorderPoint: '2000 ml',
-    description: 'Chilled fresh milk.',
-    committed: '0 ml',
-    available: '5000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '6',
-    name: 'Condensed Milk',
-    sku: 'CDM-006',
-    category: 'Dairy & Cheese',
-    onHand: '2000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 25.000',
-    unit: 'ml',
-    barcode: '8991234567895',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 37.500',
-    reorderPoint: '1000 ml',
-    description: 'Sweetened condensed milk.',
-    committed: '0 ml',
-    available: '2000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '7',
-    name: 'Cream',
-    sku: 'CRM-007',
-    category: 'Dairy & Cheese',
-    onHand: '2000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 25.000',
-    unit: 'ml',
-    barcode: '8991234567896',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 37.500',
-    reorderPoint: '1000 ml',
-    description: 'Heavy cooking cream.',
-    committed: '0 ml',
-    available: '2000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '8',
-    name: 'Cream Cheese',
-    sku: 'CCH-008',
-    category: 'Dairy & Cheese',
-    onHand: '2000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 70.000',
-    unit: 'g',
-    barcode: '8991234567897',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 105.000',
-    reorderPoint: '1000 g',
-    description: 'Soft cream cheese.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '9',
-    name: 'Evaporated Milk',
-    sku: 'EVM-009',
-    category: 'Dairy & Cheese',
-    onHand: '2000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 22.000',
-    unit: 'ml',
-    barcode: '8991234567898',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 33.000',
-    reorderPoint: '1000 ml',
-    description: 'Unsweetened evaporated milk.',
-    committed: '0 ml',
-    available: '2000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '10',
-    name: 'Fresh Milk',
-    sku: 'FMK-010',
-    category: 'Dairy & Cheese',
-    onHand: '10000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 20.000',
-    unit: 'ml',
-    barcode: '8991234567899',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 30.000',
-    reorderPoint: '5000 ml',
-    description: 'Fresh whole milk.',
-    committed: '0 ml',
-    available: '10000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '11',
-    name: 'Mascarpone',
-    sku: 'MSC-011',
-    category: 'Dairy & Cheese',
-    onHand: '1000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 85.000',
-    unit: 'g',
-    barcode: '8991234567900',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 127.500',
-    reorderPoint: '500 g',
-    description: 'Italian mascarpone cheese.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '12',
-    name: 'Milk Foam',
-    sku: 'MF-012',
-    category: 'Dairy & Cheese',
-    onHand: '2000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 22.000',
-    unit: 'ml',
-    barcode: '8991234567901',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 33.000',
-    reorderPoint: '1000 ml',
-    description: 'Steamed milk foam.',
-    committed: '0 ml',
-    available: '2000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '13',
-    name: 'Parmesan Cheese',
-    sku: 'PCH-013',
-    category: 'Dairy & Cheese',
-    onHand: '1000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 80.000',
-    unit: 'g',
-    barcode: '8991234567902',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 120.000',
-    reorderPoint: '500 g',
-    description: 'Aged parmesan cheese.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '14',
-    name: 'Steamed Milk',
-    sku: 'SMK-014',
-    category: 'Dairy & Cheese',
-    onHand: '5000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 20.000',
-    unit: 'ml',
-    barcode: '8991234567903',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 30.000',
-    reorderPoint: '2000 ml',
-    description: 'Hot steamed milk.',
-    committed: '0 ml',
-    available: '5000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '15',
-    name: 'Whipped Cream',
-    sku: 'WC-015',
-    category: 'Dairy & Cheese',
-    onHand: '1000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 35.000',
-    unit: 'g',
-    barcode: '8991234567904',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 52.500',
-    reorderPoint: '500 g',
-    description: 'Sweet whipped cream.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  // Dry Goods & Baking
-  {
-    id: '16',
-    name: 'Cocoa Powder',
-    sku: 'CCP-016',
-    category: 'Dry Goods & Baking',
-    onHand: '1000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 60.000',
-    unit: 'g',
-    barcode: '8991234567905',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 90.000',
-    reorderPoint: '500 g',
-    description: 'Unsweetened cocoa powder.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '17',
-    name: 'Cracker',
-    sku: 'CRK-017',
-    category: 'Dry Goods & Baking',
-    onHand: '1000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 15.000',
-    unit: 'g',
-    barcode: '8991234567906',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 22.500',
-    reorderPoint: '500 g',
-    description: 'Savory crackers.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '18',
-    name: 'Flour',
-    sku: 'FLR-018',
-    category: 'Dry Goods & Baking',
-    onHand: '10000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 12.000',
-    unit: 'g',
-    barcode: '8991234567907',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 18.000',
-    reorderPoint: '5000 g',
-    description: 'All-purpose flour.',
-    committed: '0 g',
-    available: '10000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '19',
-    name: 'Ladyfingers',
-    sku: 'LFD-019',
-    category: 'Dry Goods & Baking',
-    onHand: '200 pcs',
-    status: 'In Stock',
-    unitCost: 'Rp 5.000',
-    unit: 'pcs',
-    barcode: '8991234567908',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 7.500',
-    reorderPoint: '100 pcs',
-    description: 'Sponge ladyfinger biscuits.',
-    committed: '0 pcs',
-    available: '200 pcs',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '20',
-    name: 'Salt',
-    sku: 'SLT-020',
-    category: 'Dry Goods & Baking',
-    onHand: '2000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 5.000',
-    unit: 'g',
-    barcode: '8991234567909',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 7.500',
-    reorderPoint: '1000 g',
-    description: 'Table salt.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '21',
-    name: 'Sugar',
-    sku: 'SGR-021',
-    category: 'Dry Goods & Baking',
-    onHand: '5000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 15.000',
-    unit: 'g',
-    barcode: '8991234567910',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 22.500',
-    reorderPoint: '2000 g',
-    description: 'White granulated sugar.',
-    committed: '0 g',
-    available: '5000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '22',
-    name: 'Vanilla Ice Cream',
-    sku: 'VIC-022',
-    category: 'Dry Goods & Baking',
-    onHand: '2000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 30.000',
-    unit: 'g',
-    barcode: '8991234567911',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 45.000',
-    reorderPoint: '1000 g',
-    description: 'Vanilla ice cream.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '23',
-    name: 'Yeast',
-    sku: 'YST-023',
-    category: 'Dry Goods & Baking',
-    onHand: '500 g',
-    status: 'In Stock',
-    unitCost: 'Rp 25.000',
-    unit: 'g',
-    barcode: '8991234567912',
-    supplier: 'Baking Supplies Co',
-    sellingPrice: 'Rp 37.500',
-    reorderPoint: '250 g',
-    description: 'Active dry yeast.',
-    committed: '0 g',
-    available: '500 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  // Beverage & Coffee
-  {
-    id: '24',
-    name: 'Black Tea',
-    sku: 'BTE-024',
-    category: 'Beverage & Coffee',
-    onHand: '500 g',
-    status: 'In Stock',
-    unitCost: 'Rp 100.000',
-    unit: 'g',
-    barcode: '8991234567913',
-    supplier: 'Tea & Coffee Co',
-    sellingPrice: 'Rp 150.000',
-    reorderPoint: '250 g',
-    description: 'Premium black tea leaves.',
-    committed: '0 g',
-    available: '500 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '25',
-    name: 'Coffee Beans',
-    sku: 'CFB-025',
-    category: 'Beverage & Coffee',
-    onHand: '5000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 150.000',
-    unit: 'g',
-    barcode: '8991234567914',
-    supplier: 'Tea & Coffee Co',
-    sellingPrice: 'Rp 225.000',
-    reorderPoint: '2000 g',
-    description: 'Arabica coffee beans.',
-    committed: '0 g',
-    available: '5000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '26',
-    name: 'Jasmine Tea Leaves',
-    sku: 'JTL-026',
-    category: 'Beverage & Coffee',
-    onHand: '500 g',
-    status: 'In Stock',
-    unitCost: 'Rp 80.000',
-    unit: 'g',
-    barcode: '8991234567915',
-    supplier: 'Tea & Coffee Co',
-    sellingPrice: 'Rp 120.000',
-    reorderPoint: '250 g',
-    description: 'Jasmine green tea leaves.',
-    committed: '0 g',
-    available: '500 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '27',
-    name: 'Matcha Powder',
-    sku: 'MTP-027',
-    category: 'Beverage & Coffee',
-    onHand: '500 g',
-    status: 'In Stock',
-    unitCost: 'Rp 200.000',
-    unit: 'g',
-    barcode: '8991234567916',
-    supplier: 'Tea & Coffee Co',
-    sellingPrice: 'Rp 300.000',
-    reorderPoint: '250 g',
-    description: 'Japanese matcha powder.',
-    committed: '0 g',
-    available: '500 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  // Produce & Herbs
-  {
-    id: '28',
-    name: 'Garlic',
-    sku: 'GRL-028',
-    category: 'Produce & Herbs',
-    onHand: '500 g',
-    status: 'In Stock',
-    unitCost: 'Rp 20.000',
-    unit: 'g',
-    barcode: '8991234567917',
-    supplier: 'Fresh Farms',
-    sellingPrice: 'Rp 30.000',
-    reorderPoint: '250 g',
-    description: 'Fresh garlic cloves.',
-    committed: '0 g',
-    available: '500 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '29',
-    name: 'Onion',
-    sku: 'ONN-029',
-    category: 'Produce & Herbs',
-    onHand: '1000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 10.000',
-    unit: 'g',
-    barcode: '8991234567918',
-    supplier: 'Fresh Farms',
-    sellingPrice: 'Rp 15.000',
-    reorderPoint: '500 g',
-    description: 'Yellow onion.',
-    committed: '0 g',
-    available: '1000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '30',
-    name: 'Rosemary',
-    sku: 'RSM-030',
-    category: 'Produce & Herbs',
-    onHand: '100 sprig',
-    status: 'In Stock',
-    unitCost: 'Rp 5.000',
-    unit: 'sprig',
-    barcode: '8991234567919',
-    supplier: 'Fresh Farms',
-    sellingPrice: 'Rp 7.500',
-    reorderPoint: '50 sprig',
-    description: 'Fresh rosemary sprigs.',
-    committed: '0 sprig',
-    available: '100 sprig',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  // Oils & Condiments
-  {
-    id: '31',
-    name: 'Chocolate Syrup',
-    sku: 'CHS-031',
-    category: 'Oils & Condiments',
-    onHand: '1000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 40.000',
-    unit: 'ml',
-    barcode: '8991234567920',
-    supplier: 'Condiment World',
-    sellingPrice: 'Rp 60.000',
-    reorderPoint: '500 ml',
-    description: 'Chocolate flavored syrup.',
-    committed: '0 ml',
-    available: '1000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '32',
-    name: 'Oil',
-    sku: 'OIL-032',
-    category: 'Oils & Condiments',
-    onHand: '5000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 18.000',
-    unit: 'ml',
-    barcode: '8991234567921',
-    supplier: 'Condiment World',
-    sellingPrice: 'Rp 27.000',
-    reorderPoint: '2000 ml',
-    description: 'Cooking oil.',
-    committed: '0 ml',
-    available: '5000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '33',
-    name: 'Soy Sauce',
-    sku: 'SYS-033',
-    category: 'Oils & Condiments',
-    onHand: '1000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 15.000',
-    unit: 'ml',
-    barcode: '8991234567922',
-    supplier: 'Condiment World',
-    sellingPrice: 'Rp 22.500',
-    reorderPoint: '500 ml',
-    description: 'Dark soy sauce.',
-    committed: '0 ml',
-    available: '1000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '34',
-    name: 'Vegetable Oil',
-    sku: 'VOL-034',
-    category: 'Oils & Condiments',
-    onHand: '5000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 18.000',
-    unit: 'ml',
-    barcode: '8991234567923',
-    supplier: 'Condiment World',
-    sellingPrice: 'Rp 27.000',
-    reorderPoint: '2000 ml',
-    description: 'Pure vegetable oil.',
-    committed: '0 ml',
-    available: '5000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  // Grains & Pasta
-  {
-    id: '35',
-    name: 'Rice',
-    sku: 'RCE-035',
-    category: 'Grains & Pasta',
-    onHand: '10000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 15.000',
-    unit: 'g',
-    barcode: '8991234567924',
-    supplier: 'Grain Depot',
-    sellingPrice: 'Rp 22.500',
-    reorderPoint: '5000 g',
-    description: 'White rice grains.',
-    committed: '0 g',
-    available: '10000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '36',
-    name: 'Spaghetti',
-    sku: 'SPG-036',
-    category: 'Grains & Pasta',
-    onHand: '2000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 18.000',
-    unit: 'g',
-    barcode: '8991234567925',
-    supplier: 'Grain Depot',
-    sellingPrice: 'Rp 27.000',
-    reorderPoint: '1000 g',
-    description: 'Dried spaghetti pasta.',
-    committed: '0 g',
-    available: '2000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  // Others
-  {
-    id: '37',
-    name: 'Cold Water',
-    sku: 'CWT-037',
-    category: 'Others',
-    onHand: '50000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 0',
-    unit: 'ml',
-    barcode: '8991234567926',
-    supplier: 'Water Supply',
-    sellingPrice: 'Rp 0',
-    reorderPoint: '10000 ml',
-    description: 'Chilled water.',
-    committed: '0 ml',
-    available: '50000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '38',
-    name: 'Eggs',
-    sku: 'EGG-038',
-    category: 'Meat & Poultry',
-    onHand: '100 pcs',
-    status: 'In Stock',
-    unitCost: 'Rp 3.000',
-    unit: 'pcs',
-    barcode: '8991234567927',
-    supplier: 'Fresh Farms',
-    sellingPrice: 'Rp 4.500',
-    reorderPoint: '50 pcs',
-    description: 'Fresh chicken eggs.',
-    committed: '0 pcs',
-    available: '100 pcs',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '39',
-    name: 'Hot Water',
-    sku: 'HWT-039',
-    category: 'Others',
-    onHand: '50000 ml',
-    status: 'In Stock',
-    unitCost: 'Rp 0',
-    unit: 'ml',
-    barcode: '8991234567928',
-    supplier: 'Water Supply',
-    sellingPrice: 'Rp 0',
-    reorderPoint: '10000 ml',
-    description: 'Hot water.',
-    committed: '0 ml',
-    available: '50000 ml',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
-  },
-  {
-    id: '40',
-    name: 'Ice',
-    sku: 'ICE-040',
-    category: 'Others',
-    onHand: '10000 g',
-    status: 'In Stock',
-    unitCost: 'Rp 5.000',
-    unit: 'g',
-    barcode: '8991234567929',
-    supplier: 'Water Supply',
-    sellingPrice: 'Rp 7.500',
-    reorderPoint: '5000 g',
-    description: 'Ice cubes.',
-    committed: '0 g',
-    available: '10000 g',
-    lastUpdated: '12 Aug 2024, 10:00 by admin',
+    supplier: 'Saus Nusantara',
+    sellingPrice: 'Rp 40.000',
+    reorderPoint: '5 pcs',
+    description: 'Rich tomato pasta sauce pouch.',
+    committed: '2 pcs',
+    available: '16 pcs',
+    lastUpdated: '9 Aug 2024, 14:20 by admin',
   },
 ];
 
@@ -781,7 +145,6 @@ export default function InventoryPage() {
   const { user } = useAuth();
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
   const [detailTab, setDetailTab] = useState<'details' | 'activity'>('details');
   const [items, setItems] = useState<InventoryItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -797,32 +160,54 @@ export default function InventoryPage() {
   const [processing, setProcessing] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterCategory, setFilterCategory] = useState<string>('all');
-  const [visibleColumns, setVisibleColumns] = useState<string[]>(['name', 'sku', 'category', 'onHand', 'minStock', 'status', 'unitCost']);
+  const [visibleColumns, setVisibleColumns] = useState<string[]>(['name', 'sku', 'category', 'onHand', 'status', 'unitCost']);
   const [newItem, setNewItem] = useState({
     name: '',
     sku: '',
     category: '',
+    categoryId: '',
     unit: '',
     unitPrice: '',
     minStock: '',
-    initialStock: '',
     supplierId: '',
     packagePrice: '',
     packageSize: '',
     packageUnit: '',
   });
+  const [ingredientCategories, setIngredientCategories] = useState<{ id: string; name: string }[]>([]);
 
   const selectedItem = items.find((i) => i.id === selectedItemId) || items[0];
+
+  useEffect(() => {
+    const handleAddItem = () => setAddItemModalOpen(true);
+    window.addEventListener('inventory-add-item', handleAddItem);
+    return () => window.removeEventListener('inventory-add-item', handleAddItem);
+  }, []);
+
+  const loadIngredientCategories = async () => {
+    try {
+      const token = getToken();
+      const res = await fetch(`${API_BASE_URL}/api/ingredients/categories`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) throw new Error(`Failed to load ingredient categories: ${res.status}`);
+      setIngredientCategories(await res.json());
+    } catch (error) {
+      console.error('Failed to load ingredient categories:', error);
+    }
+  };
+
+  useEffect(() => {
+    loadIngredientCategories();
+  }, []);
 
   // Load inventory data from API
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        console.log('Loading inventory data from API...');
         // Fetch from API to ensure sync data is reflected
         const ingredients = await getIngredientsWithStatus();
-        console.log('Loaded ingredients from API:', ingredients.length);
         
         if (ingredients.length === 0) {
           console.warn('No ingredients returned from API');
@@ -840,13 +225,13 @@ export default function InventoryPage() {
         return {
           id: ing.id,
           name: ing.name,
-          sku: ing.sku,
-          category: ing.category,
+          sku: undefined,
+          category: undefined,
           onHand: `${ing.current_stock} ${ing.unit}`,
           status,
           unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
           unit: ing.unit,
-          barcode: ing.sku,
+          barcode: undefined,
           supplier: ing.supplier_name || 'Unknown',
           sellingPrice: `Rp ${(displayPrice * 1.5).toLocaleString('id-ID')}`,
           reorderPoint: `${ing.min_stock} ${ing.unit}`,
@@ -857,7 +242,6 @@ export default function InventoryPage() {
         };
       });
         
-        console.log('Setting inventory items:', inventoryItems.length);
         setItems(inventoryItems);
       } catch (error) {
         console.error('Failed to load inventory data:', error);
@@ -1020,7 +404,6 @@ export default function InventoryPage() {
       
       // Then reload inventory data from API
       const ingredients = await getIngredientsWithStatus();
-      console.log('Loaded ingredients from API after refresh:', ingredients.length);
       
       const inventoryItems: InventoryItem[] = ingredients.map(ing => {
         const status = ing.current_stock <= 0 ? 'Out of Stock' : 
@@ -1033,7 +416,7 @@ export default function InventoryPage() {
           id: ing.id,
           name: ing.name,
           sku: undefined,
-          category: ing.category,
+          category: undefined,
           onHand: `${ing.current_stock} ${ing.unit}`,
           status,
           unitCost: `Rp ${displayPrice.toLocaleString('id-ID')}`,
@@ -1099,31 +482,62 @@ export default function InventoryPage() {
     try {
       // Convert to smallest unit for storage consistency
       const converted = convertToSmallestUnit(unitPrice, newItem.unit);
-      
-      const ingredient: Omit<Ingredient, 'id'> = {
-        name: newItem.name,
+
+      // Persist to the server first — this is the shared source of truth other
+      // devices read from. A local-only write here would never appear in the
+      // database and would be lost on the next server refetch.
+      const token = getToken();
+      const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          name: newItem.name,
+          current_stock: 0,
+          unit: newItem.unit,
+          min_stock: parseFloat(newItem.minStock) || 0,
+          unit_price: converted.price,
+          supplier_id: newItem.supplierId || null,
+          category_id: newItem.categoryId || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || 'Gagal menyimpan item baru ke server');
+      }
+
+      const created: { id: string; name: string; sku?: string; category?: { name: string } | null; unit: string; unit_price: number; current_stock: number; min_stock: number; supplier_id: string | null; created_at: string; updated_at: string } = await response.json();
+
+      // Mirror the server's write into the local cache so this device's UI
+      // reflects it immediately without waiting for the next background refetch.
+      const ingredient: Ingredient = {
+        id: created.id,
+        name: created.name,
         sku: newItem.sku || undefined,
-        category: newItem.category || undefined,
-        unit: newItem.unit,
-        unit_price: converted.price,
-        current_stock: parseFloat(newItem.initialStock) || 0,
-        min_stock: parseFloat(newItem.minStock) || 0,
-        supplier_id: newItem.supplierId || undefined,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        category: created.category?.name,
+        unit: created.unit,
+        unit_price: created.unit_price,
+        current_stock: created.current_stock,
+        min_stock: created.min_stock,
+        supplier_id: created.supplier_id || undefined,
+        created_at: created.created_at,
+        updated_at: created.updated_at,
       };
 
-      const id = await db.ingredients.add(ingredient);
+      await db.ingredients.add(ingredient);
       toast('success', 'Item added successfully');
       setAddItemModalOpen(false);
       setNewItem({
         name: '',
         sku: '',
         category: '',
+        categoryId: '',
         unit: '',
         unitPrice: '',
         minStock: '',
-        initialStock: '',
         supplierId: '',
         packagePrice: '',
         packageSize: '',
@@ -1178,9 +592,8 @@ export default function InventoryPage() {
     
     const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
     const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
-    const matchesCategoryFilter = categoryFilter === 'all' || item.category === categoryFilter;
     
-    return matchesSearch && matchesStatus && matchesCategory && matchesCategoryFilter;
+    return matchesSearch && matchesStatus && matchesCategory;
   });
 
   return (
@@ -1230,32 +643,15 @@ export default function InventoryPage() {
           {/* Search, Filter, and Action Bar */}
           <div className="bg-white border-b border-slate-200 px-6 py-3 shrink-0">
             <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <div className="relative flex-1 max-w-md">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search items by name or SKU..."
-                    className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-violet-500 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20"
-                  />
-                </div>
-                <select
-                  value={categoryFilter}
-                  onChange={(e) => setCategoryFilter(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-slate-50 py-2 px-3 text-sm text-slate-800 focus:border-violet-500 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20"
-                >
-                  <option value="all">All Categories</option>
-                  <option value="Meat & Poultry">Meat & Poultry</option>
-                  <option value="Dairy & Cheese">Dairy & Cheese</option>
-                  <option value="Dry Goods & Baking">Dry Goods & Baking</option>
-                  <option value="Beverage & Coffee">Beverage & Coffee</option>
-                  <option value="Produce & Herbs">Produce & Herbs</option>
-                  <option value="Oils & Condiments">Oils & Condiments</option>
-                  <option value="Grains & Pasta">Grains & Pasta</option>
-                  <option value="Others">Others</option>
-                </select>
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search items by name or SKU..."
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 py-2 pl-10 pr-4 text-sm text-slate-800 placeholder-slate-400 focus:border-violet-500 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-violet-500/20"
+                />
               </div>
               <div className="flex items-center gap-2">
                 <button onClick={() => setFilterModalOpen(true)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50">
@@ -1280,7 +676,7 @@ export default function InventoryPage() {
                 </button>
                 <button onClick={handleAddItem} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700">
                   <Plus className="h-4 w-4" />
-                  Tambah Bahan Baku
+                  Add Item
                 </button>
               </div>
             </div>
@@ -1296,7 +692,6 @@ export default function InventoryPage() {
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">SKU</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Category</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">On-Hand</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Min Stock</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Status</th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Unit Cost</th>
                   </tr>
@@ -1314,7 +709,6 @@ export default function InventoryPage() {
                       <td className="px-4 py-3 text-sm text-slate-600">{item.sku}</td>
                       <td className="px-4 py-3 text-sm text-slate-600">{item.category}</td>
                       <td className="px-4 py-3 text-sm text-slate-900 font-medium">{item.onHand}</td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{item.reorderPoint}</td>
                       <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
@@ -1746,7 +1140,7 @@ export default function InventoryPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-slate-900">Tambah Bahan Baku Baru</h2>
+              <h2 className="text-lg font-bold text-slate-900">Add New Item</h2>
               <button
                 onClick={() => setAddItemModalOpen(false)}
                 className="p-1 rounded hover:bg-slate-100"
@@ -1777,72 +1171,38 @@ export default function InventoryPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-slate-700">Category</label>
-                <input
-                  type="text"
-                  list="category-options"
-                  value={newItem.category}
-                  onChange={(e) => setNewItem({ ...newItem, category: e.target.value })}
+                <select
+                  value={newItem.categoryId}
+                  onChange={(e) => setNewItem({ ...newItem, categoryId: e.target.value })}
                   className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="Enter category"
-                />
-                <datalist id="category-options">
-                  <option value="Meat & Poultry" />
-                  <option value="Dairy & Cheese" />
-                  <option value="Dry Goods & Baking" />
-                  <option value="Beverage & Coffee" />
-                  <option value="Produce & Herbs" />
-                  <option value="Oils & Condiments" />
-                  <option value="Grains & Pasta" />
-                  <option value="Others" />
-                </datalist>
+                >
+                  <option value="">Tanpa kategori</option>
+                  {ingredientCategories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>{cat.name}</option>
+                  ))}
+                </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-slate-700">Unit *</label>
                   <input
                     type="text"
-                    list="unit-options"
                     value={newItem.unit}
                     onChange={(e) => setNewItem({ ...newItem, unit: e.target.value })}
                     className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                     placeholder="e.g., g, ml, pcs"
                   />
-                  <datalist id="unit-options">
-                    <option value="g" />
-                    <option value="kg" />
-                    <option value="ml" />
-                    <option value="L" />
-                    <option value="pcs" />
-                    <option value="pack" />
-                    <option value="box" />
-                    <option value="bottle" />
-                    <option value="bunch / ikat" />
-                    <option value="butir" />
-                  </datalist>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-slate-700">Stok Awal</label>
+                  <label className="text-sm font-medium text-slate-700">Unit Price (Direct)</label>
                   <input
                     type="number"
-                    step="0.01"
-                    min="0"
-                    value={newItem.initialStock}
-                    onChange={(e) => setNewItem({ ...newItem, initialStock: e.target.value })}
+                    value={newItem.unitPrice}
+                    onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })}
                     className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                     placeholder="0"
                   />
                 </div>
-              </div>
-              
-              <div>
-                <label className="text-sm font-medium text-slate-700">Unit Price (Direct)</label>
-                <input
-                  type="number"
-                  value={newItem.unitPrice}
-                  onChange={(e) => setNewItem({ ...newItem, unitPrice: e.target.value })}
-                  className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
-                  placeholder="0"
-                />
               </div>
               
               <div className="border-t border-slate-200 pt-4">
@@ -1872,24 +1232,11 @@ export default function InventoryPage() {
                     <label className="text-sm font-medium text-slate-700">Package Unit</label>
                     <input
                       type="text"
-                      list="package-unit-options"
                       value={newItem.packageUnit}
                       onChange={(e) => setNewItem({ ...newItem, packageUnit: e.target.value })}
                       className="w-full mt-1 rounded-lg border border-slate-200 px-3 py-2 text-sm"
                       placeholder="e.g., kg, L"
                     />
-                    <datalist id="package-unit-options">
-                      <option value="g" />
-                      <option value="kg" />
-                      <option value="ml" />
-                      <option value="L" />
-                      <option value="pcs" />
-                      <option value="pack" />
-                      <option value="box" />
-                      <option value="bottle" />
-                      <option value="bunch / ikat" />
-                      <option value="butir" />
-                    </datalist>
                   </div>
                 </div>
               </div>

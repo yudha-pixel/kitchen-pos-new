@@ -12,10 +12,11 @@ import { useToast } from '@/src/components/ui/Toast';
 import { Loader2, Home, ShoppingCart, User, Menu, X } from 'lucide-react';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { useRouter } from 'next/navigation';
+import { PERMISSIONS } from '@/src/config/permissions';
 
 export default function OnlineOrderPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { can } = useAuth();
   const { toast } = useToast();
   const { products, loading: productsLoading, error: productsError } = useProducts();
   const { categories, loading: categoriesLoading } = useCategories();
@@ -30,9 +31,8 @@ export default function OnlineOrderPage() {
   const setDeliveryFee = useOnlineCartStore((state: any) => state.setDeliveryFee);
 
   const handleVoidPayment = (paymentId: string, amount: number) => {
-    // Check if user has admin role
-    if (user?.role !== 'admin') {
-      toast('error', 'Hanya admin yang dapat void pembayaran');
+    if (!can(PERMISSIONS.orders.void)) {
+      toast('error', 'Anda tidak memiliki izin untuk void pembayaran');
       return;
     }
     setSelectedPaymentForVoid({ id: paymentId, amount });
@@ -239,7 +239,6 @@ export default function OnlineOrderPage() {
           <div className="absolute inset-0 bg-black/50" onClick={() => setShowMobileCart(false)} />
           <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl max-h-[80vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b p-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold">Keranjang</h2>
               <button onClick={() => setShowMobileCart(false)} className="p-2">
                 <X className="w-5 h-5" />
               </button>

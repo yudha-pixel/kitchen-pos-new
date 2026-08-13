@@ -15,7 +15,7 @@ export function getJwtSecret(): string {
 export interface TokenPayload {
   id: string;
   username: string;
-  role: 'admin' | 'cashier' | 'management' | 'owner';
+  role?: string;
   role_id?: string;
 }
 
@@ -36,39 +36,32 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, getJwtSecret()) as TokenPayload;
-    req.user = decoded;
+    const profile = await prisma.profile.findUnique({
+      where: { id: decoded.id },
+      select: {
+        id: true,
+        username: true,
+        is_active: true,
+        role_id: true,
+        role: { select: { name: true } },
+      },
+    });
 
-    let roleId = decoded.role_id;
-    if (!roleId) {
-      const profile = await prisma.profile.findUnique({
-        where: { id: decoded.id },
-        select: { role_id: true },
-      });
-      roleId = profile?.role_id;
+    if (!profile?.is_active) {
+      res.status(401).json({ error: 'Invalid or inactive user' });
+      return;
     }
 
-    if (roleId) {
-      req.userPermissions = await loadRolePermissions(roleId);
-    } else {
-      req.userPermissions = [];
-    }
+    req.user = {
+      id: profile.id,
+      username: profile.username,
+      role: profile.role.name,
+      role_id: profile.role_id,
+    };
+    req.userPermissions = await loadRolePermissions(profile.role_id);
 
     next();
   } catch (error) {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
-};
-
-export const requireRole = (...roles: ('admin' | 'cashier' | 'management' | 'owner')[]) => {
-  return (req: Request, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-    if (!roles.includes(req.user.role)) {
-      res.status(403).json({ error: 'Forbidden' });
-      return;
-    }
-    next();
-  };
 };

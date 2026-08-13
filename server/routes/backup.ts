@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
@@ -9,8 +11,8 @@ import fs from 'fs/promises';
 const execAsync = promisify(exec);
 const router = express.Router();
 
-// POST /backup - Create database backup (admin only)
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// POST /backup - Create database backup
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.backup.create), async (req: Request, res: Response) => {
   try {
     const { backup_type = 'manual', notes } = req.body;
     const userId = (req as any).user?.id;
@@ -80,8 +82,8 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
   }
 });
 
-// GET /backup - Get all backups (admin only)
-router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// GET /backup - Get all backups
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.backup.view), async (req: Request, res: Response) => {
   try {
     const { backup_type, status, limit = 50, offset = 0 } = req.query;
 
@@ -116,8 +118,8 @@ router.get('/', authMiddleware, requireRole('admin'), async (req: Request, res: 
   }
 });
 
-// GET /backup/:id - Get specific backup (admin only)
-router.get('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// GET /backup/:id - Get specific backup
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.backup.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -142,8 +144,8 @@ router.get('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
   }
 });
 
-// POST /backup/:id/restore - Restore from backup (admin only)
-router.post('/:id/restore', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// POST /backup/:id/restore - Restore from backup
+router.post('/:id/restore', authMiddleware, requirePermission(PERMISSIONS.backup.restore), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const userId = (req as any).user?.id;
@@ -190,8 +192,8 @@ router.post('/:id/restore', authMiddleware, requireRole('admin'), async (req: Re
   }
 });
 
-// DELETE /backup/:id - Delete backup (admin only)
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+// DELETE /backup/:id - Delete backup
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.backup.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

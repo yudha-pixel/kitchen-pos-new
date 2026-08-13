@@ -50,4 +50,4 @@ Two processes run side by side from one repo:
 ## Reference docs
 
 - `HANDOVER.md` — session-by-session status, known issues, and next steps; update it when finishing significant work.
-- `knowledge/` — domain knowledge base and phased roadmap (POS workflows, inventory, reporting, staff/CRM, Odoo comparison).
+- `docs/knowledge/` — domain knowledge base and phased roadmap (POS workflows, inventory, reporting, staff/CRM, Odoo comparison).

@@ -44,7 +44,7 @@ describe('OCR API', () => {
   describe('POST /ocr/scan', () => {
     it('should reject upload without authentication', async () => {
       const response = await request(app)
-        .post('/ocr/scan')
+        .post('/api/ocr/scan')
         .attach('image', Buffer.from('test'), 'test.jpg');
 
       expect(response.status).toBe(401);
@@ -52,7 +52,7 @@ describe('OCR API', () => {
 
     it('should reject upload without file', async () => {
       const response = await request(app)
-        .post('/ocr/scan')
+        .post('/api/ocr/scan')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(400);
@@ -63,14 +63,14 @@ describe('OCR API', () => {
   describe('GET /ocr/scans', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/ocr/scans');
+        .get('/api/ocr/scans');
 
       expect(response.status).toBe(401);
     });
 
     it('should get user scans with authentication', async () => {
       const response = await request(app)
-        .get('/ocr/scans')
+        .get('/api/ocr/scans')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -82,14 +82,14 @@ describe('OCR API', () => {
   describe('GET /ocr/scans/:id', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .get('/ocr/scans/00000000-0000-0000-0000-000000000000');
+        .get('/api/ocr/scans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(401);
     });
 
     it('should return 404 for non-existent scan', async () => {
       const response = await request(app)
-        .get('/ocr/scans/00000000-0000-0000-0000-000000000000')
+        .get('/api/ocr/scans/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -99,14 +99,14 @@ describe('OCR API', () => {
   describe('DELETE /ocr/scans/:id', () => {
     it('should reject without authentication', async () => {
       const response = await request(app)
-        .delete('/ocr/scans/00000000-0000-0000-0000-000000000000');
+        .delete('/api/ocr/scans/00000000-0000-0000-0000-000000000000');
 
       expect(response.status).toBe(401);
     });
 
     it('should return 404 for non-existent scan', async () => {
       const response = await request(app)
-        .delete('/ocr/scans/00000000-0000-0000-0000-000000000000')
+        .delete('/api/ocr/scans/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);

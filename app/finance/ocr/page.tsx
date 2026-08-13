@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
-import { Plus, Wallet, Download, Printer, AlertCircle } from 'lucide-react';
+import { Plus, Wallet, Download, Printer } from 'lucide-react';
 import { OCRUploadDropzone } from '@/src/components/finance/OCRUploadDropzone';
 import { OCRReviewModal } from '@/src/components/finance/OCRReviewModal';
 import { ExpenseTable } from '@/src/components/finance/ExpenseTable';
@@ -26,7 +25,6 @@ import {
 
 export default function FinancePage() {
   const { user } = useAuth();
-  const router = useRouter();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
@@ -56,25 +54,6 @@ export default function FinancePage() {
     value: cat.name.toLowerCase().replace(/\s+/g, '_'),
     label: cat.name,
   }));
-
-  // RBAC Protection
-  if (user && user.role !== 'admin' && user.role !== 'management' && user.role !== 'owner') {
-    return (
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow p-8 text-center">
-          <AlertCircle className="h-16 w-16 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Akses Ditolak</h2>
-          <p className="text-gray-600 mb-4">Halaman ini hanya dapat diakses oleh Owner, Management, dan Admin.</p>
-          <button
-            onClick={() => router.push('/inventory')}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 hover:text-white transition-colors"
-          >
-            Kembali ke Inventori
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   useEffect(() => {
     loadExpenses();

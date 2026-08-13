@@ -4,7 +4,9 @@ import { randomUUID } from 'crypto';
 import { prisma } from '../lib/prisma';
 import { ZodError } from 'zod';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import { webhookSignatureMiddleware } from '../middleware/webhookSignature';
 
 const router = Router();
@@ -46,7 +48,7 @@ const voidPaymentSchema = z.object({
 });
 
 // Create payment transaction
-router.post('/payments', paymentLimiter, authMiddleware, async (req: Request, res: Response) => {
+router.post('/payments', paymentLimiter, authMiddleware, requirePermission(PERMISSIONS.orders.create), async (req: Request, res: Response) => {
   try {
     const data = createPaymentSchema.parse(req.body);
     const paymentId = randomUUID();
@@ -127,7 +129,7 @@ router.post('/payments', paymentLimiter, authMiddleware, async (req: Request, re
 });
 
 // Get payment by ID
-router.get('/payments/:id', paymentLimiter, authMiddleware, async (req: Request, res: Response) => {
+router.get('/payments/:id', paymentLimiter, authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
 
@@ -150,14 +152,13 @@ router.get('/payments/:id', paymentLimiter, authMiddleware, async (req: Request,
 });
 
 // Manual payment status update by an authenticated staff member (e.g. a
-// cashier confirming cash was received offline, or an admin correcting a
-// stuck payment). This is NOT used by the actual payment gateway webhook -
+// cashier confirming cash was received offline, or staff correcting a stuck
+// payment). This is NOT used by the actual payment gateway webhook -
 // that flow is entirely separate (see POST /webhooks/payment below), since
 // gateways authenticate via their own signature scheme, not our JWTs. Both
-// `admin` and `cashier` roles are allowed here (authMiddleware alone, no
-// further requireRole restriction), matching who is already trusted to
-// operate the POS day-to-day.
-router.patch('/payments/:id/status', paymentLimiter, authMiddleware, async (req: Request, res: Response) => {
+// Ordinary payment updates require an active authenticated profile; voiding
+// remains separately protected by orders.void below.
+router.patch('/payments/:id/status', paymentLimiter, authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     const data = updatePaymentStatusSchema.parse(req.body);
@@ -196,10 +197,10 @@ router.patch('/payments/:id/status', paymentLimiter, authMiddleware, async (req:
   }
 });
 
-// Void payment - requires admin role for authorization
+// Void payment - requires the explicit orders.void capability
 // This endpoint allows voiding a payment transaction for any order type (Dine-In, Takeaway, Online Order)
 // It updates the payment status and records the void reason and who voided it
-router.post('/payments/:id/void', paymentLimiter, authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/payments/:id/void', paymentLimiter, authMiddleware, requirePermission(PERMISSIONS.orders.void), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     const { reason } = voidPaymentSchema.parse(req.body);

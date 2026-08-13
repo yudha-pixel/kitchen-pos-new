@@ -134,7 +134,7 @@ describe('Warehouse Management API', () => {
   describe('GET /warehouses', () => {
     it('should return all warehouses', async () => {
       const response = await request(app)
-        .get('/warehouses')
+        .get('/api/warehouses')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -143,7 +143,7 @@ describe('Warehouse Management API', () => {
 
     it('should return 401 without auth', async () => {
       const response = await request(app)
-        .get('/warehouses');
+        .get('/api/warehouses');
 
       expect(response.status).toBe(401);
     });
@@ -157,7 +157,7 @@ describe('Warehouse Management API', () => {
       }
 
       const response = await request(app)
-        .post('/warehouses')
+        .post('/api/warehouses')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Test Warehouse',
@@ -178,7 +178,7 @@ describe('Warehouse Management API', () => {
       }
 
       const response = await request(app)
-        .post('/warehouses')
+        .post('/api/warehouses')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Another Warehouse',
@@ -192,7 +192,7 @@ describe('Warehouse Management API', () => {
 
     it('should reject invalid outlet', async () => {
       const response = await request(app)
-        .post('/warehouses')
+        .post('/api/warehouses')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Test Warehouse',
@@ -212,7 +212,7 @@ describe('Warehouse Management API', () => {
       }
 
       const response = await request(app)
-        .get(`/warehouses/${testWarehouseId}`)
+        .get(`/api/warehouses/${testWarehouseId}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);
@@ -221,7 +221,7 @@ describe('Warehouse Management API', () => {
 
     it('should return 404 for non-existent warehouse', async () => {
       const response = await request(app)
-        .get('/warehouses/00000000-0000-0000-0000-000000000000')
+        .get('/api/warehouses/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(404);
@@ -235,7 +235,7 @@ describe('Warehouse Management API', () => {
       }
 
       const response = await request(app)
-        .put(`/warehouses/${testWarehouseId}`)
+        .put(`/api/warehouses/${testWarehouseId}`)
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Updated Warehouse',
@@ -255,7 +255,7 @@ describe('Warehouse Management API', () => {
       }
 
       const createResponse = await request(app)
-        .post('/warehouses')
+        .post('/api/warehouses')
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           name: 'Delete Test Warehouse',
@@ -266,7 +266,7 @@ describe('Warehouse Management API', () => {
       const warehouseIdToDelete = createResponse.body.id;
 
       const response = await request(app)
-        .delete(`/warehouses/${warehouseIdToDelete}`)
+        .delete(`/api/warehouses/${warehouseIdToDelete}`)
         .set('Authorization', `Bearer ${authToken}`);
 
       expect(response.status).toBe(200);

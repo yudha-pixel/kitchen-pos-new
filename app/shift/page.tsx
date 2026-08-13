@@ -9,6 +9,8 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle, CheckCircle, ArrowLeft, Printer, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface ShiftData {
   isOpen: boolean;
@@ -120,13 +122,19 @@ export default function ShiftPage() {
     if (saved) {
       setShiftData(JSON.parse(saved));
     }
+  }, []);
 
-    // Load petty cash expenses for current shift
+  // Save shift data to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shiftData));
+  }, [shiftData]);
+
+  // Load petty cash expenses for current shift
+  useEffect(() => {
     const loadPettyCashExpenses = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('token');
-        
+        const token = getToken();
+
         const response = await fetch(`${API_BASE_URL}/api/petty-cash`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -135,7 +143,7 @@ export default function ShiftPage() {
           const expenses = await response.json();
           // Calculate total petty cash expenses
           const totalPettyCash = expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
-          
+
           // Update shift data with petty cash expenses
           setShiftData(prev => ({
             ...prev,
@@ -149,11 +157,6 @@ export default function ShiftPage() {
 
     loadPettyCashExpenses();
   }, []);
-
-  // Save shift data to localStorage whenever it changes
-  useEffect(() => {
-    localStorage.setItem(SHIFT_STORAGE_KEY, JSON.stringify(shiftData));
-  }, [shiftData]);
 
   // Calculate total sales dynamically from all transactions
   const calculateTotalSales = () => {
@@ -220,11 +223,15 @@ export default function ShiftPage() {
       return;
     }
 
+    setShiftData({
+      ...shiftData,
+      totalExpenses: shiftData.totalExpenses + amount,
+    });
+
     // Create petty cash expense record
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-      
+      const token = getToken();
+
       await fetch(`${API_BASE_URL}/api/petty-cash`, {
         method: 'POST',
         headers: {
@@ -241,10 +248,6 @@ export default function ShiftPage() {
       console.error('Failed to create petty cash expense:', error);
     }
 
-    setShiftData({
-      ...shiftData,
-      totalExpenses: shiftData.totalExpenses + amount,
-    });
     setExpenseInput('');
     setExpenseReason('');
     setShowExpenseForm(false);

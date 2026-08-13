@@ -86,10 +86,18 @@ describe('Inventory Security Tests', () => {
     });
   });
 
-  describe('GET /ingredients - public access', () => {
-    it('allows unauthenticated users to fetch ingredients', async () => {
+  describe('GET /ingredients - capability access', () => {
+    it('rejects unauthenticated ingredient reads', async () => {
       const response = await request(app)
-        .get('/ingredients');
+        .get('/api/ingredients');
+
+      expect(response.status).toBe(401);
+    });
+
+    it('allows inventory-capable users to fetch ingredients', async () => {
+      const response = await request(app)
+        .get('/api/ingredients')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(200);
       expect(Array.isArray(response.body)).toBe(true);
@@ -99,7 +107,7 @@ describe('Inventory Security Tests', () => {
   describe('POST /ingredients - create ingredient', () => {
     it('rejects unauthenticated requests (401)', async () => {
       const response = await request(app)
-        .post('/ingredients')
+        .post('/api/ingredients')
         .send({
           name: 'Unauthorized Ingredient',
           current_stock: 50,
@@ -113,7 +121,7 @@ describe('Inventory Security Tests', () => {
 
     it('rejects requests from cashier role (403)', async () => {
       const response = await request(app)
-        .post('/ingredients')
+        .post('/api/ingredients')
         .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           name: 'Cashier Ingredient',
@@ -128,7 +136,7 @@ describe('Inventory Security Tests', () => {
 
     it('allows requests from admin role (201)', async () => {
       const response = await request(app)
-        .post('/ingredients')
+        .post('/api/ingredients')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Admin Ingredient',
@@ -149,7 +157,7 @@ describe('Inventory Security Tests', () => {
   describe('PUT /ingredients/:id - update ingredient stock', () => {
     it('rejects unauthenticated requests (401)', async () => {
       const response = await request(app)
-        .put(`/ingredients/${testIngredientId}`)
+        .put(`/api/ingredients/${testIngredientId}`)
         .send({
           name: 'Updated Ingredient',
           current_stock: 150,
@@ -163,7 +171,7 @@ describe('Inventory Security Tests', () => {
 
     it('rejects requests from cashier role (403)', async () => {
       const response = await request(app)
-        .put(`/ingredients/${testIngredientId}`)
+        .put(`/api/ingredients/${testIngredientId}`)
         .set('Authorization', `Bearer ${cashierToken}`)
         .send({
           name: 'Updated Ingredient',
@@ -178,7 +186,7 @@ describe('Inventory Security Tests', () => {
 
     it('allows requests from admin role (200)', async () => {
       const response = await request(app)
-        .put(`/ingredients/${testIngredientId}`)
+        .put(`/api/ingredients/${testIngredientId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Updated Ingredient',
@@ -198,7 +206,7 @@ describe('Inventory Security Tests', () => {
       });
 
       await request(app)
-        .put(`/ingredients/${testIngredientId}`)
+        .put(`/api/ingredients/${testIngredientId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Updated Ingredient',
@@ -252,14 +260,14 @@ describe('Inventory Security Tests', () => {
 
     it('rejects unauthenticated requests (401)', async () => {
       const response = await request(app)
-        .delete(`/ingredients/${deleteTestIngredientId}`);
+        .delete(`/api/ingredients/${deleteTestIngredientId}`);
 
       expect(response.status).toBe(401);
     });
 
     it('rejects requests from cashier role (403)', async () => {
       const response = await request(app)
-        .delete(`/ingredients/${deleteTestIngredientId}`)
+        .delete(`/api/ingredients/${deleteTestIngredientId}`)
         .set('Authorization', `Bearer ${cashierToken}`);
 
       expect(response.status).toBe(403);
@@ -267,7 +275,7 @@ describe('Inventory Security Tests', () => {
 
     it('allows requests from admin role (204)', async () => {
       const response = await request(app)
-        .delete(`/ingredients/${deleteTestIngredientId}`)
+        .delete(`/api/ingredients/${deleteTestIngredientId}`)
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(response.status).toBe(204);
@@ -280,7 +288,7 @@ describe('Inventory Security Tests', () => {
       const finalStock = 250;
 
       await request(app)
-        .put(`/ingredients/${testIngredientId}`)
+        .put(`/api/ingredients/${testIngredientId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Audit Test Ingredient',

@@ -40,6 +40,31 @@ export async function getSalesDataByPeriod(days: number): Promise<
   Array<{ date: string; total: number; netSales: number; taxAmount: number; serviceChargeAmount: number }>
 > {
   try {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    
+    // Try API first when online, fall back to IndexedDB
+    if (isOnline) {
+      try {
+        const { API_BASE_URL } = await import('@/src/config/runtime');
+        const { getToken } = await import('@/src/lib/api');
+        const token = getToken();
+        
+        const response = await fetch(`${API_BASE_URL}/api/reports/sales?days=${days}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+      } catch (apiError) {
+        console.warn('API fetch failed, falling back to IndexedDB:', apiError);
+      }
+    }
+    
+    // Fallback to IndexedDB
     const { db } = await import('@/src/lib/db');
     const orders = await db.orders
       .where('status')
@@ -90,6 +115,31 @@ export async function getExpensesDataByPeriod(days: number): Promise<
   Array<{ date: string; total: number }>
 > {
   try {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    
+    // Try API first when online, fall back to IndexedDB
+    if (isOnline) {
+      try {
+        const { API_BASE_URL } = await import('@/src/config/runtime');
+        const { getToken } = await import('@/src/lib/api');
+        const token = getToken();
+        
+        const response = await fetch(`${API_BASE_URL}/api/reports/expenses?days=${days}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+      } catch (apiError) {
+        console.warn('API fetch failed, falling back to IndexedDB:', apiError);
+      }
+    }
+    
+    // Fallback to IndexedDB
     const { db } = await import('@/src/lib/db');
     const expenses = await db.expenses.toArray();
     
@@ -128,6 +178,31 @@ export async function getPaymentMethodSummary(days: number): Promise<
   Array<{ method: string; count: number; total: number; percentage: number }>
 > {
   try {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    
+    // Try API first when online, fall back to IndexedDB
+    if (isOnline) {
+      try {
+        const { API_BASE_URL } = await import('@/src/config/runtime');
+        const { getToken } = await import('@/src/lib/api');
+        const token = getToken();
+        
+        const response = await fetch(`${API_BASE_URL}/api/reports/payment-methods?days=${days}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+      } catch (apiError) {
+        console.warn('API fetch failed, falling back to IndexedDB:', apiError);
+      }
+    }
+    
+    // Fallback to IndexedDB
     const { db } = await import('@/src/lib/db');
     const orders = await db.orders
       .where('status')
@@ -175,6 +250,31 @@ export async function getBestSellingProducts(days: number, limit: number = 10): 
   Array<{ product_id: string; product_name: string; quantity: number; revenue: number }>
 > {
   try {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    
+    // Try API first when online, fall back to IndexedDB
+    if (isOnline) {
+      try {
+        const { API_BASE_URL } = await import('@/src/config/runtime');
+        const { getToken } = await import('@/src/lib/api');
+        const token = getToken();
+        
+        const response = await fetch(`${API_BASE_URL}/api/reports/best-products?days=${days}&limit=${limit}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          return data;
+        }
+      } catch (apiError) {
+        console.warn('API fetch failed, falling back to IndexedDB:', apiError);
+      }
+    }
+    
+    // Fallback to IndexedDB
     const { db } = await import('@/src/lib/db');
     const orders = await db.orders
       .where('status')

@@ -5,7 +5,6 @@ import { convertToSmallestUnit } from '@/src/features/inventory/unitConversion';
 export interface Ingredient {
   id: string;
   name: string;
-  category?: string;
   current_stock: number;
   unit: string;
   min_stock: number;
@@ -233,8 +232,6 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
   failed: number;
   message: string;
 }> {
-  console.log('Starting recipe-inventory synchronization audit...');
-  
   try {
     const token = getToken();
     const headers: Record<string, string> = {};
@@ -270,19 +267,12 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
       }
     }
     
-    console.log(`Audit Results:`);
-    console.log(`- Total unique ingredients in recipes: ${recipeIngredientNames.size}`);
-    console.log(`- Total ingredients in inventory: ${inventoryIngredients.length}`);
-    
     // Find ingredients in recipes that are missing from inventory (by name)
     const missingIngredientNames = [...recipeIngredientNames].filter(
       name => !existingIngredientNames.has(name)
     );
     
-    console.log(`- Missing ingredients: ${missingIngredientNames.length}`);
-    
     if (missingIngredientNames.length === 0) {
-      console.log('✅ All recipe ingredients are already registered in inventory');
       return {
         success: true,
         added: 0,
@@ -316,31 +306,24 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
       };
     });
     
-    console.log(`Registering ${missingIngredients.length} missing ingredients...`);
-    console.log('Missing ingredients:', missingIngredients);
-    
     let successCount = 0;
     let failCount = 0;
     
     for (const ingredient of missingIngredients) {
       try {
-        console.log(`Attempting to register: ${ingredient.name} (${ingredient.unit}, ${ingredient.unit_price})`);
-        const result = await addIngredient({
+        await addIngredient({
           name: ingredient.name,
           current_stock: 0,
           unit: ingredient.unit,
           min_stock: 100,
           unit_price: ingredient.unit_price,
         });
-        console.log(`✅ Registered: ${ingredient.name} with ID: ${result}`);
         successCount++;
       } catch (error) {
         console.error(`❌ Failed to register ${ingredient.name}:`, error);
         failCount++;
       }
     }
-    
-    console.log(`Sync completed: ${successCount} added, ${failCount} failed`);
     
     return {
       success: true,
@@ -373,15 +356,15 @@ export async function checkStockAvailability(productId: string, quantity: number
     // Get recipes for the product
     const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes/menu/${productId}`, { headers });
     if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
-    const recipes = await recipesResponse.json();
+    const recipes: Recipe[] = await recipesResponse.json();
     
     // Get current inventory
     const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
     if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
-    const ingredients = await ingredientsResponse.json();
+    const ingredients: Ingredient[] = await ingredientsResponse.json();
     
     // Create a map of ingredient ID to current stock
-    const stockMap = new Map(ingredients.map((ing: any) => [ing.id, ing]));
+    const stockMap = new Map<string, Ingredient>(ingredients.map((ingredient) => [ingredient.id, ingredient]));
     
     const insufficientIngredients: Array<{ name: string; required: number; available: number; unit: string }> = [];
     
@@ -392,7 +375,7 @@ export async function checkStockAvailability(productId: string, quantity: number
           name: recipe.ingredient?.name || 'Unknown',
           required: recipe.quantity_required * quantity,
           available: 0,
-          unit: recipe.unit || ingredient?.unit || 'g',
+          unit: recipe.unit || 'g',
         });
         continue;
       }
@@ -440,15 +423,15 @@ export async function deductStockForSale(productId: string, quantity: number = 1
     // Get recipes for the product
     const recipesResponse = await fetch(`${API_BASE_URL}/api/recipes/menu/${productId}`, { headers });
     if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
-    const recipes = await recipesResponse.json();
+    const recipes: Recipe[] = await recipesResponse.json();
     
     // Get current inventory
     const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
     if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
-    const ingredients = await ingredientsResponse.json();
+    const ingredients: Ingredient[] = await ingredientsResponse.json();
     
     // Create a map of ingredient ID to current stock
-    const stockMap = new Map(ingredients.map((ing: any) => [ing.id, ing]));
+    const stockMap = new Map<string, Ingredient>(ingredients.map((ingredient) => [ingredient.id, ingredient]));
     
     const deductedIngredients: Array<{ name: string; quantity: number; unit: string }> = [];
     const failedIngredients: Array<{ name: string; error: string }> = [];
@@ -585,13 +568,16 @@ export interface StockRequest {
 export async function createStockRequest(params: any): Promise<string> {
   try {
     const token = getToken();
+    const payload = params.supplier_id == null
+      ? { ...params, supplier_id: undefined }
+      : params;
     const response = await fetch(`${API_BASE_URL}/api/stock-requests`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
       },
-      body: JSON.stringify(params),
+      body: JSON.stringify(payload),
     });
 
     if (!response.ok) {
@@ -1736,6 +1722,14 @@ export interface Supplier {
   phone: string;
   email?: string;
   address?: string;
+  pic_name?: string | null;
+  pic_mobile?: string | null;
+  category?: string | null;
+  moq_amount?: number | null;
+  moq_unit?: string | null;
+  payment_terms?: string | null;
+  performance_notes?: string | null;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }

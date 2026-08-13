@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import LRU from 'lru-cache';
 import { prisma } from '../lib/prisma';
+import type { PermissionName } from '../../src/config/permissions';
 
 interface PermissionCache {
   get(key: string): string[] | undefined;
@@ -116,19 +117,19 @@ function checkPermissions(
 }
 
 export const requirePermission =
-  (permission: string) =>
+  (permission: PermissionName) =>
   (req: Request, res: Response, next: NextFunction): void => {
     checkPermissions(req, res, next, [permission], 'all');
   };
 
 export const requireAnyPermission =
-  (...permissions: string[]) =>
+  (...permissions: PermissionName[]) =>
   (req: Request, res: Response, next: NextFunction): void => {
     checkPermissions(req, res, next, permissions, 'any');
   };
 
 export const requireAllPermissions =
-  (...permissions: string[]) =>
+  (...permissions: PermissionName[]) =>
   (req: Request, res: Response, next: NextFunction): void => {
     checkPermissions(req, res, next, permissions, 'all');
   };

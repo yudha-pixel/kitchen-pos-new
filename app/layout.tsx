@@ -6,6 +6,8 @@ import { ToastProvider } from "@/src/components/ui/Toast";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { PageHeaderProvider } from "@/src/context/PageHeaderContext";
 import { AppShell } from "@/src/components/layout/AppShell";
+import { CompanyProvider } from "@/src/context/CompanyContext";
+import { ShortcutProvider } from "@/src/context/ShortcutContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -41,11 +43,15 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <ThemeProvider>
           <AuthProvider>
-            <ToastProvider>
-              <PageHeaderProvider>
-                <AppShell>{children}</AppShell>
-              </PageHeaderProvider>
-            </ToastProvider>
+            <CompanyProvider>
+              <ShortcutProvider>
+                <ToastProvider>
+                  <PageHeaderProvider>
+                    <AppShell>{children}</AppShell>
+                  </PageHeaderProvider>
+                </ToastProvider>
+              </ShortcutProvider>
+            </CompanyProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

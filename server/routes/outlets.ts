@@ -4,6 +4,8 @@ import { prisma } from '../lib/prisma';
 import { ZodError } from 'zod';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -49,7 +51,7 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // Get outlet by ID
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.outlets.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
 
@@ -87,14 +89,17 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Create outlet
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.outlets.create), async (req: Request, res: Response) => {
   try {
     const data = createOutletSchema.parse(req.body);
     const outletId = randomUUID();
+    const company = await prisma.company.findFirst({ orderBy: { created_at: 'asc' }, select: { id: true } });
+    if (!company) return res.status(503).json({ error: 'Company configuration is not available' });
 
     const outlet = await prisma.outlet.create({
       data: {
         id: outletId,
+        company_id: company.id,
         ...data,
       },
     });
@@ -114,7 +119,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Update outlet
-router.patch('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id', authMiddleware, requirePermission(PERMISSIONS.outlets.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
     const data = updateOutletSchema.parse(req.body);
@@ -139,7 +144,7 @@ router.patch('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Delete outlet
-router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.outlets.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params as { id: string };
 

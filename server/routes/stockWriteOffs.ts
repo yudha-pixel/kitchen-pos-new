@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -21,7 +23,7 @@ const rejectStockWriteOffSchema = z.object({
 });
 
 // GET /stock-write-offs - List all write-offs, optionally filtered by status
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
     const where: any = {};
@@ -40,7 +42,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /stock-write-offs/:id
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const writeOff = await prisma.stockWriteOff.findUnique({ where: { id } });
@@ -57,7 +59,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /stock-write-offs - Create a new pending write-off
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.adjust), async (req: Request, res: Response) => {
   try {
     const data = createStockWriteOffSchema.parse(req.body);
     const userId = req.user?.id;
@@ -93,7 +95,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /stock-write-offs/:id/approve - Approve and remove stock from the ingredient
-router.patch('/:id/approve', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id/approve', authMiddleware, requirePermission(PERMISSIONS.inventory.approve), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -134,7 +136,7 @@ router.patch('/:id/approve', authMiddleware, requireRole('admin'), async (req: R
 });
 
 // PATCH /stock-write-offs/:id/reject
-router.patch('/:id/reject', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id/reject', authMiddleware, requirePermission(PERMISSIONS.inventory.approve), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const data = rejectStockWriteOffSchema.parse(req.body);

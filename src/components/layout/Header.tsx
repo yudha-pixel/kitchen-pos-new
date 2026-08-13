@@ -1,14 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { Search, LogOut, Users, LayoutGrid, Menu, ChevronRight } from 'lucide-react';
-import Link from 'next/link';
-import { TableMergeModal } from './TableMergeModal';
-import { OutletSelector } from '@/src/components/outlet/OutletSelector';
+import { ArrowLeft, ChevronRight, Menu, Plus, Search, MoreVertical } from 'lucide-react';
+import { LiveClock } from './LiveClock';
+import { UserProfileMenu } from './UserProfileMenu';
+import { CompanyBrand } from './CompanyBrand';
+import { TopNavigation } from './TopNavigation';
+import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
 import { useAuth } from '@/src/context/AuthContext';
+import { useCompany } from '@/src/context/CompanyContext';
 import { findModuleForPath } from '@/src/config/navigation';
-import { MODULE_ICON_MAP } from './moduleIcons';
+import { usePageHeaderContext } from '@/src/context/PageHeaderContext';
+import { Menu as BaseMenu } from '@base-ui/react/menu';
 
 interface HeaderProps {
   title?: string;
@@ -20,30 +24,15 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
   const router = useRouter();
   const pathname = usePathname();
   const [searchQuery, setSearchQuery] = useState('');
-  const [currentTime, setCurrentTime] = useState<Date | null>(null);
-  const [showTableMergeModal, setShowTableMergeModal] = useState(false);
   const { user, logout } = useAuth();
+  const { company } = useCompany();
+  const { config } = usePageHeaderContext();
   const currentModule = findModuleForPath(pathname);
   // Falls back to the matching sub-link's own label (e.g. "Manajemen Produk")
   // before the module title, so pages that don't pass an explicit title don't
   // show a redundant "Module › Module" breadcrumb.
   const matchedSubLink = currentModule?.subLinks.find((sub) => sub.href === pathname);
-  const pageTitle = title || matchedSubLink?.label || currentModule?.title || 'Kitchen POS';
-  const initial = user?.username?.charAt(0).toUpperCase() || 'U';
-  // App-launcher icon reflects the current module so it doubles as a quick module glance,
-  // falling back to the generic grid icon outside any module (e.g. /apps itself).
-  const AppIcon = (currentModule && MODULE_ICON_MAP[currentModule.iconName]) || LayoutGrid;
-
-  // Set on mount + update every minute (avoids SSR/client clock mismatch)
-  useEffect(() => {
-    const update = () => setCurrentTime(new Date());
-    const initial = setTimeout(update, 0);
-    const timer = setInterval(update, 60000);
-    return () => {
-      clearTimeout(initial);
-      clearInterval(timer);
-    };
-  }, []);
+  const pageTitle = matchedSubLink?.label || title || currentModule?.title || 'Kitchen POS';
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -56,6 +45,8 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
     router.push('/login');
   };
 
+  const isPosModule = currentModule?.id === 'pos';
+
   const handleToggleSidebar = () => {
     if (onToggleMobileSidebar) {
       onToggleMobileSidebar();
@@ -64,106 +55,109 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
     }
   };
 
+  const handleMobilePrimaryAction = () => {
+    if (pathname === '/inventory') {
+      window.dispatchEvent(new CustomEvent('inventory-add-item'));
+    }
+  };
+
   return (
-    <header className="relative z-40 flex h-16 items-center border-b border-line bg-surface px-4 shadow-xs sm:px-6">
-      <div className="flex w-full items-center justify-between gap-4">
-        {/* Left: Hamburger, Back Button, Breadcrumb and Search */}
-        <div className="flex flex-1 items-center gap-2 sm:gap-3">
+    <>
+      <TopNavigation
+        brand={<CompanyBrand name={company.name} logoUrl={company.logo_url} />}
+        left={<>
           <button
+            type="button"
             onClick={handleToggleSidebar}
             aria-label="Buka menu navigasi"
             title="Buka Menu"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt lg:hidden"
+            className="flex size-11 shrink-0 items-center justify-center rounded-lg text-on-primary outline-none hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-on-primary focus-visible:ring-offset-2 focus-visible:ring-offset-primary lg:hidden"
           >
-            <Menu className="h-5 w-5" />
+            <Menu className="size-5" aria-hidden="true" />
           </button>
-          <Link
-            href="/apps"
-            aria-label="Kembali ke Launcher Aplikasi"
-            title="Launcher Aplikasi (/apps)"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary shadow-xs transition-colors hover:bg-primary-hover"
+          <button
+            type="button"
+            onClick={() => router.back()}
+            aria-label="Kembali ke halaman sebelumnya"
+            className="hidden size-11 shrink-0 items-center justify-center rounded-lg text-ink-secondary outline-none hover:bg-surface-alt focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface lg:flex"
           >
-            <AppIcon className="h-5 w-5" />
-          </Link>
-          <div className="hidden min-w-0 items-center gap-2 text-xs sm:flex">
+            <ArrowLeft className="size-5" aria-hidden="true" />
+          </button>
+          {!onSearch && <div className="hidden min-w-0 items-center gap-2 text-xs lg:flex">
             {currentModule && (
               <>
                 <span className="text-ink-muted">{currentModule.title}</span>
-                <ChevronRight className="h-3 w-3 shrink-0 text-ink-muted" aria-hidden="true" />
+                <ChevronRight className="size-3 shrink-0 text-ink-muted" aria-hidden="true" />
               </>
             )}
             <span className="truncate text-sm font-semibold text-ink">{pageTitle}</span>
-          </div>
+          </div>}
 
           {onSearch && (
-            <div className="relative max-w-md flex-1">
+            <div className="relative hidden min-w-0 max-w-sm flex-1 lg:block">
               <input
                 type="search"
                 placeholder="Cari produk..."
                 aria-label="Cari produk"
                 value={searchQuery}
                 onChange={handleSearch}
-                className="min-h-11 w-full rounded-lg border border-line-strong bg-surface pl-10 pr-4 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none"
+                className="min-h-11 w-full rounded-lg border border-line-strong bg-surface pl-10 pr-4 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               />
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-ink-muted" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
             </div>
           )}
-        </div>
-
-        {/* Right: Time and User Actions */}
-        <div className="flex min-w-0 shrink items-center gap-1.5 sm:gap-4">
-          {/* Current Time */}
-          {currentTime && (
-            <div className="hidden text-right md:block">
-              <p className="tnum text-sm font-semibold text-ink">
-                {currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
-              </p>
-              <p className="text-xs text-ink-muted">
-                {currentTime.toLocaleDateString('id-ID', {
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                })}
-              </p>
-            </div>
-          )}
-
-          {/* User Actions */}
-          <button
-            onClick={() => setShowTableMergeModal(true)}
-            aria-label="Gabung meja"
-            title="Gabung Meja"
-            className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
-          >
-            <Users className="h-5 w-5" />
-          </button>
-
-          {/* Outlet Selector */}
-          <OutletSelector />
-
-          <div className="flex items-center gap-1 border-l border-line pl-2 sm:pl-3">
-            <span className="flex items-center gap-2 px-1 text-sm font-medium text-ink-secondary">
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-soft text-sm font-semibold text-primary"
-                aria-hidden="true"
+        </>}
+        right={<>
+          <ConnectionIndicator />
+          {config.actions && (
+            <BaseMenu.Root>
+              <BaseMenu.Trigger
+                aria-label="Sync & Options"
+                className="flex size-11 items-center justify-center rounded-lg text-ink-secondary outline-none hover:bg-surface-alt focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
               >
-                {initial}
-              </span>
-              <span className="hidden sm:inline">{user?.username}</span>
-            </span>
-            <button
-              onClick={handleLogout}
-              aria-label="Keluar"
-              title="Logout"
-              className="flex min-h-11 min-w-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-danger-soft hover:text-danger"
-            >
-              <LogOut className="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
+                <MoreVertical className="size-5" aria-hidden="true" />
+              </BaseMenu.Trigger>
+              <BaseMenu.Portal>
+                <BaseMenu.Positioner sideOffset={8} align="end" className="z-50">
+                  <BaseMenu.Popup
+                    aria-label="Sync & Options"
+                    className="w-56 rounded-xl border border-line bg-surface p-2 text-ink shadow-lg outline-none"
+                  >
+                    {config.actions}
+                  </BaseMenu.Popup>
+                </BaseMenu.Positioner>
+              </BaseMenu.Portal>
+            </BaseMenu.Root>
+          )}
+          <LiveClock />
 
-      <TableMergeModal isOpen={showTableMergeModal} onClose={() => setShowTableMergeModal(false)} />
-    </header>
+          {pathname === '/inventory' && (
+            <button
+              type="button"
+              onClick={handleMobilePrimaryAction}
+              aria-label="Tambah item"
+              className="flex size-11 items-center justify-center rounded-lg text-on-primary outline-none hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-on-primary focus-visible:ring-offset-2 focus-visible:ring-offset-primary lg:hidden"
+            >
+              <Plus className="size-5" aria-hidden="true" />
+            </button>
+          )}
+
+          {user && <UserProfileMenu user={user} onLogout={handleLogout} />}
+        </>}
+        mobileRow={onSearch ? (
+        <div className="relative mb-2 w-full lg:hidden">
+          <input
+            type="search"
+            placeholder="Cari produk..."
+            aria-label="Cari produk"
+            value={searchQuery}
+            onChange={handleSearch}
+            className="min-h-11 w-full rounded-lg border border-line-strong bg-surface pl-10 pr-4 text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-on-primary"
+          />
+          <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-ink-muted" aria-hidden="true" />
+        </div>
+        ) : undefined}
+      />
+    </>
   );
 };

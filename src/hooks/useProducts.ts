@@ -46,7 +46,6 @@ export const useProducts = (categoryId?: string | null) => {
         if (cachedProducts.length > 0) {
           setProducts(cachedProducts as unknown as Product[]);
           setIsFromCache(true);
-          console.log('Loaded products from IndexedDB cache:', cachedProducts.length);
         }
       } catch (cacheError) {
         console.warn('Failed to load products from cache:', cacheError);
@@ -66,7 +65,6 @@ export const useProducts = (categoryId?: string | null) => {
                 await db.products.clear();
               }
               await db.products.bulkPut(data as unknown as DBProduct[]);
-              console.log('Updated products cache with fresh data:', data.length);
             } catch (cacheError) {
               console.warn('Failed to update products cache:', cacheError);
             }
@@ -126,7 +124,6 @@ export const useCategories = () => {
         if (cachedCategories.length > 0) {
           setCategories(cachedCategories as unknown as Category[]);
           setIsFromCache(true);
-          console.log('Loaded categories from IndexedDB cache:', cachedCategories.length);
         }
       } catch (cacheError) {
         console.warn('Failed to load categories from cache:', cacheError);
@@ -142,7 +139,6 @@ export const useCategories = () => {
             try {
               await db.categories.clear();
               await db.categories.bulkPut(data as unknown as DBCategory[]);
-              console.log('Updated categories cache with fresh data:', data.length);
             } catch (cacheError) {
               console.warn('Failed to update categories cache:', cacheError);
             }

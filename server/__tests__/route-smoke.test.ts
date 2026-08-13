@@ -3,7 +3,7 @@ import request from 'supertest';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
-import auditData from '../../route-audit-backend.json';
+import auditData from '../../audit/route-audit-backend.json';
 
 // Map route files to their mount prefixes in server/app.ts
 const ROUTE_MOUNT_PREFIXES: Record<string, string> = {
@@ -99,9 +99,9 @@ describe('Backend Route Smoke Test', () => {
     if (brokenRoutes.length > 0) {
       const fs = require('fs');
       const path = require('path');
-      const reportPath = path.join(process.cwd(), 'broken-api-routes.json');
+      const reportPath = path.join(process.cwd(), 'audit/broken-api-routes.json');
       fs.writeFileSync(reportPath, JSON.stringify(brokenRoutes, null, 2));
-      console.log(`\n⚠️  Found ${brokenRoutes.length} broken API routes. See broken-api-routes.json`);
+      console.log(`\n⚠️  Found ${brokenRoutes.length} broken API routes. See audit/broken-api-routes.json`);
     }
   });
 

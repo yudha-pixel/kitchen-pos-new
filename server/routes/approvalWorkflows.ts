@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -13,7 +15,7 @@ const createWorkflowSchema = z.object({
 });
 
 // GET /approval-workflows - List all
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.approvals.view), async (req: Request, res: Response) => {
   try {
     const workflows = await prisma.approvalWorkflow.findMany({
       where: { is_active: true },
@@ -28,7 +30,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /approval-workflows - Create workflow
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.approvals.create), async (req: Request, res: Response) => {
   try {
     const data = createWorkflowSchema.parse(req.body);
 
@@ -47,7 +49,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // PATCH /approval-workflows/:id - Update workflow
-router.patch('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.patch('/:id', authMiddleware, requirePermission(PERMISSIONS.approvals.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const data = createWorkflowSchema.partial().parse(req.body);
@@ -68,7 +70,7 @@ router.patch('/:id', authMiddleware, requireRole('admin'), async (req: Request, 
 });
 
 // DELETE /approval-workflows/:id - Delete workflow
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.approvals.delete), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

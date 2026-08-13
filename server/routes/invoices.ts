@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -18,7 +20,7 @@ const createInvoiceSchema = z.object({
 });
 
 // GET /invoices - List with filters
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, supplier_id } = req.query;
     const where: any = {};
@@ -47,7 +49,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /invoices/:id - Get details
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const invoice = await prisma.invoice.findUnique({
@@ -80,7 +82,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /invoices - Create from GRN
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createInvoiceSchema.parse(req.body);
 
@@ -120,7 +122,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /invoices/:id/verify - Verify invoice
-router.patch('/:id/verify', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/verify', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -154,7 +156,7 @@ router.patch('/:id/verify', authMiddleware, async (req: Request, res: Response) 
 });
 
 // PATCH /invoices/:id/cancel - Cancel invoice
-router.patch('/:id/cancel', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/cancel', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 

@@ -25,7 +25,7 @@ export default function LoginPage() {
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const response = await fetch('/api/settings');
+        const response = await fetch('/api/settings/login-config');
         if (response.ok) {
           const settings = await response.json();
           setDefaultRedirect(settings.default_login_redirect || '/apps');

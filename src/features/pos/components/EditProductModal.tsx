@@ -16,7 +16,7 @@ interface EditProductModalProps {
   onClose: () => void;
   product: Product;
   onSave: (updatedProduct: Partial<Product>) => Promise<void>;
-  userRole?: 'admin' | 'management' | 'cashier' | 'owner';
+  canEditProduct: boolean;
 }
 
 interface ModifierOption {
@@ -41,7 +41,7 @@ export const EditProductModal = ({
   onClose,
   product,
   onSave,
-  userRole = 'cashier'
+  canEditProduct,
 }: EditProductModalProps) => {
   const router = useRouter();
   const [formData, setFormData] = useState({
@@ -205,10 +205,10 @@ export const EditProductModal = ({
     router.push('/inventory/mapping');
   };
 
-  if (userRole !== 'admin' && userRole !== 'management') {
+  if (!canEditProduct) {
     return (
       <Modal isOpen={isOpen} onClose={onClose} title="Akses Ditolak" size="sm">
-        <p className="text-sm text-ink-secondary">Hanya admin dan management yang dapat mengedit produk.</p>
+        <p className="text-sm text-ink-secondary">Akun Anda tidak memiliki izin products.edit.</p>
       </Modal>
     );
   }

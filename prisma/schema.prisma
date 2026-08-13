@@ -126,9 +126,9 @@ model Product {
   created_at            DateTime               @default(now())
   updated_at            DateTime               @updatedAt
   description           String?
+  hpp                   Float                  @default(0) // HPP/COGS calculated from recipe
   is_active             Boolean                @default(true)
   outlet_id             String?                @db.Uuid
-  hpp                   Float                  @default(0) // HPP/COGS calculated from recipe
   customerOrderItems    CustomerOrderItem[]
   order_items           OrderItem[]
   void_logs             OrderVoidLog[]
@@ -266,6 +266,7 @@ model Outlet {
   phone         String?
   is_active     Boolean          @default(true)
   delivery_fee  Float            @default(15000)
+  company_id    String           @db.Uuid
   created_at    DateTime         @default(now())
   updated_at    DateTime         @updatedAt
   orders        Order[]
@@ -274,9 +275,33 @@ model Outlet {
   tables        Table[]
   warehouses    Warehouse[]
   kitchenStations KitchenStation[]
+  company       Company          @relation(fields: [company_id], references: [id])
 
+  @@index([company_id])
   @@index([code])
   @@map("outlets")
+}
+
+model Company {
+  id                 String   @id @default(uuid()) @db.Uuid
+  name               String
+  logo_path          String?
+  logo_mime_type     String?
+  phone              String?
+  email              String?
+  website            String?
+  address            String?
+  tax_id              String?
+  company_registry   String?
+  timezone           String   @default("Asia/Jakarta")
+  currency           String   @default("IDR")
+  tax_rate           Float    @default(10)
+  service_charge     Float    @default(0)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  outlets            Outlet[]
+
+  @@map("companies")
 }
 
 model Warehouse {
@@ -326,6 +351,9 @@ model CustomerOrder {
   // one of src/features/self-order/paymentMethods.ts's ids ('cashier', 'qris', ...)
   payment_method String?
   payment_status String              @default("unpaid")
+  payment_reference String?
+  payment_verified_at DateTime?      @db.Timestamptz(6)
+  payment_verified_by String?        @db.Uuid
   created_at     DateTime            @default(now())
   updated_at     DateTime            @updatedAt
   items          CustomerOrderItem[]
@@ -391,7 +419,9 @@ model AppSettings {
   card_view          String   @default("grid")
   cart_position      String   @default("right-sidebar")
   layout_density     String   @default("spacious")
-  
+  launcher_background_path      String?
+  launcher_background_mime_type String?
+
   // Store Settings
   store_name         String   @default("Kitchen POS Restaurant")
   store_phone        String   @default("+62 21 1234 5678")
@@ -426,7 +456,7 @@ model AppSettings {
   show_pos_warning   Boolean  @default(true)
   email_manager      Boolean  @default(true)
   auto_restock_enabled Boolean @default(false)
-  
+
   // Security Settings
   manager_pin        String   @default("1234")
   require_pin_void   Boolean  @default(true)
@@ -459,9 +489,11 @@ model AppSettings {
 
   // Self-Order Settings
   // Which payment methods the QR self-order flow offers. Ids only — each method's
-  // type (counter vs online) is fixed in src/features/self-order/paymentMethods.ts
+  // type (counter vs manual verification) is fixed in src/features/self-order/paymentMethods.ts
   // because it governs whether a guest can settle their own order.
   selforder_payment_methods Json?  @default("[\"cashier\"]")
+  // Public instructions shown to guests. Shape is validated at the settings API.
+  selforder_payment_instructions Json? @default("{}")
   // 'review' = guest request sits in the staff queue until a cashier accepts it
   // into the kitchen (see POST /self-order/orders/:id/accept). 'auto' = accepted
   // immediately on submission and both cashier and kitchen are notified at once —
@@ -583,7 +615,6 @@ model Payroll {
 model Ingredient {
   id              String          @id @default(uuid()) @db.Uuid
   name            String
-  category        String?         @db.Text
   current_stock   Float           @default(0)
   unit            String
   min_stock       Float           @default(0)
@@ -593,10 +624,12 @@ model Ingredient {
   ad_hoc_supplier String?         @db.Text
   ad_hoc_price    Float?          @default(0)
   warehouse_id    String?         @db.Uuid
+  category_id     String?         @db.Uuid
   created_at      DateTime        @default(now())
   updated_at      DateTime        @updatedAt
   supplier        Supplier?       @relation("IngredientSupplier", fields: [supplier_id], references: [id])
   warehouse       Warehouse?      @relation(fields: [warehouse_id], references: [id])
+  category        IngredientCategory? @relation(fields: [category_id], references: [id])
   recipes         Recipe[]
   stockAdjustmentLogs StockAdjustmentLog[]
   purchaseOrderItems PurchaseOrderItem[]
@@ -610,7 +643,23 @@ model Ingredient {
   @@index([name])
   @@index([supplier_id])
   @@index([warehouse_id])
+  @@index([category_id])
   @@map("ingredients")
+}
+
+// Ingredient categorization (e.g. "Protein", "Dairy", "Produce") — a distinct
+// domain from Product's `Category` model, which groups menu items, not raw
+// materials. Kept as its own table rather than reusing Category so an admin
+// can't accidentally file a menu category under inventory or vice versa.
+model IngredientCategory {
+  id          String       @id @default(uuid()) @db.Uuid
+  name        String
+  color       String?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+  ingredients Ingredient[]
+
+  @@map("ingredient_categories")
 }
 
 model StockTransfer {
@@ -1219,14 +1268,14 @@ model PettyCash {
   created_by      String?  @db.Uuid
   created_at      DateTime @default(now())
   updated_at      DateTime @updatedAt
-  
+
   // Optional relation to ingredient if from ad-hoc purchase
   ingredient_id   String?  @db.Uuid
   ingredient      Ingredient? @relation("PettyCashIngredient", fields: [ingredient_id], references: [id])
-  
+
   // Optional relation to shift if tracked per shift
   shift_id        String?  @db.Uuid
-  
+
   created_by_user Profile?  @relation("PettyCashCreatedBy", fields: [created_by], references: [id])
 
   @@index([created_by])

@@ -9,7 +9,7 @@ test.describe('Access Control Tests', () => {
 
   test.describe('Unauthenticated Access', () => {
     test('should redirect unauthenticated users to login when accessing admin pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin`);
+      await page.goto(`${BASE_URL}/apps`);
       await expect(page).toHaveURL(/\/login/);
     });
 
@@ -41,7 +41,7 @@ test.describe('Access Control Tests', () => {
     });
 
     test('should allow admin to access admin pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/products`);
+      await page.goto(`${BASE_URL}/products`);
       await expect(page).not.toHaveURL(/\/login/);
     });
 
@@ -51,12 +51,12 @@ test.describe('Access Control Tests', () => {
     });
 
     test('should allow admin to access settings pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/settings`);
+      await page.goto(`${BASE_URL}/settings`);
       await expect(page).not.toHaveURL(/\/login/);
     });
 
     test('should allow admin to access HR pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/hr`);
+      await page.goto(`${BASE_URL}/hr`);
       await expect(page).not.toHaveURL(/\/login/);
     });
   });
@@ -81,7 +81,7 @@ test.describe('Access Control Tests', () => {
     });
 
     test('should deny cashier access to admin pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/products`);
+      await page.goto(`${BASE_URL}/products`);
       // Should redirect or show access denied
       await expect(page.locator('body')).toHaveText(/unauthorized|forbidden|access denied/i, { timeout: 5000 }).catch(() => {
         // If no error message, check if redirected to login
@@ -90,7 +90,7 @@ test.describe('Access Control Tests', () => {
     });
 
     test('should deny cashier access to settings pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/settings`);
+      await page.goto(`${BASE_URL}/settings`);
       await expect(page.locator('body')).toHaveText(/unauthorized|forbidden|access denied/i, { timeout: 5000 }).catch(() => {
         expect(page.url()).toMatch(/\/login/);
       });
@@ -112,12 +112,12 @@ test.describe('Access Control Tests', () => {
     });
 
     test('should allow manager to access HR pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/hr`);
+      await page.goto(`${BASE_URL}/hr`);
       await expect(page).not.toHaveURL(/\/login/);
     });
 
     test('should allow manager to access reports', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/reports`);
+      await page.goto(`${BASE_URL}/reports`);
       await expect(page).not.toHaveURL(/\/login/);
     });
   });
@@ -132,13 +132,13 @@ test.describe('Access Control Tests', () => {
     });
 
     test('should allow owner to access all pages', async ({ page }) => {
-      await page.goto(`${BASE_URL}/admin/products`);
+      await page.goto(`${BASE_URL}/products`);
       await expect(page).not.toHaveURL(/\/login/);
 
       await page.goto(`${BASE_URL}/inventory`);
       await expect(page).not.toHaveURL(/\/login/);
 
-      await page.goto(`${BASE_URL}/admin/settings`);
+      await page.goto(`${BASE_URL}/settings`);
       await expect(page).not.toHaveURL(/\/login/);
     });
   });
@@ -151,7 +151,7 @@ test.describe('Access Control Tests', () => {
       await page.click('button[type="submit"]');
       await page.waitForURL(/\/apps/);
 
-      await page.goto(`${BASE_URL}/admin/products`);
+      await page.goto(`${BASE_URL}/products`);
       // Check for admin-specific UI elements
       const adminElements = page.locator('[data-role="admin"]');
       const count = await adminElements.count();
@@ -200,7 +200,7 @@ test.describe('Access Control Tests', () => {
       await page.evaluate(() => localStorage.clear());
 
       // Try to access protected page
-      await page.goto(`${BASE_URL}/admin/products`);
+      await page.goto(`${BASE_URL}/products`);
       await expect(page).toHaveURL(/\/login/);
     });
   });
@@ -229,7 +229,7 @@ test.describe('Access Control Tests', () => {
       await page2.waitForURL(/\/apps/);
 
       // Admin should access admin pages
-      await page1.goto(`${BASE_URL}/admin/products`);
+      await page1.goto(`${BASE_URL}/products`);
       await expect(page1).not.toHaveURL(/\/login/);
 
       // Cashier should access POS
@@ -237,7 +237,7 @@ test.describe('Access Control Tests', () => {
       await expect(page2).not.toHaveURL(/\/login/);
 
       // Cashier should not access admin
-      await page2.goto(`${BASE_URL}/admin/products`);
+      await page2.goto(`${BASE_URL}/products`);
       await expect(page2.locator('body')).toHaveText(/unauthorized|forbidden|access denied/i, { timeout: 5000 }).catch(() => {
         expect(page2.url()).toMatch(/\/login/);
       });

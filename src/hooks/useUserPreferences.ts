@@ -100,6 +100,7 @@ export function useUserPreferences() {
     reorderFavorites,
     addRecent,
     clearRecent,
-    updatePreferences
+    updatePreferences,
+    refresh: fetchPreferences
   };
 }

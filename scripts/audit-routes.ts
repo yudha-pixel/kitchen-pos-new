@@ -26,7 +26,7 @@ interface AuditResult {
 }
 
 const ROUTES_DIR = path.join(__dirname, '..', 'server', 'routes');
-const OUTPUT_FILE = path.join(__dirname, '..', 'route-audit-backend.json');
+const OUTPUT_FILE = path.join(__dirname, '..', 'audit', 'route-audit-backend.json');
 
 const SENSITIVE_OPERATIONS = [
   'delete',

@@ -91,12 +91,28 @@ describe('User Preferences API', () => {
         .put('/api/user/preferences')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          favorites: ['/pos', '/kitchen', '/inventory', '/admin', '/finance', '/hr', '/settings'],
+          favorites: ['/pos', '/kitchen', '/inventory', '/apps', '/finance', '/hr', '/settings'],
           recent: []
         });
 
       expect(response.status).toBe(400);
       expect(response.body.error).toContain('Maximum 6 favorites allowed');
+    });
+
+    it('normalizes and deduplicates legacy admin routes on write', async () => {
+      const response = await request(app)
+        .put('/api/user/preferences')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          favorites: ['/admin/products', '/products', '/admin/settings'],
+          recent: [
+            { route: '/admin/crm', title: 'CRM', timestamp: new Date().toISOString() },
+          ],
+        });
+
+      expect(response.status).toBe(200);
+      expect(response.body.favorites).toEqual(['/products', '/settings']);
+      expect(response.body.recent[0].route).toBe('/crm');
     });
 
     it('enforces maximum 10 recent items', async () => {

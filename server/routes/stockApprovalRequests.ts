@@ -1,32 +1,34 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // POST /api/stock-approval-requests - Create a new stock approval request
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.adjust), async (req: Request, res: Response) => {
   try {
     const { type, requester_name, item_name, quantity, unit, evidence_image } = req.body;
 
     // Validate required fields
     if (!type || !requester_name || !item_name || !quantity || !unit) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: type, requester_name, item_name, quantity, unit' 
+      return res.status(400).json({
+        error: 'Missing required fields: type, requester_name, item_name, quantity, unit'
       });
     }
 
     // Validate type
     if (type !== 'Stock In' && type !== 'Stock Out') {
-      return res.status(400).json({ 
-        error: 'Invalid type. Must be "Stock In" or "Stock Out"' 
+      return res.status(400).json({
+        error: 'Invalid type. Must be "Stock In" or "Stock Out"'
       });
     }
 
     // Validate quantity
     if (quantity <= 0) {
-      return res.status(400).json({ 
-        error: 'Quantity must be greater than 0' 
+      return res.status(400).json({
+        error: 'Quantity must be greater than 0'
       });
     }
 
@@ -65,7 +67,7 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // GET /api/stock-approval-requests - Get all stock approval requests with optional filters
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.approve), async (req: Request, res: Response) => {
   try {
     const { status, search } = req.query;
 
@@ -98,15 +100,15 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/stock-approval-requests/:id/review - Review (approve/reject) a stock approval request
-router.patch('/:id/review', async (req: Request, res: Response) => {
+router.patch('/:id/review', authMiddleware, requirePermission(PERMISSIONS.inventory.approve), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const { status, manager_notes, processed_by } = req.body;
 
     // Validate status
     if (status !== 'Approved' && status !== 'Rejected') {
-      return res.status(400).json({ 
-        error: 'Invalid status. Must be "Approved" or "Rejected"' 
+      return res.status(400).json({
+        error: 'Invalid status. Must be "Approved" or "Rejected"'
       });
     }
 
@@ -121,8 +123,8 @@ router.patch('/:id/review', async (req: Request, res: Response) => {
 
     // Check if already processed
     if (existingRequest.status !== 'Pending') {
-      return res.status(400).json({ 
-        error: 'Request has already been processed' 
+      return res.status(400).json({
+        error: 'Request has already been processed'
       });
     }
 
@@ -134,7 +136,7 @@ router.patch('/:id/review', async (req: Request, res: Response) => {
         status,
         manager_notes,
         processed_at,
-        processed_by: processed_by || 'Admin'
+        processed_by: processed_by || (req as any).user?.full_name || 'Admin'
       }
     });
 
@@ -142,8 +144,8 @@ router.patch('/:id/review', async (req: Request, res: Response) => {
     if (status === 'Approved') {
       // Find the ingredient by name
       const ingredient = await prisma.ingredient.findFirst({
-        where: { 
-          name: { 
+        where: {
+          name: {
             equals: existingRequest.item_name,
             mode: 'insensitive'
           }
@@ -151,8 +153,8 @@ router.patch('/:id/review', async (req: Request, res: Response) => {
       });
 
       if (ingredient) {
-        const stockChange = existingRequest.type === 'Stock In' 
-          ? existingRequest.quantity 
+        const stockChange = existingRequest.type === 'Stock In'
+          ? existingRequest.quantity
           : -existingRequest.quantity;
 
         const newStock = Math.max(0, ingredient.current_stock + stockChange);
@@ -168,7 +170,7 @@ router.patch('/:id/review', async (req: Request, res: Response) => {
           const settings = await prisma.appSettings.findFirst();
           if (!settings || !settings.auto_restock_enabled) {
             // Auto-restock is disabled, skip PR generation
-            return;
+            return res.json(updatedRequest);
           }
 
           // Check if there's already a pending PR for this ingredient

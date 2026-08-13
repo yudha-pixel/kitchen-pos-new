@@ -14,15 +14,12 @@ export interface OutletWithCounts extends Outlet {
 // Get all outlets
 export async function getOutlets(): Promise<OutletWithCounts[]> {
   try {
-    console.log('Fetching outlets...');
     const token = getToken();
     const response = await fetch(`${API_BASE_URL}/api/outlets`, {
       headers: {
         ...(token && { 'Authorization': `Bearer ${token}` }),
       },
     });
-    
-    console.log('Outlets API response status:', response.status);
     
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -31,7 +28,6 @@ export async function getOutlets(): Promise<OutletWithCounts[]> {
     }
     
     const result = await response.json();
-    console.log('Outlets fetched successfully:', result.length, 'outlets');
     return result;
   } catch (error) {
     console.error('Error fetching outlets:', error);

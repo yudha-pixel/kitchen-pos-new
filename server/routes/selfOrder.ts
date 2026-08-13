@@ -4,11 +4,15 @@ import { prisma } from '../lib/prisma';
 import { ZodError } from 'zod';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
 import {
   SELF_ORDER_PAYMENT_METHODS,
   initialPaymentStatus,
+  resolveSelfOrderPaymentMethods,
+  resolveSelfOrderPaymentInstructions,
 } from '../../src/features/self-order/paymentMethods';
 import { resolveSelfOrderRouting } from '../../src/features/self-order/orderRouting';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -18,39 +22,45 @@ const router = Router();
 // for a human to look at instead of failing the guest's whole request.
 class OrderNotAcceptableError extends Error {}
 
-// The one place a CustomerOrder becomes a real, kitchen-visible Order. Called
-// both by POST /orders/:id/accept (a staff click) and, when
-// AppSettings.selforder_routing is 'auto', immediately after creation. Having
-// exactly one code path means the double-order guard below — the `status`
-// check — protects both callers identically, and a guest's phone retrying a
-// timed-out request can never create two kitchen orders from one submission.
-async function acceptCustomerOrder(customerOrderId: string, acceptedByUserId: string | null) {
-  const customerOrder = await prisma.customerOrder.findUnique({
-    where: { id: customerOrderId },
-    include: { items: true, table: true },
-  });
-
-  if (!customerOrder) {
-    throw new OrderNotAcceptableError('Order not found');
-  }
-  if (customerOrder.status !== 'pending') {
-    throw new OrderNotAcceptableError(`Order is already '${customerOrder.status}', not pending`);
-  }
-  // An 'online' method still shows 'pending' payment until a gateway confirms it
-  // (see initialPaymentStatus in paymentMethods.ts) — accepting that as a real
-  // order before confirmation is exactly the unverified-payment-as-success gap
-  // the original UX audit flagged (SLS-06). A 'counter' method starts 'unpaid'
-  // and is fine to accept — the cashier collects payment at the till.
-  if (customerOrder.payment_status === 'pending') {
-    throw new OrderNotAcceptableError('Menunggu konfirmasi pembayaran — belum bisa diterima');
-  }
-
-  const orderId = randomUUID();
-
+// The one transaction that turns a customer request into a kitchen-visible order.
+// Its conditional update is the concurrency claim shared by manual, automatic,
+// and payment-verification acceptance paths.
+async function acceptCustomerOrder(customerOrderId: string, acceptedByUserId: string | null, verifyDigitalPayment = false) {
   return prisma.$transaction(async (tx) => {
+    const current = await tx.customerOrder.findUnique({ where: { id: customerOrderId } });
+    if (!current) throw new OrderNotAcceptableError('Order not found');
+    if (verifyDigitalPayment) {
+      if (!['qris', 'transfer'].includes(current.payment_method ?? '') || current.payment_status !== 'pending') {
+        throw new OrderNotAcceptableError('Only pending QRIS or transfer orders can be verified');
+      }
+    } else if (current.payment_status === 'pending') {
+      throw new OrderNotAcceptableError('Menunggu konfirmasi pembayaran — belum bisa diterima');
+    }
+
+    const claimed = await tx.customerOrder.updateMany({
+      where: {
+        id: customerOrderId,
+        status: 'pending',
+        ...(verifyDigitalPayment ? { payment_status: 'pending', payment_method: { in: ['qris', 'transfer'] } } : {}),
+      },
+      data: {
+        status: 'accepted',
+        ...(verifyDigitalPayment ? {
+          payment_status: 'paid',
+          payment_verified_at: new Date(),
+          payment_verified_by: acceptedByUserId,
+        } : {}),
+      },
+    });
+    if (claimed.count !== 1) throw new OrderNotAcceptableError('Order is no longer pending');
+
+    const customerOrder = await tx.customerOrder.findUniqueOrThrow({
+      where: { id: customerOrderId },
+      include: { items: true, table: true },
+    });
     const newOrder = await tx.order.create({
       data: {
-        id: orderId,
+        id: randomUUID(),
         cashier_id: acceptedByUserId,
         total_amount: customerOrder.total_amount,
         payment_method: customerOrder.payment_method,
@@ -59,36 +69,44 @@ async function acceptCustomerOrder(customerOrderId: string, acceptedByUserId: st
         customer_order_id: customerOrder.id,
         items: {
           create: customerOrder.items.map((item) => ({
-            id: randomUUID(),
-            product_id: item.product_id,
-            quantity: item.quantity,
-            price_at_time: item.price_at_time,
-            modifiers_applied: item.modifiers_applied ?? [],
-            status: 'pending',
+            id: randomUUID(), product_id: item.product_id, quantity: item.quantity,
+            price_at_time: item.price_at_time, modifiers_applied: item.modifiers_applied ?? [], status: 'pending',
           })),
         },
       },
       include: { items: true },
     });
-
-    await tx.customerOrder.update({
-      where: { id: customerOrder.id },
-      data: { status: 'accepted' },
-    });
-
+    if (verifyDigitalPayment) {
+      await tx.auditLog.create({
+        data: {
+          user_id: acceptedByUserId, action: 'verify_payment_and_accept', entity_type: 'customer_order',
+          entity_id: customerOrder.id,
+          old_value: { payment_status: 'pending', status: 'pending' },
+          new_value: { payment_status: 'paid', status: 'accepted', order_id: newOrder.id },
+          description: `Verified ${customerOrder.payment_method} payment and sent order to kitchen`,
+        },
+      });
+    }
     return newOrder;
   });
 }
 
-// Fan out a lightweight in-app notification to every active admin/cashier — the
-// staff-facing side of "notify kasir" / "notify kasir dan dapur". The kitchen
+// Fan out a lightweight in-app notification to every active profile that can
+// view orders — the staff-facing side of "notify kasir" / "notify kasir dan dapur". The kitchen
 // side of the "both" mode needs no separate notification: auto-routing already
 // wrote a real Order, and the KDS already polls that table (auto_refresh in
 // AppSettings), so it shows up there without any new plumbing.
 async function notifyStaffOfCustomerOrder(customerOrder: { id: string; total_amount: number; table: { table_number: string } }, mode: 'review' | 'auto') {
   try {
     const staff = await prisma.profile.findMany({
-      where: { is_active: true, role: { name: { in: ['admin', 'cashier'] } } },
+      where: {
+        is_active: true,
+        role: {
+          permissions: {
+            some: { permission: { name: PERMISSIONS.orders.view } },
+          },
+        },
+      },
       select: { id: true },
     });
     if (staff.length === 0) return;
@@ -130,6 +148,7 @@ const createCustomerOrderSchema = z.object({
   // Must be one of paymentMethods.ts's ids; checked against the live catalog below
   // rather than a hardcoded zod enum, since the catalog is the single source of truth.
   payment_method: z.string(),
+  payment_reference: z.string().trim().min(1).max(120).optional(),
   items: z.array(z.object({
     product_id: z.string().uuid(),
     quantity: z.number().int().positive(),
@@ -141,6 +160,31 @@ const createCustomerOrderSchema = z.object({
 // from that point on, fulfillment progress lives on the linked Order, not here.
 const updateCustomerOrderStatusSchema = z.object({
   status: z.enum(['pending', 'accepted', 'cancelled']),
+});
+
+// Public, deliberately narrow DTO. Authenticated application settings contain
+// operational and security fields that must never be exposed to a guest device.
+router.get('/config', async (_req: Request, res: Response) => {
+  try {
+    const settings = await prisma.appSettings.findFirst({
+      select: { selforder_payment_methods: true, selforder_payment_instructions: true, selforder_routing: true },
+    });
+    const instructions = resolveSelfOrderPaymentInstructions(settings?.selforder_payment_instructions);
+    const methods = resolveSelfOrderPaymentMethods(settings?.selforder_payment_methods).filter((method) => {
+      return method.type === 'counter' || Boolean(instructions[method.id as 'qris' | 'transfer']?.instructions);
+    });
+    const safeMethods = methods.length ? methods : [SELF_ORDER_PAYMENT_METHODS.cashier];
+    res.json({
+      methods: safeMethods.map((method) => ({
+        ...method,
+        ...(method.type === 'manual_verification' ? instructions[method.id as 'qris' | 'transfer'] : {}),
+      })),
+      counter_routing: resolveSelfOrderRouting(settings?.selforder_routing),
+    });
+  } catch (error) {
+    console.error('Error fetching public self-order config:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 // Get all tables (for table management)
@@ -347,16 +391,23 @@ router.post('/orders', async (req: Request, res: Response) => {
       }
     }
 
-    const paymentMethod = SELF_ORDER_PAYMENT_METHODS[data.payment_method];
+    const selfOrderSettings = await prisma.appSettings.findFirst({
+      select: { selforder_payment_methods: true, selforder_payment_instructions: true, selforder_routing: true },
+    });
+    const configuredInstructions = resolveSelfOrderPaymentInstructions(selfOrderSettings?.selforder_payment_instructions);
+    const enabledMethods = resolveSelfOrderPaymentMethods(selfOrderSettings?.selforder_payment_methods).filter(
+      (method) => method.type === 'counter' || Boolean(configuredInstructions[method.id as 'qris' | 'transfer']?.instructions)
+    );
+    const usableMethods = enabledMethods.length ? enabledMethods : [SELF_ORDER_PAYMENT_METHODS.cashier];
+    const paymentMethod = usableMethods.find((method) => method.id === data.payment_method);
     if (!paymentMethod) {
       return res.status(400).json({
-        error: `Unknown payment method: ${data.payment_method}. Allowed: ${Object.keys(SELF_ORDER_PAYMENT_METHODS).join(', ')}`,
+        error: `Payment method is not currently enabled: ${data.payment_method}`,
       });
     }
-    // Not cross-checked against AppSettings.selforder_payment_methods here: that list
-    // controls what the ordering UI *offers*, not what the API accepts. Rejecting a
-    // valid catalog id just because an admin toggled it off between page-load and
-    // submit would be a confusing failure for a guest mid-order.
+    if (paymentMethod.type === 'manual_verification' && !data.payment_reference) {
+      return res.status(400).json({ error: 'payment_reference is required for QRIS and transfer orders' });
+    }
 
     // Verify table exists and is active
     const table = await prisma.table.findUnique({
@@ -422,6 +473,7 @@ router.post('/orders', async (req: Request, res: Response) => {
           status: 'pending',
           payment_method: paymentMethod.id,
           payment_status: initialPaymentStatus(paymentMethod),
+          payment_reference: paymentMethod.type === 'manual_verification' ? data.payment_reference : null,
           items: {
             create: orderItems,
           },
@@ -455,11 +507,10 @@ router.post('/orders', async (req: Request, res: Response) => {
       return newOrder;
     });
 
-    const settings = await prisma.appSettings.findFirst();
-    const routing = resolveSelfOrderRouting(settings?.selforder_routing);
+    const routing = resolveSelfOrderRouting(selfOrderSettings?.selforder_routing);
     let autoAccepted = false;
 
-    if (routing === 'auto') {
+    if (routing === 'auto' && paymentMethod.type === 'counter') {
       try {
         await acceptCustomerOrder(customerOrder.id, null);
         autoAccepted = true;
@@ -494,7 +545,7 @@ router.post('/orders', async (req: Request, res: Response) => {
 
 // List pending guest requests for the staff review queue — oldest first (FIFO).
 // Registered before GET /orders/:id so 'pending' is never swallowed as an :id param.
-router.get('/orders/pending', authMiddleware, async (_req: Request, res: Response) => {
+router.get('/orders/pending', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (_req: Request, res: Response) => {
   try {
     const orders = await prisma.customerOrder.findMany({
       where: { status: 'pending' },
@@ -585,7 +636,7 @@ router.get('/tables/:tableId/orders', async (req: Request, res: Response) => {
 
 // Update customer order status — staff only. Guests never mutate an order once
 // submitted; the flow forward from here is accept/reject below.
-router.patch('/orders/:id/status', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/orders/:id/status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -625,46 +676,34 @@ router.patch('/orders/:id/status', authMiddleware, async (req: Request, res: Res
 // Update customer order payment status — staff only, e.g. confirming a gateway
 // callback or recording cash collected at the counter. `payment_status` is required
 // and validated rather than defaulting to 'paid' when omitted.
-router.patch('/orders/:id/payment-status', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    const idStr = Array.isArray(id) ? id[0] : id;
-    const { payment_status } = req.body;
-
-    if (!['unpaid', 'pending', 'paid'].includes(payment_status)) {
-      return res.status(400).json({ error: "payment_status must be 'unpaid', 'pending', or 'paid'" });
-    }
-
-    const order = await prisma.customerOrder.update({
-      where: { id: idStr },
-      data: {
-        payment_status,
-      },
-      include: {
-        items: {
-          include: {
-            product: {
-              include: {
-                category: true,
-              },
-            },
-          },
-        },
-        table: true,
-      },
-    });
-
-    res.json(order);
-  } catch (error) {
-    console.error('Error updating payment status:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+router.patch('/orders/:id/payment-status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
+  res.status(404).json({ error: 'Payment status mutation has been retired' });
 });
+
+router.post(
+  '/orders/:id/verify-payment-and-accept',
+  authMiddleware,
+  requirePermission(PERMISSIONS.orders.create),
+  async (req: Request, res: Response) => {
+    try {
+      const id = String(Array.isArray(req.params.id) ? req.params.id[0] : req.params.id);
+      const order = await acceptCustomerOrder(id, req.user?.id ?? null, true);
+      res.status(201).json(order);
+    } catch (error) {
+      if (error instanceof OrderNotAcceptableError) {
+        const status = error.message === 'Order not found' ? 404 : 409;
+        return res.status(status).json({ error: error.message });
+      }
+      console.error('Error verifying self-order payment:', error);
+      res.status(500).json({ error: 'Payment verification failed; no changes were saved' });
+    }
+  }
+);
 
 // Accept a guest request: convert it into a real POS Order so the KDS sees it.
 // Product/ingredient stock was already decremented when the guest submitted the
 // request (see POST /orders above) — this step does not touch stock again.
-router.post('/orders/:id/accept', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders/:id/accept', authMiddleware, requirePermission(PERMISSIONS.orders.create), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
@@ -683,7 +722,7 @@ router.post('/orders/:id/accept', authMiddleware, async (req: Request, res: Resp
 
 // Reject a guest request: it never becomes a kitchen order, and stock decremented
 // at submission time (POST /orders above) is restored since nothing was fulfilled.
-router.post('/orders/:id/reject', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders/:id/reject', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;

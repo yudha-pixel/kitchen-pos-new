@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
+import { normalizeUserPreferences } from '../../src/config/routes';
 
 const router = Router();
 
@@ -22,10 +23,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     
     // Return preferences or default empty object
     const preferences = profile.preferences as any || {};
-    res.json({
-      favorites: preferences.favorites || [],
-      recent: preferences.recent || []
-    });
+    res.json(normalizeUserPreferences(preferences));
   } catch (error) {
     console.error('Error fetching preferences:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -39,7 +37,9 @@ router.put('/', authMiddleware, async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     const userId = req.user.id;
-    const { favorites, recent } = req.body;
+    const normalizedInput = normalizeUserPreferences(req.body);
+    const favorites = req.body.favorites === undefined ? undefined : normalizedInput.favorites;
+    const recent = req.body.recent === undefined ? undefined : normalizedInput.recent;
     
     // Validate favorites max 6
     if (favorites && Array.isArray(favorites) && favorites.length > 6) {
@@ -76,10 +76,7 @@ router.put('/', authMiddleware, async (req: Request, res: Response) => {
     });
     
     const preferences = updated.preferences as any || {};
-    res.json({
-      favorites: preferences.favorites || [],
-      recent: preferences.recent || []
-    });
+    res.json(normalizeUserPreferences(preferences));
   } catch (error) {
     console.error('Error updating preferences:', error);
     res.status(500).json({ error: 'Internal server error' });

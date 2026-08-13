@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
-import { Package, ArrowLeft, Send, Paperclip, X, Image as ImageIcon } from 'lucide-react';
+import { Package, ArrowLeft, Send, Paperclip, X } from 'lucide-react';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
+import * as api from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface Ingredient {
   id: string;
@@ -18,18 +20,18 @@ interface Ingredient {
 export default function StockRequestPage() {
   const { user } = useAuth();
   const { toast } = useToast();
-  
+
   const [requesterName, setRequesterName] = useState('');
   const [selectedItem, setSelectedItem] = useState('');
   const [requestType, setRequestType] = useState<'Stock In' | 'Stock Out'>('Stock In');
   const [quantity, setQuantity] = useState('');
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loadingIngredients, setLoadingIngredients] = useState(true);
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
-  
+
   // Image upload state
   const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -40,19 +42,8 @@ export default function StockRequestPage() {
     const fetchIngredients = async () => {
       setLoadingIngredients(true);
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('token');
-        
-        const response = await fetch(`${API_BASE_URL}/api/ingredients`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          setIngredients(data);
-        }
+        const data = await api.fetchIngredients();
+        setIngredients(data as Ingredient[]);
       } catch (error) {
         console.error('Failed to fetch ingredients:', error);
         toast('error', 'Gagal memuat daftar bahan baku');
@@ -74,7 +65,7 @@ export default function StockRequestPage() {
   // Handle item selection
   const handleItemChange = (value: string) => {
     setSelectedItem(value);
-    const ingredient = ingredients.find(ing => ing.id === value);
+    const ingredient = ingredients.find((ing) => ing.id === value);
     setSelectedIngredient(ingredient || null);
   };
 
@@ -117,39 +108,38 @@ export default function StockRequestPage() {
   // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!requesterName.trim()) {
       toast('error', 'Nama requester wajib diisi');
       return;
     }
-    
+
     if (!selectedItem) {
       toast('error', 'Pilih item terlebih dahulu');
       return;
     }
-    
+
     if (!quantity || parseFloat(quantity) <= 0) {
       toast('error', 'Quantity harus lebih dari 0');
       return;
     }
-    
+
     if (!notes.trim()) {
       toast('error', 'Alasan/Notes wajib diisi');
       return;
     }
-    
+
     setIsSubmitting(true);
-    
+
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-      
+      const token = api.getToken();
+
       const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           type: requestType,
@@ -157,17 +147,17 @@ export default function StockRequestPage() {
           item_name: selectedIngredient?.name,
           quantity: parseFloat(quantity),
           unit: selectedIngredient?.unit,
-          evidence_image: evidenceImage
-        })
+          evidence_image: evidenceImage,
+        }),
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to submit request');
       }
-      
+
       // Success
       toast('success', 'Permintaan stok berhasil dikirim');
-      
+
       // Clear form
       setRequesterName(user?.username || '');
       setSelectedItem('');
@@ -178,7 +168,6 @@ export default function StockRequestPage() {
       setEvidenceImage(null);
       setImagePreview(null);
       setImageError(null);
-      
     } catch (error) {
       console.error('Failed to submit request:', error);
       toast('error', 'Gagal mengirim permintaan stok');
@@ -195,7 +184,7 @@ export default function StockRequestPage() {
           <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4 h-16">
               <a
-                href="/kasir"
+                href="/pos"
                 className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
               >
                 <ArrowLeft className="h-5 w-5 text-slate-600" />
@@ -307,7 +296,7 @@ export default function StockRequestPage() {
                     required
                   />
                   <div className="px-4 py-2 rounded-lg bg-slate-100 border border-slate-200 text-sm text-slate-600 min-w-[80px] text-center">
-                    {selectedIngredient?.unit || selectedIngredient?.package_unit || '-'}
+                    {selectedIngredient?.unit || '-'}
                   </div>
                 </div>
               </div>
@@ -348,7 +337,7 @@ export default function StockRequestPage() {
                       >
                         <Paperclip className="h-8 w-8 text-slate-400" />
                         <span className="text-sm text-slate-600">
-                          Klik untuk upload atau drag & drop
+                          Klik untuk upload atau drag &amp; drop
                         </span>
                         <span className="text-xs text-slate-400">
                           JPEG/PNG, maksimal 5MB
@@ -398,8 +387,8 @@ export default function StockRequestPage() {
               <div className="text-sm text-blue-800">
                 <p className="font-medium mb-1">Informasi</p>
                 <p>
-                  Permintaan stok akan dikirim ke manager untuk approval. 
-                  Status request dapat dipantau di menu Inventory &gt; Approval Stok.
+                  Permintaan stok akan dikirim ke manager untuk approval.
+                  Status request dapat dipantau di menu Inventory &gt; Persetujuan Stok.
                 </p>
               </div>
             </div>

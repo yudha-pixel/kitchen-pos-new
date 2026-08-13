@@ -1,6 +1,8 @@
 import { db, Recipe, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
 import { comprehensiveIngredients, createRecipesForProduct } from './recipeData';
 import { generateUUID } from '@/src/lib/utils';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 /**
  * Inventory Service for managing stock levels
@@ -399,15 +401,11 @@ export async function calculateMenuStocks(
     
     const stockMap = new Map<string, number | null>();
     
-    console.log('🔍 [calculateMenuStocks] Calculating stocks for products:', productIds);
-    
     // Get all recipes for all products at once
     const allRecipes = await db.recipes
       .where('menu_item_id')
       .anyOf(productIds)
       .toArray();
-    
-    console.log('🔍 [calculateMenuStocks] Found recipes:', allRecipes.length, 'total recipes');
     
     // Group recipes by menu_item_id
     const recipesByProduct = new Map<string, typeof allRecipes>();
@@ -418,18 +416,9 @@ export async function calculateMenuStocks(
       recipesByProduct.get(recipe.menu_item_id)!.push(recipe);
     }
     
-    console.log('🔍 [calculateMenuStocks] Recipes grouped by product:', 
-      Array.from(recipesByProduct.entries()).map(([pid, recipes]) => ({
-        productId: pid,
-        recipeCount: recipes.length
-      }))
-    );
-    
     // Calculate stock for each product
     for (const productId of productIds) {
       const recipes = recipesByProduct.get(productId) || [];
-
-      console.log(`🔍 [calculateMenuStocks] Product ${productId}: ${recipes.length} recipes`);
 
       // Get product stock_quantity as well
       const product = await db.products.get(productId);
@@ -439,10 +428,8 @@ export async function calculateMenuStocks(
       if (recipes.length === 0) {
         if (productStock !== null) {
           stockMap.set(productId, productStock);
-          console.log(`🔍 [calculateMenuStocks] Product ${productId}: No recipes -> using product stock_quantity = ${productStock}`);
         } else {
           stockMap.set(productId, null);
-          console.log(`🔍 [calculateMenuStocks] Product ${productId}: No recipes and no stock_quantity -> unlimited`);
         }
         continue;
       }
@@ -469,9 +456,6 @@ export async function calculateMenuStocks(
         // Calculate how many portions can be made from this ingredient
         const portionsFromIngredient = Math.floor(ingredient.current_stock / recipe.quantity_required);
 
-        console.log(`🔍 [calculateMenuStocks] Product ${productId}, Ingredient ${ingredient.name}: ` +
-          `stock=${ingredient.current_stock}, required=${recipe.quantity_required}, portions=${portionsFromIngredient}`);
-
         if (portionsFromIngredient < minStock) {
           minStock = portionsFromIngredient;
         }
@@ -480,20 +464,16 @@ export async function calculateMenuStocks(
       // If no valid ingredients found, treat as unlimited (not out of stock)
       if (validIngredientsCount === 0) {
         stockMap.set(productId, null);
-        console.log(`🔍 [calculateMenuStocks] Product ${productId}: No valid ingredients -> unlimited`);
       } else if (minStock === Infinity) {
         stockMap.set(productId, null);
-        console.log(`🔍 [calculateMenuStocks] Product ${productId}: Calculation error -> unlimited`);
       } else {
         // Take the minimum of ingredient-based stock and product stock_quantity
         // This ensures both constraints are respected
         const finalStock = productStock !== null ? Math.min(minStock, productStock) : minStock;
         stockMap.set(productId, finalStock);
-        console.log(`🔍 [calculateMenuStocks] Product ${productId}: Ingredient stock = ${minStock}, Product stock = ${productStock}, Final = ${finalStock}`);
       }
     }
-    
-    console.log('🔍 [calculateMenuStocks] Final stock map:', Array.from(stockMap.entries()));
+
     return stockMap;
   } catch (error) {
     console.error('❌ Failed to calculate menu stocks:', error);
@@ -577,28 +557,21 @@ export async function seedSampleInventoryData() {
   try {
     const { db } = await import('@/src/lib/db');
     
-    console.log('🌱 Seeding sample inventory data...');
-    
     // Check if data already exists
     const existingIngredients = await db.ingredients.count();
     const existingRecipes = await db.recipes.count();
     
     if (existingIngredients > 0 && existingRecipes > 0) {
-      console.log('✅ Inventory data already exists, skipping seeding');
       return;
     }
     
     // Get existing products
     const products = await db.products.toArray();
-    console.log(`🔍 Found ${products.length} products in database`);
     
     if (products.length === 0) {
-      console.log('⚠️ No products found. Please seed products first.');
+      console.warn('No products found. Please seed products first.');
       return;
     }
-    
-    // Log product IDs for debugging
-    console.log('🔍 Product IDs:', products.map(p => ({ id: p.id, name: p.name })));
     
     // Seed comprehensive ingredients for all 51 menu items from recipeData.ts
     const ingredients = comprehensiveIngredients.map(ing => ({
@@ -608,11 +581,8 @@ export async function seedSampleInventoryData() {
       updated_at: new Date().toISOString(),
     }));
     
-    console.log('🔍 Ingredient IDs:', ingredients.map(i => ({ id: i.id, name: i.name })));
-    
     if (existingIngredients === 0) {
       await db.ingredients.bulkAdd(ingredients);
-      console.log(`✅ Added ${ingredients.length} ingredients`);
     }
     
     // Create ingredient map for easy lookup
@@ -622,16 +592,11 @@ export async function seedSampleInventoryData() {
     const recipes = [];
     const productsToSeed = products; // ALL products
     
-    console.log(`🔍 Seeding recipes for ${productsToSeed.length} products`);
-    
     for (const product of productsToSeed) {
       if (!product.id) {
         console.warn('⚠️ Product missing ID, skipping recipe creation');
         continue;
       }
-      
-      const productName = product.name.toLowerCase();
-      console.log(`🔍 Creating recipes for product: ${product.name} (ID: ${product.id})`);
       
       // Use recipeData.ts function to create recipes based on product name
       const productRecipes = createRecipesForProduct(product, ingredientMap);
@@ -648,23 +613,9 @@ export async function seedSampleInventoryData() {
       }
     }
     
-    console.log(`🔍 Created ${recipes.length} recipe records`);
-    console.log('🔍 Recipe mappings:', recipes.map(r => ({
-      menu_item_id: r.menu_item_id,
-      ingredient_id: r.ingredient_id,
-      quantity_required: r.quantity_required
-    })));
-    
     if (existingRecipes === 0) {
       await db.recipes.bulkAdd(recipes);
-      console.log(`✅ Added ${recipes.length} recipes for ${productsToSeed.length} products`);
     }
-    
-    console.log('🎉 Sample inventory data seeded successfully!');
-    console.log('📊 Summary:');
-    console.log(`   - Ingredients: ${ingredients.length}`);
-    console.log(`   - Recipes: ${recipes.length}`);
-    console.log(`   - Products with recipes: ${productsToSeed.length}`);
     
   } catch (error) {
     console.error('❌ Error seeding sample inventory data:', error);
@@ -1408,13 +1359,41 @@ export async function recordStockAdjustment(
         break;
     }
     
-    // Update ingredient stock
+    // Persist to the server first — this is the shared source of truth other
+    // devices and the Stock Adjustments audit view read from. A local-only
+    // write here would silently vanish next time this device refetches
+    // ingredients from the server.
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/api/ingredients/${ingredientId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        name: ingredient.name,
+        current_stock: newStock,
+        unit: ingredient.unit,
+        min_stock: ingredient.min_stock,
+        unit_price: ingredient.unit_price,
+        supplier_id: ingredient.supplier_id ?? null,
+        adjustment_type: adjustmentType,
+        reason,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => null);
+      return { success: false, message: body?.error || 'Gagal menyimpan penyesuaian stok ke server' };
+    }
+
+    // Mirror the server's write into the local cache so this device's UI
+    // reflects it immediately without waiting for the next background refetch.
     await db.ingredients.update(ingredientId, {
       current_stock: newStock,
       updated_at: new Date().toISOString(),
     });
-    
-    // Create audit trail record
+
     const adjustment: StockAdjustment = {
       id: generateUUID(),
       ingredientId,
@@ -1429,9 +1408,9 @@ export async function recordStockAdjustment(
       adjustedAt: new Date().toISOString(),
       referenceId,
     };
-    
+
     await db.stock_adjustments.add(adjustment);
-    
+
     console.log(`✅ Stock adjustment recorded: ${adjustmentType} ${adjustmentQuantity} for ${ingredientName}`);
     return { success: true, message: 'Stock adjustment recorded successfully', adjustment };
   } catch (error) {

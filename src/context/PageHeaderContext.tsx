@@ -1,10 +1,12 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 
 export interface PageHeaderConfig {
   title?: string;
   onSearch?: (query: string) => void;
+  actions?: ReactNode;
 }
 
 interface PageHeaderContextValue {
@@ -34,7 +36,7 @@ export function usePageHeaderContext() {
 // about every page. Keeps the effect dependency array stable (title is a
 // primitive, onSearch is read via ref) so pages can pass an inline arrow
 // function without retriggering this on every render.
-export function usePageHeader({ title, onSearch }: PageHeaderConfig) {
+export function usePageHeader({ title, onSearch, actions }: PageHeaderConfig) {
   const { setConfig } = usePageHeaderContext();
   const onSearchRef = useRef(onSearch);
 
@@ -46,6 +48,7 @@ export function usePageHeader({ title, onSearch }: PageHeaderConfig) {
     setConfig({
       title,
       onSearch: onSearch ? (query: string) => onSearchRef.current?.(query) : undefined,
+      actions,
     });
     return () => setConfig({});
     // eslint-disable-next-line react-hooks/exhaustive-deps

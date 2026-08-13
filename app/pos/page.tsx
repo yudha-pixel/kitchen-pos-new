@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/src/context/PageHeaderContext';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
@@ -9,10 +9,8 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { useCartStore } from '@/src/store/useCartStore';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
-import { db } from '@/src/lib/db';
 import { PaymentModal } from '@/src/components/pos/PaymentModal';
 import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
-import { formatCurrency } from '@/src/lib/utils';
 import { checkStockAvailability, deductStockForSale } from '@/src/features/inventory/recipeApiService';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useTables } from '@/src/hooks/useTables';
@@ -20,28 +18,30 @@ import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { ProductListModal } from '@/src/features/pos/components/ProductListModal';
 import { CartPanel } from '@/src/features/pos/components/CartPanel';
+import { TableMergeModal } from '@/src/components/layout/TableMergeModal';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
 import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
-import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, DollarSign } from 'lucide-react';
+import { useGlobalHotkey } from '@/src/hooks/useGlobalHotkey';
+import { useMnemonic } from '@/src/hooks/useMnemonic';
+import { Menu } from '@base-ui/react/menu';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, Users, DollarSign } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
-import { calculateMenuStocks, seedSampleInventoryData, debugStockDatabase, forceReseedInventoryData, getAllProductNames, canOrderProduct } from '@/src/features/inventory/inventoryService';
+import { calculateMenuStocks, seedSampleInventoryData, forceReseedInventoryData, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
+import { PERMISSIONS } from '@/src/config/permissions';
 
 export default function POSPage() {
   const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, can } = useAuth();
   const { toast } = useToast();
   const { selectedOutletId } = useOutletStore();
   const { settings } = useTheme();
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  usePageHeader({ title: 'POS Utama', onSearch: setSearchQuery });
-  const [sortBy, setSortBy] = useState<'name' | 'price'>('name');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
+  const [showTableMergeModal, setShowTableMergeModal] = useState(false);
   const [showTableOrders, setShowTableOrders] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [tableOrders, setTableOrders] = useState<any[]>([]);
@@ -52,8 +52,11 @@ export default function POSPage() {
   const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false);
   const [deleteOrderConfirmOpen, setDeleteOrderConfirmOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<any>(null);
+  const [pettyCashModalOpen, setPettyCashModalOpen] = useState(false);
+  const [pettyCashAmount, setPettyCashAmount] = useState('');
+  const [pettyCashReason, setPettyCashReason] = useState('');
+  const [pettyCashError, setPettyCashError] = useState('');
   const [orderCategory, setOrderCategory] = useState<'dine-in' | 'takeaway' | 'delivery'>('dine-in');
-  const [tableNumber, setTableNumber] = useState('');
   const [customerName, setCustomerName] = useState('');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [courierName, setCourierName] = useState('');
@@ -64,10 +67,6 @@ export default function POSPage() {
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any>(null);
   const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
   const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
-  const [pettyCashModalOpen, setPettyCashModalOpen] = useState(false);
-  const [pettyCashAmount, setPettyCashAmount] = useState('');
-  const [pettyCashReason, setPettyCashReason] = useState('');
-  const [pettyCashError, setPettyCashError] = useState('');
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -83,13 +82,12 @@ export default function POSPage() {
     }
   }, [authLoading, user, router]);
 
-  const userRole = user?.role ?? 'cashier';
   const cartItemCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
 
   // Fetch data from the local API with offline support
-  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts, isFromCache: productsFromCache } = useProducts();
+  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts();
   const { categories } = useCategories();
-  const { tables, loading: tablesLoading, updateTableStatus, refetch: refetchTables } = useTables();
+  const { updateTableStatus, refetch: refetchTables } = useTables();
 
   // Listen for order creation to update table status to occupied
   useEffect(() => {
@@ -150,33 +148,19 @@ export default function POSPage() {
   // Calculate stock for all products when products are loaded
   useEffect(() => {
     if (products && products.length > 0) {
-      console.log('🔍 [POS Page] Products loaded:', products.length, 'products');
-      console.log('🔍 [POS Page] Product IDs:', products.map(p => ({ id: p.id, name: p.name })));
-
       // Seed sample inventory data if needed
-      seedSampleInventoryData().then(() => {
-        console.log('🔍 [POS Page] Inventory data check completed');
-      }).catch(error => {
+      seedSampleInventoryData().catch(error => {
         console.error('❌ Failed to seed inventory data:', error);
       });
 
       const productIds = products.map(p => p.id);
-      console.log('🔍 [POS Page] Calculating stocks for:', productIds.length, 'products');
       calculateMenuStocks(productIds).then(stockMap => {
-        console.log('🔍 [POS Page] Stock calculation result:', Array.from(stockMap.entries()));
-        console.log('🔍 [POS Page] Setting productStocks state...');
         setProductStocks(stockMap);
-        console.log('🔍 [POS Page] productStocks state set');
       }).catch(error => {
         console.error('❌ Failed to calculate product stocks:', error);
       });
     }
   }, [products]);
-
-  // Debug log to check productStocks state changes
-  useEffect(() => {
-    console.log('🔍 [POS Page] productStocks state changed:', Array.from(productStocks.entries()));
-  }, [productStocks]);
 
   // Listen for inventory stock changes and recalculate menu stock automatically
   useEffect(() => {
@@ -185,7 +169,6 @@ export default function POSPage() {
       if (products && products.length > 0) {
         const productIds = products.map(p => p.id);
         calculateMenuStocks(productIds).then(stockMap => {
-          console.log('🔍 [POS Page] Stock recalculated after inventory change:', Array.from(stockMap.entries()));
           setProductStocks(stockMap);
         }).catch(error => {
           console.error('❌ Failed to recalculate stock after inventory change:', error);
@@ -195,13 +178,11 @@ export default function POSPage() {
 
     if (typeof window !== 'undefined') {
       window.addEventListener('inventoryStockChanged', handleInventoryStockChanged);
-      console.log('🔍 [POS Page] Listening for inventoryStockChanged events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('inventoryStockChanged', handleInventoryStockChanged);
-        console.log('🔍 [POS Page] Stopped listening for inventoryStockChanged events');
       }
     };
   }, [products]);
@@ -209,10 +190,8 @@ export default function POSPage() {
   // Recalculate stock when outlet changes to ensure real-time data
   useEffect(() => {
     if (selectedOutletId && products && products.length > 0) {
-      console.log('🔍 [POS Page] Outlet changed to:', selectedOutletId, '- recalculating stock...');
       const productIds = products.map(p => p.id);
       calculateMenuStocks(productIds).then(stockMap => {
-        console.log('🔍 [POS Page] Stock recalculated after outlet change:', Array.from(stockMap.entries()));
         setProductStocks(stockMap);
         toast('success', 'Stok diperbarui sesuai outlet yang dipilih');
       }).catch(error => {
@@ -303,14 +282,12 @@ export default function POSPage() {
     if (typeof window !== 'undefined') {
       window.addEventListener('orderCompleted', handleOrderCompleted);
       window.addEventListener('orderCreated', handleOrderCreated);
-      console.log('🔍 [POS Page] Listening for orderCompleted and orderCreated events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderCompleted', handleOrderCompleted);
         window.removeEventListener('orderCreated', handleOrderCreated);
-        console.log('🔍 [POS Page] Stopped listening for order events');
       }
     };
   }, []);
@@ -334,20 +311,16 @@ export default function POSPage() {
     }
   };
 
-  const handleGetAllProductNames = async () => {
-    try {
-      const productNames = await getAllProductNames();
-      console.log('Product names retrieved:', productNames);
-      toast('success', `Ditemukan ${productNames.length} produk (lihat console)`);
-    } catch (error) {
-      console.error('Failed to get product names:', error);
-      toast('error', 'Gagal mengambil daftar produk');
-    }
-  };
-
   const handleOpenProductListModal = () => {
     setProductListModalOpen(true);
   };
+
+  // Standalone global hotkey (independent of the Alt-mnemonic system): F9 is a
+  // common "quick lookup" key in POS hardware/software, doesn't need Alt held.
+  useGlobalHotkey('F9', handleOpenProductListModal);
+
+  // Alt+G hotkey for table merge (only when table orders view is shown)
+  useMnemonic('G', () => setShowTableMergeModal(true), !showTableOrders);
 
   // Handler to recalculate menu stock (sync with inventory)
   const handleRecalculateStock = async () => {
@@ -506,14 +479,12 @@ export default function POSPage() {
     if (typeof window !== 'undefined') {
       window.addEventListener('orderReady', handleOrderReady as EventListener);
       window.addEventListener('orderCreated', handleOrderCreated);
-      console.log('🔍 [POS Page] Listening for orderReady and orderCreated events');
     }
 
     return () => {
       if (typeof window !== 'undefined') {
         window.removeEventListener('orderReady', handleOrderReady as EventListener);
         window.removeEventListener('orderCreated', handleOrderCreated);
-        console.log('🔍 [POS Page] Stopped listening for order events');
       }
     };
   }, [showTableOrders]);
@@ -660,6 +631,46 @@ export default function POSPage() {
     } catch (error) {
       console.error('Failed to delete history:', error);
       toast('error', 'Gagal menghapus riwayat transaksi');
+    }
+  };
+
+  const handlePettyCashSubmit = async () => {
+    setPettyCashError('');
+    const amount = parseFloat(pettyCashAmount);
+    if (isNaN(amount) || amount <= 0) {
+      setPettyCashError('Masukkan jumlah yang valid');
+      return;
+    }
+    if (!pettyCashReason.trim()) {
+      setPettyCashError('Masukkan keterangan pengeluaran');
+      return;
+    }
+
+    try {
+      const { getToken } = await import('@/src/lib/api');
+      const { API_BASE_URL } = await import('@/src/config/runtime');
+      const token = getToken();
+
+      await fetch(`${API_BASE_URL}/api/petty-cash`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          amount: amount,
+          description: pettyCashReason,
+          category: 'operational',
+        }),
+      });
+
+      toast('success', 'Pengeluaran petty cash berhasil dicatat');
+      setPettyCashAmount('');
+      setPettyCashReason('');
+      setPettyCashModalOpen(false);
+    } catch (error) {
+      console.error('Failed to create petty cash expense:', error);
+      toast('error', 'Gagal mencatat pengeluaran petty cash');
     }
   };
 
@@ -978,7 +989,7 @@ export default function POSPage() {
       
       if (insufficientStockItems.length > 0) {
         const errorMessages = insufficientStockItems.map(item => {
-          const ingredients = item.insufficientIngredients.map(ing => 
+          const ingredients = item.insufficientIngredients.map((ing: { name: string; required: number; available: number; unit: string }) =>
             `${ing.name} (butuh: ${ing.required}, tersedia: ${ing.available} ${ing.unit})`
           ).join(', ');
           return `${item.productName}: ${ingredients}`;
@@ -1147,9 +1158,8 @@ export default function POSPage() {
   };
 
   const handleVoidPayment = (paymentId: string, amount: number) => {
-    // Check if user has admin role
-    if (user?.role !== 'admin') {
-      toast('error', 'Hanya admin yang dapat void pembayaran');
+    if (!can(PERMISSIONS.orders.void)) {
+      toast('error', 'Anda tidak memiliki izin untuk void pembayaran');
       return;
     }
     setSelectedPaymentForVoid({ id: paymentId, amount });
@@ -1169,51 +1179,25 @@ export default function POSPage() {
           .reverse()
           .toArray();
 
-        setTransactionHistory(orders);
+        const ordersWithItems = await Promise.all(
+          orders.map(async (order) => {
+            if (!order.id) {
+              return { ...order, items: [] };
+            }
+            const items = await db.order_items
+              .where('order_id')
+              .equals(order.id)
+              .toArray();
+            return { ...order, items };
+          })
+        );
+
+        setTransactionHistory(ordersWithItems);
       } catch (error) {
         console.error('Failed to refresh transaction history:', error);
       }
     };
     fetchTransactionHistory();
-  };
-
-  const handlePettyCashSubmit = async () => {
-    setPettyCashError('');
-    const amount = parseFloat(pettyCashAmount);
-    if (isNaN(amount) || amount <= 0) {
-      setPettyCashError('Masukkan jumlah yang valid');
-      return;
-    }
-    if (!pettyCashReason.trim()) {
-      setPettyCashError('Masukkan keterangan pengeluaran');
-      return;
-    }
-
-    try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
-      
-      await fetch(`${API_BASE_URL}/api/petty-cash`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: amount,
-          description: pettyCashReason,
-          category: 'operational',
-        }),
-      });
-
-      toast('success', 'Pengeluaran petty cash berhasil dicatat');
-      setPettyCashAmount('');
-      setPettyCashReason('');
-      setPettyCashModalOpen(false);
-    } catch (error) {
-      console.error('Failed to create petty cash expense:', error);
-      toast('error', 'Gagal mencatat pengeluaran petty cash');
-    }
   };
 
   const handleClearCache = async () => {
@@ -1242,100 +1226,76 @@ export default function POSPage() {
       window.location.reload();
     } catch (error) {
       console.error('❌ Failed to clear cache:', error);
-      toast('error', 'Gagal membersihkan cache. Cek console untuk detail error.');
+      toast('error', 'Gagal membersihkan cache');
     }
   };
 
-  // Filter and sort products
+  // Sync menu actions for header
+  const syncMenuActions = (
+    <>
+      {lastSyncTime && (
+        <div className="px-3 py-2 text-xs text-ink-muted">
+          Terakhir sync: {new Date(lastSyncTime).toLocaleTimeString('id-ID')}
+        </div>
+      )}
+      <Menu.Item
+        onClick={triggerManualSync}
+        disabled={syncInProgress || !isOnline}
+        className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium outline-none hover:bg-surface-alt focus:bg-surface-alt disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        <RefreshCw className={`size-4 ${syncInProgress ? 'animate-spin' : ''}`} aria-hidden="true" />
+        Sinkronkan Sekarang
+      </Menu.Item>
+      <Menu.Item
+        onClick={handleRecalculateStock}
+        className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium outline-none hover:bg-surface-alt focus:bg-surface-alt"
+      >
+        <RefreshCw className="size-4" aria-hidden="true" />
+        Sync Stok
+      </Menu.Item>
+      <Menu.Item
+        onClick={handleOpenProductListModal}
+        className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium outline-none hover:bg-surface-alt focus:bg-surface-alt"
+      >
+        <RefreshCw className="size-4" aria-hidden="true" />
+        Sync Product List
+      </Menu.Item>
+      <Menu.Separator className="my-1 h-px bg-line" />
+      <Menu.Item
+        onClick={handleClearCache}
+        className="flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-3 text-sm font-medium text-warning outline-none hover:bg-warning-soft focus:bg-warning-soft"
+      >
+        <RefreshCw className="size-4" aria-hidden="true" />
+        Clear Cache & Reload
+      </Menu.Item>
+    </>
+  );
+
+  usePageHeader({ title: 'POS Utama', actions: syncMenuActions });
+
+  // Filter products (sorted alphabetically by name for a stable, predictable order)
   const filteredProducts = useMemo(() => {
-    let result = products.filter((product) => {
+    const result = products.filter((product) => {
       const matchesCategory = selectedCategory === 'all' || product.category_id === selectedCategory;
       const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
 
-    // Sort products
-    result.sort((a, b) => {
-      if (sortBy === 'name') {
-        return sortOrder === 'asc'
-          ? a.name.localeCompare(b.name)
-          : b.name.localeCompare(a.name);
-      } else if (sortBy === 'price') {
-        return sortOrder === 'asc'
-          ? a.price - b.price
-          : b.price - a.price;
-      }
-      return 0;
-    });
-
-    return result;
-  }, [products, selectedCategory, searchQuery, sortBy, sortOrder]);
+    return result.sort((a, b) => a.name.localeCompare(b.name));
+  }, [products, selectedCategory, searchQuery]);
 
   return (
     <div 
-      className="flex min-h-screen w-full flex-col bg-background overflow-x-hidden"
+      className="flex h-full w-full flex-col overflow-hidden bg-background"
       data-card-view={settings?.card_view || 'grid'}
       data-cart-position={settings?.cart_position || 'right-sidebar'}
     >
-      {/* Sync Status Strip */}
-      <div className="flex items-center justify-between gap-2 border-b border-line px-4 py-1.5 text-sm">
-        <div className="flex items-center gap-2">
-          <ConnectionIndicator />
-          {productsFromCache && <Badge tone="info">Data dari cache</Badge>}
-        </div>
-
-        <div className="flex items-center gap-3">
-          {lastSyncTime && (
-            <span className="tnum hidden text-xs opacity-75 sm:inline">
-              Terakhir sync: {new Date(lastSyncTime).toLocaleTimeString('id-ID')}
-            </span>
-          )}
-          <button
-            onClick={handleRecalculateStock}
-            className="inline-flex rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700 sm:inline-flex items-center gap-2"
-            title="Sinkronkan stok menu dengan inventori"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>Sync Stok</span>
-          </button>
-          <button
-            onClick={handleOpenProductListModal}
-            className="inline-flex rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700 sm:inline-flex items-center gap-2"
-            title="Lihat daftar produk dan stok"
-          >
-            <RefreshCw className="h-4 w-4" />
-            <span>List Produk</span>
-          </button>
-          <button
-            onClick={triggerManualSync}
-            disabled={syncInProgress || !isOnline}
-            aria-label="Sinkronkan data"
-            className="flex min-h-9 items-center gap-1 rounded-lg bg-surface px-3 text-ink-secondary transition-colors hover:bg-surface-alt hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw className={`h-4 w-4 ${syncInProgress ? 'animate-spin' : ''}`} />
-            <span>Sync</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Dev Tools */}
-      <div className="flex items-center gap-4 border-b border-line bg-surface-alt px-6 py-1.5">
-        <span className="text-xs font-medium text-ink-muted">Tools:</span>
-        <button
-          onClick={handleClearCache}
-          className="flex items-center gap-1 rounded bg-warning-soft px-2 py-1 text-xs font-medium text-warning hover:opacity-80"
-        >
-          <RefreshCw className="h-3 w-3" />
-          Clear Cache & Reload
-        </button>
-      </div>
-
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* Product Grid */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex min-h-0 w-full flex-col overflow-hidden p-4 sm:p-6 lg:w-[70%]">
           {/* Tab Toggle */}
-          <div className="mb-6 flex items-center gap-2 border-b border-line">
+          <div className="mb-6 flex shrink-0 items-center gap-2 border-b border-line">
             <button
               onClick={() => {
                 setShowTableOrders(false);
@@ -1377,21 +1337,27 @@ export default function POSPage() {
               <History className="h-4 w-4" />
               Riwayat Transaksi
             </button>
-            <button
-              onClick={() => setPettyCashModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 font-medium text-ink-muted hover:text-ink transition-colors"
-            >
-              <DollarSign className="h-4 w-4" />
-              Kas Keluar
-            </button>
           </div>
 
           {showTableOrders ? (
             /* Table Orders View */
-            <>
-              <div className="mb-6">
-                <h2 className="text-2xl font-bold text-ink">Pesanan Meja</h2>
-                <p className="text-sm text-ink-muted">Menampilkan {tableOrders.length} pesanan siap bayar</p>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              <div className="mb-6 flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-ink">Pesanan Meja</h2>
+                  <p className="text-sm text-ink-muted">Menampilkan {tableOrders.length} pesanan siap bayar</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowTableMergeModal(true)}
+                  aria-label="Gabung meja"
+                  aria-keyshortcuts="Alt+G"
+                  className="flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink hover:bg-surface-alt focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-surface"
+                >
+                  <Users className="size-4" aria-hidden="true" />
+                  <span>Gabung Meja</span>
+                  <kbd className="ml-auto rounded border border-line bg-surface-alt px-1.5 py-0.5 text-xs text-ink-muted">Alt+G</kbd>
+                </button>
               </div>
 
               {tableOrders.length === 0 ? (
@@ -1496,24 +1462,33 @@ export default function POSPage() {
                   ))}
                 </div>
               )}
-            </>
+            </div>
           ) : showTransactionHistory ? (
             /* Transaction History View */
-            <>
+            <div className="min-h-0 flex-1 overflow-y-auto">
               <div className="mb-6 flex items-center justify-between">
                 <div>
                   <h2 className="text-2xl font-bold text-ink">Riwayat Transaksi</h2>
                   <p className="text-sm text-ink-muted">Menampilkan {transactionHistory.length} transaksi terakhir</p>
                 </div>
-                {transactionHistory.length > 0 && (
+                <div className="flex items-center gap-2">
                   <button
-                    onClick={() => setDeleteHistoryConfirmOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    onClick={() => setPettyCashModalOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2 font-medium text-ink-muted hover:text-ink transition-colors"
                   >
-                    <Trash2 className="h-4 w-4" />
-                    Hapus Riwayat
+                    <DollarSign className="h-4 w-4" />
+                    Kas Keluar
                   </button>
-                )}
+                  {transactionHistory.length > 0 && (
+                    <button
+                      onClick={() => setDeleteHistoryConfirmOpen(true)}
+                      className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      Hapus Riwayat
+                    </button>
+                  )}
+                </div>
               </div>
 
               {transactionHistory.length === 0 ? (
@@ -1601,8 +1576,7 @@ export default function POSPage() {
                             Bayar
                           </button>
                         )}
-                        {/* Void Payment button - only show for completed/paid orders and admin users */}
-                        {(order.status === 'completed' || order.status === 'paid') && user?.role === 'admin' && order.payment_method && (
+                        {(order.status === 'completed' || order.status === 'paid') && can(PERMISSIONS.orders.void) && order.payment_method && (
                           <button
                             onClick={() => {
                               const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
@@ -1667,45 +1641,26 @@ export default function POSPage() {
                   ))}
                 </div>
               )}
-            </>
+            </div>
           ) : (
             /* Products View */
-            <>
-              {/* Search and Sort Controls */}
-              <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex-1">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-                    <input
-                      type="text"
-                      placeholder="Cari produk..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as 'name' | 'price')}
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  >
-                    <option value="name">Nama</option>
-                    <option value="price">Harga</option>
-                  </select>
-                  <button
-                    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-                    className="rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm hover:bg-gray-50 hover:text-gray-900 active:bg-gray-100 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                    title={sortOrder === 'asc' ? 'Urutkan Naik' : 'Urutkan Turun'}
-                  >
-                    {sortOrder === 'asc' ? 'A-Z' : 'Z-A'}
-                  </button>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              {/* Search */}
+              <div className="mb-4 shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Cari produk..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white pl-10 pr-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
                 </div>
               </div>
 
               {/* Category Chips */}
-              <div className="mb-6 overflow-x-auto pb-2">
+              <div className="mb-4 shrink-0 overflow-x-auto pb-2">
                 <div className="flex gap-2">
                   <button
                     onClick={() => setSelectedCategory('all')}
@@ -1733,143 +1688,57 @@ export default function POSPage() {
                 </div>
               </div>
 
-              {/* Order Category Selection */}
-              <div className="mb-6">
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setOrderCategory('dine-in')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                      orderCategory === 'dine-in'
-                        ? 'bg-indigo-600 text-white active:bg-indigo-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
-                    }`}
+              {/* Product Grid (scrolls internally; header controls above stay fixed) */}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {authLoading || productsLoading ? (
+                  <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                      <ProductCardSkeleton key={i} />
+                    ))}
+                  </div>
+                ) : productsError ? (
+                  <EmptyState
+                    icon={AlertCircle}
+                    title="Gagal memuat produk"
+                    message={productsError}
+                    action={
+                      <Button variant="secondary" onClick={refetchProducts}>
+                        <RefreshCw className="h-4 w-4" /> Coba lagi
+                      </Button>
+                    }
+                  />
+                ) : filteredProducts.length === 0 ? (
+                  <EmptyState icon={Search} title="Tidak ada produk ditemukan" message="Coba kata kunci atau kategori lain" />
+                ) : (
+                  <div 
+                    className={`product-grid ${settings?.card_view === 'list' ? 'flex flex-col' : settings?.card_view === 'minimalist' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}
+                    style={{ gap: `var(--layout-spacing)` }}
                   >
-                    Dine-in
-                  </button>
-                  <button
-                    onClick={() => setOrderCategory('takeaway')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                      orderCategory === 'takeaway'
-                        ? 'bg-orange-600 text-white active:bg-orange-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
-                    }`}
-                  >
-                    Takeaway
-                  </button>
-                  <button
-                    onClick={() => setOrderCategory('delivery')}
-                    className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${
-                      orderCategory === 'delivery'
-                        ? 'bg-emerald-600 text-white active:bg-emerald-700'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900 active:bg-gray-300'
-                    }`}
-                  >
-                    Delivery
-                  </button>
-                </div>
+                    {filteredProducts.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onAddToCart={handleAddToCart}
+                        modifiers={getProductModifiers(product)}
+                        stockCount={productStocks.get(product.id)}
+                        cardView={(settings?.card_view as 'grid' | 'list' | 'minimalist') || 'grid'}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-
-              {/* Table Selection for Dine-in */}
-              {orderCategory === 'dine-in' && (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Pilih Meja</label>
-                  {tablesLoading ? (
-                    <div className="flex items-center gap-2 text-sm text-gray-500">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Memuat meja...
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
-                      {tables.map((table) => {
-                        // Determine effective status based on active orders
-                        // If table has active orders, show as occupied regardless of backend status
-                        const effectiveStatus = table.hasActiveOrders ? 'occupied' : table.status;
-                        
-                        const statusConfig = {
-                          available: { bg: 'bg-green-100', border: 'border-green-500', text: 'text-green-700', label: 'Available' },
-                          occupied: { bg: 'bg-red-100', border: 'border-red-500', text: 'text-red-700', label: 'Terisi' },
-                          dirty: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Kotor' },
-                          reserved: { bg: 'bg-yellow-100', border: 'border-yellow-500', text: 'text-yellow-700', label: 'Reservasi' },
-                        };
-                        const config = statusConfig[effectiveStatus];
-                        const isSelected = tableNumber === table.table_number;
-                        
-                        return (
-                          <button
-                            key={table.id}
-                            onClick={() => {
-                              setTableNumber(table.table_number);
-                              useCartStore.getState().setTableNumber(table.table_number);
-                            }}
-                            className={`
-                              relative p-3 rounded-lg border-2 transition-all
-                              ${isSelected ? 'ring-2 ring-indigo-500 ring-offset-2' : ''}
-                              ${config.bg} ${config.border} ${config.text}
-                              hover:opacity-80 active:scale-95
-                            `}
-                            title={`${table.table_number} - ${config.label}`}
-                          >
-                            <div className="text-sm font-bold">{table.table_number}</div>
-                            <div className="text-xs mt-1">{config.label}</div>
-                            {table.hasActiveOrders && effectiveStatus !== 'occupied' && (
-                              <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full" title="Has active orders" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {authLoading || productsLoading ? (
-                <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <ProductCardSkeleton key={i} />
-                  ))}
-                </div>
-              ) : productsError ? (
-                <EmptyState
-                  icon={AlertCircle}
-                  title="Gagal memuat produk"
-                  message={productsError}
-                  action={
-                    <Button variant="secondary" onClick={refetchProducts}>
-                      <RefreshCw className="h-4 w-4" /> Coba lagi
-                    </Button>
-                  }
-                />
-              ) : filteredProducts.length === 0 ? (
-                <EmptyState icon={Search} title="Tidak ada produk ditemukan" message="Coba kata kunci atau kategori lain" />
-              ) : (
-                <div 
-                  className={`product-grid ${settings?.card_view === 'list' ? 'flex flex-col' : settings?.card_view === 'minimalist' ? 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5' : 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4'}`}
-                  style={{ gap: `var(--layout-spacing)` }}
-                >
-                  {filteredProducts.map((product) => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onAddToCart={handleAddToCart}
-                      modifiers={getProductModifiers(product)}
-                      stockCount={productStocks.get(product.id)}
-                      cardView={(settings?.card_view as 'grid' | 'list' | 'minimalist') || 'grid'}
-                    />
-                  ))}
-                </div>
-              )}
-            </>
+            </div>
           )}
         </main>
 
         {/* Cart Panel (desktop) */}
         <aside 
-          className={`cart-container ${settings?.cart_position === 'floating-drawer' ? 'fixed bottom-0 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px] border-t border-line bg-surface z-50 rounded-t-lg max-h-[50vh] overflow-y-auto' : 'hidden w-96 lg:block'}`}
+          className={`cart-container min-h-0 ${settings?.cart_position === 'floating-drawer' ? 'fixed bottom-0 left-1/2 -translate-x-1/2 w-[90%] max-w-[600px] border-t border-line bg-surface z-50 rounded-t-lg max-h-[50vh] overflow-y-auto' : 'hidden lg:flex lg:w-[30%]'}`}
           aria-label="Keranjang"
         >
           <CartPanel
             orderCategory={orderCategory}
-            tableNumber={tableNumber}
+            onOrderCategoryChange={setOrderCategory}
             customerName={customerName}
             deliveryAddress={deliveryAddress}
             courierName={courierName}
@@ -1918,7 +1787,7 @@ export default function POSPage() {
             </button>
             <CartPanel
               orderCategory={orderCategory}
-              tableNumber={tableNumber}
+              onOrderCategoryChange={setOrderCategory}
               customerName={customerName}
               deliveryAddress={deliveryAddress}
               courierName={courierName}
@@ -1955,7 +1824,7 @@ export default function POSPage() {
         products={products}
         productStocks={productStocks}
         onStockUpdate={handleRecalculateStock}
-        userRole={userRole}
+        canEditStock={can(PERMISSIONS.inventory.edit)}
         categories={productCategories}
       />
 
@@ -2135,6 +2004,9 @@ export default function POSPage() {
           </div>
         </div>
       )}
+
+      {/* Table Merge Modal */}
+      <TableMergeModal isOpen={showTableMergeModal} onClose={() => setShowTableMergeModal(false)} />
     </div>
   );
 }

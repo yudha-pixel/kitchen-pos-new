@@ -3,11 +3,13 @@
 import { useState, useEffect } from 'react';
 import { Settings, Package, Save, AlertCircle, Search, CheckSquare2, Square, X } from 'lucide-react';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
 
 interface Ingredient {
   id: string;
   name: string;
-  category?: string;
+  category?: { id: string; name: string; color: string | null } | null;
   current_stock: number;
   min_stock: number;
   restock_quantity: number;
@@ -52,8 +54,7 @@ export default function AutomationPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
 
       // Fetch ingredients with suppliers
       const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, {
@@ -114,8 +115,7 @@ export default function AutomationPage() {
     setSaving(true);
     setSaveSuccess(false);
     try {
-      const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const token = localStorage.getItem('token');
+      const token = getToken();
 
       // Update app settings
       const settingsResponse = await fetch(`${API_BASE_URL}/api/settings`, {
@@ -194,12 +194,12 @@ export default function AutomationPage() {
   // Filter ingredients based on search and category
   const filteredIngredients = ingredients.filter(ingredient => {
     const matchesSearch = ingredient.name.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || ingredient.category === categoryFilter;
+    const matchesCategory = categoryFilter === 'all' || ingredient.category?.name === categoryFilter;
     return matchesSearch && matchesCategory;
   });
 
   // Get unique categories
-  const categories = Array.from(new Set(ingredients.map(ing => ing.category).filter(Boolean)));
+  const categories = Array.from(new Set(ingredients.map(ing => ing.category?.name).filter(Boolean)));
 
   // Checkbox handlers
   const handleSelectAll = () => {
@@ -417,7 +417,7 @@ export default function AutomationPage() {
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{ingredient.name}</div>
                       {ingredient.category && (
-                        <div className="text-xs text-gray-500">{ingredient.category}</div>
+                        <div className="text-xs text-gray-500">{ingredient.category?.name}</div>
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">

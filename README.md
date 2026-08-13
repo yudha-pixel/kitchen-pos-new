@@ -250,7 +250,7 @@ npm test server/__tests__/orders.restore.test.ts
 
 ## Roadmap
 
-Detailed planning documents are in the `knowledge/` folder:
+Detailed planning documents are in the `docs/knowledge/` folder:
 
 - `01-current-tech-stack.md` — Deep dive into the current stack.
 - `02-pos-domain-and-kitchen-workflows.md` — Dine-in, takeaway, delivery, KDS, printers.

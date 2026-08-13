@@ -3,6 +3,8 @@ import { randomUUID } from 'crypto';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 import { auditLogger } from './audit';
 import {
   createOrderSchema,
@@ -108,7 +110,7 @@ async function applyIngredientRestoration(
   }
 }
 
-router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   const { cashierId, status } = req.query;
   const { limit, offset } = paginationSchema.parse(req.query);
 
@@ -129,7 +131,7 @@ router.get('/orders', authMiddleware, async (req: Request, res: Response) => {
 // Active orders for the Kitchen Display: one call returns orders still being
 // worked on, with items joined to product + category for station filtering.
 // Filter orders that have at least one item not completed/cancelled
-router.get('/orders/active', authMiddleware, async (_req: Request, res: Response) => {
+router.get('/orders/active', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (_req: Request, res: Response) => {
   const orders = await prisma.order.findMany({
     where: {
       items: {
@@ -156,7 +158,7 @@ router.get('/orders/active', authMiddleware, async (_req: Request, res: Response
   res.json(orders);
 });
 
-router.get('/orders/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders/:id', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   const order = await prisma.order.findUnique({
@@ -176,7 +178,7 @@ router.get('/orders/:id', authMiddleware, async (req: Request, res: Response) =>
   res.json(order);
 });
 
-router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Response) => {
+router.get('/orders/:id/items', authMiddleware, requirePermission(PERMISSIONS.orders.view), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
 
   const items = await prisma.orderItem.findMany({
@@ -191,7 +193,7 @@ router.get('/orders/:id/items', authMiddleware, async (req: Request, res: Respon
   res.json(items);
 });
 
-router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.create), async (req: Request, res: Response) => {
   const { order, items } = createOrderSchema.parse(req.body);
   const orderId = order.id ?? randomUUID();
 
@@ -400,70 +402,55 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
           });
         }
 
-        // Auto-generate PR if stock falls below min_stock threshold
+        // Auto-generate a Purchase Requisition once stock falls below min_stock,
+        // if the "Otomatisasi Stok" auto-restock setting is enabled.
         if (updated && updated.current_stock <= updated.min_stock) {
-          // Check if auto-restock is enabled in settings
           const settings = await tx.appSettings.findFirst();
-          if (!settings || !settings.auto_restock_enabled) {
-            // Auto-restock is disabled, skip PR generation
-            return;
-          }
-
-          // Check if there's already a pending PR for this ingredient
-          const existingPR = await tx.purchaseRequisition.findFirst({
-            where: {
-              status: 'Pending Approval',
-              prItems: {
-                some: {
-                  ingredient_id: ingredientId
-                }
-              }
-            }
-          });
-
-          if (!existingPR) {
-            // Generate PR number
-            const lastPR = await tx.purchaseRequisition.findFirst({
-              orderBy: { created_at: 'desc' }
-            });
-
-            let nextNumber = 1;
-            if (lastPR && lastPR.pr_number) {
-              const lastNum = parseInt(lastPR.pr_number.replace('#PR-', ''));
-              nextNumber = lastNum + 1;
-            }
-
-            const pr_number = `#PR-${String(nextNumber).padStart(3, '0')}`;
-
-            // Calculate reorder quantity (use ingredient's restock_quantity if set, otherwise default to min_stock * 2)
-            const ingredientWithRestock = await tx.ingredient.findUnique({
-              where: { id: ingredientId },
-              select: { restock_quantity: true, supplier_id: true }
-            });
-            const reorderQuantity = ingredientWithRestock?.restock_quantity && ingredientWithRestock.restock_quantity > 0
-              ? ingredientWithRestock.restock_quantity
-              : (updated.min_stock * 2) - updated.current_stock;
-
-            // Create auto-generated PR with supplier information
-            await tx.purchaseRequisition.create({
-              data: {
-                pr_number,
+          if (settings?.auto_restock_enabled) {
+            const existingPR = await tx.purchaseRequisition.findFirst({
+              where: {
                 status: 'Pending Approval',
-                requested_by: 'System (Auto-Restock)',
-                total_estimated: 0, // Will be calculated when PO is generated
-                notes: `Automated restock triggered: stock fell below safety threshold of ${updated.min_stock}. Current stock: ${updated.current_stock}`,
-                prItems: {
-                  create: {
-                    ingredient_id: ingredientId,
-                    ingredient_name: updated.name,
-                    quantity: reorderQuantity,
-                    unit: updated.unit,
-                    estimated_price: 0, // Will be updated when PO is generated
-                    supplier_id: ingredientWithRestock?.supplier_id || null
-                  }
-                }
-              }
+                prItems: { some: { ingredient_id: ingredientId } },
+              },
             });
+
+            if (!existingPR) {
+              const lastPR = await tx.purchaseRequisition.findFirst({ orderBy: { created_at: 'desc' } });
+              let nextNumber = 1;
+              if (lastPR?.pr_number) {
+                const lastNum = parseInt(lastPR.pr_number.replace('#PR-', ''));
+                nextNumber = lastNum + 1;
+              }
+              const pr_number = `#PR-${String(nextNumber).padStart(3, '0')}`;
+
+              const ingredientWithRestock = await tx.ingredient.findUnique({
+                where: { id: ingredientId },
+                select: { restock_quantity: true, supplier_id: true },
+              });
+              const reorderQuantity = ingredientWithRestock?.restock_quantity && ingredientWithRestock.restock_quantity > 0
+                ? ingredientWithRestock.restock_quantity
+                : (updated.min_stock * 2) - updated.current_stock;
+
+              await tx.purchaseRequisition.create({
+                data: {
+                  pr_number,
+                  status: 'Pending Approval',
+                  requested_by: 'System (Auto-Restock)',
+                  total_estimated: 0,
+                  notes: `Automated restock triggered: stock fell below safety threshold of ${updated.min_stock}. Current stock: ${updated.current_stock}`,
+                  prItems: {
+                    create: {
+                      ingredient_id: ingredientId,
+                      ingredient_name: updated.name,
+                      quantity: reorderQuantity,
+                      unit: updated.unit,
+                      estimated_price: 0,
+                      supplier_id: ingredientWithRestock?.supplier_id || null,
+                    },
+                  },
+                },
+              });
+            }
           }
         }
       }
@@ -481,7 +468,7 @@ router.post('/orders', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
-router.patch('/orders/:id/status', authMiddleware, auditLogger('update', 'order'), async (req: Request, res: Response) => {
+router.patch('/orders/:id/status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), auditLogger('update', 'order'), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const { status } = updateOrderStatusSchema.parse(req.body);
 
@@ -592,7 +579,7 @@ router.patch('/orders/:id/status', authMiddleware, auditLogger('update', 'order'
   }
 });
 
-router.post('/order-items', authMiddleware, async (req: Request, res: Response) => {
+router.post('/order-items', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   const { items } = createOrderItemsSchema.parse(req.body);
 
   await prisma.orderItem.createMany({
@@ -614,7 +601,7 @@ router.post('/order-items', authMiddleware, async (req: Request, res: Response) 
   res.json({ success: true });
 });
 
-router.patch('/order-items/:id/status', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/order-items/:id/status', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   const { id } = req.params as { id: string };
   const { status } = updateOrderStatusSchema.parse(req.body);
 
@@ -637,7 +624,7 @@ router.patch('/order-items/:id/status', authMiddleware, async (req: Request, res
   res.json(updated);
 });
 
-router.post('/void-logs', authMiddleware, auditLogger('void', 'order'), async (req: Request, res: Response) => {
+router.post('/void-logs', authMiddleware, requirePermission(PERMISSIONS.orders.void), auditLogger('void', 'order'), async (req: Request, res: Response) => {
   const { voidLogs } = createVoidLogsSchema.parse(req.body);
 
   await prisma.$transaction(async (tx) => {
@@ -702,7 +689,7 @@ router.post('/void-logs', authMiddleware, auditLogger('void', 'order'), async (r
   res.json({ success: true });
 });
 
-router.post('/orders/merge-table', authMiddleware, async (req: Request, res: Response) => {
+router.post('/orders/merge-table', authMiddleware, requirePermission(PERMISSIONS.orders.edit), async (req: Request, res: Response) => {
   const { sourceTable, targetTable } = mergeTableSchema.parse(req.body);
 
   const result = await prisma.order.updateMany({

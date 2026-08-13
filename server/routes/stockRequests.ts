@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
@@ -21,7 +23,7 @@ const rejectStockRequestSchema = z.object({
 });
 
 // GET /stock-requests - List all requests, optionally filtered by status, level, or user
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, approval_level, requested_by } = req.query;
     const where: any = {};
@@ -46,7 +48,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // GET /stock-requests/:id - Get details with approval history
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const request = await prisma.stockRequest.findUnique({
@@ -78,7 +80,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // POST /stock-requests - Create a new pending stock request (starts at level 1)
-router.post('/', authMiddleware, async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createStockRequestSchema.parse(req.body);
     const userId = req.user?.id;
@@ -132,7 +134,7 @@ router.post('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // PATCH /stock-requests/:id/approve-supervisor - Level 1 approval (Supervisor)
-router.patch('/:id/approve-supervisor', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/approve-supervisor', authMiddleware, requirePermission(PERMISSIONS.approvals.approve), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -183,7 +185,7 @@ router.patch('/:id/approve-supervisor', authMiddleware, async (req: Request, res
 });
 
 // PATCH /stock-requests/:id/approve-manager - Level 2 approval (Manager)
-router.patch('/:id/approve-manager', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/approve-manager', authMiddleware, requirePermission(PERMISSIONS.approvals.approve), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -234,7 +236,7 @@ router.patch('/:id/approve-manager', authMiddleware, async (req: Request, res: R
 });
 
 // PATCH /stock-requests/:id/approve-finance - Level 3 approval (Finance Director)
-router.patch('/:id/approve-finance', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/approve-finance', authMiddleware, requirePermission(PERMISSIONS.approvals.approve), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -281,7 +283,7 @@ router.patch('/:id/approve-finance', authMiddleware, async (req: Request, res: R
 });
 
 // PATCH /stock-requests/:id/reject - Reject at current level
-router.patch('/:id/reject', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/reject', authMiddleware, requirePermission(PERMISSIONS.approvals.approve), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const data = rejectStockRequestSchema.parse(req.body);
@@ -323,7 +325,7 @@ router.patch('/:id/reject', authMiddleware, async (req: Request, res: Response) 
 });
 
 // PATCH /stock-requests/:id/recall - Recall approval (before next level approves)
-router.patch('/:id/recall', authMiddleware, async (req: Request, res: Response) => {
+router.patch('/:id/recall', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;
@@ -384,7 +386,7 @@ router.patch('/:id/recall', authMiddleware, async (req: Request, res: Response) 
 });
 
 // DELETE /stock-requests/:id - Cancel request
-router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.delete), async (req: Request, res: Response) => {
   try {
     const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const userId = req.user?.id;

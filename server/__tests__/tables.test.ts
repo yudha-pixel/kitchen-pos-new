@@ -2,29 +2,54 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
+import { randomUUID } from 'crypto';
 
 describe('Table Management API', () => {
-  let testTableId: string;
+  let testTableId: string | undefined;
+  let adminUserId: string | undefined;
+  let adminToken: string;
+  const fixturePrefix = `UXR-${Date.now()}-tables-${randomUUID().slice(0, 8)}`;
+  const fixtureTableNumber = `UXR-T-${Date.now().toString(36)}-${randomUUID().slice(0, 4)}`;
 
   beforeAll(async () => {
-    // Clean up any existing test tables
-    await prisma.table.deleteMany({
-      where: { table_number: { startsWith: 'TEST-' } },
+    const adminRole = await prisma.role.findUnique({ where: { name: 'admin' } });
+    if (!adminRole) {
+      throw new Error('Table tests require the seeded admin role');
+    }
+
+    const adminUser = await prisma.profile.create({
+      data: {
+        username: `${fixturePrefix}-admin`,
+        full_name: 'Table Admin Fixture',
+        password_hash: 'hash',
+        role_id: adminRole.id,
+      },
     });
+    adminUserId = adminUser.id;
+
+    const jwt = require('jsonwebtoken');
+    adminToken = jwt.sign(
+      { id: adminUser.id, username: adminUser.username, role: 'admin' },
+      process.env.JWT_SECRET || 'test-secret',
+      { expiresIn: '1h' },
+    );
   });
 
   afterAll(async () => {
-    // Clean up test data
-    await prisma.table.deleteMany({
-      where: { table_number: { startsWith: 'TEST-' } },
-    });
-    await prisma.$disconnect();
+    if (testTableId) {
+      await prisma.table.deleteMany({ where: { id: testTableId } });
+    }
+    if (adminUserId) {
+      await prisma.auditLog.deleteMany({ where: { user_id: adminUserId } });
+      await prisma.profile.deleteMany({ where: { id: adminUserId } });
+    }
   });
 
   describe('GET /tables', () => {
     it('should return all tables', async () => {
       const res = await request(app)
-        .get('/tables');
+        .get('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -32,7 +57,8 @@ describe('Table Management API', () => {
 
     it('should filter tables by status', async () => {
       const res = await request(app)
-        .get('/tables?status=available');
+        .get('/api/tables?status=available')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(Array.isArray(res.body)).toBe(true);
@@ -45,7 +71,8 @@ describe('Table Management API', () => {
   describe('GET /tables/summary', () => {
     it('should return table status summary', async () => {
       const res = await request(app)
-        .get('/tables/summary');
+        .get('/api/tables/summary')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('total');
@@ -59,24 +86,26 @@ describe('Table Management API', () => {
   describe('POST /tables', () => {
     it('should create a new table', async () => {
       const res = await request(app)
-        .post('/tables')
+        .post('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          table_number: 'TEST-001',
-          qr_code: 'QR-TEST-001',
+          table_number: fixtureTableNumber,
+          qr_code: `${fixturePrefix}-qr`,
         });
 
       expect(res.status).toBe(201);
       expect(res.body).toHaveProperty('id');
-      expect(res.body.table_number).toBe('TEST-001');
+      expect(res.body.table_number).toBe(fixtureTableNumber);
       expect(res.body.status).toBe('available');
       testTableId = res.body.id;
     });
 
     it('should reject duplicate table number', async () => {
       const res = await request(app)
-        .post('/tables')
+        .post('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          table_number: 'TEST-001',
+          table_number: fixtureTableNumber,
         });
 
       expect(res.status).toBe(400);
@@ -85,7 +114,8 @@ describe('Table Management API', () => {
 
     it('should reject invalid table number', async () => {
       const res = await request(app)
-        .post('/tables')
+        .post('/api/tables')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           table_number: '', // Empty string
         });
@@ -97,7 +127,8 @@ describe('Table Management API', () => {
   describe('GET /tables/:id', () => {
     it('should return a specific table', async () => {
       const res = await request(app)
-        .get(`/tables/${testTableId}`);
+        .get(`/api/tables/${testTableId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.id).toBe(testTableId);
@@ -105,7 +136,8 @@ describe('Table Management API', () => {
 
     it('should return 404 for non-existent table', async () => {
       const res = await request(app)
-        .get('/tables/00000000-0000-0000-0000-000000000000');
+        .get('/api/tables/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(404);
     });
@@ -114,7 +146,8 @@ describe('Table Management API', () => {
   describe('PATCH /tables/:id/status', () => {
     it('should update table status', async () => {
       const res = await request(app)
-        .patch(`/tables/${testTableId}/status`)
+        .patch(`/api/tables/${testTableId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'occupied' });
 
       expect(res.status).toBe(200);
@@ -123,7 +156,8 @@ describe('Table Management API', () => {
 
     it('should reject invalid status', async () => {
       const res = await request(app)
-        .patch(`/tables/${testTableId}/status`)
+        .patch(`/api/tables/${testTableId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'invalid-status' });
 
       expect(res.status).toBe(400);
@@ -135,15 +169,15 @@ describe('Table Management API', () => {
   describe('GET /self-order/tables/id/:tableId', () => {
     it('should resolve a real table number from its UUID', async () => {
       const res = await request(app)
-        .get(`/self-order/tables/id/${testTableId}`);
+        .get(`/api/self-order/tables/id/${testTableId}`);
 
       expect(res.status).toBe(200);
-      expect(res.body.table_number).toBe('TEST-001');
+      expect(res.body.table_number).toBe(fixtureTableNumber);
     });
 
     it('should return 404 for an unknown table UUID', async () => {
       const res = await request(app)
-        .get('/self-order/tables/id/00000000-0000-0000-0000-000000000000');
+        .get('/api/self-order/tables/id/00000000-0000-0000-0000-000000000000');
 
       expect(res.status).toBe(404);
     });
@@ -152,14 +186,15 @@ describe('Table Management API', () => {
   describe('PUT /tables/:id', () => {
     it('should update table details', async () => {
       const res = await request(app)
-        .put(`/tables/${testTableId}`)
+        .put(`/api/tables/${testTableId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          table_number: 'TEST-001-UPDATED',
+          table_number: `${fixtureTableNumber}-updated`,
           status: 'available',
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.table_number).toBe('TEST-001-UPDATED');
+      expect(res.body.table_number).toBe(`${fixtureTableNumber}-updated`);
     });
   });
 
@@ -167,11 +202,13 @@ describe('Table Management API', () => {
     it('should delete a table', async () => {
       // Reset status to available first
       await request(app)
-        .patch(`/tables/${testTableId}/status`)
+        .patch(`/api/tables/${testTableId}/status`)
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({ status: 'available' });
 
       const res = await request(app)
-        .delete(`/tables/${testTableId}`);
+        .delete(`/api/tables/${testTableId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
@@ -179,7 +216,8 @@ describe('Table Management API', () => {
 
     it('should return 404 for deleted table', async () => {
       const res = await request(app)
-        .delete(`/tables/${testTableId}`);
+        .delete(`/api/tables/${testTableId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(404);
     });

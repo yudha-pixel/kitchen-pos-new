@@ -2,24 +2,21 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as api from '@/src/lib/api';
-
-type User = {
-  id: string;
-  username: string;
-  role: 'admin' | 'management' | 'cashier' | 'owner';
-};
+import type { PermissionName } from '@/src/config/permissions';
+import type { AuthenticatedUser } from '@/src/types/auth';
 
 interface AuthContextValue {
-  user: User | null;
+  user: AuthenticatedUser | null;
   isLoading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
+  can: (permission: PermissionName) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const init = useCallback(async () => {
@@ -53,8 +50,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     sessionStorage.removeItem('loginRedirect');
   };
 
+  const can = useCallback(
+    (permission: PermissionName) => user?.permissions.includes(permission) ?? false,
+    [user?.permissions],
+  );
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, can }}>
       {children}
     </AuthContext.Provider>
   );

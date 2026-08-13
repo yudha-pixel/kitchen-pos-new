@@ -699,7 +699,6 @@ export const seedDummyData = async (force: boolean = false) => {
       {
         id: generateUUID(),
         name: 'Beras',
-        category: 'Grains & Pasta',
         current_stock: 2.0, // 10 portions × 0.2 kg = 2 kg
         unit: 'kg',
         min_stock: 2.0, // Minimum for 10 portions
@@ -710,7 +709,6 @@ export const seedDummyData = async (force: boolean = false) => {
       {
         id: generateUUID(),
         name: 'Daging Ayam',
-        category: 'Meat & Poultry',
         current_stock: 1.0, // 10 portions × 0.1 kg = 1 kg
         unit: 'kg',
         min_stock: 1.0, // Minimum for 10 portions
@@ -721,7 +719,6 @@ export const seedDummyData = async (force: boolean = false) => {
       {
         id: generateUUID(),
         name: 'Minyak Goreng',
-        category: 'Oils & Condiments',
         current_stock: 0.5, // 10 portions × 0.05 liter = 0.5 liter
         unit: 'liter',
         min_stock: 0.5, // Minimum for 10 portions
@@ -732,7 +729,6 @@ export const seedDummyData = async (force: boolean = false) => {
       {
         id: generateUUID(),
         name: 'Bumbu Dasar',
-        category: 'Dry Goods & Baking',
         current_stock: 0.3, // 10 portions × 0.03 kg = 0.3 kg
         unit: 'kg',
         min_stock: 0.3, // Minimum for 10 portions

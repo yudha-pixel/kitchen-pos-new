@@ -1,15 +1,178 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { SELF_ORDER_PAYMENT_METHODS } from '../../src/features/self-order/paymentMethods';
+import { resolveSelfOrderPaymentInstructions } from '../../src/features/self-order/paymentMethods';
+import { PERMISSIONS } from '../../src/config/permissions';
+import { detectCompanyLogoMimeType } from '../lib/company';
+import { buildObjectKey, deleteObject, putObject, streamObjectTo } from '../lib/storage';
+import {
+  DEFAULT_APPEARANCE_RECORD,
+  pickAppearanceSettings,
+  validateAppearanceSettingsPatch,
+} from '../../src/features/settings/settings-resolver';
 
 const router = Router();
 
+const backgroundUpload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
+const LAUNCHER_BACKGROUND_IMAGE_ROUTE = '/api/settings/launcher-background/image';
+
+function receiveLauncherBackground(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) {
+  backgroundUpload.single('background')(req, res, (error) => {
+    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
+      res.status(400).json({ error: 'Ukuran gambar latar maksimum 5 MB.' });
+      return;
+    }
+    if (error) {
+      res.status(400).json({ error: 'Berkas gambar latar tidak dapat diproses.' });
+      return;
+    }
+    next();
+  });
+}
+
 const SELF_ORDER_PAYMENT_METHOD_IDS = Object.keys(SELF_ORDER_PAYMENT_METHODS);
+const LEGACY_COMPANY_SETTING_FIELDS = new Set([
+  'store_name', 'store_phone', 'store_email', 'store_address',
+  'timezone', 'currency', 'tax_rate', 'service_charge',
+]);
+
+function serializeAppSettings(settings: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(settings).filter(([key]) => !LEGACY_COMPANY_SETTING_FIELDS.has(key)));
+}
+
+// GET /api/settings/appearance - Safe organization-wide visual settings.
+// This route intentionally exposes no operational or security configuration.
+router.get('/appearance', async (_req, res) => {
+  try {
+    const settings = await prisma.appSettings.findFirst({
+      select: {
+        primary_color: true,
+        theme_mode: true,
+        card_style: true,
+        layout_density: true,
+        card_view: true,
+        cart_position: true,
+        launcher_background_path: true,
+      },
+    });
+    res.json({
+      ...pickAppearanceSettings(settings ?? DEFAULT_APPEARANCE_RECORD),
+      launcher_background_url: settings?.launcher_background_path ? LAUNCHER_BACKGROUND_IMAGE_ROUTE : null,
+    });
+  } catch (error) {
+    console.error('Error fetching appearance settings:', error);
+    res.status(500).json({ error: 'Failed to fetch appearance settings' });
+  }
+});
+
+// GET /api/settings/launcher-background/image - Public asset, same pattern as company logo:
+// CSS background-image/<img> requests can't attach an Authorization header.
+router.get('/launcher-background/image', async (_req, res) => {
+  const settings = await prisma.appSettings.findFirst({
+    select: { launcher_background_path: true, launcher_background_mime_type: true },
+  });
+  if (!settings?.launcher_background_path || !settings.launcher_background_mime_type) {
+    return res.status(404).json({ error: 'Gambar latar launcher belum tersedia.' });
+  }
+  const served = await streamObjectTo(res, settings.launcher_background_path, settings.launcher_background_mime_type);
+  if (!served) res.status(404).json({ error: 'Gambar latar launcher belum tersedia.' });
+});
+
+router.post(
+  '/launcher-background',
+  authMiddleware,
+  requirePermission(PERMISSIONS.settings.edit),
+  receiveLauncherBackground,
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'Pilih berkas gambar untuk diunggah.' });
+    const detectedMime = detectCompanyLogoMimeType(req.file.buffer);
+    if (!detectedMime || detectedMime !== req.file.mimetype) {
+      return res.status(400).json({ error: 'Gambar latar harus berupa PNG, JPEG, atau WebP yang valid.' });
+    }
+    const previous = await prisma.appSettings.findFirst({ select: { id: true, launcher_background_path: true } });
+    const extension = detectedMime === 'image/png' ? 'png' : detectedMime === 'image/jpeg' ? 'jpg' : 'webp';
+    const key = buildObjectKey('settings', extension);
+    await putObject(key, req.file.buffer, detectedMime);
+    try {
+      const updated = previous
+        ? await prisma.appSettings.update({
+            where: { id: previous.id },
+            data: { launcher_background_path: key, launcher_background_mime_type: detectedMime },
+          })
+        : await prisma.appSettings.create({
+            data: { launcher_background_path: key, launcher_background_mime_type: detectedMime },
+          });
+      if (previous?.launcher_background_path) await deleteObject(previous.launcher_background_path);
+      res.json({ launcher_background_url: LAUNCHER_BACKGROUND_IMAGE_ROUTE, updated_at: updated.updated_at });
+    } catch (error) {
+      await deleteObject(key);
+      throw error;
+    }
+  }
+);
+
+router.delete('/launcher-background', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (_req, res) => {
+  const settings = await prisma.appSettings.findFirst({ select: { id: true, launcher_background_path: true } });
+  if (!settings) return res.json({ launcher_background_url: null });
+  await prisma.appSettings.update({
+    where: { id: settings.id },
+    data: { launcher_background_path: null, launcher_background_mime_type: null },
+  });
+  if (settings.launcher_background_path) await deleteObject(settings.launcher_background_path);
+  res.json({ launcher_background_url: null });
+});
+
+// GET /api/settings/login-config - Safe unauthenticated login behavior only.
+router.get('/login-config', async (_req, res) => {
+  try {
+    const settings = await prisma.appSettings.findFirst({
+      select: { default_login_redirect: true },
+    });
+    const configuredRoute = settings?.default_login_redirect;
+    const defaultLoginRedirect =
+      configuredRoute && /^\/(?!\/)/.test(configuredRoute) ? configuredRoute : '/apps';
+
+    res.json({ default_login_redirect: defaultLoginRedirect });
+  } catch (error) {
+    console.error('Error fetching login configuration:', error);
+    res.status(500).json({ error: 'Failed to fetch login configuration' });
+  }
+});
+
+function validateSelfOrderSettings(data: any, current: any): string | null {
+  const methods = data.selforder_payment_methods ?? current?.selforder_payment_methods ?? ['cashier'];
+  const instructions = resolveSelfOrderPaymentInstructions(
+    data.selforder_payment_instructions ?? current?.selforder_payment_instructions
+  );
+
+  if (!Array.isArray(methods)) return 'selforder_payment_methods must be an array of method ids';
+  if (methods.length === 0) return 'At least one self-order payment method must be enabled';
+  const unknown = methods.filter((id: unknown) => typeof id !== 'string' || !SELF_ORDER_PAYMENT_METHOD_IDS.includes(id as string));
+  if (unknown.length) return `Unknown payment method id(s): ${unknown.join(', ')}. Allowed: ${SELF_ORDER_PAYMENT_METHOD_IDS.join(', ')}`;
+  for (const id of ['qris', 'transfer'] as const) {
+    if (methods.includes(id) && !instructions[id]?.instructions) {
+      return `${id.toUpperCase()} instructions are required when the method is enabled`;
+    }
+  }
+  const imageUrl = instructions.qris?.image_url;
+  if (imageUrl) {
+    try {
+      if (new URL(imageUrl).protocol !== 'https:') return 'QRIS image URL must use HTTPS';
+    } catch {
+      return 'QRIS image URL must be a valid HTTPS URL';
+    }
+  }
+  if (data.selforder_routing !== undefined && !['review', 'auto'].includes(data.selforder_routing)) {
+    return "selforder_routing must be 'review' or 'auto'";
+  }
+  return null;
+}
 
 // GET /api/settings - Get app settings
-router.get('/', authMiddleware, requirePermission('settings.view'), async (req, res) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.settings.view), async (req, res) => {
   try {
     // Get the first settings record (there should only be one)
     let settings = await prisma.appSettings.findFirst();
@@ -29,7 +192,7 @@ router.get('/', authMiddleware, requirePermission('settings.view'), async (req, 
       });
     }
     
-    res.json(settings);
+    res.json(serializeAppSettings(settings));
   } catch (error) {
     console.error('Error fetching settings:', error);
     res.status(500).json({ error: 'Failed to fetch settings' });
@@ -37,12 +200,17 @@ router.get('/', authMiddleware, requirePermission('settings.view'), async (req, 
 });
 
 // PUT /api/settings - Update app settings
-router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, res) => {
+router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req, res) => {
   try {
     const data = req.body;
 
+    const appearanceValidationError = validateAppearanceSettingsPatch(data);
+    if (appearanceValidationError) return res.status(400).json({ error: appearanceValidationError });
+
     // Get the first settings record
     let settings = await prisma.appSettings.findFirst();
+    const validationError = validateSelfOrderSettings(data, settings);
+    if (validationError) return res.status(400).json({ error: validationError });
     
     if (settings) {
       // Update existing settings - only update fields that are provided
@@ -57,15 +225,7 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
       if (data.cart_position !== undefined) updateData.cart_position = data.cart_position;
       
       // Store Settings
-      if (data.store_name !== undefined) updateData.store_name = data.store_name;
-      if (data.store_phone !== undefined) updateData.store_phone = data.store_phone;
-      if (data.store_email !== undefined) updateData.store_email = data.store_email;
-      if (data.store_address !== undefined) updateData.store_address = data.store_address;
       if (data.web_base_url !== undefined) updateData.web_base_url = data.web_base_url;
-      if (data.timezone !== undefined) updateData.timezone = data.timezone;
-      if (data.currency !== undefined) updateData.currency = data.currency;
-      if (data.tax_rate !== undefined) updateData.tax_rate = data.tax_rate;
-      if (data.service_charge !== undefined) updateData.service_charge = data.service_charge;
       
       // Receipt Settings
       if (data.receipt_header !== undefined) updateData.receipt_header = data.receipt_header;
@@ -129,27 +289,14 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
       // An unknown id here would silently disappear at render time; rejecting it at
       // the boundary makes the misconfiguration visible instead.
       if (data.selforder_payment_methods !== undefined) {
-        if (!Array.isArray(data.selforder_payment_methods)) {
-          return res.status(400).json({ error: 'selforder_payment_methods must be an array of method ids' });
-        }
-        const unknown = data.selforder_payment_methods.filter(
-          (id: unknown) => typeof id !== 'string' || !SELF_ORDER_PAYMENT_METHOD_IDS.includes(id)
-        );
-        if (unknown.length > 0) {
-          return res.status(400).json({
-            error: `Unknown payment method id(s): ${unknown.join(', ')}. Allowed: ${SELF_ORDER_PAYMENT_METHOD_IDS.join(', ')}`,
-          });
-        }
-        if (data.selforder_payment_methods.length === 0) {
-          return res.status(400).json({ error: 'At least one self-order payment method must be enabled' });
-        }
         updateData.selforder_payment_methods = data.selforder_payment_methods;
       }
 
+      if (data.selforder_payment_instructions !== undefined) {
+        updateData.selforder_payment_instructions = resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions);
+      }
+
       if (data.selforder_routing !== undefined) {
-        if (!['review', 'auto'].includes(data.selforder_routing)) {
-          return res.status(400).json({ error: "selforder_routing must be 'review' or 'auto'" });
-        }
         updateData.selforder_routing = data.selforder_routing;
       }
 
@@ -170,15 +317,7 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
           cart_position: data.cart_position || 'right-sidebar',
           
           // Store Settings
-          store_name: data.store_name || 'Kitchen POS Restaurant',
-          store_phone: data.store_phone || '+62 21 1234 5678',
-          store_email: data.store_email || 'info@kitchenpos.com',
-          store_address: data.store_address || 'Jl. Contoh No. 123, Jakarta Selatan',
           web_base_url: data.web_base_url || 'http://localhost:3000',
-          timezone: data.timezone || 'Asia/Jakarta',
-          currency: data.currency || 'IDR',
-          tax_rate: data.tax_rate || 10,
-          service_charge: data.service_charge || 0,
           
           // Receipt Settings
           receipt_header: data.receipt_header || 'TERIMA KASIH',
@@ -236,11 +375,14 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
           cashier_count: data.cashier_count || 2,
           waiter_count: data.waiter_count || 3,
           require_2fa: data.require_2fa !== undefined ? data.require_2fa : false,
+          selforder_payment_methods: data.selforder_payment_methods ?? ['cashier'],
+          selforder_payment_instructions: resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions) as any,
+          selforder_routing: data.selforder_routing ?? 'review',
         },
       });
     }
     
-    res.json(settings);
+    res.json(serializeAppSettings(settings));
   } catch (error) {
     console.error('Error updating settings:', error);
     res.status(500).json({ error: 'Failed to update settings' });
@@ -248,7 +390,7 @@ router.put('/', authMiddleware, requirePermission('settings.edit'), async (req, 
 });
 
 // Reset settings to defaults
-router.post('/reset', authMiddleware, requirePermission('settings.edit'), async (req, res) => {
+router.post('/reset', authMiddleware, requirePermission(PERMISSIONS.settings.reset), async (req, res) => {
   try {
     // Delete existing settings
     await prisma.appSettings.deleteMany();
@@ -265,15 +407,7 @@ router.post('/reset', authMiddleware, requirePermission('settings.edit'), async 
         cart_position: 'right-sidebar',
         
         // Store Settings
-        store_name: 'Kitchen POS Restaurant',
-        store_phone: '+62 21 1234 5678',
-        store_email: 'info@kitchenpos.com',
-        store_address: 'Jl. Contoh No. 123, Jakarta Selatan',
         web_base_url: 'http://localhost:3000',
-        timezone: 'Asia/Jakarta',
-        currency: 'IDR',
-        tax_rate: 10,
-        service_charge: 0,
         
         // Receipt Settings
         receipt_header: 'TERIMA KASIH',
@@ -329,7 +463,7 @@ router.post('/reset', authMiddleware, requirePermission('settings.edit'), async 
       },
     });
     
-    res.json(settings);
+    res.json(serializeAppSettings(settings));
   } catch (error) {
     console.error('Error resetting settings:', error);
     res.status(500).json({ error: 'Failed to reset settings' });

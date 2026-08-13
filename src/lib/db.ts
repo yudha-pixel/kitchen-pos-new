@@ -195,6 +195,9 @@ export interface CustomerOrder {
   status: 'pending' | 'accepted' | 'cancelled';
   payment_method?: string;
   payment_status: 'unpaid' | 'pending' | 'paid';
+  payment_reference?: string;
+  payment_verified_at?: string;
+  payment_verified_by?: string;
   created_at: string;
   updated_at: string;
 }

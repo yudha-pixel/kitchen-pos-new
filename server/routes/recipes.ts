@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
 
 // GET /recipes - Get all recipes
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.products.view), async (req: Request, res: Response) => {
   try {
     const recipes = await prisma.recipe.findMany({
       include: {
@@ -23,7 +25,7 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // GET /recipes/menu/:menuItemId - Get recipes for a specific menu item
-router.get('/menu/:menuItemId', async (req: Request, res: Response) => {
+router.get('/menu/:menuItemId', authMiddleware, requirePermission(PERMISSIONS.products.view), async (req: Request, res: Response) => {
   try {
     const recipes = await prisma.recipe.findMany({
       where: {
@@ -41,7 +43,7 @@ router.get('/menu/:menuItemId', async (req: Request, res: Response) => {
 });
 
 // GET /recipes/:id - Get recipe by ID
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.products.view), async (req: Request, res: Response) => {
   try {
     const recipe = await prisma.recipe.findUnique({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
@@ -60,7 +62,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 });
 
 // POST /recipes - Create new recipe
-router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.products.recipesManage), async (req: Request, res: Response) => {
   try {
     const { menu_item_id, ingredient_id, quantity_required, unit } = req.body;
     
@@ -84,7 +86,7 @@ router.post('/', authMiddleware, requireRole('admin'), async (req: Request, res:
 });
 
 // PUT /recipes/:id - Update recipe
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.products.recipesManage), async (req: Request, res: Response) => {
   try {
     const { menu_item_id, ingredient_id, quantity_required, unit } = req.body;
     
@@ -109,7 +111,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // DELETE /recipes/:id - Delete recipe
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.products.recipesManage), async (req: Request, res: Response) => {
   try {
     await prisma.recipe.delete({
       where: { id: Array.isArray(req.params.id) ? req.params.id[0] : req.params.id },
@@ -122,7 +124,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // DELETE /recipes/menu/:menuItemId - Delete all recipes for a menu item
-router.delete('/menu/:menuItemId', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/menu/:menuItemId', authMiddleware, requirePermission(PERMISSIONS.products.recipesManage), async (req: Request, res: Response) => {
   try {
     await prisma.recipe.deleteMany({
       where: {

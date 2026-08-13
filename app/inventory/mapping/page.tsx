@@ -14,6 +14,8 @@ import {
   PlusCircle,
 } from 'lucide-react';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { fetchProducts } from '@/src/lib/api';
@@ -25,6 +27,8 @@ import {
   upsertRecipe,
   deleteRecipesForMenuItem,
   calculateRecipeCost,
+  type Ingredient,
+  type Recipe,
 } from '@/src/features/inventory/recipeApiService';
 import { convertToSmallestUnit, getSmallestUnit } from '@/src/features/inventory/unitConversion';
 
@@ -59,6 +63,9 @@ export default function MappingPage() {
   const [recipeCost, setRecipeCost] = useState(0);
   const [newRecipeItems, setNewRecipeItems] = useState<RecipeItem[]>([]);
   const [hasRunInitialSync, setHasRunInitialSync] = useState(false);
+  const [recipeToDelete, setRecipeToDelete] = useState<Product | null>(null);
+  const [deletingRecipe, setDeletingRecipe] = useState(false);
+  const [deleteRecipeError, setDeleteRecipeError] = useState('');
 
   // Load products and ingredients on mount
   useEffect(() => {
@@ -826,7 +833,7 @@ export default function MappingPage() {
         
         return {
           ingredient_id: recipe.ingredient_id,
-          ingredient_name: recipe.ingredient?.name || recipe.ingredient_name || '',
+          ingredient_name: recipe.ingredient?.name || '',
           quantity_required: recipe.quantity_required,
           unit: converted.unit,
           unit_price: converted.price,
@@ -981,21 +988,35 @@ export default function MappingPage() {
     }
   };
 
-  const handleDeleteRecipe = async () => {
+  const handleDeleteRecipe = () => {
     if (!selectedProduct) return;
 
-    if (!confirm('Apakah Anda yakin ingin menghapus resep ini?')) return;
+    setDeleteRecipeError('');
+    setRecipeToDelete(selectedProduct);
+  };
+
+  const closeDeleteRecipeDialog = () => {
+    if (deletingRecipe) return;
+
+    setDeleteRecipeError('');
+    setRecipeToDelete(null);
+  };
+
+  const confirmDeleteRecipe = async () => {
+    if (!recipeToDelete || deletingRecipe) return;
 
     try {
-      setLoading(true);
-      await deleteRecipesForMenuItem(selectedProduct.id);
+      setDeletingRecipe(true);
+      setDeleteRecipeError('');
+      await deleteRecipesForMenuItem(recipeToDelete.id);
       toast('success', 'Resep berhasil dihapus');
-      loadProductRecipes(selectedProduct.id);
+      await loadProductRecipes(recipeToDelete.id);
+      setRecipeToDelete(null);
     } catch (error) {
       console.error('Failed to delete recipe:', error);
-      toast('error', 'Gagal menghapus resep');
+      setDeleteRecipeError('Gagal menghapus resep. Silakan coba lagi.');
     } finally {
-      setLoading(false);
+      setDeletingRecipe(false);
     }
   };
 
@@ -1104,6 +1125,7 @@ export default function MappingPage() {
                       {productRecipes.length > 0 && (
                         <button
                           onClick={handleDeleteRecipe}
+                          aria-label={`Hapus resep ${selectedProduct.name}`}
                           className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1184,7 +1206,7 @@ export default function MappingPage() {
                             return (
                               <tr key={recipe.id} className="border-b border-slate-100">
                                 <td className="py-3 px-4 text-sm text-slate-900">
-                                  {recipe.ingredient?.name || recipe.ingredient_name || 'Unknown'}
+                                  {recipe.ingredient?.name || 'Unknown'}
                                 </td>
                                 <td className="py-3 px-4 text-sm text-slate-900 text-right">
                                   {recipe.quantity_required}
@@ -1402,6 +1424,54 @@ export default function MappingPage() {
             </div>
           </div>
         )}
+
+        <Modal
+          isOpen={Boolean(recipeToDelete)}
+          onClose={closeDeleteRecipeDialog}
+          title="Hapus resep?"
+          role="alertdialog"
+          descriptionId="delete-recipe-description"
+          closeOnBackdrop={false}
+          showCloseButton={false}
+          size="sm"
+          footer={(
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={closeDeleteRecipeDialog}
+                disabled={deletingRecipe}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                variant="danger"
+                onClick={confirmDeleteRecipe}
+                loading={deletingRecipe}
+                disabled={deletingRecipe}
+              >
+                Hapus resep
+              </Button>
+            </>
+          )}
+        >
+          <div aria-busy={deletingRecipe}>
+            <p id="delete-recipe-description" className="text-pretty text-sm text-ink-secondary">
+              Semua bahan dalam resep <strong className="text-ink">{recipeToDelete?.name}</strong> akan dihapus.
+              Tindakan ini tidak menghapus produknya.
+            </p>
+            {deleteRecipeError && (
+              <p
+                role="alert"
+                aria-live="assertive"
+                className="mt-3 rounded-lg border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+              >
+                {deleteRecipeError}
+              </p>
+            )}
+          </div>
+        </Modal>
 
       </div>
     </ResponsiveShell>

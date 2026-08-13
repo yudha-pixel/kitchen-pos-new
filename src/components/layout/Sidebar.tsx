@@ -1,11 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/src/context/AuthContext';
+import { ChevronLeft, Circle, LayoutGrid, X } from 'lucide-react';
+
 import { findModuleForPath } from '@/src/config/navigation';
-import { ChevronLeft, LayoutGrid, X } from 'lucide-react';
+import { useAuth } from '@/src/context/AuthContext';
+import { getToken } from '@/src/lib/api';
+import { API_BASE_URL } from '@/src/config/runtime';
+import { MODULE_ICON_MAP, NAVIGATION_ICON_MAP } from './moduleIcons';
 
 export interface SidebarProps {
   isMobileOpen?: boolean;
@@ -18,98 +22,66 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
   const [stockApprovalsPendingCount, setStockApprovalsPendingCount] = useState(0);
   const [pendingPRCount, setPendingPRCount] = useState(0);
   const pathname = usePathname();
-  const { user } = useAuth();
+  const { can } = useAuth();
 
-  const currentModule = useMemo(() => findModuleForPath(pathname), [pathname]);
-
-  const moduleLinks = useMemo(() => {
-    if (!currentModule) return [];
-    if (currentModule.allowedRoles && !(user?.role && currentModule.allowedRoles.includes(user.role))) {
-      return [];
-    }
-    return currentModule.subLinks;
-  }, [currentModule, user?.role]);
+  const currentModule = findModuleForPath(pathname);
+  const moduleLinks = currentModule?.subLinks.filter((sub) => can(sub.requiredPermission)) ?? [];
 
   const isMobileDrawerActive = propIsMobileOpen !== undefined ? propIsMobileOpen : internalMobileOpen;
 
   const handleCloseMobile = useCallback(() => {
     setInternalMobileOpen(false);
-    if (onMobileClose) {
-      onMobileClose();
-    }
+    onMobileClose?.();
   }, [onMobileClose]);
 
-  // Listen for custom event from Header hamburger toggle
   useEffect(() => {
-    const handleToggleEvent = () => {
-      setInternalMobileOpen((prev) => !prev);
-    };
+    const handleToggleEvent = () => setInternalMobileOpen((current) => !current);
     window.addEventListener('toggle-mobile-sidebar', handleToggleEvent);
     return () => window.removeEventListener('toggle-mobile-sidebar', handleToggleEvent);
   }, []);
 
-  // Close mobile drawer on route change
   useEffect(() => {
-    handleCloseMobile();
-  }, [pathname, handleCloseMobile]);
-
-  // Handle Escape key to close mobile drawer
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isMobileDrawerActive) {
-        handleCloseMobile();
-      }
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isMobileDrawerActive) handleCloseMobile();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileDrawerActive, handleCloseMobile]);
 
-  // Fetch stock approvals pending count from server
+  // Poll pending counts for the quick stock-request and purchase-requisition
+  // approval queues so their sidebar links can show an unread-style badge.
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('token');
-        
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests?status=Pending`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        
         if (response.ok) {
           const data = await response.json();
           setStockApprovalsPendingCount(data.length);
         }
       } catch (error) {
-        console.error('Failed to fetch pending count:', error);
+        console.error('Failed to fetch stock approval pending count:', error);
       }
     };
 
     fetchPendingCount();
-    
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPendingCount, 30000);
-    
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch pending PR count from server
   useEffect(() => {
     const fetchPendingPRCount = async () => {
       try {
-        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const token = localStorage.getItem('token');
-        
-        const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions?status=Pending Approval`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/api/purchase-requisitions`, {
+          headers: { 'Authorization': `Bearer ${token}` },
         });
-        
         if (response.ok) {
           const data = await response.json();
-          setPendingPRCount(data.length);
+          // The list endpoint doesn't support server-side status filtering, so filter here.
+          setPendingPRCount(data.filter((pr: any) => pr.status === 'Pending Approval').length);
         }
       } catch (error) {
         console.error('Failed to fetch pending PR count:', error);
@@ -117,59 +89,69 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
     };
 
     fetchPendingPRCount();
-    
-    // Refresh every 30 seconds
     const interval = setInterval(fetchPendingPRCount, 30000);
-    
     return () => clearInterval(interval);
   }, []);
 
   const navLinkClass = (active: boolean) =>
     `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-      active ? 'bg-primary-soft text-primary font-semibold' : 'text-ink-secondary hover:bg-surface-alt'
+      active ? 'bg-primary-soft font-semibold text-primary' : 'text-ink-secondary hover:bg-surface-alt'
     }`;
 
-  const renderNavContent = (expanded: boolean) => (
+  const ModuleIcon = currentModule ? MODULE_ICON_MAP[currentModule.iconName] : LayoutGrid;
+
+  const renderNavContent = (expanded: boolean, mobile = false) => (
     <>
-      {/* Collapse/close toggle — the module identity now lives only in the Header's breadcrumb, not repeated here */}
-      <div className={`flex items-center border-b border-line px-3 py-3 ${expanded ? 'justify-end' : 'justify-center'}`}>
-        <button
-          onClick={() => {
-            if (isMobileDrawerActive) {
-              handleCloseMobile();
-            } else {
-              setIsOpen(!isOpen);
-            }
-          }}
-          aria-label={expanded ? 'Tutup sidebar' : 'Buka sidebar'}
-          aria-expanded={expanded}
-          className="flex min-h-9 min-w-9 shrink-0 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
+      <div className={`flex min-h-16 items-center border-b border-line px-4 ${expanded ? 'gap-3' : 'justify-center px-2'}`}>
+        <Link
+          href="/apps"
+          onClick={mobile ? handleCloseMobile : undefined}
+          aria-label="Buka App Launcher"
+          className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-soft text-primary transition-colors hover:bg-primary-soft/70"
         >
-          {isMobileDrawerActive ? (
-            <X className="h-5 w-5" />
-          ) : (
-            <ChevronLeft className={`h-5 w-5 transition-transform duration-200 ${expanded ? '' : 'rotate-180'}`} />
-          )}
-        </button>
+          <LayoutGrid className="size-5" aria-hidden="true" />
+        </Link>
+        {expanded && <span className="truncate text-sm font-semibold text-ink">Kitchen POS</span>}
+        {mobile && (
+          <button
+            type="button"
+            onClick={handleCloseMobile}
+            aria-label="Tutup menu navigasi"
+            className="ml-auto flex size-11 items-center justify-center rounded-lg text-ink-secondary transition-colors hover:bg-surface-alt"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
+        )}
       </div>
 
-      {/* Module-scoped links (the audit's approved IA: each module owns its own child menu — no cross-module rail) */}
-      <div className="flex-1 overflow-y-auto p-2">
+      {currentModule && (
+        <div className={`flex items-center px-4 pb-2 pt-4 ${expanded ? 'gap-3' : 'justify-center px-2'}`}>
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary text-on-primary shadow-xs">
+            <ModuleIcon className="size-5" aria-hidden="true" />
+          </span>
+          {expanded && <span className="truncate text-sm font-semibold text-primary">{currentModule.title}</span>}
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto px-2 py-1">
         {moduleLinks.length > 0 ? (
           moduleLinks.map((sub) => {
             const active = pathname === sub.href;
-            const showStockBadge = sub.href === '/inventory/stock-approvals' && stockApprovalsPendingCount > 0;
+            const NavigationIcon = sub.iconName ? NAVIGATION_ICON_MAP[sub.iconName] : Circle;
+            const showStockBadge = sub.href === '/inventory/quick-stock-requests' && stockApprovalsPendingCount > 0;
             const showPRBadge = sub.href === '/inventory/purchase-requisitions' && pendingPRCount > 0;
             const showBadge = showStockBadge || showPRBadge;
             const badgeCount = showStockBadge ? stockApprovalsPendingCount : showPRBadge ? pendingPRCount : 0;
             return (
               <Link
-                key={sub.href}
+                key={`${sub.label}-${sub.href}`}
                 href={sub.href}
+                onClick={mobile ? handleCloseMobile : undefined}
                 aria-current={active ? 'page' : undefined}
                 title={expanded ? undefined : sub.label}
                 className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'} ${!expanded && showBadge ? 'relative' : ''}`}
               >
+                <NavigationIcon className="size-5 shrink-0" aria-hidden="true" />
                 {expanded && (
                   <div className="flex items-center justify-between w-full">
                     <span className="truncate">{sub.label}</span>
@@ -198,45 +180,42 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
         )}
       </div>
 
-      {/* Back to launcher, pinned at the bottom like the wireframe's rail */}
-      <div className="border-t border-line p-2">
-        <Link
-          href="/apps"
-          title={expanded ? undefined : 'App Launcher'}
-          className={`${navLinkClass(pathname === '/apps')} ${expanded ? '' : 'justify-center px-0'}`}
+      <div className="mb-12 border-t border-line p-2">
+        <button
+          type="button"
+          onClick={() => mobile ? handleCloseMobile() : setIsOpen((current) => !current)}
+          aria-label={mobile ? 'Tutup sidebar' : expanded ? 'Ciutkan sidebar' : 'Perluas sidebar'}
+          aria-expanded={mobile ? true : expanded}
+          className={`flex min-h-11 w-full items-center rounded-lg border border-line px-3 text-sm font-medium text-ink-secondary transition-colors hover:bg-surface-alt ${expanded ? 'gap-3' : 'justify-center px-0'}`}
         >
-          <LayoutGrid className="h-5 w-5 shrink-0" />
-          {expanded && <span>App Launcher</span>}
-        </Link>
+          <ChevronLeft className={`size-5 shrink-0 transition-transform duration-200 ${!expanded ? 'rotate-180' : ''}`} aria-hidden="true" />
+          {expanded && <span>{mobile ? 'Close' : 'Collapse'}</span>}
+        </button>
       </div>
     </>
   );
 
   return (
     <>
-      {/* Desktop Sticky/Collapsible Sidebar */}
       <nav
         aria-label="Navigasi utama desktop"
-        className={`hidden lg:flex ${isOpen ? 'w-64' : 'w-16'} flex-col border-r border-line bg-surface transition-all duration-200 shrink-0`}
+        className={`hidden lg:flex ${isOpen ? 'w-56' : 'w-16'} shrink-0 flex-col border-r border-line bg-surface transition-[width] duration-200`}
       >
         {renderNavContent(isOpen)}
       </nav>
 
-      {/* Mobile Off-Canvas Drawer */}
       {isMobileDrawerActive && (
         <div className="fixed inset-0 z-50 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu navigasi seluler">
-          {/* Backdrop overlay */}
           <div
-            className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 bg-slate-950/70"
             onClick={handleCloseMobile}
             aria-hidden="true"
           />
-          {/* Slide-out Panel */}
           <nav
             aria-label="Navigasi utama seluler"
-            className="relative flex w-4/5 max-w-xs flex-1 flex-col bg-surface shadow-2xl border-r border-line z-10 animate-in slide-in-from-left duration-200"
+            className="relative z-10 flex w-4/5 max-w-xs flex-1 flex-col border-r border-line bg-surface shadow-2xl"
           >
-            {renderNavContent(true)}
+            {renderNavContent(true, true)}
           </nav>
         </div>
       )}

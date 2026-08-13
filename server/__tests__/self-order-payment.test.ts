@@ -38,6 +38,14 @@ describe('Self-order payment rules', () => {
     expect(initialPaymentStatus(SELF_ORDER_PAYMENT_METHODS.transfer)).toBe('pending');
   });
 
+  it('publishes only cashier, QRIS, and transfer with immutable safety types', () => {
+    expect(Object.keys(SELF_ORDER_PAYMENT_METHODS)).toEqual(['cashier', 'qris', 'transfer']);
+    expect(SELF_ORDER_PAYMENT_METHODS.cashier.type).toBe('counter');
+    expect(SELF_ORDER_PAYMENT_METHODS.qris.type).toBe('manual_verification');
+    expect(SELF_ORDER_PAYMENT_METHODS.transfer.type).toBe('manual_verification');
+    expect(SELF_ORDER_PAYMENT_METHODS).not.toHaveProperty('debit');
+  });
+
   it('treats only a server-confirmed paid status as settled', () => {
     expect(isSettled('paid')).toBe(true);
     expect(isSettled('unpaid')).toBe(false);

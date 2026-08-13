@@ -1,11 +1,13 @@
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, requireRole } from '../middleware/auth';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = express.Router();
 
 // Get all attendances
-router.get('/', authMiddleware, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.attendance.view), async (req: Request, res: Response) => {
   try {
     const { employee_id, shift_type, date_from, date_to } = req.query;
 
@@ -45,7 +47,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Get attendance by ID
-router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.attendance.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const attendance = await prisma.attendance.findUnique({
@@ -67,7 +69,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 });
 
 // Check in (create attendance)
-router.post('/check-in', authMiddleware, async (req: Request, res: Response) => {
+router.post('/check-in', authMiddleware, requirePermission(PERMISSIONS.attendance.edit), async (req: Request, res: Response) => {
   try {
     const { employee_id, photo_url, location_lat, location_lng, location_address, shift_type, notes } = req.body;
 
@@ -122,7 +124,7 @@ router.post('/check-in', authMiddleware, async (req: Request, res: Response) => 
 });
 
 // Check out (update attendance)
-router.post('/check-out', authMiddleware, async (req: Request, res: Response) => {
+router.post('/check-out', authMiddleware, requirePermission(PERMISSIONS.attendance.edit), async (req: Request, res: Response) => {
   try {
     const { attendance_id, notes } = req.body;
 
@@ -161,7 +163,7 @@ router.post('/check-out', authMiddleware, async (req: Request, res: Response) =>
 });
 
 // Update attendance
-router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.attendance.edit), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { check_out_time, notes, location_lat, location_lng, location_address } = req.body;
@@ -188,7 +190,7 @@ router.put('/:id', authMiddleware, requireRole('admin'), async (req: Request, re
 });
 
 // Delete attendance
-router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, requirePermission(PERMISSIONS.attendance.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     await prisma.attendance.delete({
@@ -203,7 +205,7 @@ router.delete('/:id', authMiddleware, requireRole('admin'), async (req: Request,
 });
 
 // Get attendance summary for today
-router.get('/summary/today', authMiddleware, requireRole('admin'), async (req: Request, res: Response) => {
+router.get('/summary/today', authMiddleware, requirePermission(PERMISSIONS.attendance.view), async (req: Request, res: Response) => {
   try {
     const today = new Date();
     today.setHours(0, 0, 0, 0);

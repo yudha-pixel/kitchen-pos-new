@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../lib/prisma';
+import { authMiddleware } from '../middleware/auth';
+import { requirePermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../../src/config/permissions';
 
 const router = Router();
-const prisma = new PrismaClient();
 
 // GET /api/purchase-requisitions - Get all purchase requisitions
-router.get('/', async (req: Request, res: Response) => {
+router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const requisitions = await prisma.purchaseRequisition.findMany({
       include: {
@@ -21,14 +23,14 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 // POST /api/purchase-requisitions - Create a new purchase requisition
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const { requested_by, items, total_estimated, notes } = req.body;
 
     // Validate required fields
     if (!requested_by || !items || items.length === 0) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: requested_by, items' 
+      return res.status(400).json({
+        error: 'Missing required fields: requested_by, items'
       });
     }
 
@@ -75,9 +77,9 @@ router.post('/', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/purchase-requisitions/:id/approve - Approve a PR
-router.patch('/:id/approve', async (req: Request, res: Response) => {
+router.patch('/:id/approve', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const { approved_by } = req.body;
 
     const requisition = await prisma.purchaseRequisition.update({
@@ -85,7 +87,7 @@ router.patch('/:id/approve', async (req: Request, res: Response) => {
       data: {
         status: 'Approved',
         approved_at: new Date(),
-        approved_by: approved_by || 'Admin'
+        approved_by: approved_by || (req as any).user?.full_name || 'Admin'
       },
       include: {
         prItems: true
@@ -100,9 +102,9 @@ router.patch('/:id/approve', async (req: Request, res: Response) => {
 });
 
 // PATCH /api/purchase-requisitions/:id/reject - Reject a PR
-router.patch('/:id/reject', async (req: Request, res: Response) => {
+router.patch('/:id/reject', authMiddleware, requirePermission(PERMISSIONS.purchasing.edit), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
     const requisition = await prisma.purchaseRequisition.update({
       where: { id },
@@ -122,9 +124,9 @@ router.patch('/:id/reject', async (req: Request, res: Response) => {
 });
 
 // POST /api/purchase-requisitions/:id/convert-to-po - Convert PR to PO
-router.post('/:id/convert-to-po', async (req: Request, res: Response) => {
+router.post('/:id/convert-to-po', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
 
     // Get the PR with items including supplier_id
     const pr = await prisma.purchaseRequisition.findUnique({
@@ -144,7 +146,7 @@ router.post('/:id/convert-to-po', async (req: Request, res: Response) => {
 
     // Get supplier_id from the first PR item (for auto-generated PRs)
     const supplierId = pr.prItems[0]?.supplier_id || null;
-    
+
     if (!supplierId) {
       return res.status(400).json({ error: 'Supplier must be specified before converting to PO' });
     }

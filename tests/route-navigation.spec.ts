@@ -12,17 +12,17 @@ const ROUTES_TO_TEST = [
   { path: '/kitchen', expectedStatus: 200, description: 'Kitchen Display (public)' },
   
   // Admin pages
-  { path: '/admin', expectedStatus: 401, description: 'Admin dashboard (requires auth)' },
-  { path: '/admin/crm', expectedStatus: 401, description: 'CRM (requires auth)' },
-  { path: '/admin/hr', expectedStatus: 401, description: 'HR (requires auth)' },
-  { path: '/admin/attendance', expectedStatus: 401, description: 'Attendance (requires auth)' },
-  { path: '/admin/settings', expectedStatus: 401, description: 'Settings (requires auth)' },
-  { path: '/admin/outlets', expectedStatus: 401, description: 'Outlets (requires auth)' },
-  { path: '/admin/reports', expectedStatus: 401, description: 'Reports (requires auth)' },
-  { path: '/admin/vouchers', expectedStatus: 401, description: 'Vouchers (requires auth)' },
-  { path: '/admin/promotions', expectedStatus: 401, description: 'Promotions (requires auth)' },
-  { path: '/admin/products', expectedStatus: 401, description: 'Products (requires auth)' },
-  { path: '/admin/discount-reports', expectedStatus: 401, description: 'Discount reports (requires auth)' },
+  { path: '/apps', expectedStatus: 401, description: 'Admin dashboard (requires auth)' },
+  { path: '/crm', expectedStatus: 401, description: 'CRM (requires auth)' },
+  { path: '/hr', expectedStatus: 401, description: 'HR (requires auth)' },
+  { path: '/attendance', expectedStatus: 401, description: 'Attendance (requires auth)' },
+  { path: '/settings', expectedStatus: 401, description: 'Settings (requires auth)' },
+  { path: '/settings/outlets', expectedStatus: 401, description: 'Outlets (requires auth)' },
+  { path: '/reports', expectedStatus: 401, description: 'Reports (requires auth)' },
+  { path: '/promotions/vouchers', expectedStatus: 401, description: 'Vouchers (requires auth)' },
+  { path: '/promotions', expectedStatus: 401, description: 'Promotions (requires auth)' },
+  { path: '/products', expectedStatus: 401, description: 'Products (requires auth)' },
+  { path: '/reports/discounts', expectedStatus: 401, description: 'Discount reports (requires auth)' },
   
   // Inventory pages
   { path: '/inventory', expectedStatus: 401, description: 'Inventory (requires auth)' },
@@ -38,7 +38,6 @@ const ROUTES_TO_TEST = [
   
   // Other pages
   { path: '/inventory-suppliers', expectedStatus: 401, description: 'Suppliers (requires auth)' },
-  { path: '/kasir', expectedStatus: 401, description: 'Kasir klasik (requires auth)' },
   { path: '/shift', expectedStatus: 401, description: 'Shift management (requires auth)' },
   { path: '/finance/ocr', expectedStatus: 401, description: 'Finance OCR (requires auth)' },
   { path: '/online-order', expectedStatus: 401, description: 'Online order (requires auth)' },
