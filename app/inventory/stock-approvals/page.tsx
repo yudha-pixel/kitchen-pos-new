@@ -31,7 +31,7 @@ import {
   createStockRequest
 } from '@/src/features/inventory/recipeApiService';
 
-type ApprovalStatus = 'all' | 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
+type ApprovalStatus = 'all' | 'pending_supervisor' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
 
 export default function StockApprovalsPage() {
   const router = useRouter();
@@ -46,6 +46,15 @@ export default function StockApprovalsPage() {
   const [processing, setProcessing] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
   const [approvalNotes, setApprovalNotes] = useState('');
+  
+  // Bulk selection state
+  const [selectedRequestIds, setSelectedRequestIds] = useState<Set<string>>(new Set());
+  const [selectAll, setSelectAll] = useState(false);
+  
+  // Finance modal states
+  const [financeModalOpen, setFinanceModalOpen] = useState(false);
+  const [financeAccountCategory, setFinanceAccountCategory] = useState('Bahan Baku');
+  const [financeNotes, setFinanceNotes] = useState('');
   
   // Create form states
   const [ingredients, setIngredients] = useState<any[]>([]);
@@ -178,6 +187,151 @@ export default function StockApprovalsPage() {
     } catch (error) {
       console.error('Failed to approve request:', error);
       toast('error', 'Gagal menyetujui permintaan');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSendToFinance = async () => {
+    if (!selectedRequest) return;
+    
+    setProcessing(true);
+    try {
+      // Approve as supervisor and directly send to finance (skip manager)
+      const result = await approveStockRequestSupervisor(selectedRequest.id, approvalNotes);
+      
+      if (result.success) {
+        // Update status to pending_finance and notes with finance information
+        const token = getToken();
+        const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        
+        const updatedNotes = selectedRequest.notes 
+          ? `${selectedRequest.notes}\n\nKategori Akun: ${financeAccountCategory}\nCatatan Finance: ${financeNotes}`
+          : `Kategori Akun: ${financeAccountCategory}\nCatatan Finance: ${financeNotes}`;
+        
+        await fetch(`${API_BASE_URL}/api/stock-requests/${selectedRequest.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            status: 'pending_finance',
+            approval_level: 3,
+            notes: updatedNotes,
+          }),
+        });
+        
+        toast('success', 'Permintaan berhasil disetujui dan dikirim ke Finance');
+        setFinanceModalOpen(false);
+        setSelectedRequest(null);
+        setApprovalNotes('');
+        setFinanceAccountCategory('Bahan Baku');
+        setFinanceNotes('');
+        fetchRequests();
+      } else {
+        toast('error', result.message);
+      }
+    } catch (error) {
+      console.error('Failed to send to finance:', error);
+      toast('error', 'Gagal mengirim ke Finance');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    setSelectAll(checked);
+    if (checked) {
+      const pendingRequests = filteredRequests.filter(r => 
+        r.status === 'pending_supervisor' || r.status === 'pending_finance'
+      );
+      setSelectedRequestIds(new Set(pendingRequests.map(r => r.id)));
+    } else {
+      setSelectedRequestIds(new Set());
+    }
+  };
+
+  const handleSelectRequest = (id: string, checked: boolean) => {
+    const newSelected = new Set(selectedRequestIds);
+    if (checked) {
+      newSelected.add(id);
+    } else {
+      newSelected.delete(id);
+    }
+    setSelectedRequestIds(newSelected);
+    setSelectAll(newSelected.size === filteredRequests.filter(r => 
+      r.status === 'pending_supervisor' || r.status === 'pending_finance'
+    ).length);
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedRequestIds.size === 0) {
+      toast('error', 'Pilih minimal satu permintaan');
+      return;
+    }
+    
+    setProcessing(true);
+    try {
+      const results = await Promise.all(
+        Array.from(selectedRequestIds).map(id => approveStockRequestSupervisor(id, ''))
+      );
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
+      
+      if (successCount > 0) {
+        toast('success', `${successCount} permintaan berhasil disetujui`);
+      }
+      if (failCount > 0) {
+        toast('error', `${failCount} permintaan gagal disetujui`);
+      }
+      
+      setSelectedRequestIds(new Set());
+      setSelectAll(false);
+      fetchRequests();
+    } catch (error) {
+      console.error('Failed to bulk approve:', error);
+      toast('error', 'Gagal menyetujui permintaan massal');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const handleBulkReject = async () => {
+    if (selectedRequestIds.size === 0) {
+      toast('error', 'Pilih minimal satu permintaan');
+      return;
+    }
+    
+    const reason = prompt('Masukkan alasan penolakan untuk semua permintaan terpilih:');
+    if (!reason || !reason.trim()) {
+      toast('error', 'Mohon isi alasan penolakan');
+      return;
+    }
+    
+    setProcessing(true);
+    try {
+      const results = await Promise.all(
+        Array.from(selectedRequestIds).map(id => rejectStockRequest(id, reason))
+      );
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.length - successCount;
+      
+      if (successCount > 0) {
+        toast('success', `${successCount} permintaan berhasil ditolak`);
+      }
+      if (failCount > 0) {
+        toast('error', `${failCount} permintaan gagal ditolak`);
+      }
+      
+      setSelectedRequestIds(new Set());
+      setSelectAll(false);
+      fetchRequests();
+    } catch (error) {
+      console.error('Failed to bulk reject:', error);
+      toast('error', 'Gagal menolak permintaan massal');
     } finally {
       setProcessing(false);
     }
@@ -334,8 +488,7 @@ export default function StockApprovalsPage() {
 
   const getStatusBadge = (status: string) => {
     const config = {
-      pending_supervisor: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Clock, label: 'Pending Supervisor' },
-      pending_manager: { bg: 'bg-purple-100', text: 'text-purple-700', icon: Clock, label: 'Pending Manager' },
+      pending_supervisor: { bg: 'bg-blue-100', text: 'text-blue-700', icon: Clock, label: 'Pending Persetujuan' },
       pending_finance: { bg: 'bg-orange-100', text: 'text-orange-700', icon: Clock, label: 'Pending Finance' },
       approved: { bg: 'bg-green-100', text: 'text-green-700', icon: CheckCircle, label: 'Disetujui' },
       rejected: { bg: 'bg-red-100', text: 'text-red-700', icon: XCircle, label: 'Ditolak' },
@@ -384,9 +537,10 @@ export default function StockApprovalsPage() {
 
       {/* Main Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
-        {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
-          <div className="flex flex-wrap items-center gap-4">
+            {/* Filters */}
+            <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-4">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -406,8 +560,7 @@ export default function StockApprovalsPage() {
               className="px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
             >
               <option value="all">Semua Status</option>
-              <option value="pending_supervisor">Pending Supervisor</option>
-              <option value="pending_manager">Pending Manager</option>
+              <option value="pending_supervisor">Pending Persetujuan</option>
               <option value="pending_finance">Pending Finance</option>
               <option value="approved">Disetujui</option>
               <option value="rejected">Ditolak</option>
@@ -461,8 +614,31 @@ export default function StockApprovalsPage() {
               <Filter className="h-4 w-4" />
               Filter Lanjutan
             </button>
-          </div>
-        </div>
+                </div>
+
+                {/* Bulk Action Buttons */}
+                {selectedRequestIds.size > 0 && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleBulkApprove}
+                      disabled={processing}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+                    >
+                      <CheckCircle className="h-4 w-4" />
+                      Setujui Terpilih ({selectedRequestIds.size})
+                    </button>
+                    <button
+                      onClick={handleBulkReject}
+                      disabled={processing}
+                      className="flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Tolak Terpilih ({selectedRequestIds.size})
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
 
         {/* Requests Table */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
@@ -481,6 +657,14 @@ export default function StockApprovalsPage() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
+                    <th className="px-6 py-3 text-left w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectAll}
+                        onChange={(e) => handleSelectAll(e.target.checked)}
+                        className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Tanggal
                     </th>
@@ -496,6 +680,9 @@ export default function StockApprovalsPage() {
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Supplier
                     </th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                      Estimasi Biaya
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
                       Status
                     </th>
@@ -507,6 +694,16 @@ export default function StockApprovalsPage() {
                 <tbody className="divide-y divide-slate-200">
                   {filteredRequests.map((request) => (
                     <tr key={request.id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {(request.status === 'pending_supervisor' || request.status === 'pending_finance') && (
+                          <input
+                            type="checkbox"
+                            checked={selectedRequestIds.has(request.id)}
+                            onChange={(e) => handleSelectRequest(request.id, e.target.checked)}
+                            className="rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                          />
+                        )}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
                         {formatDate(request.requested_at)}
                       </td>
@@ -528,7 +725,13 @@ export default function StockApprovalsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {request.supplier_name || '-'}
+                        {request.supplier_name || (request.ingredient && (request.ingredient as any).supplier?.name) || '-'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-700">
+                        {request.ingredient && (request.ingredient as any).unit_price 
+                          ? `Rp ${((request.ingredient as any).unit_price * request.quantity_requested).toLocaleString('id-ID')}`
+                          : '-'
+                        }
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getStatusBadge(request.status)}
@@ -536,14 +739,14 @@ export default function StockApprovalsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <div className="flex items-center justify-end gap-2">
                           {/* Quick Action Buttons for pending requests */}
-                          {(request.status === 'pending_supervisor' || request.status === 'pending_manager' || request.status === 'pending_finance') && (
+                          {(request.status === 'pending_supervisor' || request.status === 'pending_finance') && (
                             <>
                               <button
                                 onClick={() => {
                                   setSelectedRequest(request);
                                   setApprovalNotes('');
                                   setRejectionReason('');
-                                  handleApprove(request.status === 'pending_supervisor' ? 'supervisor' : request.status === 'pending_manager' ? 'manager' : 'finance');
+                                  handleApprove(request.status === 'pending_supervisor' ? 'supervisor' : 'finance');
                                 }}
                                 disabled={processing}
                                 className="p-2 rounded-lg bg-green-100 text-green-600 hover:bg-green-200 transition-colors disabled:opacity-50"
@@ -614,7 +817,14 @@ export default function StockApprovalsPage() {
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pemohon</label>
-                  <p className="mt-1 text-sm text-slate-600">{selectedRequest.requested_by_name}</p>
+                  <p className="mt-1 text-sm text-slate-600">
+                    {(() => {
+                      // Extract role from notes if available
+                      const roleMatch = selectedRequest.notes?.match(/Pengaju:\s*(.+)/);
+                      const role = roleMatch ? roleMatch[1] : null;
+                      return role ? `${selectedRequest.requested_by_name} - ${role}` : selectedRequest.requested_by_name;
+                    })()}
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tanggal</label>
@@ -630,6 +840,18 @@ export default function StockApprovalsPage() {
                   <div className="col-span-2">
                     <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Catatan</label>
                     <p className="mt-1 text-sm text-slate-600">{selectedRequest.notes}</p>
+                  </div>
+                )}
+                {/* Estimated Cost - calculated from ingredient unit price */}
+                {selectedRequest.ingredient && (selectedRequest.ingredient as any).unit_price && (
+                  <div className="col-span-2">
+                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Estimasi Biaya</label>
+                    <p className="mt-1 text-sm font-bold text-green-700">
+                      Rp {((selectedRequest.ingredient as any).unit_price * selectedRequest.quantity_requested).toLocaleString('id-ID')}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Harga Satuan: Rp {((selectedRequest.ingredient as any).unit_price).toLocaleString('id-ID')} / {selectedRequest.unit}
+                    </p>
                   </div>
                 )}
                 {selectedRequest.proof_file_name && (
@@ -752,7 +974,7 @@ export default function StockApprovalsPage() {
               </div>
 
               {/* Approval Notes Input (for pending statuses) */}
-              {(selectedRequest.status === 'pending_supervisor' || selectedRequest.status === 'pending_manager' || selectedRequest.status === 'pending_finance') && (
+              {(selectedRequest.status === 'pending_supervisor' || selectedRequest.status === 'pending_finance') && (
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Catatan Persetujuan (opsional)
@@ -768,7 +990,7 @@ export default function StockApprovalsPage() {
               )}
 
               {/* Rejection Reason Input (for pending statuses) */}
-              {(selectedRequest.status === 'pending_supervisor' || selectedRequest.status === 'pending_manager' || selectedRequest.status === 'pending_finance') && (
+              {(selectedRequest.status === 'pending_supervisor' || selectedRequest.status === 'pending_finance') && (
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
                     Alasan Penolakan <span className="text-red-500">*</span>
@@ -803,35 +1025,21 @@ export default function StockApprovalsPage() {
                     {processing ? 'Memproses...' : 'Tolak'}
                   </button>
                   <button
+                    onClick={() => {
+                      setModalOpen(false);
+                      setFinanceModalOpen(true);
+                    }}
+                    disabled={processing}
+                    className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50"
+                  >
+                    {processing ? 'Memproses...' : 'Setujui & Kirim ke Finance'}
+                  </button>
+                  <button
                     onClick={() => handleApprove('supervisor')}
                     disabled={processing}
                     className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
                   >
-                    {processing ? 'Memproses...' : 'Setujui (Supervisor)'}
-                  </button>
-                </>
-              ) : selectedRequest.status === 'pending_manager' ? (
-                <>
-                  <button
-                    onClick={() => setModalOpen(false)}
-                    disabled={processing}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleReject}
-                    disabled={processing}
-                    className="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
-                  >
-                    {processing ? 'Memproses...' : 'Tolak'}
-                  </button>
-                  <button
-                    onClick={() => handleApprove('manager')}
-                    disabled={processing}
-                    className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700 transition-colors disabled:opacity-50"
-                  >
-                    {processing ? 'Memproses...' : 'Setujui (Manager)'}
+                    {processing ? 'Memproses...' : 'Setujui'}
                   </button>
                 </>
               ) : selectedRequest.status === 'pending_finance' ? (
@@ -979,6 +1187,91 @@ export default function StockApprovalsPage() {
                 className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
               >
                 Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send to Finance Modal */}
+      {financeModalOpen && selectedRequest && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">Kirim ke Finance</h2>
+                <p className="text-xs text-slate-500 mt-1">Teruskan permintaan untuk persetujuan anggaran</p>
+              </div>
+              <button
+                onClick={() => setFinanceModalOpen(false)}
+                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X className="h-5 w-5 text-slate-400" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4">
+              <div className="bg-orange-50 rounded-lg p-4">
+                <p className="text-sm font-medium text-orange-800">Ringkasan Permintaan</p>
+                <div className="mt-2 space-y-1 text-sm text-orange-700">
+                  <p>Item: {selectedRequest.ingredient_name}</p>
+                  <p>Jumlah: {selectedRequest.quantity_requested} {selectedRequest.unit}</p>
+                  <p>Pemohon: {selectedRequest.requested_by_name}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Kategori Akun
+                </label>
+                <select
+                  value={financeAccountCategory}
+                  onChange={(e) => setFinanceAccountCategory(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                >
+                  <option value="Bahan Baku">Bahan Baku</option>
+                  <option value="Operasional">Operasional</option>
+                  <option value="Inventaris">Inventaris</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Catatan untuk Finance
+                </label>
+                <textarea
+                  value={financeNotes}
+                  onChange={(e) => setFinanceNotes(e.target.value)}
+                  placeholder="Masukkan instruksi tambahan untuk tim Finance..."
+                  rows={3}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+              </div>
+
+              <div className="bg-blue-50 rounded-lg p-4">
+                <p className="text-xs text-blue-600">
+                  Setelah dikirim, status akan berubah menjadi "Pending Finance" dan permintaan akan masuk ke antrian persetujuan Finance Director.
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+              <button
+                onClick={() => setFinanceModalOpen(false)}
+                disabled={processing}
+                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSendToFinance}
+                disabled={processing}
+                className="px-4 py-2 rounded-lg bg-orange-600 text-white text-sm font-medium hover:bg-orange-700 transition-colors disabled:opacity-50"
+              >
+                {processing ? 'Memproses...' : 'Kirim ke Finance'}
               </button>
             </div>
           </div>

@@ -523,7 +523,7 @@ export interface StockRequest {
   supplier_name?: string;
   proof_file?: string;
   proof_file_name?: string;
-  status: 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
+  status: 'pending_supervisor' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
   approval_level: number;
   // Supervisor approval
   supervisor_id?: string;
@@ -610,7 +610,7 @@ export async function getStockRequests(): Promise<StockRequest[]> {
 
 // Get stock requests filtered by status
 export async function getStockRequestsByStatus(
-  status: 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled'
+  status: 'pending_supervisor' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled'
 ): Promise<StockRequest[]> {
   try {
     const token = getToken();

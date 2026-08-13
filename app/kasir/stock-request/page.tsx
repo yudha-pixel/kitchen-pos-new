@@ -135,19 +135,19 @@ export default function StockRequestPage() {
     try {
       const token = api.getToken();
 
-      const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests`, {
+      const response = await fetch(`${API_BASE_URL}/api/stock-requests`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          type: requestType,
-          requester_name: requesterName,
-          item_name: selectedIngredient?.name,
-          quantity: parseFloat(quantity),
+          ingredient_id: selectedItem,
+          ingredient_name: selectedIngredient?.name,
+          quantity_requested: parseFloat(quantity),
           unit: selectedIngredient?.unit,
-          evidence_image: evidenceImage,
+          notes: `${requestType === 'Stock In' ? 'Stock In' : 'Stock Out'} by ${requesterName}: ${notes}`,
+          supplier_id: selectedIngredient?.supplier_id,
         }),
       });
 

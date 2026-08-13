@@ -48,13 +48,13 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isMobileDrawerActive, handleCloseMobile]);
 
-  // Poll pending counts for the quick stock-request and purchase-requisition
-  // approval queues so their sidebar links can show an unread-style badge.
+  // Poll pending counts for the purchase-requisition
+  // approval queue so its sidebar link can show an unread-style badge.
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
         const token = getToken();
-        const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests?status=Pending`, {
+        const response = await fetch(`${API_BASE_URL}/api/stock-requests?status=pending_supervisor`, {
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (response.ok) {
@@ -138,7 +138,7 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
           moduleLinks.map((sub) => {
             const active = pathname === sub.href;
             const NavigationIcon = sub.iconName ? NAVIGATION_ICON_MAP[sub.iconName] : Circle;
-            const showStockBadge = sub.href === '/inventory/quick-stock-requests' && stockApprovalsPendingCount > 0;
+            const showStockBadge = sub.href === '/inventory/stock-approvals' && stockApprovalsPendingCount > 0;
             const showPRBadge = sub.href === '/inventory/purchase-requisitions' && pendingPRCount > 0;
             const showBadge = showStockBadge || showPRBadge;
             const badgeCount = showStockBadge ? stockApprovalsPendingCount : showPRBadge ? pendingPRCount : 0;

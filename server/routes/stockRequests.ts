@@ -48,7 +48,11 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), a
     const requests = await prisma.stockRequest.findMany({
       where,
       include: {
-        ingredient: true,
+        ingredient: {
+          include: {
+            supplier: true,
+          },
+        },
         supplier: true,
       },
       orderBy: { requested_at: 'desc' },
@@ -166,8 +170,8 @@ router.patch('/:id/approve-supervisor', authMiddleware, requirePermission(PERMIS
     const updatedRequest = await prisma.stockRequest.update({
       where: { id },
       data: {
-        status: 'pending_manager',
-        approval_level: 2,
+        status: 'approved',
+        approval_level: 1,
         supervisor_id: userId,
         supervisor_name: username ?? 'Unknown',
         supervisor_approved_at: new Date(),
@@ -210,8 +214,8 @@ router.patch('/:id/approve-manager', authMiddleware, requirePermission(PERMISSIO
     if (!request) {
       return res.status(404).json({ error: 'Stock request not found' });
     }
-    if (request.status !== 'pending_manager') {
-      return res.status(400).json({ error: 'Stock request is not pending manager approval' });
+    if (request.status !== 'pending_supervisor') {
+      return res.status(400).json({ error: 'Stock request is not pending supervisor approval' });
     }
 
     const updatedRequest = await prisma.stockRequest.update({
@@ -385,12 +389,9 @@ router.patch('/:id/recall', authMiddleware, requirePermission(PERMISSIONS.purcha
     let newStatus = 'cancelled';
     let newLevel = request.approval_level;
 
-    if (request.status === 'pending_manager') {
+    if (request.status === 'pending_finance') {
       newStatus = 'pending_supervisor';
       newLevel = 1;
-    } else if (request.status === 'pending_finance') {
-      newStatus = 'pending_manager';
-      newLevel = 2;
     }
 
     const updatedRequest = await prisma.stockRequest.update({
@@ -399,17 +400,11 @@ router.patch('/:id/recall', authMiddleware, requirePermission(PERMISSIONS.purcha
         status: newStatus,
         approval_level: newLevel,
         // Clear the approval that's being recalled
-        ...(request.status === 'pending_manager' ? {
+        ...(request.status === 'pending_finance' ? {
           supervisor_id: null,
           supervisor_name: null,
           supervisor_approved_at: null,
           supervisor_notes: null,
-        } : {}),
-        ...(request.status === 'pending_finance' ? {
-          manager_id: null,
-          manager_name: null,
-          manager_approved_at: null,
-          manager_notes: null,
         } : {}),
       },
       include: {

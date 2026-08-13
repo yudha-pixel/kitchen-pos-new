@@ -94,7 +94,6 @@ export const APPS_REGISTRY: AppDefinition[] = [
     subLinks: [
       { label: 'Data Barang & Bahan', href: '/inventory', iconName: 'PackageOpen', requiredPermission: PERMISSIONS.inventory.view },
       { label: 'Persetujuan Stok', href: '/inventory/stock-approvals', iconName: 'ClipboardCheck', requiredPermission: PERMISSIONS.inventory.approve },
-      { label: 'Persetujuan Stok Cepat', href: '/inventory/quick-stock-requests', iconName: 'ClipboardCheck', requiredPermission: PERMISSIONS.inventory.approve },
       { label: 'Kategori Barang', href: '/inventory/categories', iconName: 'Tags', requiredPermission: PERMISSIONS.inventory.view },
       { label: 'Penyesuaian Stok', href: '/inventory/stock-adjustments', iconName: 'SlidersHorizontal', requiredPermission: PERMISSIONS.inventory.adjust },
       { label: 'Transfer Stok', href: '/inventory/stock-transfers', iconName: 'ArrowLeftRight', requiredPermission: PERMISSIONS.inventory.transfer },
