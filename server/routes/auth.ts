@@ -16,7 +16,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
   const user = await prisma.profile.findUnique({ 
     where: { username },
-    include: { role: true }
+    include: { role: true, outlet: true }
   });
   if (!user || !user.is_active) {
     res.status(401).json({ error: 'Invalid username or password' });
@@ -72,7 +72,7 @@ router.post(
     const password_hash = await bcrypt.hash(password, 10);
     const user = await prisma.profile.create({
       data: { username, full_name: username, password_hash, role_id: roleRecord.id },
-      include: { role: true }
+      include: { role: true, outlet: true }
     });
 
     res.json({ id: user.id, username: user.username, role: user.role?.name });
@@ -86,7 +86,7 @@ router.get('/permissions', authMiddleware, (req: Request, res: Response) => {
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
   const user = await prisma.profile.findUnique({
     where: { id: req.user!.id },
-    include: { role: true }
+    include: { role: true, outlet: true }
   });
 
   if (!user) {

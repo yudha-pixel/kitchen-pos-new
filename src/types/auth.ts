@@ -7,4 +7,8 @@ export interface AuthenticatedUser {
   role_id: string;
   role: string;
   permissions: PermissionName[];
+  email?: string | null;
+  phone?: string | null;
+  outlet_name?: string | null;
+  outlet_id?: string | null;
 }

@@ -20,12 +20,14 @@ import {
   Package, 
   Shield,
   CreditCard,
+  Mail,
   AlertTriangle,
   Save,
   RefreshCw
 } from 'lucide-react';
+import { SmtpSettings } from '@/src/components/settings/SmtpSettings';
 
-type SettingsTab = 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder';
+type SettingsTab = 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder' | 'smtp';
 
 // Default settings values
 const defaultStoreSettings = {
@@ -240,6 +242,7 @@ export default function SettingsPage() {
     { id: 'inventory' as SettingsTab, label: 'Inventori & Stok', icon: Package },
     { id: 'security' as SettingsTab, label: 'Keamanan', icon: Shield },
     { id: 'selforder' as SettingsTab, label: 'Self-Order', icon: CreditCard },
+    { id: 'smtp' as SettingsTab, label: 'SMTP Email', icon: Mail },
   ];
 
   const handleSave = async (e: React.FormEvent) => {
@@ -424,6 +427,9 @@ export default function SettingsPage() {
                   webBaseUrl={storeSettings.web_base_url}
                   onWebBaseUrlChange={(webBaseUrl) => setStoreSettings((current) => ({ ...current, web_base_url: webBaseUrl }))}
                 />
+              )}
+              {activeTab === 'smtp' && (
+                <SmtpSettings />
               )}
             </div>
 

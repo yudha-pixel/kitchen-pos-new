@@ -224,6 +224,9 @@ export const APPS_REGISTRY: AppDefinition[] = [
     subLinks: [
       { label: 'Data Perusahaan', href: '/settings/company', iconName: 'Building2', requiredPermission: PERMISSIONS.settings.view },
       { label: 'Pengaturan Sistem', href: '/settings', iconName: 'Settings2', requiredPermission: PERMISSIONS.settings.view },
+      { label: 'Template Email', href: '/settings/email-templates', iconName: 'FileCode', requiredPermission: PERMISSIONS.settings.view },
+      { label: 'Log Email Terkirim', href: '/settings/email-logs', iconName: 'MailCheck', requiredPermission: PERMISSIONS.settings.view },
+      { label: 'Data Pengguna', href: '/settings/profile', iconName: 'Users', requiredPermission: PERMISSIONS.users.view },
       { label: 'Data Outlet', href: '/settings/outlets', iconName: 'MapPin', requiredPermission: PERMISSIONS.outlets.view },
       { label: 'Pengaturan Tampilan POS', href: '/pos/settings', iconName: 'Palette', requiredPermission: PERMISSIONS.settings.view },
       { label: 'Modul Internal', href: '/settings/modules', iconName: 'Puzzle', requiredPermission: PERMISSIONS.modules.view },

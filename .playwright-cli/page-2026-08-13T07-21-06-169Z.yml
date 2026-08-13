@@ -1,0 +1,67 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e96]:
+    - banner [ref=e97]:
+      - generic [ref=e98]:
+        - generic "Perusahaan Kitchen POS" [ref=e99]:
+          - generic [ref=e100]: KP
+          - generic [ref=e101]: Kitchen POS
+        - button "Buka profil pengguna System Administrator" [ref=e103] [cursor=pointer]:
+          - generic [ref=e104]: SA
+      - searchbox "Cari modul" [ref=e107]
+    - main [ref=e109]:
+      - generic [ref=e111]:
+        - generic [ref=e112]:
+          - generic [ref=e113]:
+            - heading "Welcome back, System Administrator" [level=1] [ref=e114]
+            - button "Refresh" [ref=e115] [cursor=pointer]
+          - generic [ref=e119]:
+            - generic [ref=e120]:
+              - paragraph [ref=e122]: Penjualan Hari Ini
+              - paragraph [ref=e126]: Rp 23.509.900
+              - paragraph [ref=e127]: 34 Transaksi
+            - generic [ref=e128]:
+              - paragraph [ref=e130]: Total Pesanan
+              - paragraph [ref=e134]: 34 Transaksi
+              - paragraph [ref=e135]: 18 Dine-In | 16 Takeaway
+            - generic [ref=e136]:
+              - paragraph [ref=e138]: Okupansi Meja
+              - paragraph [ref=e142]: 0 / 8 Meja
+              - paragraph [ref=e143]: 0 Meja Reservasi
+            - generic [ref=e144]:
+              - paragraph [ref=e146]: Bahan Kritis
+              - paragraph [ref=e149]: 0 Item
+              - paragraph [ref=e150]: Stok aman
+        - generic [ref=e151]:
+          - button "Offline-Ready Point of Sale" [ref=e152] [cursor=pointer]:
+            - generic [ref=e153]: Offline-Ready
+            - heading "Point of Sale" [level=3] [ref=e159]
+          - button "Live Kitchen Display" [ref=e160] [cursor=pointer]:
+            - generic [ref=e161]: Live
+            - heading "Kitchen Display" [level=3] [ref=e165]
+          - button [ref=e166] [cursor=pointer]:
+            - heading "Menu & Products" [level=3] [ref=e173]
+          - button "BOH Inventory" [ref=e174] [cursor=pointer]:
+            - generic [ref=e175]: BOH
+            - heading "Inventory" [level=3] [ref=e180]
+          - button "BOH Purchase & Suppliers" [ref=e181] [cursor=pointer]:
+            - generic [ref=e182]: BOH
+            - heading "Purchase & Suppliers" [level=3] [ref=e187]
+          - button "FOH CRM" [ref=e188] [cursor=pointer]:
+            - generic [ref=e189]: FOH
+            - heading "CRM" [level=3] [ref=e196]
+          - button "FOH Promotions" [ref=e197] [cursor=pointer]:
+            - generic [ref=e198]: FOH
+            - heading "Promotions" [level=3] [ref=e203]
+          - button [ref=e204] [cursor=pointer]:
+            - heading "Attendance" [level=3] [ref=e209]
+          - button [ref=e210] [cursor=pointer]:
+            - heading "HR & Payroll" [level=3] [ref=e216]
+          - button [ref=e217] [cursor=pointer]:
+            - heading "Finance" [level=3] [ref=e222]
+          - button [ref=e223] [cursor=pointer]:
+            - heading "Reports" [level=3] [ref=e227]
+          - button [ref=e228] [cursor=pointer]:
+            - heading "Settings" [level=3] [ref=e233]
+        - generic [ref=e234]: Powered by Kitchen POS
+  - button "Open Next.js Dev Tools" [ref=e91] [cursor=pointer]
+  - alert [ref=e95]

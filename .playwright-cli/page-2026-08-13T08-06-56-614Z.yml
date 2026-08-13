@@ -1,0 +1,37 @@
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic "Perusahaan Kitchen POS" [ref=e5]:
+      - generic [ref=e6]: KP
+      - generic [ref=e7]: Kitchen POS
+    - searchbox "Cari modul" [ref=e10]
+  - main [ref=e12]:
+    - generic [ref=e14]:
+      - generic [ref=e15]:
+        - generic [ref=e16]:
+          - heading "Welcome back, User" [level=1] [ref=e17]
+          - button "Refresh" [ref=e18] [cursor=pointer]
+        - generic [ref=e22]:
+          - generic [ref=e23]:
+            - paragraph [ref=e25]: Penjualan Hari Ini
+            - paragraph [ref=e29]: Rp 0
+            - paragraph [ref=e30]: 0 Transaksi
+          - generic [ref=e31]:
+            - paragraph [ref=e33]: Total Pesanan
+            - paragraph [ref=e37]: 0 Transaksi
+            - paragraph [ref=e38]: 0 Dine-In | 0 Takeaway
+          - generic [ref=e39]:
+            - paragraph [ref=e41]: Okupansi Meja
+            - paragraph [ref=e45]: 0 / 0 Meja
+            - paragraph [ref=e46]: 0 Meja Reservasi
+          - generic [ref=e47]:
+            - paragraph [ref=e49]: Reservasi Hari Ini
+            - paragraph [ref=e52]: 0 Reservasi
+            - paragraph [ref=e53]: 0 Menung Konfirmasi
+          - generic [ref=e54]:
+            - paragraph [ref=e56]: Bahan Kritis
+            - paragraph [ref=e59]: 0 Item
+            - paragraph [ref=e60]: Stok aman
+      - generic [ref=e61]:
+        - heading "Modul tidak ditemukan" [level=3] [ref=e65]
+        - paragraph [ref=e66]: Tidak ada modul yang cocok dengan kata kunci "".
+      - generic [ref=e67]: Powered by Kitchen POS

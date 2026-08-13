@@ -470,4 +470,142 @@ router.post('/reset', authMiddleware, requirePermission(PERMISSIONS.settings.res
   }
 });
 
+// GET /api/settings/smtp - Get SMTP Server Configuration
+router.get('/smtp', authMiddleware, requirePermission(PERMISSIONS.settings.view), async (_req, res) => {
+  try {
+    const settings = await prisma.appSettings.findFirst({
+      select: {
+        smtp_host: true,
+        smtp_port: true,
+        smtp_user: true,
+        smtp_pass: true,
+        smtp_from_email: true,
+        smtp_from_name: true,
+        smtp_secure: true,
+      },
+    });
+
+    res.json({
+      smtp_host: settings?.smtp_host || '',
+      smtp_port: settings?.smtp_port || 587,
+      smtp_user: settings?.smtp_user || '',
+      smtp_pass: settings?.smtp_pass ? '••••••••' : '',
+      smtp_from_email: settings?.smtp_from_email || '',
+      smtp_from_name: settings?.smtp_from_name || 'Kitchen POS',
+      smtp_secure: settings?.smtp_secure ?? true,
+    });
+  } catch (error) {
+    console.error('Error fetching SMTP settings:', error);
+    res.status(500).json({ error: 'Failed to fetch SMTP settings' });
+  }
+});
+
+// PUT /api/settings/smtp - Save SMTP Server Configuration
+router.put('/smtp', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req, res) => {
+  try {
+    const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from_email, smtp_from_name, smtp_secure } = req.body;
+
+    let settings = await prisma.appSettings.findFirst();
+
+    const updateData: any = {
+      smtp_host: smtp_host !== undefined ? smtp_host : undefined,
+      smtp_port: smtp_port !== undefined ? parseInt(smtp_port, 10) : undefined,
+      smtp_user: smtp_user !== undefined ? smtp_user : undefined,
+      smtp_from_email: smtp_from_email !== undefined ? smtp_from_email : undefined,
+      smtp_from_name: smtp_from_name !== undefined ? smtp_from_name : undefined,
+      smtp_secure: smtp_secure !== undefined ? Boolean(smtp_secure) : undefined,
+    };
+
+    // Only update password if user actually typed a new password (not the masked bullet string)
+    if (smtp_pass && smtp_pass !== '••••••••') {
+      updateData.smtp_pass = smtp_pass;
+    }
+
+    if (settings) {
+      settings = await prisma.appSettings.update({
+        where: { id: settings.id },
+        data: updateData,
+      });
+    } else {
+      settings = await prisma.appSettings.create({
+        data: updateData,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Pengaturan SMTP berhasil disimpan',
+      smtp_host: settings.smtp_host,
+      smtp_port: settings.smtp_port,
+      smtp_user: settings.smtp_user,
+      smtp_from_email: settings.smtp_from_email,
+      smtp_from_name: settings.smtp_from_name,
+      smtp_secure: settings.smtp_secure,
+    });
+  } catch (error) {
+    console.error('Error updating SMTP settings:', error);
+    res.status(500).json({ error: 'Gagal menyimpan pengaturan SMTP' });
+  }
+});
+
+// POST /api/settings/smtp/test - Test SMTP Connection & Send Test Email
+router.post('/smtp/test', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req, res) => {
+  try {
+    const { smtp_host, smtp_port, smtp_user, smtp_pass, smtp_from_email, smtp_from_name, smtp_secure, test_recipient } = req.body;
+
+    // Load existing settings if password is omitted or masked
+    let finalPass = smtp_pass;
+    if (!finalPass || finalPass === '••••••••') {
+      const existing = await prisma.appSettings.findFirst({ select: { smtp_pass: true } });
+      finalPass = existing?.smtp_pass || '';
+    }
+
+    const testConfig = {
+      smtp_host,
+      smtp_port: smtp_port ? parseInt(smtp_port, 10) : 587,
+      smtp_user,
+      smtp_pass: finalPass,
+      smtp_from_email,
+      smtp_from_name,
+      smtp_secure: Boolean(smtp_secure),
+    };
+
+    const { verifySmtpConnection, sendEmail } = await import('../lib/email');
+    const verification = await verifySmtpConnection(testConfig);
+
+    if (!verification.success) {
+      return res.status(400).json({ error: verification.message });
+    }
+
+    if (test_recipient) {
+      const emailResult = await sendEmail({
+        to: test_recipient,
+        subject: '[Kitchen POS] Uji Koneksi Server SMTP Email',
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; border: 1px solid #e5e7eb; rounded: 12px;">
+            <h2 style="color: #2563eb;">Koneksi SMTP Berhasil! 🎉</h2>
+            <p>Email ini dikirim sebagai uji koneksi server SMTP dari Sistem Kitchen POS.</p>
+            <p style="font-size: 12px; color: #6b7280;">Waktu Pengujian: ${new Date().toLocaleString('id-ID')}</p>
+          </div>
+        `,
+      }, testConfig);
+
+      if (!emailResult.success) {
+        return res.status(400).json({ error: emailResult.error || 'Gagal mengirim email uji coba' });
+      }
+    }
+
+    res.json({
+      success: true,
+      message: test_recipient 
+        ? `Koneksi SMTP berhasil & email uji telah dikirim ke ${test_recipient}` 
+        : 'Koneksi ke server SMTP berhasil diverifikasi',
+    });
+  } catch (error: any) {
+    console.error('Error testing SMTP settings:', error);
+    res.status(500).json({ error: error.message || 'Gagal menguji koneksi SMTP' });
+  }
+});
+
 export default router;
+

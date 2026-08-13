@@ -137,7 +137,7 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
         {moduleLinks.length > 0 ? (
           moduleLinks.map((sub) => {
             const active = pathname === sub.href;
-            const NavigationIcon = sub.iconName ? NAVIGATION_ICON_MAP[sub.iconName] : Circle;
+            const NavigationIcon = (sub.iconName && NAVIGATION_ICON_MAP[sub.iconName]) || Circle;
             const showStockBadge = sub.href === '/inventory/stock-approvals' && stockApprovalsPendingCount > 0;
             const showPRBadge = sub.href === '/inventory/purchase-requisitions' && pendingPRCount > 0;
             const showBadge = showStockBadge || showPRBadge;

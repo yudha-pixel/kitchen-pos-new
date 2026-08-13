@@ -289,3 +289,153 @@ export async function removeCategoryFromPrinter(routeId: string) {
 export async function getPrintJobsForOrder(orderId: string) {
   return request<unknown>('GET', `/api/printers/orders/${orderId}/jobs`);
 }
+
+// User Profile & Preferences
+export async function updateUserProfile(data: { full_name?: string; email?: string | null; phone?: string | null }) {
+  return request<{ success: boolean; message: string; user: AuthenticatedUser }>('PATCH', '/api/user/profile', data);
+}
+
+export async function changeUserPassword(data: { current_password: string; new_password: string; confirm_password: string }) {
+  return request<{ success: boolean; message: string }>('POST', '/api/user/change-password', data);
+}
+
+export async function updateUserPin(data: { pin?: string; enabled: boolean }) {
+  return request<{ success: boolean; message: string; enabled: boolean }>('POST', '/api/user/pin', data);
+}
+
+export async function getUserPreferences() {
+  return request<Record<string, any>>('GET', '/api/user/preferences');
+}
+
+export async function updateUserPreferences(preferences: Record<string, any>) {
+  return request<Record<string, any>>('PUT', '/api/user/preferences', preferences);
+}
+
+// User Management (List & CRUD for Settings)
+export interface UserRecord {
+  id: string;
+  username: string;
+  full_name: string;
+  email?: string | null;
+  phone?: string | null;
+  is_active: boolean;
+  role_id: string;
+  outlet_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  role: { id: string; name: string; description?: string | null };
+  outlet?: { id: string; name: string } | null;
+}
+
+export async function fetchUsers() {
+  return request<UserRecord[]>('GET', '/api/users');
+}
+
+export async function createUser(data: {
+  username: string;
+  password: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  role_id?: string;
+  outlet_id?: string;
+}) {
+  return request<UserRecord>('POST', '/api/users', data);
+}
+
+export async function updateUser(id: string, data: {
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  role_id?: string;
+  outlet_id?: string;
+  is_active?: boolean;
+}) {
+  return request<UserRecord>('PATCH', `/api/users/${id}`, data);
+}
+
+export async function fetchRoles() {
+  return request<Array<{ id: string; name: string; description?: string | null }>>('GET', '/api/roles');
+}
+
+export async function fetchOutlets() {
+  return request<any[]>('GET', '/api/outlets');
+}
+
+export interface SmtpSettingsData {
+  smtp_host: string;
+  smtp_port: number;
+  smtp_user: string;
+  smtp_pass: string;
+  smtp_from_email: string;
+  smtp_from_name: string;
+  smtp_secure: boolean;
+}
+
+export async function fetchSmtpSettings() {
+  return request<SmtpSettingsData>('GET', '/api/settings/smtp');
+}
+
+export async function updateSmtpSettings(data: Partial<SmtpSettingsData>) {
+  return request<{ success: boolean; message: string }>('PUT', '/api/settings/smtp', data);
+}
+
+export async function testSmtpConnection(data: Partial<SmtpSettingsData> & { test_recipient?: string }) {
+  return request<{ success: boolean; message: string }>('POST', '/api/settings/smtp/test', data);
+}
+
+export async function sendPasswordResetEmailApi(userId: string) {
+  return request<{ success: boolean; message: string }>('POST', '/api/user/send-reset-password', { user_id: userId });
+}
+
+// ---------------- EMAIL TEMPLATES & LOGS API ----------------
+
+export interface EmailTemplateRecord {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+  subject: string;
+  body_html: string;
+  body_text?: string | null;
+  variables?: string[];
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface EmailLogRecord {
+  id: string;
+  recipient: string;
+  subject: string;
+  template_code?: string | null;
+  status: 'SENT' | 'FAILED' | 'SIMULATED';
+  error_message?: string | null;
+  message_id?: string | null;
+  sent_at: string;
+}
+
+export async function fetchEmailTemplates() {
+  return request<EmailTemplateRecord[]>('GET', '/api/email/templates');
+}
+
+export async function updateEmailTemplate(id: string, data: Partial<EmailTemplateRecord>) {
+  return request<{ success: boolean; message: string; template: EmailTemplateRecord }>('PUT', `/api/email/templates/${id}`, data);
+}
+
+export async function resetEmailTemplate(id: string) {
+  return request<{ success: boolean; message: string; template: EmailTemplateRecord }>('POST', `/api/email/templates/${id}/reset`);
+}
+
+export async function fetchEmailLogs(status?: string, search?: string) {
+  const query = new URLSearchParams();
+  if (status) query.set('status', status);
+  if (search) query.set('search', search);
+  return request<EmailLogRecord[]>('GET', `/api/email/logs?${query.toString()}`);
+}
+
+export async function resendEmailLog(id: string) {
+  return request<{ success: boolean; message: string }>('POST', `/api/email/logs/${id}/resend`);
+}
+
+

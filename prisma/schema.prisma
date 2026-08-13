@@ -500,7 +500,48 @@ model AppSettings {
   // for busy periods where the manual review step is itself the bottleneck.
   selforder_routing         String @default("review")
 
+  // SMTP Email Settings
+  smtp_host          String?  @default("")
+  smtp_port          Int?     @default(587)
+  smtp_user          String?  @default("")
+  smtp_pass          String?  @default("")
+  smtp_from_email    String?  @default("")
+  smtp_from_name     String?  @default("Kitchen POS")
+  smtp_secure        Boolean? @default(true)
+
   @@map("app_settings")
+}
+
+model EmailTemplate {
+  id          String   @id @default(uuid()) @db.Uuid
+  code        String   @unique
+  name        String
+  description String?
+  subject     String
+  body_html   String   @db.Text
+  body_text   String?  @db.Text
+  variables   Json?    @default("[]")
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+model EmailLog {
+  id            String   @id @default(uuid()) @db.Uuid
+  recipient     String
+  subject       String
+  template_code String?
+  status        String   @default("SENT") // SENT, FAILED, SIMULATED
+  error_message String?  @db.Text
+  message_id    String?
+  sent_at       DateTime @default(now())
+
+  @@index([recipient])
+  @@index([status])
+  @@index([sent_at])
+  @@map("email_logs")
 }
 
 model Customer {
