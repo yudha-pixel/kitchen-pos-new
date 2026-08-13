@@ -23,11 +23,13 @@ import {
   Mail,
   AlertTriangle,
   Save,
-  RefreshCw
+  RefreshCw,
+  Hash
 } from 'lucide-react';
 import { SmtpSettings } from '@/src/components/settings/SmtpSettings';
+import { SequenceSettings } from '@/src/components/settings/SequenceSettings';
 
-type SettingsTab = 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder' | 'smtp';
+type SettingsTab = 'receipt' | 'shift' | 'tables' | 'users' | 'kitchen' | 'inventory' | 'security' | 'selforder' | 'smtp' | 'sequences';
 
 // Default settings values
 const defaultStoreSettings = {
@@ -243,6 +245,7 @@ export default function SettingsPage() {
     { id: 'security' as SettingsTab, label: 'Keamanan', icon: Shield },
     { id: 'selforder' as SettingsTab, label: 'Self-Order', icon: CreditCard },
     { id: 'smtp' as SettingsTab, label: 'SMTP Email', icon: Mail },
+    { id: 'sequences' as SettingsTab, label: 'Penomoran Dokumen', icon: Hash },
   ];
 
   const handleSave = async (e: React.FormEvent) => {
@@ -430,6 +433,9 @@ export default function SettingsPage() {
               )}
               {activeTab === 'smtp' && (
                 <SmtpSettings />
+              )}
+              {activeTab === 'sequences' && (
+                <SequenceSettings />
               )}
             </div>
 

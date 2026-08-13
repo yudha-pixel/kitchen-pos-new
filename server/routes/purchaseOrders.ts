@@ -22,15 +22,6 @@ const createPurchaseOrderSchema = z.object({
   })),
 });
 
-// Generate PO number
-const generatePONumber = (): string => {
-  const date = new Date();
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-  return `PO-${year}${month}-${random}`;
-};
-
 // GET /purchase-orders - List with filters
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
@@ -60,23 +51,45 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), 
   }
 });
 
+const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
+
+const resolvePOId = async (id: string): Promise<string | null> => {
+  if (isUUID(id)) return id;
+  const found = await prisma.purchaseOrder.findFirst({ where: { po_number: id }, select: { id: true } });
+  return found?.id || null;
+};
+
 // GET /purchase-orders/:id - Get details with items
 router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
-    const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-    const order = await prisma.purchaseOrder.findUnique({
-      where: { id },
-      include: {
-        supplier: true,
-        quotation: true,
-        items: {
+    const rawId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+    const order = isUUID(rawId)
+      ? await prisma.purchaseOrder.findUnique({
+          where: { id: rawId },
           include: {
-            ingredient: true,
+            supplier: true,
+            quotation: true,
+            items: {
+              include: {
+                ingredient: true,
+              },
+            },
+            goodsReceivedNotes: true,
           },
-        },
-        goodsReceivedNotes: true,
-      },
-    });
+        })
+      : await prisma.purchaseOrder.findFirst({
+          where: { po_number: rawId },
+          include: {
+            supplier: true,
+            quotation: true,
+            items: {
+              include: {
+                ingredient: true,
+              },
+            },
+            goodsReceivedNotes: true,
+          },
+        });
 
     if (!order) {
       return res.status(404).json({ error: 'Purchase order not found' });
@@ -93,7 +106,6 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createPurchaseOrderSchema.parse(req.body);
-    const userId = req.user?.id;
 
     // Calculate totals
     let subtotal = 0;
@@ -109,9 +121,12 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create
     const tax = subtotal * 0.1; // 10% tax
     const total = subtotal + tax;
 
+    const { generateNextSequenceNumber } = await import('../lib/sequence');
+    const po_number = await generateNextSequenceNumber('po');
+
     const order = await prisma.purchaseOrder.create({
       data: {
-        po_number: generatePONumber(),
+        po_number,
         quotation_id: data.quotation_id,
         supplier_id: data.supplier_id,
         expected_delivery: data.expected_delivery ? new Date(data.expected_delivery) : null,

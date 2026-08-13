@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { ChevronLeft, Circle, LayoutGrid, X } from 'lucide-react';
 
@@ -22,10 +22,18 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
   const [stockApprovalsPendingCount, setStockApprovalsPendingCount] = useState(0);
   const [pendingPRCount, setPendingPRCount] = useState(0);
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { can } = useAuth();
+
+  const fromParentHref = searchParams?.get('fromParentHref');
 
   const currentModule = findModuleForPath(pathname);
   const moduleLinks = currentModule?.subLinks.filter((sub) => can(sub.requiredPermission)) ?? [];
+
+  // Validate fromParentHref - if it doesn't match any module link, ignore it
+  const isValidParentHref = fromParentHref && moduleLinks.some(
+    (sub) => sub.href === fromParentHref || (fromParentHref !== '/' && fromParentHref.startsWith(sub.href))
+  );
 
   const isMobileDrawerActive = propIsMobileOpen !== undefined ? propIsMobileOpen : internalMobileOpen;
 
@@ -136,10 +144,13 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
       <div className="flex-1 overflow-y-auto px-2 py-1">
         {moduleLinks.length > 0 ? (
           moduleLinks.map((sub) => {
-            const active = pathname === sub.href;
+            const isFromParent = isValidParentHref && (sub.href === fromParentHref || (fromParentHref !== '/' && fromParentHref.startsWith(sub.href)));
+            const active = isFromParent
+              ? true
+              : (!isValidParentHref && (pathname === sub.href || (sub.href !== '/' && pathname.startsWith(sub.href + '/'))));
             const NavigationIcon = (sub.iconName && NAVIGATION_ICON_MAP[sub.iconName]) || Circle;
             const showStockBadge = sub.href === '/inventory/stock-approvals' && stockApprovalsPendingCount > 0;
-            const showPRBadge = sub.href === '/inventory/purchase-requisitions' && pendingPRCount > 0;
+            const showPRBadge = (sub.href === '/purchase/requisitions' || sub.href === '/inventory/purchase-requisitions') && pendingPRCount > 0;
             const showBadge = showStockBadge || showPRBadge;
             const badgeCount = showStockBadge ? stockApprovalsPendingCount : showPRBadge ? pendingPRCount : 0;
             return (
@@ -149,23 +160,18 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
                 onClick={mobile ? handleCloseMobile : undefined}
                 aria-current={active ? 'page' : undefined}
                 title={expanded ? undefined : sub.label}
-                className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'} ${!expanded && showBadge ? 'relative' : ''}`}
+                className={`${navLinkClass(active)} ${expanded ? '' : 'justify-center px-0'}`}
               >
-                <NavigationIcon className="size-5 shrink-0" aria-hidden="true" />
+                <div className="relative inline-flex items-center justify-center shrink-0">
+                  <NavigationIcon className="size-5 shrink-0" aria-hidden="true" />
+                  {showBadge && (
+                    <span className="absolute -top-1 -right-2 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-bold text-white shadow-xs">
+                      {badgeCount}
+                    </span>
+                  )}
+                </div>
                 {expanded && (
-                  <div className="flex items-center justify-between w-full">
-                    <span className="truncate">{sub.label}</span>
-                    {showBadge && (
-                      <span className="ml-2 flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-xs font-medium text-white">
-                        {badgeCount}
-                      </span>
-                    )}
-                  </div>
-                )}
-                {!expanded && showBadge && (
-                  <span className="absolute top-1 right-1 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-red-600 px-1 text-[10px] font-medium text-white">
-                    {badgeCount}
-                  </span>
+                  <span className="truncate ml-2.5">{sub.label}</span>
                 )}
                 {!expanded && <span className="sr-only">{sub.label}</span>}
               </Link>

@@ -607,5 +607,43 @@ router.post('/smtp/test', authMiddleware, requirePermission(PERMISSIONS.settings
   }
 });
 
+// GET /api/settings/sequences - Fetch document sequence configurations
+router.get('/sequences', authMiddleware, requirePermission(PERMISSIONS.settings.view), async (_req, res) => {
+  try {
+    const { getSequenceSettings } = await import('../lib/sequence');
+    const sequences = await getSequenceSettings();
+    res.json(sequences);
+  } catch (error) {
+    console.error('Error fetching sequence settings:', error);
+    res.status(500).json({ error: 'Failed to fetch sequence settings' });
+  }
+});
+
+// PUT /api/settings/sequences - Update document sequence configurations
+router.put('/sequences', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req, res) => {
+  try {
+    const { updateSequenceSettings } = await import('../lib/sequence');
+    const updated = await updateSequenceSettings(req.body);
+    res.json(updated);
+  } catch (error) {
+    console.error('Error updating sequence settings:', error);
+    res.status(500).json({ error: 'Failed to update sequence settings' });
+  }
+});
+
+// POST /api/settings/sequences/generate-preview - Live sample preview for sequence settings
+router.post('/sequences/generate-preview', authMiddleware, requirePermission(PERMISSIONS.settings.view), async (req, res) => {
+  try {
+    const { formatSequenceString } = await import('../lib/sequence');
+    const rule = req.body;
+    const preview = formatSequenceString(rule, new Date());
+    res.json({ preview });
+  } catch (error) {
+    console.error('Error generating sequence preview:', error);
+    res.status(500).json({ error: 'Failed to generate preview' });
+  }
+});
+
 export default router;
+
 

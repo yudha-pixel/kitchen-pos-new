@@ -11,6 +11,13 @@ export const LEGACY_ROUTE_REDIRECTS = [
   { source: '/admin/reports', destination: '/reports', permanent: true },
   { source: '/admin/settings', destination: '/settings', permanent: true },
   { source: '/admin/vouchers', destination: '/promotions/vouchers', permanent: true },
+  { source: '/inventory/purchase-requisitions', destination: '/purchase/requisitions', permanent: true },
+  { source: '/inventory/quotation-requests', destination: '/purchase/quotations', permanent: true },
+  { source: '/inventory/quotations', destination: '/purchase/quotations', permanent: true },
+  { source: '/inventory/purchase-orders', destination: '/purchase/orders', permanent: true },
+  { source: '/inventory/goods-received-notes', destination: '/purchase/goods-received', permanent: true },
+  { source: '/inventory/invoices', destination: '/purchase/invoices', permanent: true },
+  { source: '/inventory/supplier-payments', destination: '/finance/supplier-payments', permanent: true },
 ] as const;
 
 const ROUTE_ALIASES = new Map<string, string>(

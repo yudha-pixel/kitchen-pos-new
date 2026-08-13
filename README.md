@@ -1,6 +1,6 @@
 # Kitchen POS System
 
-[![Next.js](https://img.shields.io/badge/Next.js-16-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-16.2.10-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-local-green?style=for-the-badge&logo=postgresql)](https://www.postgresql.org/)
 [![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)](LICENSE)
@@ -11,6 +11,8 @@ A modern, offline-first restaurant Point of Sale built with Next.js, TypeScript,
 
 The POS supports dine-in, takeaway, and delivery order workflows with table management, product modifiers, split bills, table merging, and offline resilience. Data is stored in a local PostgreSQL database through an Express REST API. The browser caches data in IndexedDB so orders can still be taken when the network is unavailable.
 
+The system features capability-based authorization (RBAC migration completed), 11 integrated modules, and comprehensive inventory management with 8 sub-routes including purchase orders, quotations, goods received notes, and supplier payments.
+
 ## Features
 
 ### Core POS
@@ -19,69 +21,122 @@ The POS supports dine-in, takeaway, and delivery order workflows with table mana
 - Category-based product modifiers.
 - Admin product editing.
 - Receipt-optimized print layout.
-- Multi-cashier support with role-based login.
+- Multi-cashier support with capability-based authorization.
+- Self-order payment support with guest methods (cashier, QRIS, transfer).
+- Kitchen Display System (KDS) with real-time order management.
 
 ### Inventory Management
 - Ingredient stock tracking with unit and min stock alerts.
 - Recipe-based ingredient consumption on order creation.
 - Stock adjustment logging with audit trail.
-- Supplier management and purchase order tracking.
-- Automatic stock updates on purchase order receipt.
+- Stock approval workflows and quick stock requests.
+- Stock transfers between warehouses.
+- Stock write-offs and automation rules.
+- Ingredient categories and mapping.
+
+### Purchase
+- Supplier management with comprehensive profiles.
+- Purchase Requisition (PR) workflow.
+- Quotation Requests and Supplier Quotations.
+- Purchase Order (PO) creation and tracking.
+- Goods Received Notes (GRN) with stock updates.
+- Supplier invoices and payment tracking.
+- Complete audit trail for all procurement activities.
+
+### HR & CRM
+- Employee attendance with selfie verification.
+- HR management and payroll data.
+- Customer relationship management (CRM).
+- Customer profiles and loyalty tracking.
+
+### Finance & Reporting
+- Invoice scanning with OCR support.
+- Petty cash management and tracking.
+- Comprehensive sales and operational reports.
+- Discount analysis and reporting.
+- Shift management and financial summaries.
 
 ### Security & Infrastructure
-- JWT-based authentication with role-based access control (admin/cashier).
+- JWT-based authentication with capability-based authorization.
 - Webhook signature verification for payment gateways (Midtrans, Xendit).
 - Rate limiting on sensitive endpoints (login, payments).
 - HTTP security headers via Helmet.
 - Configurable CORS policies for production.
+- Audit logging for all critical operations.
 
 ### Offline-first
 - IndexedDB cache via Dexie.js.
 - Automatic sync to PostgreSQL when online.
 - Sync queue for orders created offline.
+- UUID primary keys for idempotent offline sync.
 
 ### Backend
 - Local Express API bound to `0.0.0.0` for LAN access.
-- JWT-based authentication.
+- JWT-based authentication with permission middleware.
 - Prisma ORM with PostgreSQL migrations and seeding.
-- UUID primary keys for idempotent offline sync.
+- 43 API route files organized by module.
+- Capability-based access control via PERMISSIONS system.
 
 ## Tech Stack
 
-- **Frontend:** Next.js 16 App Router, React 19, TypeScript 5, Tailwind CSS v4.
+- **Frontend:** Next.js 16.2.10 App Router, React 19.2.4, TypeScript 5, Tailwind CSS v4.
 - **State:** Zustand, React Context.
+- **UI Components:** @base-ui/react, lucide-react, recharts.
+- **Drag & Drop:** @dnd-kit/core, @dnd-kit/sortable.
 - **Offline Cache:** Dexie.js / IndexedDB.
-- **Backend:** Express.js, Prisma, PostgreSQL.
+- **Backend:** Express.js 5.2.1, Prisma 5.22.0, PostgreSQL.
 - **Auth:** JWT (`jsonwebtoken`), `bcrypt`.
-- **Build/Runtime:** Node.js 20+, npm, tsx.
+- **Validation:** Zod 4.4.3.
+- **Build/Runtime:** Node.js 20+, npm, tsx 4.23.1.
+- **Testing:** Vitest 4.1.10, Supertest 7.2.2, Playwright 1.62.1.
 
 ## Project Structure
 
 ```
 kitchen-pos-new/
-├── app/                    # Next.js App Router pages
+├── app/                    # Next.js App Router pages (44 routes)
 │   ├── login/page.tsx
-│   ├── pos/page.tsx
+│   ├── apps/page.tsx       # App launcher
+│   ├── pos/                # Point of Sale module
+│   ├── kitchen/            # Kitchen Display System
+│   ├── inventory/          # Inventory management (8 sub-routes)
+│   ├── inventory-suppliers/ # Purchase module (Data Supplier)
+│   ├── crm/                # Customer Relationship Management
+│   ├── promotions/         # Promotions & vouchers
+│   ├── attendance/         # Employee attendance
+│   ├── hr/                 # HR & Payroll
+│   ├── finance/            # Finance & OCR
+│   ├── reports/            # Analytics & reports
+│   ├── settings/           # System settings
 │   └── layout.tsx
 ├── src/
 │   ├── components/         # Shared UI components
+│   │   ├── layout/         # Header, Sidebar, TopNavigation, UserProfileMenu, CompanyBrand, LiveClock
+│   │   └── profile/        # User profile components
 │   ├── features/pos/       # POS-specific components
-│   ├── context/            # Auth context
+│   ├── context/            # Auth context, Company context
 │   ├── hooks/              # Data fetching and sync hooks
 │   ├── lib/                # API client, IndexedDB schema, seed data
 │   ├── store/              # Zustand stores
+│   ├── config/             # Navigation registry, permissions
 │   └── types/              # TypeScript interfaces
 ├── server/                 # Express + Prisma backend
 │   ├── index.ts
-│   ├── routes/
-│   ├── middleware/
-│   ├── lib/prisma.ts
-│   └── prisma/
+│   ├── app.ts              # Express app configuration
+│   ├── routes/             # 43 API route files
+│   ├── middleware/         # Auth, permissions, rate limiting
+│   ├── lib/                # Prisma client, utilities
+│   └── __tests__/          # 47 test files (414 tests)
 ├── prisma/                 # Prisma schema and migrations
-├── knowledge/              # Domain and architecture knowledge base
+│   ├── schema.prisma
+│   └── migrations/         # Database migrations
+├── docs/                   # Documentation
+│   ├── knowledge/          # Domain knowledge base
+│   └── handover/           # Session handovers
 ├── README.md
 ├── HANDOVER.md
-├── DEPLOYMENT.md
+├── CLAUDE.md
+├── AGENTS.md
 └── .env / .env.local
 ```
 
@@ -107,6 +162,7 @@ kitchen-pos-new/
    JWT_SECRET="change-this-in-production"
    PORT=3001
    API_HOST=0.0.0.0
+   CORS_ORIGIN="http://localhost:3000"
    ```
 
 3. Create a `.env.local` file in the project root:
@@ -119,6 +175,7 @@ kitchen-pos-new/
    ```bash
    npm run db:migrate
    npm run db:seed
+   npm run db:permissions
    ```
 
 5. Start the development server:
@@ -153,64 +210,48 @@ Use the cart panel controls for split bills and table merging.
 
 Base URL: `http://localhost:3001`
 
+The API is organized into modules with capability-based authorization. Key endpoints include:
+
 ### Authentication
-| Method | Path                     | Description                     |
-| ------ | ------------------------ | ------------------------------- |
-| POST   | `/auth/login`            | Login and receive JWT           |
-| POST   | `/auth/register`         | Register a new user (admin)   |
-| GET    | `/auth/me`               | Current user profile            |
+|| Method | Path                     | Description                     |
+|| ------ | ------------------------ | ------------------------------- |
+|| POST   | `/auth/login`            | Login and receive JWT           |
+|| POST   | `/auth/register`         | Register a new user (admin)   |
+|| GET    | `/auth/me`               | Current user profile            |
+|| GET    | `/auth/permissions`      | Current user permissions        |
 
-### Products & Orders
-| Method | Path                     | Description                     |
-| ------ | ------------------------ | ------------------------------- |
-| GET    | `/health`                | API health check                |
-| GET    | `/categories`            | List categories                 |
-| GET    | `/products`              | List products                   |
-| PATCH  | `/products/:id`          | Update a product                |
-| GET    | `/modifiers`             | List modifiers                  |
-| GET    | `/orders`                | List orders                     |
-| POST   | `/orders`                | Create an order with items      |
-| GET    | `/orders/:id/items`      | Get order items                 |
-| PATCH  | `/orders/:id/status`     | Update order status             |
-| POST   | `/orders/merge-table`    | Merge orders from two tables    |
-| POST   | `/void-logs`             | Record voided items             |
+### Health
+|| Method | Path                     | Description                     |
+|| ------ | ------------------------ | ------------------------------- |
+|| GET    | `/health`                | API health check                |
 
-### Inventory & Suppliers
-| Method | Path                     | Description                     |
-| ------ | ------------------------ | ------------------------------- |
-| GET    | `/ingredients`           | List ingredients                |
-| POST   | `/ingredients`           | Create ingredient (admin)      |
-| PUT    | `/ingredients/:id`       | Update ingredient (admin)      |
-| DELETE | `/ingredients/:id`       | Delete ingredient (admin)      |
-| GET    | `/recipes`               | List recipes                   |
-| GET    | `/suppliers`             | List suppliers                  |
-| POST   | `/suppliers`             | Create supplier (admin)         |
-| PUT    | `/suppliers/:id`         | Update supplier (admin)         |
-| DELETE | `/suppliers/:id`         | Delete supplier (admin)         |
-| POST   | `/suppliers/:id/purchase-orders` | Create purchase order (admin) |
-| PATCH  | `/suppliers/:id/purchase-orders/:poId/receive` | Receive PO (admin) |
+### Core Modules
+- **Products & Orders**: `/api/categories`, `/api/products`, `/api/orders`, `/api/modifiers`
+- **Inventory**: `/api/ingredients`, `/api/recipes`, `/api/stock-requests`, `/api/stock-transfers`, `/api/stock-write-offs`, `/api/warehouses`
+- **Purchase**: `/api/suppliers`, `/api/purchase-requisitions`, `/api/quotation-requests`, `/api/quotations`, `/api/purchase-orders`, `/api/goods-received-notes`, `/api/invoices`, `/api/supplier-payments`
+- **Payments**: `/api/payments`, `/api/self-order/*`, `/api/webhooks/payment`
+- **HR & CRM**: `/api/customers`, `/api/hr/employees`, `/api/attendance`
+- **Finance**: `/api/petty-cash`, `/api/ocr`, `/api/reports`
+- **Settings**: `/api/settings`, `/api/company`, `/api/users`, `/api/roles`, `/api/outlets`, `/api/tables`, `/api/vouchers`
+- **Operations**: `/api/kitchen`, `/api/backup`, `/api/audit`, `/api/notifications`, `/api/split-bill`
 
-### Payments
-| Method | Path                     | Description                     |
-| ------ | ------------------------ | ------------------------------- |
-| POST   | `/payments`              | Create payment (auth)           |
-| PATCH  | `/payments/:id/status`   | Update payment status (auth)    |
-| POST   | `/webhooks/payment`      | Payment webhook (signature verified) |
+**Note**: The API uses capability-based authorization via the PERMISSIONS system. Most endpoints require specific permissions and JWT authentication.
 
 ## Scripts
 
-| Script                | Description                               |
-| --------------------- | ----------------------------------------- |
-| `npm run dev`         | Start frontend and API concurrently       |
-| `npm run api:dev`     | Start API with hot reload (tsx)           |
-| `npm run api:start`   | Start API for production                  |
-| `npm run db:migrate`  | Run Prisma migrate dev                    |
-| `npm run db:seed`     | Seed the database                         |
-| `npm run db:generate` | Generate Prisma client                    |
-| `npm run build`       | Build the Next.js frontend                |
-| `npm run lint`        | Run ESLint                                |
-| `npx tsc --noEmit`    | Type-check the project                    |
-| `npm test`            | Run test suite (63 tests)                 |
+|| Script                | Description                               |
+|| --------------------- | ----------------------------------------- |
+|| `npm run dev`         | Start frontend and API concurrently       |
+|| `npm run api:dev`     | Start API with hot reload (tsx)           |
+|| `npm run api:start`   | Start API for production                  |
+|| `npm run db:migrate`  | Run Prisma migrate dev                    |
+|| `npm run db:seed`     | Seed the database                         |
+|| `npm run db:permissions` | Seed permissions and roles            |
+|| `npm run db:generate` | Generate Prisma client                    |
+|| `npm run build`       | Build the Next.js frontend                |
+|| `npm run lint`        | Run ESLint                                |
+|| `npx tsc --noEmit`    | Type-check the project                    |
+|| `npm test`            | Run test suite (414 tests)                |
 
 ## Testing Guide
 
@@ -226,27 +267,18 @@ npm test
 npm test server/__tests__/orders.restore.test.ts
 ```
 
-### Test Files
-
-| Test File | Description | Tests |
-|-----------|-------------|-------|
-| `orders.restore.test.ts` | Order void/cancel and stock restoration | 9 |
-| `orders.stock.test.ts` | Ingredient stock validation on orders | 6 |
-| `payments.security.test.ts` | Payment endpoint security & auth | 8 |
-| `inventory.security.test.ts` | Inventory CRUD & stock adjustment security | 12 |
-| `webhook.security.test.ts` | Webhook signature verification (Midtrans/Xendit) | 8 |
-| `infrastructure.security.test.ts` | Helmet headers, rate limiting, CORS | 8 |
-| `suppliers.test.ts` | Supplier & purchase order integration | 12 |
-
-**Total: 63 tests**
-
 ### Test Coverage
 
-- **Authentication & Authorization**: JWT token validation, role-based access control
-- **Inventory Management**: Stock consumption, restoration, adjustment logging
-- **Payment Security**: Amount validation, status updates, webhook verification
-- **Supplier Management**: CRUD operations, purchase order flow, stock updates
+The test suite consists of **47 test files** with **414 total tests** (409 passing, 5 failing). Tests cover:
+
+- **Authentication & Authorization**: JWT token validation, capability-based access control, permission middleware
+- **Inventory Management**: Stock consumption, restoration, adjustment logging, transfers, write-offs
+- **Payment Security**: Amount validation, status updates, webhook verification, self-order payments
+- **Supplier Management**: CRUD operations, purchase order flow, stock updates, quotations, invoices
 - **Infrastructure**: Security headers, rate limiting, CORS configuration
+- **HR & CRM**: Employee management, attendance tracking, customer relationships
+- **Finance**: Petty cash, OCR invoice scanning, reporting
+- **Settings**: Company configuration, user management, role-based access
 
 ## Roadmap
 
@@ -267,7 +299,8 @@ Detailed planning documents are in the `docs/knowledge/` folder:
 1. Copy `.env.example` to `.env` and configure environment variables
 2. Run `npm run db:migrate` to apply database migrations
 3. Run `npm run db:seed` to seed initial data
-4. Run `npm run dev` to start development servers
+4. Run `npm run db:permissions` to seed permissions and roles
+5. Run `npm run dev` to start development servers
 
 ### Production Deployment
 
@@ -290,6 +323,9 @@ Detailed planning documents are in the `docs/knowledge/` folder:
    
    # Generate Prisma client
    npm run db:generate
+   
+   # Seed permissions
+   npm run db:permissions
    ```
 
 3. **Build & Start**:
@@ -346,6 +382,11 @@ Detailed planning documents are in the `docs/knowledge/` folder:
    - Helmet middleware applied globally
    - Content Security Policy configured
    - X-Frame-Options, X-Content-Type-Options, HSTS enabled
+
+8. **Capability-Based Authorization**:
+   - All business routes require specific permissions
+   - Permission checks are enforced at middleware level
+   - Audit logging tracks permission denials
 
 ## Contributing
 

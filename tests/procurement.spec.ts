@@ -19,7 +19,7 @@ test.describe('Procurement UI Tests', () => {
     await expect(page).toHaveURL(/\/apps/);
     await expect(page.locator('h1')).toContainText('All Modules');
     
-    // Find and click on Purchase & Suppliers card
+    // Find and click on Purchase card
     const purchaseCard = page.locator('a[href="/inventory/suppliers"]').first();
     await expect(purchaseCard).toBeVisible();
     await purchaseCard.click();

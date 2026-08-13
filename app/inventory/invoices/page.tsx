@@ -161,11 +161,12 @@ export default function InvoicesPage() {
 
   // Filter invoices based on search query
   const filteredInvoices = invoices.filter(invoice => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch = 
-      invoice.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.grn?.grn_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      invoice.grn?.purchase_order?.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (invoice.notes && invoice.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+      (invoice.invoice_number || '').toLowerCase().includes(q) ||
+      (invoice.grn?.grn_number || '').toLowerCase().includes(q) ||
+      (invoice.grn?.purchase_order?.supplier?.name || '').toLowerCase().includes(q) ||
+      (invoice.notes || '').toLowerCase().includes(q);
     
     return matchesSearch;
   });
@@ -206,18 +207,18 @@ export default function InvoicesPage() {
 
   return (
     <ResponsiveShell title="Invoices">
-    <div className="min-h-full bg-slate-50 -m-4 sm:-m-6">
+    <div className="min-h-full bg-background -m-4 sm:-m-6">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-surface border-b border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Invoice Supplier</h1>
-              <p className="text-sm text-slate-500">Kelola invoice dari supplier</p>
+              <h1 className="text-xl font-bold text-ink">Invoice Supplier</h1>
+              <p className="text-sm text-ink-muted">Kelola invoice dari supplier</p>
             </div>
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:bg-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
               Buat Invoice
@@ -229,17 +230,17 @@ export default function InvoicesPage() {
       {/* Main Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
+        <div className="bg-surface rounded-lg shadow-sm border border-line p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari berdasarkan nomor invoice, GRN, supplier, atau catatan..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
 
@@ -247,7 +248,7 @@ export default function InvoicesPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as InvoiceStatus)}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             >
               <option value="all">Semua Status</option>
               <option value="pending">Pending</option>
@@ -262,7 +263,7 @@ export default function InvoicesPage() {
                 setSearchQuery('');
                 setStatusFilter('all');
               }}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+              className="px-4 py-2 rounded-lg border border-line text-sm text-ink-secondary hover:bg-surface-alt transition-colors"
             >
               Reset
             </button>
@@ -270,70 +271,70 @@ export default function InvoicesPage() {
         </div>
 
         {/* Invoices Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-surface rounded-lg shadow-sm border border-line overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : filteredInvoices.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-              <FileText className="h-12 w-12 mb-4 text-slate-300" />
-              <p className="text-lg font-medium">Tidak ada data</p>
-              <p className="text-sm">Belum ada invoice yang ditemukan</p>
+            <div className="flex flex-col items-center justify-center h-64 text-ink-muted">
+              <FileText className="h-12 w-12 mb-4 text-ink-muted opacity-50" />
+              <p className="text-lg font-medium text-ink">Tidak ada data</p>
+              <p className="text-sm text-ink-muted">Belum ada invoice yang ditemukan</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-surface-alt border-b border-line">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Nomor Invoice
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Nomor GRN
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Supplier
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Total
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Tanggal
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Aksi
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-line">
                   {filteredInvoices.map((invoice) => (
-                    <tr key={invoice.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={invoice.id} className="hover:bg-surface-alt transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm font-medium text-slate-900">{invoice.invoice_number}</span>
+                          <FileText className="h-4 w-4 text-ink-muted" />
+                          <span className="text-sm font-medium text-ink">{invoice.invoice_number}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-secondary">
                         {invoice.grn?.grn_number || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm text-slate-600">{invoice.grn?.purchase_order?.supplier?.name || '-'}</span>
+                          <Building2 className="h-4 w-4 text-ink-muted" />
+                          <span className="text-sm text-ink-secondary">{invoice.grn?.purchase_order?.supplier?.name || '-'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm font-medium text-slate-900">{formatCurrency(invoice.total)}</span>
+                          <DollarSign className="h-4 w-4 text-ink-muted" />
+                          <span className="text-sm font-medium text-ink">{formatCurrency(invoice.total)}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-secondary">
                         {formatDate(invoice.invoice_date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -342,7 +343,7 @@ export default function InvoicesPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <button
                           onClick={() => handleViewDetails(invoice)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary hover:bg-primary-soft transition-colors"
                         >
                           <Eye className="h-4 w-4" />
                           Detail
@@ -360,15 +361,15 @@ export default function InvoicesPage() {
       {/* Detail Modal */}
       {modalOpen && selectedInvoice && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto border border-line">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Detail Invoice</h2>
+            <div className="flex items-center justify-between p-6 border-b border-line">
+              <h2 className="text-lg font-bold text-ink">Detail Invoice</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-alt transition-colors"
               >
-                <X className="h-5 w-5 text-slate-400" />
+                <X className="h-5 w-5 text-ink-muted" />
               </button>
             </div>
 
@@ -376,74 +377,74 @@ export default function InvoicesPage() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nomor Invoice</label>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{selectedInvoice.invoice_number}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Nomor Invoice</label>
+                  <p className="mt-1 text-sm font-medium text-ink">{selectedInvoice.invoice_number}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Status</label>
                   <div className="mt-1">{getStatusBadge(selectedInvoice.status)}</div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nomor GRN</label>
-                  <p className="mt-1 text-sm text-slate-600">{selectedInvoice.grn?.grn_number || '-'}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Nomor GRN</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{selectedInvoice.grn?.grn_number || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Supplier</label>
-                  <p className="mt-1 text-sm text-slate-600">{selectedInvoice.grn?.purchase_order?.supplier?.name || '-'}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Supplier</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{selectedInvoice.grn?.purchase_order?.supplier?.name || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tanggal Invoice</label>
-                  <p className="mt-1 text-sm text-slate-600">{formatDate(selectedInvoice.invoice_date)}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Tanggal Invoice</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{formatDate(selectedInvoice.invoice_date)}</p>
                 </div>
                 {selectedInvoice.due_date && (
                   <div>
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Jatuh Tempo</label>
-                    <p className="mt-1 text-sm text-slate-600">{formatDate(selectedInvoice.due_date)}</p>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Jatuh Tempo</label>
+                    <p className="mt-1 text-sm text-ink-secondary">{formatDate(selectedInvoice.due_date)}</p>
                   </div>
                 )}
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Subtotal</label>
-                  <p className="mt-1 text-sm text-slate-600">{formatCurrency(selectedInvoice.subtotal)}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Subtotal</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{formatCurrency(selectedInvoice.subtotal)}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Pajak</label>
-                  <p className="mt-1 text-sm text-slate-600">{formatCurrency(selectedInvoice.tax)}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Pajak</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{formatCurrency(selectedInvoice.tax)}</p>
                 </div>
                 <div className="col-span-2">
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Total</label>
-                  <p className="mt-1 text-lg font-bold text-slate-900">{formatCurrency(selectedInvoice.total)}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Total</label>
+                  <p className="mt-1 text-lg font-bold text-ink">{formatCurrency(selectedInvoice.total)}</p>
                 </div>
                 {selectedInvoice.verified_at && (
                   <div>
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Diverifikasi Oleh</label>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Diverifikasi Oleh</label>
+                    <p className="mt-1 text-sm text-ink-secondary">
                       {selectedInvoice.verified_by_name} - {formatDate(selectedInvoice.verified_at)}
                     </p>
                   </div>
                 )}
                 {selectedInvoice.paid_at && (
                   <div>
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Dibayar</label>
-                    <p className="mt-1 text-sm text-slate-600">{formatDate(selectedInvoice.paid_at)}</p>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Dibayar</label>
+                    <p className="mt-1 text-sm text-ink-secondary">{formatDate(selectedInvoice.paid_at)}</p>
                   </div>
                 )}
                 {selectedInvoice.notes && (
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Catatan</label>
-                    <p className="mt-1 text-sm text-slate-600">{selectedInvoice.notes}</p>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Catatan</label>
+                    <p className="mt-1 text-sm text-ink-secondary">{selectedInvoice.notes}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-line">
               {selectedInvoice.status === 'pending' ? (
                 <>
                   <button
                     onClick={() => setModalOpen(false)}
                     disabled={processing}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-ink-secondary hover:bg-surface-alt transition-colors disabled:opacity-50"
                   >
                     Batal
                   </button>
@@ -465,7 +466,7 @@ export default function InvoicesPage() {
               ) : (
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:bg-primary-hover transition-colors"
                 >
                   Tutup
                 </button>
@@ -478,22 +479,22 @@ export default function InvoicesPage() {
       {/* Create Modal */}
       {createModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto border border-line">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Buat Invoice</h2>
+            <div className="flex items-center justify-between p-6 border-b border-line">
+              <h2 className="text-lg font-bold text-ink">Buat Invoice</h2>
               <button
                 onClick={() => setCreateModalOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-alt transition-colors"
               >
-                <X className="h-5 w-5 text-slate-400" />
+                <X className="h-5 w-5 text-ink-muted" />
               </button>
             </div>
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Pilih Goods Received Note <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -502,7 +503,7 @@ export default function InvoicesPage() {
                     const grn = completedGRNs.find(g => g.id === e.target.value);
                     setSelectedGRN(grn || null);
                   }}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="">Pilih goods received note...</option>
                   {completedGRNs.map((grn) => (
@@ -513,18 +514,18 @@ export default function InvoicesPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Tanggal Jatuh Tempo (opsional)
                 </label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Catatan (opsional)
                 </label>
                 <textarea
@@ -532,24 +533,24 @@ export default function InvoicesPage() {
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Masukkan catatan untuk invoice..."
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-line">
               <button
                 onClick={() => setCreateModalOpen(false)}
                 disabled={processing}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-ink-secondary hover:bg-surface-alt transition-colors disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 onClick={handleCreate}
                 disabled={processing || !selectedGRN}
-                className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing ? 'Memproses...' : 'Buat Invoice'}
               </button>

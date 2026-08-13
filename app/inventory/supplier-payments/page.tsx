@@ -176,12 +176,13 @@ export default function SupplierPaymentsPage() {
 
   // Filter payments based on search query
   const filteredPayments = payments.filter(payment => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch = 
-      payment.payment_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.invoice?.invoice_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      payment.invoice?.grn?.purchase_order?.supplier?.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (payment.reference_number && payment.reference_number.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (payment.notes && payment.notes.toLowerCase().includes(searchQuery.toLowerCase()));
+      (payment.payment_number || '').toLowerCase().includes(q) ||
+      (payment.invoice?.invoice_number || '').toLowerCase().includes(q) ||
+      (payment.invoice?.grn?.purchase_order?.supplier?.name || '').toLowerCase().includes(q) ||
+      (payment.reference_number || '').toLowerCase().includes(q) ||
+      (payment.notes || '').toLowerCase().includes(q);
     
     return matchesSearch;
   });
@@ -236,18 +237,18 @@ export default function SupplierPaymentsPage() {
 
   return (
     <ResponsiveShell title="Supplier Payments">
-    <div className="min-h-full bg-slate-50 -m-4 sm:-m-6">
+    <div className="min-h-full bg-background -m-4 sm:-m-6">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-surface border-b border-line">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div>
-              <h1 className="text-xl font-bold text-slate-900">Pembayaran Supplier</h1>
-              <p className="text-sm text-slate-500">Kelola pembayaran ke supplier</p>
+              <h1 className="text-xl font-bold text-ink">Pembayaran Supplier</h1>
+              <p className="text-sm text-ink-muted">Kelola pembayaran ke supplier</p>
             </div>
             <button
               onClick={() => setCreateModalOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:bg-primary-hover transition-colors"
             >
               <Plus className="h-4 w-4" />
               Buat Pembayaran
@@ -259,17 +260,17 @@ export default function SupplierPaymentsPage() {
       {/* Main Content */}
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 p-4 mb-6">
+        <div className="bg-surface rounded-lg shadow-sm border border-line p-4 mb-6">
           <div className="flex flex-wrap items-center gap-4">
             {/* Search */}
             <div className="relative flex-1 min-w-[200px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Cari berdasarkan nomor pembayaran, invoice, supplier, atau referensi..."
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
 
@@ -277,7 +278,7 @@ export default function SupplierPaymentsPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as PaymentStatus)}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+              className="px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
             >
               <option value="all">Semua Status</option>
               <option value="pending">Pending</option>
@@ -291,7 +292,7 @@ export default function SupplierPaymentsPage() {
                 setSearchQuery('');
                 setStatusFilter('all');
               }}
-              className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition-colors"
+              className="px-4 py-2 rounded-lg border border-line text-sm text-ink-secondary hover:bg-surface-alt transition-colors"
             >
               Reset
             </button>
@@ -299,76 +300,76 @@ export default function SupplierPaymentsPage() {
         </div>
 
         {/* Payments Table */}
-        <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-surface rounded-lg shadow-sm border border-line overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-violet-600"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             </div>
           ) : filteredPayments.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-500">
-              <CreditCard className="h-12 w-12 mb-4 text-slate-300" />
-              <p className="text-lg font-medium">Tidak ada data</p>
-              <p className="text-sm">Belum ada pembayaran supplier yang ditemukan</p>
+            <div className="flex flex-col items-center justify-center h-64 text-ink-muted">
+              <CreditCard className="h-12 w-12 mb-4 text-ink-muted opacity-50" />
+              <p className="text-lg font-medium text-ink">Tidak ada data</p>
+              <p className="text-sm text-ink-muted">Belum ada pembayaran supplier yang ditemukan</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-surface-alt border-b border-line">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Nomor Pembayaran
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Nomor Invoice
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Supplier
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Jumlah
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Metode
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Tanggal
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-right text-xs font-semibold text-ink-secondary uppercase tracking-wider">
                       Aksi
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-line">
                   {filteredPayments.map((payment) => (
-                    <tr key={payment.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={payment.id} className="hover:bg-surface-alt transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm font-medium text-slate-900">{payment.payment_number}</span>
+                          <FileText className="h-4 w-4 text-ink-muted" />
+                          <span className="text-sm font-medium text-ink">{payment.payment_number}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-secondary">
                         {payment.invoice?.invoice_number || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm text-slate-600">{payment.invoice?.grn?.purchase_order?.supplier?.name || '-'}</span>
+                          <Building2 className="h-4 w-4 text-ink-muted" />
+                          <span className="text-sm text-ink-secondary">{payment.invoice?.grn?.purchase_order?.supplier?.name || '-'}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
-                          <DollarSign className="h-4 w-4 text-slate-400" />
-                          <span className="text-sm font-medium text-slate-900">{formatCurrency(payment.amount)}</span>
+                          <DollarSign className="h-4 w-4 text-ink-muted" />
+                          <span className="text-sm font-medium text-ink">{formatCurrency(payment.amount)}</span>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {getPaymentMethodBadge(payment.payment_method)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-secondary">
                         {formatDate(payment.payment_date)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -377,7 +378,7 @@ export default function SupplierPaymentsPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <button
                           onClick={() => handleViewDetails(payment)}
-                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-violet-600 hover:bg-violet-50 transition-colors"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-primary hover:bg-primary-soft transition-colors"
                         >
                           <Eye className="h-4 w-4" />
                           Detail
@@ -395,15 +396,15 @@ export default function SupplierPaymentsPage() {
       {/* Detail Modal */}
       {modalOpen && selectedPayment && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto border border-line">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Detail Pembayaran Supplier</h2>
+            <div className="flex items-center justify-between p-6 border-b border-line">
+              <h2 className="text-lg font-bold text-ink">Detail Pembayaran Supplier</h2>
               <button
                 onClick={() => setModalOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-alt transition-colors"
               >
-                <X className="h-5 w-5 text-slate-400" />
+                <X className="h-5 w-5 text-ink-muted" />
               </button>
             </div>
 
@@ -411,64 +412,64 @@ export default function SupplierPaymentsPage() {
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nomor Pembayaran</label>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{selectedPayment.payment_number}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Nomor Pembayaran</label>
+                  <p className="mt-1 text-sm font-medium text-ink">{selectedPayment.payment_number}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Status</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Status</label>
                   <div className="mt-1">{getStatusBadge(selectedPayment.status)}</div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nomor Invoice</label>
-                  <p className="mt-1 text-sm text-slate-600">{selectedPayment.invoice?.invoice_number || '-'}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Nomor Invoice</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{selectedPayment.invoice?.invoice_number || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Supplier</label>
-                  <p className="mt-1 text-sm text-slate-600">{selectedPayment.invoice?.grn?.purchase_order?.supplier?.name || '-'}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Supplier</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{selectedPayment.invoice?.grn?.purchase_order?.supplier?.name || '-'}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Jumlah</label>
-                  <p className="mt-1 text-sm font-medium text-slate-900">{formatCurrency(selectedPayment.amount)}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Jumlah</label>
+                  <p className="mt-1 text-sm font-medium text-ink">{formatCurrency(selectedPayment.amount)}</p>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Metode Pembayaran</label>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Metode Pembayaran</label>
                   <div className="mt-1">{getPaymentMethodBadge(selectedPayment.payment_method)}</div>
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Tanggal Pembayaran</label>
-                  <p className="mt-1 text-sm text-slate-600">{formatDate(selectedPayment.payment_date)}</p>
+                  <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Tanggal Pembayaran</label>
+                  <p className="mt-1 text-sm text-ink-secondary">{formatDate(selectedPayment.payment_date)}</p>
                 </div>
                 {selectedPayment.reference_number && (
                   <div>
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Nomor Referensi</label>
-                    <p className="mt-1 text-sm text-slate-600">{selectedPayment.reference_number}</p>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Nomor Referensi</label>
+                    <p className="mt-1 text-sm text-ink-secondary">{selectedPayment.reference_number}</p>
                   </div>
                 )}
                 {selectedPayment.processed_at && (
                   <div>
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Diproses Oleh</label>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Diproses Oleh</label>
+                    <p className="mt-1 text-sm text-ink-secondary">
                       {selectedPayment.processed_by_name} - {formatDate(selectedPayment.processed_at)}
                     </p>
                   </div>
                 )}
                 {selectedPayment.notes && (
                   <div className="col-span-2">
-                    <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Catatan</label>
-                    <p className="mt-1 text-sm text-slate-600">{selectedPayment.notes}</p>
+                    <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">Catatan</label>
+                    <p className="mt-1 text-sm text-ink-secondary">{selectedPayment.notes}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-line">
               {selectedPayment.status === 'pending' ? (
                 <>
                   <button
                     onClick={() => setModalOpen(false)}
                     disabled={processing}
-                    className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-ink-secondary hover:bg-surface-alt transition-colors disabled:opacity-50"
                   >
                     Batal
                   </button>
@@ -490,7 +491,7 @@ export default function SupplierPaymentsPage() {
               ) : (
                 <button
                   onClick={() => setModalOpen(false)}
-                  className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors"
+                  className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:bg-primary-hover transition-colors"
                 >
                   Tutup
                 </button>
@@ -503,22 +504,22 @@ export default function SupplierPaymentsPage() {
       {/* Create Modal */}
       {createModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-surface rounded-lg shadow-lg w-full max-w-lg max-h-[90vh] overflow-y-auto border border-line">
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-slate-200">
-              <h2 className="text-lg font-bold text-slate-900">Buat Pembayaran Supplier</h2>
+            <div className="flex items-center justify-between p-6 border-b border-line">
+              <h2 className="text-lg font-bold text-ink">Buat Pembayaran Supplier</h2>
               <button
                 onClick={() => setCreateModalOpen(false)}
-                className="p-2 rounded-lg hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-lg hover:bg-surface-alt transition-colors"
               >
-                <X className="h-5 w-5 text-slate-400" />
+                <X className="h-5 w-5 text-ink-muted" />
               </button>
             </div>
 
             {/* Modal Body */}
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Pilih Invoice <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -530,7 +531,7 @@ export default function SupplierPaymentsPage() {
                       setAmount(invoice.total.toString());
                     }
                   }}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="">Pilih invoice...</option>
                   {verifiedInvoices.map((inv) => (
@@ -541,13 +542,13 @@ export default function SupplierPaymentsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Metode Pembayaran <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as 'cash' | 'transfer' | 'check' | 'other')}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 >
                   <option value="transfer">Transfer Bank</option>
                   <option value="cash">Tunai</option>
@@ -556,7 +557,7 @@ export default function SupplierPaymentsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Jumlah <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -564,11 +565,11 @@ export default function SupplierPaymentsPage() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Masukkan jumlah pembayaran..."
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Nomor Referensi (opsional)
                 </label>
                 <input
@@ -576,11 +577,11 @@ export default function SupplierPaymentsPage() {
                   value={referenceNumber}
                   onChange={(e) => setReferenceNumber(e.target.value)}
                   placeholder="Masukkan nomor referensi..."
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
               <div>
-                <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+                <label className="text-xs font-medium text-ink-muted uppercase tracking-wider">
                   Catatan (opsional)
                 </label>
                 <textarea
@@ -588,24 +589,24 @@ export default function SupplierPaymentsPage() {
                   onChange={(e) => setNotes(e.target.value)}
                   placeholder="Masukkan catatan untuk pembayaran..."
                   rows={3}
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                  className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                 />
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-end gap-3 p-6 border-t border-slate-200">
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-line">
               <button
                 onClick={() => setCreateModalOpen(false)}
                 disabled={processing}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+                className="px-4 py-2 rounded-lg border border-line text-sm font-medium text-ink-secondary hover:bg-surface-alt transition-colors disabled:opacity-50"
               >
                 Batal
               </button>
               <button
                 onClick={handleCreate}
                 disabled={processing || !selectedInvoice || !amount}
-                className="px-4 py-2 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-4 py-2 rounded-lg bg-primary text-on-primary text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {processing ? 'Memproses...' : 'Buat Pembayaran'}
               </button>

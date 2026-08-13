@@ -4,7 +4,7 @@ Mode: built-in image generation. Visual grounding: the product owner's Odoo laun
 
 ## 1. App launcher and module dashboard
 
-Create a polished 1440×900 Kitchen POS ERP app launcher using the Odoo reference only for spatial organization. Use a compact top bar, module search, outlet/user context, and a kanban grid with the exact top-level modules Point of Sale, Kitchen Display, Menu & Products, Inventory, Purchase & Suppliers, CRM, Promotions, Attendance, HR & Payroll, Finance, Reports, and Settings. Child menus stay inside modules; POS Back returns to the launcher. Neutral warm white/ink with muted violet accent; no gradients, glassmorphism, copied branding, emoji, or watermark.
+Create a polished 1440×900 Kitchen POS ERP app launcher using the Odoo reference only for spatial organization. Use a compact top bar, module search, outlet/user context, and a kanban grid with the exact top-level modules Point of Sale, Kitchen Display, Menu & Products, Inventory, Purchase, CRM, Promotions, Attendance, HR & Payroll, Finance, Reports, and Settings. Child menus stay inside modules; POS Back returns to the launcher. Neutral warm white/ink with muted violet accent; no gradients, glassmorphism, copied branding, emoji, or watermark.
 
 ## 2. Responsive list/detail workspace
 

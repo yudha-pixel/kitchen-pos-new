@@ -2,6 +2,7 @@ import { prisma } from '../lib/prisma';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { synchronizePermissionCatalog } from '../lib/permissionBackfill';
+import { createStockLog } from '../lib/inventoryService';
 
 async function main() {
   console.log('🌱 Seeding local PostgreSQL database...');
@@ -12,6 +13,7 @@ async function main() {
   await prisma.customerOrder.deleteMany();
   await prisma.orderItem.deleteMany();
   await prisma.order.deleteMany();
+  await prisma.recipe.deleteMany();
   await prisma.productModifierGroup.deleteMany();
   await prisma.modifier.deleteMany();
   await prisma.modifierGroup.deleteMany();
@@ -929,31 +931,504 @@ async function main() {
 
   console.log(`✅ Generated sample petty cash data for ${pettyCashDays} days`);
 
-  // Step 7.5: Generate Sample Ingredients for Wastage Reports
-  console.log('🥗 Generating sample ingredients for wastage reports...');
+  // Step 9: Seed comprehensive inventory data
+  await seedInventoryData();
 
-  const sampleIngredients = [
-    { name: 'Tepung Terigu', unit: 'kg', unit_price: 15000, current_stock: 50, min_stock: 10 },
-    { name: 'Gula Pasir', unit: 'kg', unit_price: 18000, current_stock: 30, min_stock: 5 },
-    { name: 'Minyak Goreng', unit: 'liter', unit_price: 25000, current_stock: 40, min_stock: 10 },
-    { name: 'Telur Ayam', unit: 'kg', unit_price: 32000, current_stock: 25, min_stock: 5 },
-    { name: 'Susu UHT', unit: 'liter', unit_price: 22000, current_stock: 20, min_stock: 5 },
-    { name: 'Keju Cheddar', unit: 'kg', unit_price: 85000, current_stock: 15, min_stock: 3 },
-    { name: 'Daging Sapi', unit: 'kg', unit_price: 120000, current_stock: 20, min_stock: 5 },
-    { name: 'Ayam Potong', unit: 'kg', unit_price: 45000, current_stock: 30, min_stock: 8 },
-    { name: 'Sayur Bayam', unit: 'kg', unit_price: 12000, current_stock: 10, min_stock: 3 },
-    { name: 'Tomat', unit: 'kg', unit_price: 15000, current_stock: 12, min_stock: 3 },
-    { name: 'Bawang Merah', unit: 'kg', unit_price: 35000, current_stock: 8, min_stock: 2 },
-    { name: 'Bawang Putih', unit: 'kg', unit_price: 40000, current_stock: 6, min_stock: 2 },
-    { name: 'Kopi Bubuk', unit: 'kg', unit_price: 95000, current_stock: 25, min_stock: 5 },
-    { name: 'Susu Segar', unit: 'liter', unit_price: 18000, current_stock: 15, min_stock: 4 },
-    { name: 'Coklat Bubuk', unit: 'kg', unit_price: 75000, current_stock: 10, min_stock: 2 },
+  console.log('🎉 Seeding complete');
+}
+
+// Comprehensive inventory data seeding function
+async function seedInventoryData() {
+  console.log('📦 Seeding comprehensive inventory data...');
+
+  // Clean existing inventory data first
+  console.log('🧹 Cleaning existing inventory data...');
+  await prisma.payment.deleteMany();
+  await prisma.invoice.deleteMany();
+  await prisma.goodsReceivedNoteItem.deleteMany();
+  await prisma.goodsReceivedNote.deleteMany();
+  await prisma.purchaseOrderItem.deleteMany();
+  await prisma.purchaseOrder.deleteMany();
+  await prisma.quotation.deleteMany();
+  await prisma.quotationRequest.deleteMany();
+  await prisma.purchaseRequisitionItem.deleteMany();
+  await prisma.purchaseRequisition.deleteMany();
+  await prisma.stockRequest.deleteMany();
+  await prisma.stockWriteOff.deleteMany();
+  await prisma.stockBatch.deleteMany();
+  await prisma.stockLog.deleteMany();
+  await prisma.stockAdjustmentLog.deleteMany();
+  await prisma.ingredientCategory.deleteMany();
+  await prisma.ingredient.deleteMany();
+  await prisma.supplier.deleteMany();
+  console.log('✅ Inventory data cleaned');
+
+  // Step 1: Create comprehensive suppliers
+  console.log('🏭 Creating comprehensive suppliers...');
+  const suppliers = await createComprehensiveSuppliers();
+  console.log(`✅ Created ${suppliers.length} suppliers`);
+
+  // Step 2: Create warehouses and ingredient categories
+  console.log('🏗️ Creating warehouses and ingredient categories...');
+  const warehouse = await prisma.warehouse.findFirst();
+  const ingredientCategories = await createIngredientCategories();
+  console.log(`✅ Created ${ingredientCategories.length} ingredient categories`);
+
+  // Step 3: Create comprehensive ingredients linked to suppliers
+  console.log('🥗 Creating comprehensive ingredients...');
+  const ingredients = await createComprehensiveIngredients(suppliers, warehouse, ingredientCategories);
+  console.log(`✅ Created ${ingredients.length} ingredients`);
+
+  // Step 4: Generate stock requests
+  console.log('📋 Generating stock requests...');
+  const stockRequests = await generateStockRequests(ingredients, suppliers);
+  console.log(`✅ Generated ${stockRequests.length} stock requests`);
+
+  // Step 5: Generate quotation requests and quotations
+  console.log('💰 Generating quotation requests and quotations...');
+  const { quotationRequests, quotations } = await generateQuotations(stockRequests, suppliers);
+  console.log(`✅ Generated ${quotationRequests.length} quotation requests and ${quotations.length} quotations`);
+
+  // Step 6: Generate purchase orders
+  console.log('📄 Generating purchase orders...');
+  const purchaseOrders = await generatePurchaseOrders(quotations, ingredients);
+  console.log(`✅ Generated ${purchaseOrders.length} purchase orders`);
+
+  // Step 7: Generate purchase requisitions
+  console.log('📝 Generating purchase requisitions...');
+  const purchaseRequisitions = await generatePurchaseRequisitions(ingredients, suppliers);
+  console.log(`✅ Generated ${purchaseRequisitions.length} purchase requisitions`);
+
+  // Step 8: Generate goods received notes
+  console.log('✅ Generating goods received notes...');
+  const goodsReceivedNotes = await generateGoodsReceivedNotes(purchaseOrders, ingredients);
+  console.log(`✅ Generated ${goodsReceivedNotes.length} goods received notes`);
+
+  // Step 9: Generate invoices
+  console.log('🧾 Generating invoices...');
+  const invoices = await generateInvoices(goodsReceivedNotes);
+  console.log(`✅ Generated ${invoices.length} invoices`);
+
+  // Step 10: Generate supplier payments
+  console.log('💳 Generating supplier payments...');
+  const payments = await generateSupplierPayments(invoices);
+  console.log(`✅ Generated ${payments.length} supplier payments`);
+
+  console.log('🎉 Comprehensive inventory data seeding complete');
+}
+
+async function createComprehensiveSuppliers() {
+  const supplierData = [
+    // Enhanced existing suppliers
+    {
+      name: 'PT Indofood Sukses Makmur',
+      phone: '021-57958888',
+      email: 'sales@indofood.com',
+      address: 'Jl. Jendral Sudirman Kav. 76-78, Jakarta',
+      pic_name: 'Budi Santoso',
+      pic_mobile: '081234567890',
+      category: 'Dry Goods',
+      moq_amount: 5000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Reliable delivery, good quality products',
+      is_active: true,
+    },
+    {
+      name: 'PT Ultra Jaya',
+      phone: '022-7564321',
+      email: 'order@ultrajaya.co.id',
+      address: 'Jl. Raya Bandung Km. 24, Cimahi',
+      pic_name: 'Siti Rahayu',
+      pic_mobile: '081234567891',
+      category: 'Dairy & Beverages',
+      moq_amount: 3000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 14',
+      performance_notes: 'Fast delivery, competitive pricing',
+      is_active: true,
+    },
+    {
+      name: 'PT Wings Surya',
+      phone: '031-8531234',
+      email: 'procurement@wingsgroup.com',
+      address: 'Jl. Raya Menganti Km. 16, Surabaya',
+      pic_name: 'Andi Wijaya',
+      pic_mobile: '081234567892',
+      category: 'Packaging',
+      moq_amount: 2000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Consistent quality, on-time delivery',
+      is_active: true,
+    },
+    {
+      name: 'PT Mayora Indah',
+      phone: '021-54321234',
+      email: 'supply@mayora.co.id',
+      address: 'Jl. Tomang Raya No. 11-13, Jakarta',
+      pic_name: 'Dewi Lestari',
+      pic_mobile: '081234567893',
+      category: 'Confectionery',
+      moq_amount: 4000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 45',
+      performance_notes: 'Wide product range, good support',
+      is_active: true,
+    },
+    {
+      name: 'PT Garudafood',
+      phone: '021-65432109',
+      email: 'vendor@garudafood.com',
+      address: 'Jl. Bintaro Raya No. 9, Tangerang Selatan',
+      pic_name: 'Eko Prasetyo',
+      pic_mobile: '081234567894',
+      category: 'Snacks',
+      moq_amount: 2500000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Popular brands, reliable supply',
+      is_active: true,
+    },
+    {
+      name: 'PT Frisian Flag Indonesia',
+      phone: '021-87654321',
+      email: 'business@frisianflag.com',
+      address: 'Jl. Raya Bogor Km. 28, Jakarta',
+      pic_name: 'Fajar Nugraha',
+      pic_mobile: '081234567895',
+      category: 'Dairy',
+      moq_amount: 6000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Premium dairy products, cold chain maintained',
+      is_active: true,
+    },
+    {
+      name: 'PT Unilever Indonesia',
+      phone: '021-23456789',
+      email: 'b2b@unilever.com',
+      address: 'Jl. Gatot Subroto Kav. 15, Jakarta',
+      pic_name: 'Gita Permata',
+      pic_mobile: '081234567896',
+      category: 'Cleaning Supplies',
+      moq_amount: 10000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 60',
+      performance_notes: 'Global quality standards, bulk discounts available',
+      is_active: true,
+    },
+    {
+      name: 'PT Heinz ABC Indonesia',
+      phone: '021-34567890',
+      email: 'sales@heinzabc.com',
+      address: 'Jl. Daan Mogot Km. 12, Jakarta',
+      pic_name: 'Hadi Kusuma',
+      pic_mobile: '081234567897',
+      category: 'Condiments',
+      moq_amount: 3500000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Trusted brand, consistent quality',
+      is_active: true,
+    },
+    // New suppliers
+    {
+      name: 'PT Bogasari Flour Mills',
+      phone: '021-69876543',
+      email: 'sales@bogasari.co.id',
+      address: 'Jl. Kyai Maja No. 5, Jakarta',
+      pic_name: 'Indah Sari',
+      pic_mobile: '081234567898',
+      category: 'Bakery',
+      moq_amount: 8000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Premium flour quality, consistent protein content',
+      is_active: true,
+    },
+    {
+      name: 'CV Segar Jaya',
+      phone: '081-987654321',
+      email: 'order@segarjaya.com',
+      address: 'Pasar Induk Kramat Jati, Jakarta',
+      pic_name: 'Joko Anwar',
+      pic_mobile: '081234567899',
+      category: 'Vegetables',
+      moq_amount: 1000000,
+      moq_unit: 'Rp',
+      payment_terms: 'cod',
+      performance_notes: 'Fresh daily produce, competitive prices',
+      is_active: true,
+    },
+    {
+      name: 'PT Daging Indonesia',
+      phone: '021-54321098',
+      email: 'sales@dagingindo.com',
+      address: 'Jl. Raya Bogor Km. 20, Jakarta',
+      pic_name: 'Kartika Sari',
+      pic_mobile: '081234567900',
+      category: 'Meat',
+      moq_amount: 15000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 14',
+      performance_notes: 'Halal certified, cold chain delivery',
+      is_active: true,
+    },
+    {
+      name: 'UD Ikan Segar',
+      phone: '081-234567890',
+      email: 'ikansegar@gmail.com',
+      address: 'Pasar Ikan Muara Baru, Jakarta',
+      pic_name: 'Lukman Hakim',
+      pic_mobile: '081234567901',
+      category: 'Seafood',
+      moq_amount: 2000000,
+      moq_unit: 'Rp',
+      payment_terms: 'cod',
+      performance_notes: 'Daily catch, very fresh seafood',
+      is_active: true,
+    },
+    {
+      name: 'PT Rempah Wangi',
+      phone: '022-12345678',
+      email: 'spices@rempahwangi.com',
+      address: 'Jl. Braga No. 10, Bandung',
+      pic_name: 'Maya Sari',
+      pic_mobile: '081234567902',
+      category: 'Spices',
+      moq_amount: 1500000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'High quality spices, aromatic products',
+      is_active: true,
+    },
+    {
+      name: 'PT Minyak Goreng Sehat',
+      phone: '021-76543210',
+      email: 'order@minyaksehat.com',
+      address: 'Jl. Industri No. 25, Jakarta',
+      pic_name: 'Rudi Hartono',
+      pic_mobile: '081234567903',
+      category: 'Oils & Fats',
+      moq_amount: 5000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Various oil types, bulk packaging',
+      is_active: true,
+    },
+    {
+      name: 'CV Ayam Berkah',
+      phone: '081-345678901',
+      email: 'ayamberkah@gmail.com',
+      address: 'Jl. Poultry No. 15, Jakarta',
+      pic_name: 'Sri Mulyani',
+      pic_mobile: '081234567904',
+      category: 'Poultry',
+      moq_amount: 3000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 14',
+      performance_notes: 'Free-range chicken, organic options',
+      is_active: true,
+    },
+    {
+      name: 'PT Buah Segar Abadi',
+      phone: '021-87654322',
+      email: 'fruits@buahsegar.com',
+      address: 'Jl. Fruit Garden No. 8, Jakarta',
+      pic_name: 'Dedi Cahyono',
+      pic_mobile: '081234567905',
+      category: 'Fruits',
+      moq_amount: 2500000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 7',
+      performance_notes: 'Seasonal fruits, imported options',
+      is_active: true,
+    },
+    {
+      name: 'PT Frozen Food Indonesia',
+      phone: '021-23456788',
+      email: 'frozen@frozenfood.com',
+      address: 'Jl. Cold Storage No. 12, Jakarta',
+      pic_name: 'Rina Wati',
+      pic_mobile: '081234567906',
+      category: 'Frozen Foods',
+      moq_amount: 4000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Wide frozen food range, maintained cold chain',
+      is_active: true,
+    },
+    {
+      name: 'PT Equipment Pro',
+      phone: '021-34567891',
+      email: 'equipment@pro.com',
+      address: 'Jl. Industrial No. 30, Jakarta',
+      pic_name: 'Agus Setiawan',
+      pic_mobile: '081234567907',
+      category: 'Equipment',
+      moq_amount: 20000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 60',
+      performance_notes: 'Commercial kitchen equipment, warranty included',
+      is_active: true,
+    },
+    {
+      name: 'CV Kemasan Plastik',
+      phone: '031-23456789',
+      email: 'packaging@plastik.com',
+      address: 'Jl. Packaging No. 5, Surabaya',
+      pic_name: 'Bambang Sutrisno',
+      pic_mobile: '081234567908',
+      category: 'Packaging',
+      moq_amount: 1000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Custom packaging, eco-friendly options',
+      is_active: true,
+    },
+    {
+      name: 'PT Sweet Treats',
+      phone: '021-56789012',
+      email: 'sweets@sweettreats.com',
+      address: 'Jl. Dessert Street No. 8, Jakarta',
+      pic_name: 'Ani Susanti',
+      pic_mobile: '081234567909',
+      category: 'Confectionery',
+      moq_amount: 2000000,
+      moq_unit: 'Rp',
+      payment_terms: 'net 30',
+      performance_notes: 'Premium chocolates and confectionery',
+      is_active: true,
+    },
   ];
 
-  const warehouse = await prisma.warehouse.findFirst();
+  const createdSuppliers = await prisma.supplier.createMany({
+    data: supplierData,
+    skipDuplicates: true,
+  });
+
+  return await prisma.supplier.findMany();
+}
+
+async function createIngredientCategories() {
+  const categories = [
+    { name: 'Proteins', color: '#ef4444' },
+    { name: 'Dairy', color: '#3b82f6' },
+    { name: 'Vegetables', color: '#22c55e' },
+    { name: 'Fruits', color: '#f97316' },
+    { name: 'Grains', color: '#eab308' },
+    { name: 'Spices', color: '#a855f7' },
+    { name: 'Oils', color: '#f59e0b' },
+    { name: 'Beverages', color: '#06b6d4' },
+    { name: 'Bakery', color: '#ec4899' },
+    { name: 'Packaging', color: '#64748b' },
+  ];
+
+  await prisma.ingredientCategory.createMany({
+    data: categories,
+    skipDuplicates: true,
+  });
+
+  return await prisma.ingredientCategory.findMany();
+}
+
+async function createComprehensiveIngredients(suppliers: any[], warehouse: any, categories: any[]) {
+  const categoryMap = new Map(categories.map(c => [c.name, c.id]));
   
-  for (const ingredient of sampleIngredients) {
-    await prisma.ingredient.create({
+  const ingredientData = [
+    // Proteins
+    { name: 'Daging Sapi', unit: 'kg', unit_price: 120000, current_stock: 20, min_stock: 5, category: 'Proteins', supplier: 'PT Daging Indonesia' },
+    { name: 'Daging Ayam', unit: 'kg', unit_price: 45000, current_stock: 30, min_stock: 8, category: 'Proteins', supplier: 'CV Ayam Berkah' },
+    { name: 'Ikan Tuna', unit: 'kg', unit_price: 85000, current_stock: 15, min_stock: 3, category: 'Proteins', supplier: 'UD Ikan Segar' },
+    { name: 'Ikan Kakap Merah', unit: 'kg', unit_price: 95000, current_stock: 12, min_stock: 3, category: 'Proteins', supplier: 'UD Ikan Segar' },
+    { name: 'Udang', unit: 'kg', unit_price: 150000, current_stock: 10, min_stock: 2, category: 'Proteins', supplier: 'UD Ikan Segar' },
+    { name: 'Telur Ayam', unit: 'kg', unit_price: 32000, current_stock: 25, min_stock: 5, category: 'Proteins', supplier: 'CV Ayam Berkah' },
+    { name: 'Tahu', unit: 'pcs', unit_price: 3000, current_stock: 50, min_stock: 10, category: 'Proteins', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Tempe', unit: 'pcs', unit_price: 4000, current_stock: 40, min_stock: 8, category: 'Proteins', supplier: 'PT Indofood Sukses Makmur' },
+    
+    // Dairy
+    { name: 'Susu UHT', unit: 'liter', unit_price: 22000, current_stock: 20, min_stock: 5, category: 'Dairy', supplier: 'PT Frisian Flag Indonesia' },
+    { name: 'Susu Segar', unit: 'liter', unit_price: 18000, current_stock: 15, min_stock: 4, category: 'Dairy', supplier: 'PT Ultra Jaya' },
+    { name: 'Keju Cheddar', unit: 'kg', unit_price: 85000, current_stock: 15, min_stock: 3, category: 'Dairy', supplier: 'PT Frisian Flag Indonesia' },
+    { name: 'Keju Mozzarella', unit: 'kg', unit_price: 120000, current_stock: 8, min_stock: 2, category: 'Dairy', supplier: 'PT Frisian Flag Indonesia' },
+    { name: 'Butter', unit: 'kg', unit_price: 95000, current_stock: 10, min_stock: 2, category: 'Dairy', supplier: 'PT Frisian Flag Indonesia' },
+    { name: 'Krim Kental Manis', unit: 'kaleng', unit_price: 15000, current_stock: 30, min_stock: 6, category: 'Dairy', supplier: 'PT Ultra Jaya' },
+    { name: 'Yogurt', unit: 'cup', unit_price: 8000, current_stock: 25, min_stock: 5, category: 'Dairy', supplier: 'PT Ultra Jaya' },
+    
+    // Vegetables
+    { name: 'Sayur Bayam', unit: 'kg', unit_price: 12000, current_stock: 10, min_stock: 3, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Tomat', unit: 'kg', unit_price: 15000, current_stock: 12, min_stock: 3, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Bawang Merah', unit: 'kg', unit_price: 35000, current_stock: 8, min_stock: 2, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Bawang Putih', unit: 'kg', unit_price: 40000, current_stock: 6, min_stock: 2, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Wortel', unit: 'kg', unit_price: 18000, current_stock: 15, min_stock: 3, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Kentang', unit: 'kg', unit_price: 20000, current_stock: 20, min_stock: 4, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Cabai Merah', unit: 'kg', unit_price: 45000, current_stock: 5, min_stock: 1, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    { name: 'Sawi', unit: 'kg', unit_price: 10000, current_stock: 12, min_stock: 3, category: 'Vegetables', supplier: 'CV Segar Jaya' },
+    
+    // Fruits
+    { name: 'Apel', unit: 'kg', unit_price: 35000, current_stock: 15, min_stock: 3, category: 'Fruits', supplier: 'PT Buah Segar Abadi' },
+    { name: 'Pisang', unit: 'kg', unit_price: 25000, current_stock: 20, min_stock: 4, category: 'Fruits', supplier: 'PT Buah Segar Abadi' },
+    { name: 'Jeruk', unit: 'kg', unit_price: 30000, current_stock: 18, min_stock: 4, category: 'Fruits', supplier: 'PT Buah Segar Abadi' },
+    { name: 'Mangga', unit: 'kg', unit_price: 40000, current_stock: 12, min_stock: 2, category: 'Fruits', supplier: 'PT Buah Segar Abadi' },
+    { name: 'Anggur', unit: 'kg', unit_price: 60000, current_stock: 8, min_stock: 2, category: 'Fruits', supplier: 'PT Buah Segar Abadi' },
+    { name: 'Strawberry', unit: 'kg', unit_price: 80000, current_stock: 6, min_stock: 1, category: 'Fruits', supplier: 'PT Buah Segar Abadi' },
+    
+    // Grains
+    { name: 'Tepung Terigu', unit: 'kg', unit_price: 15000, current_stock: 50, min_stock: 10, category: 'Grains', supplier: 'PT Bogasari Flour Mills' },
+    { name: 'Tepung Beras', unit: 'kg', unit_price: 18000, current_stock: 40, min_stock: 8, category: 'Grains', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Beras', unit: 'kg', unit_price: 16000, current_stock: 60, min_stock: 12, category: 'Grains', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Gula Pasir', unit: 'kg', unit_price: 18000, current_stock: 30, min_stock: 5, category: 'Grains', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Gula Merah', unit: 'kg', unit_price: 25000, current_stock: 15, min_stock: 3, category: 'Grains', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Mie Instan', unit: 'pcs', unit_price: 3500, current_stock: 100, min_stock: 20, category: 'Grains', supplier: 'PT Indofood Sukses Makmur' },
+    
+    // Spices
+    { name: 'Lada Hitam', unit: 'kg', unit_price: 150000, current_stock: 5, min_stock: 1, category: 'Spices', supplier: 'PT Rempah Wangi' },
+    { name: 'Lada Putih', unit: 'kg', unit_price: 180000, current_stock: 4, min_stock: 1, category: 'Spices', supplier: 'PT Rempah Wangi' },
+    { name: 'Ketumbar', unit: 'kg', unit_price: 80000, current_stock: 8, min_stock: 2, category: 'Spices', supplier: 'PT Rempah Wangi' },
+    { name: 'Jinten', unit: 'kg', unit_price: 120000, current_stock: 6, min_stock: 1, category: 'Spices', supplier: 'PT Rempah Wangi' },
+    { name: 'Kayu Manis', unit: 'kg', unit_price: 200000, current_stock: 3, min_stock: 1, category: 'Spices', supplier: 'PT Rempah Wangi' },
+    { name: 'Cengkeh', unit: 'kg', unit_price: 250000, current_stock: 2, min_stock: 1, category: 'Spices', supplier: 'PT Rempah Wangi' },
+    { name: 'Kecap Manis', unit: 'liter', unit_price: 25000, current_stock: 20, min_stock: 4, category: 'Spices', supplier: 'PT Heinz ABC Indonesia' },
+    { name: 'Kecap Asin', unit: 'liter', unit_price: 22000, current_stock: 15, min_stock: 3, category: 'Spices', supplier: 'PT Heinz ABC Indonesia' },
+    { name: 'Saus Tomat', unit: 'liter', unit_price: 30000, current_stock: 12, min_stock: 2, category: 'Spices', supplier: 'PT Heinz ABC Indonesia' },
+    { name: 'Saus Sambal', unit: 'liter', unit_price: 35000, current_stock: 10, min_stock: 2, category: 'Spices', supplier: 'PT Heinz ABC Indonesia' },
+    
+    // Oils
+    { name: 'Minyak Goreng', unit: 'liter', unit_price: 25000, current_stock: 40, min_stock: 10, category: 'Oils', supplier: 'PT Minyak Goreng Sehat' },
+    { name: 'Minyak Zaitun', unit: 'liter', unit_price: 150000, current_stock: 8, min_stock: 2, category: 'Oils', supplier: 'PT Minyak Goreng Sehat' },
+    { name: 'Mentega', unit: 'kg', unit_price: 90000, current_stock: 12, min_stock: 2, category: 'Oils', supplier: 'PT Frisian Flag Indonesia' },
+    { name: 'Minyak Kelapa', unit: 'liter', unit_price: 35000, current_stock: 15, min_stock: 3, category: 'Oils', supplier: 'PT Minyak Goreng Sehat' },
+    
+    // Beverages
+    { name: 'Kopi Bubuk', unit: 'kg', unit_price: 95000, current_stock: 25, min_stock: 5, category: 'Beverages', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Teh Hitam', unit: 'kg', unit_price: 45000, current_stock: 30, min_stock: 6, category: 'Beverages', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Teh Hijau', unit: 'kg', unit_price: 55000, current_stock: 20, min_stock: 4, category: 'Beverages', supplier: 'PT Indofood Sukses Makmur' },
+    { name: 'Coklat Bubuk', unit: 'kg', unit_price: 75000, current_stock: 10, min_stock: 2, category: 'Beverages', supplier: 'PT Sweet Treats' },
+    { name: 'Soda', unit: 'kaleng', unit_price: 8000, current_stock: 50, min_stock: 10, category: 'Beverages', supplier: 'PT Ultra Jaya' },
+    { name: 'Jus Buah', unit: 'liter', unit_price: 35000, current_stock: 15, min_stock: 3, category: 'Beverages', supplier: 'PT Ultra Jaya' },
+    
+    // Bakery
+    { name: 'Ragi', unit: 'kg', unit_price: 45000, current_stock: 8, min_stock: 2, category: 'Bakery', supplier: 'PT Bogasari Flour Mills' },
+    { name: 'Garam Halus', unit: 'kg', unit_price: 8000, current_stock: 20, min_stock: 4, category: 'Bakery', supplier: 'PT Bogasari Flour Mills' },
+    { name: 'Baking Powder', unit: 'kg', unit_price: 35000, current_stock: 10, min_stock: 2, category: 'Bakery', supplier: 'PT Bogasari Flour Mills' },
+    { name: 'Soda Kue', unit: 'kg', unit_price: 25000, current_stock: 12, min_stock: 2, category: 'Bakery', supplier: 'PT Bogasari Flour Mills' },
+    { name: 'Vanilla Essence', unit: 'liter', unit_price: 120000, current_stock: 5, min_stock: 1, category: 'Bakery', supplier: 'PT Sweet Treats' },
+    
+    // Packaging
+    { name: 'Plastik Kemasan', unit: 'roll', unit_price: 45000, current_stock: 30, min_stock: 6, category: 'Packaging', supplier: 'CV Kemasan Plastik' },
+    { name: 'Box Kardus', unit: 'pcs', unit_price: 3000, current_stock: 100, min_stock: 20, category: 'Packaging', supplier: 'CV Kemasan Plastik' },
+    { name: 'Cup Plastik', unit: 'pcs', unit_price: 500, current_stock: 500, min_stock: 100, category: 'Packaging', supplier: 'CV Kemasan Plastik' },
+    { name: 'Sendok Garpu', unit: 'pcs', unit_price: 200, current_stock: 200, min_stock: 40, category: 'Packaging', supplier: 'CV Kemasan Plastik' },
+    { name: 'Tisu', unit: 'pack', unit_price: 15000, current_stock: 50, min_stock: 10, category: 'Packaging', supplier: 'PT Unilever Indonesia' },
+  ];
+
+  const createdIngredients = [];
+  for (const ingredient of ingredientData) {
+    const supplier = suppliers.find(s => s.name === ingredient.supplier);
+    const category = categoryMap.get(ingredient.category);
+    
+    const created = await prisma.ingredient.create({
       data: {
         id: randomUUID(),
         name: ingredient.name,
@@ -962,83 +1437,470 @@ async function main() {
         current_stock: ingredient.current_stock,
         min_stock: ingredient.min_stock,
         restock_quantity: ingredient.min_stock * 2,
+        supplier_id: supplier?.id,
         warehouse_id: warehouse?.id,
+        category_id: category,
       },
     });
+    createdIngredients.push(created);
   }
 
-  console.log(`✅ Created ${sampleIngredients.length} sample ingredients`);
+  return createdIngredients;
+}
 
-  // Step 8: Generate Sample Stock Write-Off Data for Wastage Reports
-  console.log('🗑️  Generating sample stock write-off data for wastage reports...');
+async function generateStockRequests(ingredients: any[], suppliers: any[]) {
+  const stockRequests = [];
+  const statuses = ['pending_supervisor', 'pending_manager', 'pending_finance', 'approved', 'rejected', 'cancelled'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
 
-  const ingredients = await prisma.ingredient.findMany();
+  const adminUser = await prisma.profile.findFirst({ where: { username: 'admin' } });
+
+  for (let i = 0; i < 50; i++) {
+    const ingredient = ingredients[Math.floor(Math.random() * ingredients.length)];
+    const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+    const requestDate = new Date(startDate);
+    requestDate.setDate(requestDate.getDate() + Math.floor(Math.random() * daysToCover));
+    
+    const quantity = (Math.random() * 20 + 5).toFixed(1); // 5-25 units
+    const status = statuses[Math.floor(Math.random() * statuses.length)];
+    
+    const stockRequest = await prisma.stockRequest.create({
+      data: {
+        id: randomUUID(),
+        ingredient_id: ingredient.id,
+        ingredient_name: ingredient.name,
+        quantity_requested: parseFloat(quantity),
+        unit: ingredient.unit,
+        supplier_id: supplier.id,
+        status,
+        requested_by: adminUser!.id,
+        requested_by_name: adminUser!.full_name,
+        requested_at: requestDate,
+        notes: `Stock request for ${ingredient.name}`,
+      },
+    });
+    stockRequests.push(stockRequest);
+  }
+
+  return stockRequests;
+}
+
+async function generateQuotations(stockRequests: any[], suppliers: any[]) {
+  const quotationRequests = [];
+  const quotations = [];
+  const quotationStatuses = ['received', 'selected', 'rejected'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
+
+  // Create quotation requests from approved stock requests
+  const approvedStockRequests = stockRequests.filter(sr => sr.status === 'approved');
   
-  if (ingredients.length === 0) {
-    console.log('⚠️  No ingredients found, skipping stock write-off generation');
-  } else {
-    const writeOffReasons = ['expired', 'damaged', 'spoiled', 'quality_issue', 'measurement_error'];
-    const writeOffDescriptions = {
-      expired: ['Kedaluwarsa', 'Masa habis terlewati'],
-      damaged: ['Kemasan rusak', 'Bocor', 'Terjatuh'],
-      spoiled: ['Basi', 'Busuk', 'Terkontaminasi'],
-      quality_issue: ['Kualitas tidak memenuhi standar', 'Warna berubah', 'Bau tidak sedap'],
-      measurement_error: ['Kesalahan timbangan', 'Salah pengukuran'],
-    };
+  for (const stockRequest of approvedStockRequests) {
+    const qrDate = new Date(startDate);
+    qrDate.setDate(qrDate.getDate() + Math.floor(Math.random() * daysToCover));
+    
+    const quotationRequest = await prisma.quotationRequest.create({
+      data: {
+        id: randomUUID(),
+        stock_request_id: stockRequest.id,
+        status: 'open',
+        sent_at: qrDate,
+        notes: 'Request for quotation',
+      },
+    });
+    quotationRequests.push(quotationRequest);
 
-    const writeOffDays = 90; // Generate write-offs for 90 days
+    // Generate 2-4 quotations per request from different suppliers
+    const numQuotations = 2 + Math.floor(Math.random() * 3);
+    const shuffledSuppliers = [...suppliers].sort(() => Math.random() - 0.5);
+    
+    for (let i = 0; i < numQuotations; i++) {
+      const supplier = shuffledSuppliers[i];
+      const basePrice = Math.random() * 50000 + 10000; // 10k-60k
+      const quotedPrice = basePrice * (0.8 + Math.random() * 0.4); // 80%-120% variation
+      
+      const quotation = await prisma.quotation.create({
+        data: {
+          id: randomUUID(),
+          quotation_request_id: quotationRequest.id,
+          supplier_id: supplier.id,
+          status: quotationStatuses[Math.floor(Math.random() * quotationStatuses.length)],
+          quoted_price: quotedPrice,
+          quoted_unit: 'Rp',
+          delivery_date: new Date(qrDate.getTime() + 7 * 24 * 60 * 60 * 1000), // 7 days later
+          payment_terms: 'net 30',
+          valid_until: new Date(qrDate.getTime() + 14 * 24 * 60 * 60 * 1000), // 14 days later
+          received_at: qrDate,
+          notes: `Quotation from ${supplier.name}`,
+        },
+      });
+      quotations.push(quotation);
+    }
 
-    for (let dayOffset = 0; dayOffset < writeOffDays; dayOffset++) {
-      const writeOffDate = new Date();
-      writeOffDate.setDate(writeOffDate.getDate() - dayOffset);
+    // Close some quotation requests
+    if (Math.random() > 0.3) {
+      await prisma.quotationRequest.update({
+        where: { id: quotationRequest.id },
+        data: {
+          status: 'closed',
+          closed_at: new Date(qrDate.getTime() + 2 * 24 * 60 * 60 * 1000),
+        },
+      });
+    }
+  }
+
+  return { quotationRequests, quotations };
+}
+
+async function generatePurchaseOrders(quotations: any[], ingredients: any[]) {
+  const purchaseOrders = [];
+  const poStatuses = ['draft', 'sent', 'acknowledged', 'partially_received', 'received', 'cancelled'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
+
+  const selectedQuotations = quotations.filter(q => q.status === 'selected');
+  
+  for (const quotation of selectedQuotations) {
+    const orderDate = new Date(startDate);
+    orderDate.setDate(orderDate.getDate() + Math.floor(Math.random() * daysToCover));
+    
+    const status = poStatuses[Math.floor(Math.random() * poStatuses.length)];
+    
+    // Generate PO number
+    const year = orderDate.getFullYear();
+    const month = String(orderDate.getMonth() + 1).padStart(2, '0');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const po_number = `PO-${year}${month}-${random}`;
+
+    // Calculate totals
+    const subtotal = quotation.quoted_price;
+    const tax = subtotal * 0.1;
+    const total = subtotal + tax;
+
+    // Generate 1-3 items per PO
+    const numItems = 1 + Math.floor(Math.random() * 3);
+    const poItems = [];
+    for (let i = 0; i < numItems; i++) {
+      const ingredient = ingredients[Math.floor(Math.random() * ingredients.length)];
+      const quantity = Math.floor(Math.random() * 10) + 1;
+      const unitPrice = quotation.quoted_price / numItems; // Distribute price across items
       
-      // Generate 0-2 write-offs per day (some days have no wastage)
-      const writeOffsPerDay = Math.floor(Math.random() * 3);
-      
-      for (let i = 0; i < writeOffsPerDay; i++) {
-        const ingredient = ingredients[Math.floor(Math.random() * ingredients.length)];
-        const reason = writeOffReasons[Math.floor(Math.random() * writeOffReasons.length)];
-        const descriptions = writeOffDescriptions[reason as keyof typeof writeOffDescriptions];
-        const description = descriptions[Math.floor(Math.random() * descriptions.length)];
-        
-        // Random quantity (0.1 - 5 units)
-        const quantity = 0.1 + Math.random() * 4.9;
-        
-        // Calculate estimated price
-        const estimatedPrice = quantity * (ingredient.unit_price || 0);
-        
-        // Use the first admin user as requested_by
-        const adminUser = await prisma.profile.findFirst({
-          where: { username: 'admin' }
+      poItems.push({
+        id: randomUUID(),
+        ingredient_id: ingredient.id,
+        ingredient_name: ingredient.name,
+        quantity,
+        unit: ingredient.unit,
+        unit_price: unitPrice,
+        total_price: unitPrice * quantity,
+      });
+    }
+
+    const purchaseOrder = await prisma.purchaseOrder.create({
+      data: {
+        id: randomUUID(),
+        po_number,
+        quotation_id: quotation.id,
+        supplier_id: quotation.supplier_id,
+        status,
+        order_date: orderDate,
+        expected_delivery: new Date(orderDate.getTime() + 7 * 24 * 60 * 60 * 1000),
+        payment_terms: 'net 30',
+        subtotal,
+        tax,
+        total,
+        notes: `PO from quotation ${quotation.id}`,
+        reviewed_at: status !== 'draft' ? new Date(orderDate.getTime() + 1 * 24 * 60 * 60 * 1000) : null,
+        sent_at: ['sent', 'acknowledged', 'partially_received', 'received'].includes(status) ? new Date(orderDate.getTime() + 2 * 24 * 60 * 60 * 1000) : null,
+        acknowledged_at: ['acknowledged', 'partially_received', 'received'].includes(status) ? new Date(orderDate.getTime() + 3 * 24 * 60 * 60 * 1000) : null,
+        items: {
+          create: poItems,
+        },
+      },
+    });
+    purchaseOrders.push(purchaseOrder);
+  }
+
+  return purchaseOrders;
+}
+
+async function generatePurchaseRequisitions(ingredients: any[], suppliers: any[]) {
+  const purchaseRequisitions = [];
+  const prStatuses = ['Pending Approval', 'Approved', 'Rejected', 'Converted to PO'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
+
+  const adminUser = await prisma.profile.findFirst({ where: { username: 'admin' } });
+
+  // Get the last PR number to start from
+  const lastPR = await prisma.purchaseRequisition.findFirst({
+    orderBy: { created_at: 'desc' }
+  });
+
+  let nextNumber = 1;
+  if (lastPR && lastPR.pr_number) {
+    const lastNum = parseInt(lastPR.pr_number.replace('#PR-', ''));
+    nextNumber = lastNum + 1;
+  }
+
+  for (let i = 0; i < 30; i++) {
+    const prDate = new Date(startDate);
+    prDate.setDate(prDate.getDate() + Math.floor(Math.random() * daysToCover));
+    
+    const status = prStatuses[Math.floor(Math.random() * prStatuses.length)];
+    
+    // Generate unique PR number
+    const pr_number = `#PR-${String(nextNumber).padStart(3, '0')}`;
+    nextNumber++;
+
+    // Generate items
+    const numItems = 1 + Math.floor(Math.random() * 4); // 1-4 items
+    const items = [];
+    let totalEstimated = 0;
+
+    for (let j = 0; j < numItems; j++) {
+      const ingredient = ingredients[Math.floor(Math.random() * ingredients.length)];
+      const supplier = suppliers[Math.floor(Math.random() * suppliers.length)];
+      const quantity = Math.floor(Math.random() * 10) + 1;
+      const itemEstimatedPrice = quantity * ingredient.unit_price;
+      totalEstimated += itemEstimatedPrice;
+
+      items.push({
+        ingredient_id: ingredient.id,
+        ingredient_name: ingredient.name,
+        quantity,
+        unit: ingredient.unit,
+        estimated_price: itemEstimatedPrice,
+        supplier_id: supplier.id,
+      });
+    }
+
+    const pr = await prisma.purchaseRequisition.create({
+      data: {
+        id: randomUUID(),
+        pr_number,
+        status,
+        requested_by: adminUser!.username,
+        total_estimated: totalEstimated,
+        notes: 'Purchase requisition for restock',
+        approved_at: ['Approved', 'Converted to PO'].includes(status) ? new Date(prDate.getTime() + 1 * 24 * 60 * 60 * 1000) : null,
+        approved_by: ['Approved', 'Converted to PO'].includes(status) ? adminUser!.full_name : null,
+        created_at: prDate,
+        prItems: {
+          create: items,
+        },
+      },
+    });
+    purchaseRequisitions.push(pr);
+  }
+
+  return purchaseRequisitions;
+}
+
+async function generateGoodsReceivedNotes(purchaseOrders: any[], ingredients: any[]) {
+  const goodsReceivedNotes = [];
+  const grnStatuses = ['pending', 'quality_check', 'completed', 'cancelled'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
+
+  const adminUser = await prisma.profile.findFirst({ where: { username: 'admin' } });
+
+  const processablePOs = purchaseOrders.filter(po => 
+    ['sent', 'acknowledged', 'partially_received', 'received'].includes(po.status)
+  );
+
+  for (const po of processablePOs) {
+    const grnDate = new Date(startDate);
+    grnDate.setDate(grnDate.getDate() + Math.floor(Math.random() * daysToCover));
+    
+    const status = grnStatuses[Math.floor(Math.random() * grnStatuses.length)];
+
+    // Generate GRN number
+    const year = grnDate.getFullYear();
+    const month = String(grnDate.getMonth() + 1).padStart(2, '0');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const grn_number = `GRN-${year}${month}-${random}`;
+
+    const grn = await prisma.goodsReceivedNote.create({
+      data: {
+        id: randomUUID(),
+        grn_number,
+        purchase_order_id: po.id,
+        supplier_id: po.supplier_id,
+        status,
+        received_date: grnDate,
+        received_by: adminUser!.id,
+        received_by_name: adminUser!.full_name,
+        delivery_note: `DN-${random}`,
+        quality_checked_by: ['quality_check', 'completed'].includes(status) ? adminUser!.id : null,
+        quality_checked_at: ['quality_check', 'completed'].includes(status) ? new Date(grnDate.getTime() + 1 * 24 * 60 * 60 * 1000) : null,
+        quality_notes: ['quality_check', 'completed'].includes(status) ? 'Quality check passed' : null,
+        items: {
+          create: (po.items || []).map((item: any) => ({
+            id: randomUUID(),
+            ingredient_id: item.ingredient_id,
+            ingredient_name: item.ingredient_name,
+            ordered_qty: item.quantity,
+            received_qty: item.quantity * (0.9 + Math.random() * 0.2), // 90%-110% of ordered
+            unit: item.unit,
+            quality_status: ['quality_check', 'completed'].includes(status) ? 'approved' : 'pending',
+            batch_number: `BATCH-${year}${month}${Math.floor(Math.random() * 1000)}`,
+            expiry_date: new Date(grnDate.getTime() + 30 * 24 * 60 * 60 * 1000),
+            stock_updated: ['completed'].includes(status),
+          })),
+        },
+      },
+    });
+    goodsReceivedNotes.push(grn);
+
+    // Update stock for completed GRNs
+    if (status === 'completed' && po.items) {
+      for (const item of po.items) {
+        const previousStock = await prisma.ingredient.findUnique({
+          where: { id: item.ingredient_id }
         });
         
-        await prisma.stockWriteOff.create({
+        await prisma.ingredient.update({
+          where: { id: item.ingredient_id },
+          data: { current_stock: { increment: item.quantity } },
+        });
+
+        // Create stock adjustment log
+        await prisma.stockAdjustmentLog.create({
           data: {
             id: randomUUID(),
-            ingredient_id: ingredient.id,
-            ingredient_name: ingredient.name,
-            quantity_written_off: Math.round(quantity * 100) / 100,
-            unit: ingredient.unit,
-            reason,
-            notes: description,
-            proof_file: 'sample_proof.jpg', // Placeholder for proof file
-            proof_file_name: 'sample_proof.jpg',
-            status: 'approved', // Auto-approve for sample data
-            requested_by: adminUser!.id,
-            requested_by_name: adminUser!.full_name,
-            approved_by: adminUser!.id,
-            approved_by_name: adminUser!.full_name,
-            requested_at: writeOffDate,
-            approved_at: writeOffDate,
+            ingredient_id: item.ingredient_id,
+            previous_stock: previousStock?.current_stock || 0,
+            new_stock: (previousStock?.current_stock || 0) + item.quantity,
+            adjustment_type: 'purchase',
+            reason: `Stock received via GRN ${grn.grn_number}`,
+            user_id: adminUser!.id,
           },
+        });
+
+        // Create stock log
+        await createStockLog({
+          ingredientId: item.ingredient_id,
+          quantity: item.quantity,
+          type: 'STOCK_IN',
+          referenceId: grn.id,
+          referenceType: 'goods_received_note',
+          notes: `Stock received via GRN ${grn.grn_number}`,
         });
       }
     }
-
-    console.log(`✅ Generated sample stock write-off data for ${writeOffDays} days`);
   }
 
-  console.log('🎉 Seeding complete');
+  return goodsReceivedNotes;
+}
+
+async function generateInvoices(goodsReceivedNotes: any[]) {
+  const invoices = [];
+  const invoiceStatuses = ['pending', 'verified', 'partially_paid', 'paid', 'overdue'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
+
+  const adminUser = await prisma.profile.findFirst({ where: { username: 'admin' } });
+
+  const completedGRNs = goodsReceivedNotes.filter(grn => grn.status === 'completed');
+
+  for (const grn of completedGRNs) {
+    const invoiceDate = new Date(startDate);
+    invoiceDate.setDate(invoiceDate.getDate() + Math.floor(Math.random() * daysToCover));
+    
+    const status = invoiceStatuses[Math.floor(Math.random() * invoiceStatuses.length)];
+
+    // Generate invoice number
+    const year = invoiceDate.getFullYear();
+    const month = String(invoiceDate.getMonth() + 1).padStart(2, '0');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    const invoice_number = `INV-${year}${month}-${random}`;
+
+    const subtotal = Math.random() * 1000000 + 100000; // 100k-1.1M
+    const tax = subtotal * 0.1;
+    const total = subtotal + tax;
+
+    const invoice = await prisma.invoice.create({
+      data: {
+        id: randomUUID(),
+        invoice_number,
+        grn_id: grn.id,
+        supplier_id: grn.supplier_id,
+        status,
+        invoice_date: invoiceDate,
+        due_date: new Date(invoiceDate.getTime() + 30 * 24 * 60 * 60 * 1000),
+        subtotal,
+        tax,
+        total,
+        payment_terms: 'net 30',
+        verified_by: ['verified', 'partially_paid', 'paid', 'overdue'].includes(status) ? adminUser!.id : null,
+        verified_at: ['verified', 'partially_paid', 'paid', 'overdue'].includes(status) ? new Date(invoiceDate.getTime() + 1 * 24 * 60 * 60 * 1000) : null,
+        notes: `Invoice for GRN ${grn.grn_number}`,
+      },
+    });
+    invoices.push(invoice);
+  }
+
+  return invoices;
+}
+
+async function generateSupplierPayments(invoices: any[]) {
+  const payments = [];
+  const paymentStatuses = ['pending', 'completed', 'cancelled'];
+  const paymentMethods = ['transfer', 'cash', 'check'];
+  const daysToCover = 90;
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysToCover);
+
+  const adminUser = await prisma.profile.findFirst({ where: { username: 'admin' } });
+
+  const payableInvoices = invoices.filter(inv => 
+    ['verified', 'partially_paid', 'paid', 'overdue'].includes(inv.status)
+  );
+
+  for (const invoice of payableInvoices) {
+    // Generate 1-3 payments per invoice
+    const numPayments = 1 + Math.floor(Math.random() * 3);
+    
+    for (let i = 0; i < numPayments; i++) {
+      const paymentDate = new Date(startDate);
+      paymentDate.setDate(paymentDate.getDate() + Math.floor(Math.random() * daysToCover));
+      
+      const status = paymentStatuses[Math.floor(Math.random() * paymentStatuses.length)];
+      const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+      
+      // Partial payments for some invoices
+      const amount = i === numPayments - 1 ? 
+        invoice.total - payments.filter(p => p.invoice_id === invoice.id).reduce((sum, p) => sum + p.amount, 0) :
+        invoice.total / numPayments * (0.8 + Math.random() * 0.4);
+
+      const payment = await prisma.payment.create({
+        data: {
+          id: randomUUID(),
+          invoice_id: invoice.id,
+          supplier_id: invoice.supplier_id,
+          status,
+          payment_date: paymentDate,
+          amount: Math.max(0, amount),
+          payment_method: paymentMethod,
+          reference_number: `REF-${Math.floor(Math.random() * 1000000)}`,
+          notes: `Payment for invoice ${invoice.invoice_number}`,
+          processed_by: ['completed'].includes(status) ? adminUser!.id : null,
+          processed_at: ['completed'].includes(status) ? new Date(paymentDate.getTime() + 1 * 24 * 60 * 60 * 1000) : null,
+        },
+      });
+      payments.push(payment);
+    }
+  }
+
+  return payments;
 }
 
 main()

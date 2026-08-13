@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { ArrowLeft, ChevronRight, Menu, Plus, Search, MoreVertical } from 'lucide-react';
 import { LiveClock } from './LiveClock';
 import { UserProfileMenu } from './UserProfileMenu';
@@ -23,16 +24,67 @@ interface HeaderProps {
 export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) => {
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const { user, logout } = useAuth();
   const { company } = useCompany();
   const { config } = usePageHeaderContext();
   const currentModule = findModuleForPath(pathname);
-  // Falls back to the matching sub-link's own label (e.g. "Manajemen Produk")
-  // before the module title, so pages that don't pass an explicit title don't
-  // show a redundant "Module › Module" breadcrumb.
-  const matchedSubLink = currentModule?.subLinks.find((sub) => sub.href === pathname);
-  const pageTitle = matchedSubLink?.label || title || currentModule?.title || 'Kitchen POS';
+  const matchedSubLink = currentModule?.subLinks.find(
+    (sub) => sub.href === pathname || (sub.href !== '/' && pathname.startsWith(sub.href + '/'))
+  );
+
+  const isDetailRoute = Boolean(matchedSubLink && pathname !== matchedSubLink.href);
+  const pageRawTitle = title || config.title || matchedSubLink?.label || currentModule?.title || 'Kitchen POS';
+
+  let activeBreadcrumb = pageRawTitle;
+  if (isDetailRoute && matchedSubLink) {
+    const regex = new RegExp(`^${matchedSubLink.label}[:\\s]*`, 'i');
+    activeBreadcrumb = pageRawTitle.replace(regex, '').trim();
+    if (!activeBreadcrumb) activeBreadcrumb = pageRawTitle;
+  } else if (matchedSubLink) {
+    activeBreadcrumb = matchedSubLink.label;
+  }
+
+  // Read origin context search params for dynamic cross-document breadcrumbs
+  const fromLabel = searchParams?.get('fromLabel');
+  const fromHref = searchParams?.get('fromHref');
+  const fromParentLabel = searchParams?.get('fromParentLabel');
+  const fromParentHref = searchParams?.get('fromParentHref');
+
+  // Build dynamic clickable breadcrumb segments
+  const breadcrumbSegments: { label: string; href?: string }[] = [];
+
+  if (fromLabel && fromHref) {
+    // Document-to-document navigation context (e.g., PR → PO)
+    if (fromParentLabel && fromParentHref) {
+      breadcrumbSegments.push({ label: fromParentLabel, href: fromParentHref });
+    }
+    breadcrumbSegments.push({ label: fromLabel, href: fromHref });
+    breadcrumbSegments.push({ label: activeBreadcrumb });
+  } else if (isDetailRoute && matchedSubLink) {
+    // Standard detail route within module
+    breadcrumbSegments.push({ label: matchedSubLink.label, href: matchedSubLink.href });
+    breadcrumbSegments.push({ label: activeBreadcrumb });
+  } else if (matchedSubLink) {
+    // Module list page
+    if (currentModule?.title && currentModule.title !== matchedSubLink.label) {
+      breadcrumbSegments.push({ label: currentModule.title, href: currentModule.subLinks[0]?.href });
+    }
+    breadcrumbSegments.push({ label: matchedSubLink.label });
+  } else {
+    // Fallback for pages without clear module context
+    breadcrumbSegments.push({ label: pageRawTitle });
+  }
+
+  // Handle edge case: if fromHref is invalid/missing, remove it from breadcrumbs
+  if (fromLabel && !fromHref) {
+    // Remove the fromLabel segment if href is missing
+    const fromLabelIndex = breadcrumbSegments.findIndex(seg => seg.label === fromLabel);
+    if (fromLabelIndex !== -1) {
+      breadcrumbSegments.splice(fromLabelIndex, 1);
+    }
+  }
 
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -44,8 +96,6 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
     logout();
     router.push('/login');
   };
-
-  const isPosModule = currentModule?.id === 'pos';
 
   const handleToggleSidebar = () => {
     if (onToggleMobileSidebar) {
@@ -83,15 +133,30 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
           >
             <ArrowLeft className="size-5" aria-hidden="true" />
           </button>
-          {!onSearch && <div className="hidden min-w-0 items-center gap-2 text-xs lg:flex">
-            {currentModule && (
-              <>
-                <span className="text-ink-muted">{currentModule.title}</span>
-                <ChevronRight className="size-3 shrink-0 text-ink-muted" aria-hidden="true" />
-              </>
-            )}
-            <span className="truncate text-sm font-semibold text-ink">{pageTitle}</span>
-          </div>}
+          {!onSearch && (
+            <div className="hidden min-w-0 items-center gap-1.5 text-xs lg:flex">
+              {breadcrumbSegments.map((item, idx) => {
+                const isLast = idx === breadcrumbSegments.length - 1;
+                return (
+                  <div key={idx} className="flex items-center gap-1.5 min-w-0" title={item.label}>
+                    {!isLast && item.href ? (
+                      <Link
+                        href={item.href}
+                        className="text-ink-muted hover:text-primary hover:underline font-medium transition-colors truncate"
+                      >
+                        {item.label}
+                      </Link>
+                    ) : !isLast ? (
+                      <span className="text-ink-muted font-medium truncate">{item.label}</span>
+                    ) : (
+                      <span className="truncate text-sm font-bold text-ink" title={item.label}>{item.label}</span>
+                    )}
+                    {!isLast && <ChevronRight className="size-3 shrink-0 text-ink-muted" aria-hidden="true" />}
+                  </div>
+                );
+              })}
+            </div>
+          )}
 
           {onSearch && (
             <div className="relative hidden min-w-0 max-w-sm flex-1 lg:block">

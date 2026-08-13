@@ -546,10 +546,10 @@ export default function UsersManagementPage() {
         </>
       )}
 
-      {/* VIEW MODE 2: ODOO 19 RES.USERS FORM VIEW */}
+      {/* VIEW MODE 2: ERP RES.USERS FORM VIEW */}
       {viewMode === 'form' && (
         <form onSubmit={handleSaveForm} className="space-y-6">
-          {/* Main Odoo 19 res.users Form Sheet Card */}
+          {/* Main ERP res.users Form Sheet Card */}
           <div className="appearance-card rounded-2xl border border-line bg-surface p-6 shadow-sm space-y-6">
             {/* Header Sheet Banner: Avatar + Headline Name + Status Badges + Right Action Menu */}
             <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:justify-between border-b border-line pb-6">
@@ -719,7 +719,7 @@ export default function UsersManagementPage() {
               </div>
             </div>
 
-            {/* Odoo 19 Notebook / Tabbed Section */}
+            {/* ERP Notebook / Tabbed Section */}
             <div className="space-y-6">
               {/* Notebook Tab Bar */}
               <div className="border-b border-line">
@@ -903,7 +903,7 @@ export default function UsersManagementPage() {
                   <hr className="border-line" />
 
                   <div className="space-y-4">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted">Preferensi Tampilan POS (Odoo Style)</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-ink-muted">Preferensi Tampilan POS (ERP Style)</h4>
 
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="flex items-center justify-between rounded-xl border border-line bg-surface-alt p-4">

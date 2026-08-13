@@ -28,6 +28,7 @@ import {
   FileSearch,
   FileText,
   ClipboardList,
+  Hash,
   PackageCheck,
   Receipt,
   CreditCard,
@@ -100,6 +101,6 @@ export const NAVIGATION_ICON_MAP: Record<string, React.ComponentType<{ className
   Palette,
   Puzzle,
   Wallet,
-  Package,
   FileStack,
+  Hash,
 };

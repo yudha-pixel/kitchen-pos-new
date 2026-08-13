@@ -350,9 +350,10 @@ export default function PurchaseRequisitionsPage() {
   // Filter requisitions
   const filteredRequisitions = requisitions.filter(pr => {
     const matchesStatus = statusFilter === 'all' || pr.status === statusFilter;
+    const q = searchQuery.toLowerCase();
     const matchesSearch = 
-      pr.pr_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      pr.requested_by.toLowerCase().includes(searchQuery.toLowerCase());
+      (pr.pr_number || '').toLowerCase().includes(q) ||
+      (pr.requested_by || '').toLowerCase().includes(q);
     
     return matchesStatus && matchesSearch;
   });
@@ -383,14 +384,14 @@ export default function PurchaseRequisitionsPage() {
 
   return (
     <ResponsiveShell title="Purchase Requisitions">
-      <div className="min-h-full bg-slate-50 -m-4 sm:-m-6">
+      <div className="min-h-full bg-background -m-4 sm:-m-6">
         {/* Header */}
-        <div className="bg-white border-b border-slate-200">
+        <div className="bg-surface border-b border-line">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             <div className="flex items-center justify-between h-16">
               <div>
-                <h1 className="text-xl font-bold text-slate-900">Purchase Requisitions</h1>
-                <p className="text-sm text-slate-500">Kelola permintaan pembelian barang</p>
+                <h1 className="text-xl font-bold text-ink">Purchase Requisitions</h1>
+                <p className="text-sm text-ink-muted">Kelola permintaan pembelian barang</p>
               </div>
               <Button onClick={() => setCreateModalOpen(true)} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
@@ -401,25 +402,25 @@ export default function PurchaseRequisitionsPage() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white border-b border-slate-200">
+        <div className="bg-surface border-b border-line">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <div className="flex gap-4">
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-muted" />
                   <input
                     type="text"
                     placeholder="Cari PR number atau requester..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                   />
                 </div>
               </div>
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as PRStatus)}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                className="px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="all">Semua Status</option>
                 <option value="Pending Approval">Pending Approval</option>
@@ -434,34 +435,34 @@ export default function PurchaseRequisitionsPage() {
         {/* Main Content */}
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6">
           {loading ? (
-            <div className="text-center py-12 text-slate-500">Memuat data...</div>
+            <div className="text-center py-12 text-ink-muted">Memuat data...</div>
           ) : filteredRequisitions.length === 0 ? (
-            <div className="text-center py-12 text-slate-500">
+            <div className="text-center py-12 text-ink-muted">
               Tidak ada purchase requisition ditemukan
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+            <div className="bg-surface rounded-lg shadow-sm border border-line overflow-hidden">
               <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
+                <thead className="bg-surface-alt border-b border-line">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">PR Number</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Requester</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Items</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Total Est.</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Tanggal</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">PR Number</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">Requester</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">Items</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">Total Est.</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-ink-muted uppercase">Tanggal</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-slate-500 uppercase">Aksi</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-200">
+                <tbody className="divide-y divide-line">
                   {filteredRequisitions.map((pr) => (
-                    <tr key={pr.id} className="hover:bg-slate-50">
-                      <td className="px-6 py-4 text-sm font-medium text-slate-900">{pr.pr_number}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{pr.requested_by}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{pr.items.length} item(s)</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">{formatCurrency(pr.total_estimated)}</td>
+                    <tr key={pr.id} className="hover:bg-surface-alt">
+                      <td className="px-6 py-4 text-sm font-medium text-ink">{pr.pr_number}</td>
+                      <td className="px-6 py-4 text-sm text-ink-secondary">{pr.requested_by}</td>
+                      <td className="px-6 py-4 text-sm text-ink-secondary">{(pr.items || []).length} item(s)</td>
+                      <td className="px-6 py-4 text-sm text-ink-secondary">{formatCurrency(pr.total_estimated)}</td>
                       <td className="px-6 py-4">{getStatusBadge(pr.status)}</td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-ink-secondary">
                         {new Date(pr.created_at).toLocaleDateString('id-ID')}
                       </td>
                       <td className="px-6 py-4">
@@ -501,7 +502,7 @@ export default function PurchaseRequisitionsPage() {
                               setSelectedPR(pr);
                               setModalOpen(true);
                             }}
-                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                            className="p-2 text-ink-secondary hover:bg-surface-alt rounded-lg transition-colors"
                             title="View Details"
                           >
                             <FileText className="h-4 w-4" />
@@ -520,33 +521,33 @@ export default function PurchaseRequisitionsPage() {
       {/* Create PR Modal */}
       {createModalOpen && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-200">
+          <div className="bg-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-line">
+            <div className="p-6 border-b border-line">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">Buat Purchase Requisition Baru</h2>
+                <h2 className="text-lg font-bold text-ink">Buat Purchase Requisition Baru</h2>
                 <button
                   onClick={() => {
                     setCreateModalOpen(false);
                     setPrItems([]);
                     setNotes('');
                   }}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-surface-alt rounded-lg transition-colors"
                 >
-                  <X className="h-5 w-5 text-slate-500" />
+                  <X className="h-5 w-5 text-ink-muted" />
                 </button>
               </div>
             </div>
             <div className="p-6 space-y-6">
               {/* Auto Restock Section */}
-              <div className="bg-violet-50 border border-violet-200 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-violet-900 mb-4">Tarik Item Restok Otomatis</h3>
+              <div className="bg-primary-soft border border-primary/20 rounded-lg p-4">
+                <h3 className="text-sm font-medium text-ink mb-4">Tarik Item Restok Otomatis</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Filter Supplier</label>
+                    <label className="block text-sm font-medium text-ink-secondary mb-2">Filter Supplier</label>
                     <select
                       value={selectedSupplierFilter}
                       onChange={(e) => setSelectedSupplierFilter(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     >
                       <option value="all">Semua Supplier</option>
                       {suppliers.map((sup) => (
@@ -566,7 +567,7 @@ export default function PurchaseRequisitionsPage() {
                     </Button>
                   </div>
                   <div className="flex items-end">
-                    <p className="text-xs text-slate-500">
+                    <p className="text-xs text-ink-muted">
                       Memuat item dengan stok &le; min_stock dan jumlah restok &gt; 0 dari konfigurasi Otomatisasi Restok
                     </p>
                   </div>
@@ -574,15 +575,15 @@ export default function PurchaseRequisitionsPage() {
               </div>
 
               {/* Add Item */}
-              <div className="border border-slate-200 rounded-lg p-4">
-                <h3 className="text-sm font-medium text-slate-700 mb-4">Tambah Item Manual</h3>
+              <div className="border border-line rounded-lg p-4">
+                <h3 className="text-sm font-medium text-ink mb-4">Tambah Item Manual</h3>
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Ingredient</label>
+                    <label className="block text-sm font-medium text-ink-secondary mb-2">Ingredient</label>
                     <select
                       value={selectedIngredient}
                       onChange={(e) => setSelectedIngredient(e.target.value)}
-                      className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     >
                       <option value="">-- Pilih Ingredient --</option>
                       {ingredients.map((ing) => (
@@ -593,7 +594,7 @@ export default function PurchaseRequisitionsPage() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-2">Quantity</label>
+                    <label className="block text-sm font-medium text-ink-secondary mb-2">Quantity</label>
                     <input
                       type="number"
                       value={quantity}
@@ -601,7 +602,7 @@ export default function PurchaseRequisitionsPage() {
                       placeholder="0"
                       min="0"
                       step="0.01"
-                      className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                      className="w-full px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
                     />
                   </div>
                   <div className="flex items-end">
@@ -615,22 +616,22 @@ export default function PurchaseRequisitionsPage() {
 
               {/* Items List */}
               {prItems.length > 0 && (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="border border-line rounded-lg overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <thead className="bg-surface-alt border-b border-line">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ingredient</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Quantity</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Est. Price</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Aksi</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Ingredient</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Quantity</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Est. Price</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Aksi</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-line">
                       {prItems.map((item, index) => (
                         <tr key={index}>
-                          <td className="px-4 py-3 text-sm text-slate-900">{item.ingredient_name}</td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{item.quantity} {item.unit}</td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(item.estimated_price)}</td>
+                          <td className="px-4 py-3 text-sm text-ink">{item.ingredient_name}</td>
+                          <td className="px-4 py-3 text-sm text-ink-secondary">{item.quantity} {item.unit}</td>
+                          <td className="px-4 py-3 text-sm text-ink-secondary">{formatCurrency(item.estimated_price)}</td>
                           <td className="px-4 py-3">
                             <button
                               onClick={() => handleRemoveItem(index)}
@@ -643,10 +644,10 @@ export default function PurchaseRequisitionsPage() {
                       ))}
                     </tbody>
                   </table>
-                  <div className="bg-slate-50 px-4 py-3 border-t border-slate-200">
+                  <div className="bg-surface-alt px-4 py-3 border-t border-line">
                     <div className="flex justify-between text-sm font-medium">
-                      <span className="text-slate-600">Total Estimated:</span>
-                      <span className="text-slate-900">
+                      <span className="text-ink-secondary">Total Estimated:</span>
+                      <span className="text-ink">
                         {formatCurrency(prItems.reduce((sum, item) => sum + item.estimated_price, 0))}
                       </span>
                     </div>
@@ -656,17 +657,17 @@ export default function PurchaseRequisitionsPage() {
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">Notes</label>
+                <label className="block text-sm font-medium text-ink-secondary mb-2">Notes</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={3}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent resize-none"
+                  className="w-full px-4 py-2 rounded-lg border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary resize-none"
                   placeholder="Catatan tambahan..."
                 />
               </div>
             </div>
-            <div className="p-6 border-t border-slate-200 flex justify-end gap-3">
+            <div className="p-6 border-t border-line flex justify-end gap-3">
               <Button
                 variant="secondary"
                 onClick={() => {
@@ -691,65 +692,65 @@ export default function PurchaseRequisitionsPage() {
       {/* View Details Modal */}
       {modalOpen && selectedPR && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-slate-200">
+          <div className="bg-surface rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-line">
+            <div className="p-6 border-b border-line">
               <div className="flex items-center justify-between">
-                <h2 className="text-lg font-bold text-slate-900">Detail PR: {selectedPR.pr_number}</h2>
+                <h2 className="text-lg font-bold text-ink">Detail PR: {selectedPR.pr_number}</h2>
                 <button
                   onClick={() => {
                     setModalOpen(false);
                     setSelectedPR(null);
                   }}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+                  className="p-2 hover:bg-surface-alt rounded-lg transition-colors"
                 >
-                  <X className="h-5 w-5 text-slate-500" />
+                  <X className="h-5 w-5 text-ink-muted" />
                 </button>
               </div>
             </div>
             <div className="p-6 space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Requester</label>
-                  <p className="text-sm text-slate-900">{selectedPR.requested_by}</p>
+                  <label className="block text-sm font-medium text-ink-muted mb-1">Requester</label>
+                  <p className="text-sm text-ink">{selectedPR.requested_by}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-ink-muted mb-1">Status</label>
                   {getStatusBadge(selectedPR.status)}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Tanggal</label>
-                  <p className="text-sm text-slate-900">{new Date(selectedPR.created_at).toLocaleDateString('id-ID')}</p>
+                  <label className="block text-sm font-medium text-ink-muted mb-1">Tanggal</label>
+                  <p className="text-sm text-ink">{new Date(selectedPR.created_at).toLocaleDateString('id-ID')}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Total Estimated</label>
-                  <p className="text-sm text-slate-900 font-medium">{formatCurrency(selectedPR.total_estimated)}</p>
+                  <label className="block text-sm font-medium text-ink-muted mb-1">Total Estimated</label>
+                  <p className="text-sm text-ink font-medium">{formatCurrency(selectedPR.total_estimated)}</p>
                 </div>
               </div>
 
               {selectedPR.notes && (
                 <div>
-                  <label className="block text-sm font-medium text-slate-500 mb-1">Notes</label>
-                  <p className="text-sm text-slate-900">{selectedPR.notes}</p>
+                  <label className="block text-sm font-medium text-ink-muted mb-1">Notes</label>
+                  <p className="text-sm text-ink">{selectedPR.notes}</p>
                 </div>
               )}
 
               <div>
-                <h3 className="text-sm font-medium text-slate-700 mb-3">Items</h3>
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <h3 className="text-sm font-medium text-ink-secondary mb-3">Items</h3>
+                <div className="border border-line rounded-lg overflow-hidden">
                   <table className="w-full">
-                    <thead className="bg-slate-50 border-b border-slate-200">
+                    <thead className="bg-surface-alt border-b border-line">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Ingredient</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Quantity</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase">Est. Price</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Ingredient</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Quantity</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-ink-muted uppercase">Est. Price</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
+                    <tbody className="divide-y divide-line">
                       {selectedPR.items.map((item, index) => (
                         <tr key={index}>
-                          <td className="px-4 py-3 text-sm text-slate-900">{item.ingredient_name}</td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{item.quantity} {item.unit}</td>
-                          <td className="px-4 py-3 text-sm text-slate-600">{formatCurrency(item.estimated_price)}</td>
+                          <td className="px-4 py-3 text-sm text-ink">{item.ingredient_name}</td>
+                          <td className="px-4 py-3 text-sm text-ink-secondary">{item.quantity} {item.unit}</td>
+                          <td className="px-4 py-3 text-sm text-ink-secondary">{formatCurrency(item.estimated_price)}</td>
                         </tr>
                       ))}
                     </tbody>
