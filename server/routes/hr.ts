@@ -210,7 +210,7 @@ router.get('/payroll-summary', authMiddleware, requirePermission(PERMISSIONS.pay
 
     const totalFreelanceWages = payrolls
       .filter((p: any) => p.employee.employment_type === 'freelance')
-      .reduce((sum: number, p: any) => sum + p.base_salary, 0);
+      .reduce((sum: number, p: any) => sum + p.total_pay, 0);
 
     const totalOvertime = payrolls.reduce((sum: number, p: any) => sum + p.overtime_pay, 0);
 

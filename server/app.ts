@@ -48,6 +48,7 @@ import companyRoutes from './routes/company';
 import stockApprovalRequestRoutes from './routes/stockApprovalRequests';
 import purchaseRequisitionRoutes from './routes/purchaseRequisitions';
 import pettyCashRoutes from './routes/pettyCash';
+import reportsRoutes from './routes/reports';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -165,6 +166,7 @@ app.use('/api/user/preferences', userPreferencesRoutes);
 app.use('/api/stock-approval-requests', stockApprovalRequestRoutes);
 app.use('/api/purchase-requisitions', purchaseRequisitionRoutes);
 app.use('/api/petty-cash', pettyCashRoutes);
+app.use('/api', reportsRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Not found' });

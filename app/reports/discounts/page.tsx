@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { formatRupiah } from '@/src/lib/format';
 import { Search, Calendar, User, Download, Filter, Gift, Tag } from 'lucide-react';
+import { getGlobalDiscountOrders, getVoucherOrders, getFreeItems } from '@/src/features/reports/discountsService';
 
 interface DiscountOrder {
   id?: string;
@@ -80,15 +81,9 @@ export default function DiscountReportsPage() {
 
   const loadDiscountOrders = async () => {
     try {
-      const { db } = await import('@/src/lib/db');
-      const allOrders = await db.orders
-        .where('global_discount_amount')
-        .above(0)
-        .reverse()
-        .sortBy('created_at');
-      
-      setOrders(allOrders as DiscountOrder[]);
-      setFilteredOrders(allOrders as DiscountOrder[]);
+      const allOrders = await getGlobalDiscountOrders();
+      setOrders(allOrders);
+      setFilteredOrders(allOrders);
     } catch (error) {
       console.error('Failed to load discount orders:', error);
     } finally {
@@ -98,15 +93,9 @@ export default function DiscountReportsPage() {
 
   const loadVoucherOrders = async () => {
     try {
-      const { db } = await import('@/src/lib/db');
-      const allOrders = await db.orders
-        .where('voucher_discount_amount')
-        .above(0)
-        .reverse()
-        .sortBy('created_at');
-      
-      setVoucherOrders(allOrders as VoucherOrder[]);
-      setFilteredVoucherOrders(allOrders as VoucherOrder[]);
+      const allOrders = await getVoucherOrders();
+      setVoucherOrders(allOrders);
+      setFilteredVoucherOrders(allOrders);
     } catch (error) {
       console.error('Failed to load voucher orders:', error);
     }
@@ -114,12 +103,9 @@ export default function DiscountReportsPage() {
 
   const loadFreeItems = async () => {
     try {
-      const { db } = await import('@/src/lib/db');
-      const allOrderItems = await db.order_items.toArray();
-      const allFreeItems = allOrderItems.filter(item => item.is_free === true);
-      
-      setFreeItems(allFreeItems as FreeOrderItem[]);
-      setFilteredFreeItems(allFreeItems as FreeOrderItem[]);
+      const allFreeItems = await getFreeItems();
+      setFreeItems(allFreeItems);
+      setFilteredFreeItems(allFreeItems);
     } catch (error) {
       console.error('Failed to load free items:', error);
     }

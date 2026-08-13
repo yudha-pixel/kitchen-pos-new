@@ -386,16 +386,16 @@ async function main() {
 
   // Step 4: Create Products - Coffee Category
   const espressoDrinks = [
-    { name: 'Espresso', sku: 'ESP-001', price: 18000, description: 'Strong and concentrated coffee shot', image: 'https://picsum.photos/seed/espresso/500/500' },
-    { name: 'Americano', sku: 'AM-002', price: 25000, description: 'Espresso with hot water, smooth and bold', image: 'https://picsum.photos/seed/americano/500/500' },
-    { name: 'Cappuccino', sku: 'CAP-003', price: 32000, description: 'Espresso with steamed milk and foam', image: 'https://picsum.photos/seed/cappuccino/500/500' },
-    { name: 'Caffe Latte', sku: 'CL-004', price: 35000, description: 'Smooth espresso with steamed milk', image: 'https://picsum.photos/seed/caffelatte/500/500' },
-    { name: 'Caramel Macchiato', sku: 'CM-005', price: 42000, description: 'Espresso with vanilla syrup, steamed milk, and caramel drizzle', image: 'https://picsum.photos/seed/caramelmacchiato/500/500' },
-    { name: 'Mocha', sku: 'MOC-006', price: 38000, description: 'Espresso with chocolate and steamed milk', image: 'https://picsum.photos/seed/mocha/500/500' },
-    { name: 'Flat White', sku: 'FW-007', price: 34000, description: 'Velvety smooth espresso with microfoam', image: 'https://picsum.photos/seed/flatwhite/500/500' },
-    { name: 'Vienna Coffee', sku: 'VC-008', price: 36000, description: 'Espresso with whipped cream', image: 'https://picsum.photos/seed/viennacoffee/500/500' },
-    { name: 'Irish Coffee', sku: 'IC-009', price: 40000, description: 'Coffee with Irish cream and whipped cream', image: 'https://picsum.photos/seed/irishcoffee/500/500' },
-    { name: 'Affogato', sku: 'AF-010', price: 38000, description: 'Espresso poured over vanilla ice cream', image: 'https://picsum.photos/seed/affogato/500/500' },
+    { name: 'Espresso', sku: 'ESP-001', price: 25000, description: 'Strong and concentrated coffee shot', image: 'https://picsum.photos/seed/espresso/500/500' },
+    { name: 'Americano', sku: 'AM-002', price: 35000, description: 'Espresso with hot water, smooth and bold', image: 'https://picsum.photos/seed/americano/500/500' },
+    { name: 'Cappuccino', sku: 'CAP-003', price: 45000, description: 'Espresso with steamed milk and foam', image: 'https://picsum.photos/seed/cappuccino/500/500' },
+    { name: 'Caffe Latte', sku: 'CL-004', price: 48000, description: 'Smooth espresso with steamed milk', image: 'https://picsum.photos/seed/caffelatte/500/500' },
+    { name: 'Caramel Macchiato', sku: 'CM-005', price: 55000, description: 'Espresso with vanilla syrup, steamed milk, and caramel drizzle', image: 'https://picsum.photos/seed/caramelmacchiato/500/500' },
+    { name: 'Mocha', sku: 'MOC-006', price: 52000, description: 'Espresso with chocolate and steamed milk', image: 'https://picsum.photos/seed/mocha/500/500' },
+    { name: 'Flat White', sku: 'FW-007', price: 48000, description: 'Velvety smooth espresso with microfoam', image: 'https://picsum.photos/seed/flatwhite/500/500' },
+    { name: 'Vienna Coffee', sku: 'VC-008', price: 50000, description: 'Espresso with whipped cream', image: 'https://picsum.photos/seed/viennacoffee/500/500' },
+    { name: 'Irish Coffee', sku: 'IC-009', price: 55000, description: 'Coffee with Irish cream and whipped cream', image: 'https://picsum.photos/seed/irishcoffee/500/500' },
+    { name: 'Affogato', sku: 'AF-010', price: 52000, description: 'Espresso poured over vanilla ice cream', image: 'https://picsum.photos/seed/affogato/500/500' },
   ];
 
   const coffeeProducts = await Promise.all(
@@ -424,16 +424,16 @@ async function main() {
 
   // Cold Coffee
   const coldCoffee = [
-    { name: 'Iced Americano', sku: 'IAM-001', price: 28000, description: 'Chilled espresso with water, refreshing and bold', image: 'https://picsum.photos/seed/icedamericano/500/500' },
-    { name: 'Iced Latte', sku: 'IL-002', price: 38000, description: 'Espresso with cold milk over ice', image: 'https://picsum.photos/seed/icedlatte/500/500' },
-    { name: 'Cold Brew', sku: 'CB-003', price: 35000, description: 'Slow-steeped cold coffee, smooth and less acidic', image: 'https://picsum.photos/seed/coldbrew/500/500' },
-    { name: 'Iced Caramel Macchiato', sku: 'ICM-004', price: 45000, description: 'Iced espresso with vanilla, milk, and caramel', image: 'https://picsum.photos/seed/icedcaramelmacchiato/500/500' },
-    { name: 'Iced Mocha', sku: 'IM-005', price: 42000, description: 'Iced chocolate coffee with milk', image: 'https://picsum.photos/seed/icedmocha/500/500' },
-    { name: 'Iced Cappuccino', sku: 'IC-006', price: 36000, description: 'Iced espresso with foamed milk', image: 'https://picsum.photos/seed/icedcappuccino/500/500' },
-    { name: 'Nitro Cold Brew', sku: 'NCB-007', price: 40000, description: 'Cold brew infused with nitrogen for creamy texture', image: 'https://picsum.photos/seed/nitrocoldbrew/500/500' },
-    { name: 'Iced Flat White', sku: 'IFW-008', price: 38000, description: 'Iced espresso with velvety microfoam', image: 'https://picsum.photos/seed/icedflatwhite/500/500' },
-    { name: 'Vietnamese Iced Coffee', sku: 'VIC-009', price: 32000, description: 'Strong coffee with sweetened condensed milk', image: 'https://picsum.photos/seed/vietnameseicedcoffee/500/500' },
-    { name: 'Iced Espresso Tonic', sku: 'IET-010', price: 35000, description: 'Espresso over tonic water with citrus notes', image: 'https://picsum.photos/seed/icedespressotonic/500/500' },
+    { name: 'Iced Americano', sku: 'IAM-001', price: 38000, description: 'Chilled espresso with water, refreshing and bold', image: 'https://picsum.photos/seed/icedamericano/500/500' },
+    { name: 'Iced Latte', sku: 'IL-002', price: 48000, description: 'Espresso with cold milk over ice', image: 'https://picsum.photos/seed/icedlatte/500/500' },
+    { name: 'Cold Brew', sku: 'CB-003', price: 45000, description: 'Slow-steeped cold coffee, smooth and less acidic', image: 'https://picsum.photos/seed/coldbrew/500/500' },
+    { name: 'Iced Caramel Macchiato', sku: 'ICM-004', price: 55000, description: 'Iced espresso with vanilla, milk, and caramel', image: 'https://picsum.photos/seed/icedcaramelmacchiato/500/500' },
+    { name: 'Iced Mocha', sku: 'IM-005', price: 52000, description: 'Iced chocolate coffee with milk', image: 'https://picsum.photos/seed/icedmocha/500/500' },
+    { name: 'Iced Cappuccino', sku: 'IC-006', price: 46000, description: 'Iced espresso with foamed milk', image: 'https://picsum.photos/seed/icedcappuccino/500/500' },
+    { name: 'Nitro Cold Brew', sku: 'NCB-007', price: 50000, description: 'Cold brew infused with nitrogen for creamy texture', image: 'https://picsum.photos/seed/nitrocoldbrew/500/500' },
+    { name: 'Iced Flat White', sku: 'IFW-008', price: 48000, description: 'Iced espresso with velvety microfoam', image: 'https://picsum.photos/seed/icedflatwhite/500/500' },
+    { name: 'Vietnamese Iced Coffee', sku: 'VIC-009', price: 42000, description: 'Strong coffee with sweetened condensed milk', image: 'https://picsum.photos/seed/vietnameseicedcoffee/500/500' },
+    { name: 'Iced Espresso Tonic', sku: 'IET-010', price: 45000, description: 'Espresso over tonic water with citrus notes', image: 'https://picsum.photos/seed/icedespressotonic/500/500' },
   ];
 
   const coldCoffeeProducts = await Promise.all(
@@ -462,15 +462,15 @@ async function main() {
 
   // Non-Coffee Category (excluding tea drinks)
   const nonCoffeeDrinks = [
-    { name: 'Matcha Latte', sku: 'ML-001', price: 38000, description: 'Japanese green tea with steamed milk', image: 'https://picsum.photos/seed/matchalatte/500/500' },
-    { name: 'Hot Chocolate', sku: 'HC-002', price: 32000, description: 'Rich chocolate drink with milk', image: 'https://picsum.photos/seed/hotchocolate/500/500' },
-    { name: 'Iced Matcha Latte', sku: 'IML-003', price: 40000, description: 'Cold green tea with milk over ice', image: 'https://picsum.photos/seed/icedmatchalatte/500/500' },
-    { name: 'Thai Milk Tea', sku: 'TMT-004', price: 32000, description: 'Sweet Thai tea with condensed milk', image: 'https://picsum.photos/seed/thaimilktea/500/500' },
-    { name: 'Iced Espresso Tonic', sku: 'IET-005', price: 35000, description: 'Espresso over tonic water with citrus notes', image: 'https://picsum.photos/seed/icedespressotonic/500/500' },
-    { name: 'Lemonade', sku: 'LM-006', price: 15000, description: 'Fresh lemonade', image: 'https://picsum.photos/seed/lemonade/500/500' },
-    { name: 'Coconut Water', sku: 'CW-007', price: 12000, description: 'Fresh coconut water', image: 'https://picsum.photos/seed/coconutwater/500/500' },
-    { name: 'Jus Jeruk Segar', sku: 'JJS-008', price: 12000, description: 'Fresh orange juice', image: 'https://picsum.photos/seed/jusjeruk/500/500' },
-    { name: 'Es Teh Manis', sku: 'ETM-009', price: 5000, description: 'Sweet iced tea', image: 'https://picsum.photos/seed/estehmanis/500/500' },
+    { name: 'Matcha Latte', sku: 'ML-001', price: 48000, description: 'Japanese green tea with steamed milk', image: 'https://picsum.photos/seed/matchalatte/500/500' },
+    { name: 'Hot Chocolate', sku: 'HC-002', price: 42000, description: 'Rich chocolate drink with milk', image: 'https://picsum.photos/seed/hotchocolate/500/500' },
+    { name: 'Iced Matcha Latte', sku: 'IML-003', price: 50000, description: 'Cold green tea with milk over ice', image: 'https://picsum.photos/seed/icedmatchalatte/500/500' },
+    { name: 'Thai Milk Tea', sku: 'TMT-004', price: 42000, description: 'Sweet Thai tea with condensed milk', image: 'https://picsum.photos/seed/thaimilktea/500/500' },
+    { name: 'Iced Espresso Tonic', sku: 'IET-005', price: 45000, description: 'Espresso over tonic water with citrus notes', image: 'https://picsum.photos/seed/icedespressotonic/500/500' },
+    { name: 'Lemonade', sku: 'LM-006', price: 25000, description: 'Fresh lemonade', image: 'https://picsum.photos/seed/lemonade/500/500' },
+    { name: 'Coconut Water', sku: 'CW-007', price: 20000, description: 'Fresh coconut water', image: 'https://picsum.photos/seed/coconutwater/500/500' },
+    { name: 'Jus Jeruk Segar', sku: 'JJS-008', price: 20000, description: 'Fresh orange juice', image: 'https://picsum.photos/seed/jusjeruk/500/500' },
+    { name: 'Es Teh Manis', sku: 'ETM-009', price: 10000, description: 'Sweet iced tea', image: 'https://picsum.photos/seed/estehmanis/500/500' },
   ];
 
   const nonCoffeeProducts = await Promise.all(
@@ -499,16 +499,16 @@ async function main() {
 
   // Food Category
   const foodItems = [
-    { name: 'Nasi Goreng Spesial', sku: 'NG-001', price: 35000, description: 'Indonesian fried rice with egg and vegetables', image: 'https://picsum.photos/seed/nasigorengspesial/500/500' },
-    { name: 'Mie Goreng Jawa', sku: 'MG-002', price: 32000, description: 'Javanese style fried noodles', image: 'https://picsum.photos/seed/miegorengjawa/500/500' },
-    { name: 'Ayam Bakar', sku: 'AB-003', price: 38000, description: 'Grilled chicken with sweet soy sauce', image: 'https://picsum.photos/seed/ayambakar/500/500' },
-    { name: 'Sate Ayam', sku: 'SA-004', price: 45000, description: 'Indonesian chicken skewers with peanut sauce', image: 'https://picsum.photos/seed/sateayam/500/500' },
-    { name: 'Burger Cheese', sku: 'BC-005', price: 42000, description: 'Classic beef burger with melted cheese', image: 'https://picsum.photos/seed/burgercheese/500/500' },
-    { name: 'Chicken Sandwich', sku: 'CS-006', price: 38000, description: 'Grilled chicken sandwich with vegetables', image: 'https://picsum.photos/seed/chickensandwich/500/500' },
-    { name: 'Spaghetti Carbonara', sku: 'SC-007', price: 45000, description: 'Creamy pasta with bacon and parmesan', image: 'https://picsum.photos/seed/spaghetticarbonara/500/500' },
-    { name: 'Beef Lasagna', sku: 'BL-008', price: 48000, description: 'Layered pasta with beef and cheese', image: 'https://picsum.photos/seed/beeflasagna/500/500' },
-    { name: 'Fish and Chips', sku: 'FC-009', price: 42000, description: 'Battered fish with crispy fries', image: 'https://picsum.photos/seed/fishandchips/500/500' },
-    { name: 'Caesar Salad', sku: 'CS-010', price: 35000, description: 'Fresh salad with romaine and croutons', image: 'https://picsum.photos/seed/caesarsalad/500/500' },
+    { name: 'Nasi Goreng Spesial', sku: 'NG-001', price: 45000, description: 'Indonesian fried rice with egg and vegetables', image: 'https://picsum.photos/seed/nasigorengspesial/500/500' },
+    { name: 'Mie Goreng Jawa', sku: 'MG-002', price: 42000, description: 'Javanese style fried noodles', image: 'https://picsum.photos/seed/miegorengjawa/500/500' },
+    { name: 'Ayam Bakar', sku: 'AB-003', price: 48000, description: 'Grilled chicken with sweet soy sauce', image: 'https://picsum.photos/seed/ayambakar/500/500' },
+    { name: 'Sate Ayam', sku: 'SA-004', price: 55000, description: 'Indonesian chicken skewers with peanut sauce', image: 'https://picsum.photos/seed/sateayam/500/500' },
+    { name: 'Burger Cheese', sku: 'BC-005', price: 52000, description: 'Classic beef burger with melted cheese', image: 'https://picsum.photos/seed/burgercheese/500/500' },
+    { name: 'Chicken Sandwich', sku: 'CS-006', price: 48000, description: 'Grilled chicken sandwich with vegetables', image: 'https://picsum.photos/seed/chickensandwich/500/500' },
+    { name: 'Spaghetti Carbonara', sku: 'SC-007', price: 55000, description: 'Creamy pasta with bacon and parmesan', image: 'https://picsum.photos/seed/spaghetticarbonara/500/500' },
+    { name: 'Beef Lasagna', sku: 'BL-008', price: 58000, description: 'Layered pasta with beef and cheese', image: 'https://picsum.photos/seed/beeflasagna/500/500' },
+    { name: 'Fish and Chips', sku: 'FC-009', price: 52000, description: 'Battered fish with crispy fries', image: 'https://picsum.photos/seed/fishandchips/500/500' },
+    { name: 'Caesar Salad', sku: 'CS-010', price: 45000, description: 'Fresh salad with romaine and croutons', image: 'https://picsum.photos/seed/caesarsalad/500/500' },
   ];
 
   const foodProducts = await Promise.all(
@@ -536,16 +536,16 @@ async function main() {
 
   // Dessert Category (bakery items)
   const dessertItems = [
-    { name: 'Croissant Butter', sku: 'CR-001', price: 22000, description: 'Flaky butter croissant', image: 'https://picsum.photos/seed/croissantbutter/500/500' },
-    { name: 'Croissant Almond', sku: 'CA-002', price: 28000, description: 'Almond-filled butter croissant', image: 'https://picsum.photos/seed/croissantalmond/500/500' },
-    { name: 'Chocolate Muffin', sku: 'CM-003', price: 25000, description: 'Rich chocolate chip muffin', image: 'https://picsum.photos/seed/chocolatemuffin/500/500' },
-    { name: 'Blueberry Muffin', sku: 'BM-004', price: 25000, description: 'Fresh blueberry muffin', image: 'https://picsum.photos/seed/blueberrymuffin/500/500' },
-    { name: 'Cinnamon Roll', sku: 'CR-005', price: 28000, description: 'Sweet cinnamon roll with glaze', image: 'https://picsum.photos/seed/cinnamonroll/500/500' },
-    { name: 'Cheesecake Slice', sku: 'CC-006', price: 35000, description: 'Creamy New York cheesecake', image: 'https://picsum.photos/seed/cheesecakeslice/500/500' },
-    { name: 'Brownie', sku: 'BR-007', price: 22000, description: 'Fudgy chocolate brownie', image: 'https://picsum.photos/seed/brownie/500/500' },
-    { name: 'Banana Bread', sku: 'BB-008', price: 25000, description: 'Moist banana bread with walnuts', image: 'https://picsum.photos/seed/bananabread/500/500' },
-    { name: 'Red Velvet Cake', sku: 'RVC-009', price: 38000, description: 'Classic red velvet cake slice', image: 'https://picsum.photos/seed/redvelvetcake/500/500' },
-    { name: 'Carrot Cake', sku: 'CC-010', price: 32000, description: 'Spiced carrot cake with cream cheese frosting', image: 'https://picsum.photos/seed/carrotcake/500/500' },
+    { name: 'Croissant Butter', sku: 'CR-001', price: 28000, description: 'Flaky butter croissant', image: 'https://picsum.photos/seed/croissantbutter/500/500' },
+    { name: 'Croissant Almond', sku: 'CA-002', price: 35000, description: 'Almond-filled butter croissant', image: 'https://picsum.photos/seed/croissantalmond/500/500' },
+    { name: 'Chocolate Muffin', sku: 'CM-003', price: 32000, description: 'Rich chocolate chip muffin', image: 'https://picsum.photos/seed/chocolatemuffin/500/500' },
+    { name: 'Blueberry Muffin', sku: 'BM-004', price: 32000, description: 'Fresh blueberry muffin', image: 'https://picsum.photos/seed/blueberrymuffin/500/500' },
+    { name: 'Cinnamon Roll', sku: 'CR-005', price: 35000, description: 'Sweet cinnamon roll with glaze', image: 'https://picsum.photos/seed/cinnamonroll/500/500' },
+    { name: 'Cheesecake Slice', sku: 'CC-006', price: 42000, description: 'Creamy New York cheesecake', image: 'https://picsum.photos/seed/cheesecakeslice/500/500' },
+    { name: 'Brownie', sku: 'BR-007', price: 28000, description: 'Fudgy chocolate brownie', image: 'https://picsum.photos/seed/brownie/500/500' },
+    { name: 'Banana Bread', sku: 'BB-008', price: 32000, description: 'Moist banana bread with walnuts', image: 'https://picsum.photos/seed/bananabread/500/500' },
+    { name: 'Red Velvet Cake', sku: 'RVC-009', price: 45000, description: 'Classic red velvet cake slice', image: 'https://picsum.photos/seed/redvelvetcake/500/500' },
+    { name: 'Carrot Cake', sku: 'CC-010', price: 40000, description: 'Spiced carrot cake with cream cheese frosting', image: 'https://picsum.photos/seed/carrotcake/500/500' },
   ];
 
   const dessertProducts = await Promise.all(
@@ -567,8 +567,8 @@ async function main() {
 
   // Bakery Category (simplified)
   const bakeryItems = [
-    { name: 'Croissant Butter', sku: 'CRB-001', price: 22000, description: 'Flaky butter croissant', image: 'https://picsum.photos/seed/croissantbutter/500/500' },
-    { name: 'Croissant Almond', sku: 'CRA-002', price: 28000, description: 'Almond-filled butter croissant', image: 'https://picsum.photos/seed/croissantalmond/500/500' },
+    { name: 'Croissant Butter', sku: 'CRB-001', price: 28000, description: 'Flaky butter croissant', image: 'https://picsum.photos/seed/croissantbutter/500/500' },
+    { name: 'Croissant Almond', sku: 'CRA-002', price: 35000, description: 'Almond-filled butter croissant', image: 'https://picsum.photos/seed/croissantalmond/500/500' },
   ];
 
   const bakeryProducts = await Promise.all(
@@ -590,12 +590,12 @@ async function main() {
 
   // Teh Category (tea drinks from non-coffee)
   const tehItems = [
-    { name: 'Chai Latte', sku: 'CHL-001', price: 36000, description: 'Spiced tea with steamed milk', image: 'https://picsum.photos/seed/chailatte/500/500' },
-    { name: 'Iced Chai Latte', sku: 'ICL-002', price: 38000, description: 'Cold spiced tea with milk over ice', image: 'https://picsum.photos/seed/icedchailatte/500/500' },
-    { name: 'Iced Lemon Tea', sku: 'ILT-003', price: 28000, description: 'Refreshing tea with lemon over ice', image: 'https://picsum.photos/seed/icedlemontea/500/500' },
-    { name: 'Iced Peach Tea', sku: 'IPT-004', price: 30000, description: 'Fruity peach tea over ice', image: 'https://picsum.photos/seed/icedpeachtea/500/500' },
-    { name: 'Earl Grey Tea', sku: 'EGT-005', price: 28000, description: 'Classic bergamot-infused black tea', image: 'https://picsum.photos/seed/earlgreytea/500/500' },
-    { name: 'Jasmine Tea', sku: 'JT-006', price: 26000, description: 'Fragrant jasmine-scented green tea', image: 'https://picsum.photos/seed/jasminetea/500/500' },
+    { name: 'Chai Latte', sku: 'CHL-001', price: 45000, description: 'Spiced tea with steamed milk', image: 'https://picsum.photos/seed/chailatte/500/500' },
+    { name: 'Iced Chai Latte', sku: 'ICL-002', price: 48000, description: 'Cold spiced tea with milk over ice', image: 'https://picsum.photos/seed/icedchailatte/500/500' },
+    { name: 'Iced Lemon Tea', sku: 'ILT-003', price: 38000, description: 'Refreshing tea with lemon over ice', image: 'https://picsum.photos/seed/icedlemontea/500/500' },
+    { name: 'Iced Peach Tea', sku: 'IPT-004', price: 40000, description: 'Fruity peach tea over ice', image: 'https://picsum.photos/seed/icedpeachtea/500/500' },
+    { name: 'Earl Grey Tea', sku: 'EGT-005', price: 38000, description: 'Classic bergamot-infused black tea', image: 'https://picsum.photos/seed/earlgreytea/500/500' },
+    { name: 'Jasmine Tea', sku: 'JT-006', price: 35000, description: 'Fragrant jasmine-scented green tea', image: 'https://picsum.photos/seed/jasminetea/500/500' },
   ];
 
   const tehProducts = await Promise.all(
@@ -648,22 +648,395 @@ async function main() {
     { name: 'Budi Santoso', phone: '081234567890', email: 'budi.santoso@kitchenpos.com', position: 'manager', base_salary: 8000000, hourly_rate: 75000, employment_type: 'permanent' },
     { name: 'Siti Rahayu', phone: '081234567891', email: 'siti.rahayu@kitchenpos.com', position: 'manager', base_salary: 7500000, hourly_rate: 70000, employment_type: 'permanent' },
     { name: 'Andi Wijaya', phone: '081234567892', email: 'andi.wijaya@kitchenpos.com', position: 'cashier', base_salary: 4500000, hourly_rate: 35000, employment_type: 'permanent' },
-    { name: 'Dewi Lestari', phone: '081234567893', email: 'dewi.lestari@kitchenpos.com', position: 'cashier', base_salary: 4000000, hourly_rate: 30000, employment_type: 'permanent' },
-    { name: 'Eko Prasetyo', phone: '081234567894', email: 'eko.prasetyo@kitchenpos.com', position: 'cashier', base_salary: 3500000, hourly_rate: 25000, employment_type: 'permanent' },
+    { name: 'Dewi Lestari', phone: '081234567893', email: 'dewi.lestari@kitchenpos.com', position: 'cashier', base_salary: 4000000, hourly_rate: 30000, employment_type: 'freelance' },
+    { name: 'Eko Prasetyo', phone: '081234567894', email: 'eko.prasetyo@kitchenpos.com', position: 'cashier', base_salary: 0, hourly_rate: 35000, employment_type: 'freelance' },
     { name: 'Fajar Nugraha', phone: '081234567895', email: 'fajar.nugraha@kitchenpos.com', position: 'chef', base_salary: 6000000, hourly_rate: 50000, employment_type: 'permanent' },
     { name: 'Gita Permata', phone: '081234567896', email: 'gita.permata@kitchenpos.com', position: 'chef', base_salary: 5500000, hourly_rate: 45000, employment_type: 'permanent' },
-    { name: 'Hadi Kusuma', phone: '081234567897', email: 'hadi.kusuma@kitchenpos.com', position: 'chef', base_salary: 5000000, hourly_rate: 40000, employment_type: 'permanent' },
+    { name: 'Hadi Kusuma', phone: '081234567897', email: 'hadi.kusuma@kitchenpos.com', position: 'chef', base_salary: 0, hourly_rate: 45000, employment_type: 'freelance' },
     { name: 'Indah Sari', phone: '081234567898', email: 'indah.sari@kitchenpos.com', position: 'waiter', base_salary: 3500000, hourly_rate: 30000, employment_type: 'permanent' },
-    { name: 'Joko Anwar', phone: '081234567899', email: 'joko.anwar@kitchenpos.com', position: 'waiter', base_salary: 3000000, hourly_rate: 25000, employment_type: 'permanent' },
+    { name: 'Joko Anwar', phone: '081234567899', email: 'joko.anwar@kitchenpos.com', position: 'waiter', base_salary: 0, hourly_rate: 28000, employment_type: 'freelance' },
     { name: 'Kartika Sari', phone: '081234567900', email: 'kartika.sari@kitchenpos.com', position: 'barista', base_salary: 5000000, hourly_rate: 40000, employment_type: 'permanent' },
-    { name: 'Lukman Hakim', phone: '081234567901', email: 'lukman.hakim@kitchenpos.com', position: 'barista', base_salary: 4000000, hourly_rate: 35000, employment_type: 'permanent' },
+    { name: 'Lukman Hakim', phone: '081234567901', email: 'lukman.hakim@kitchenpos.com', position: 'barista', base_salary: 0, hourly_rate: 38000, employment_type: 'freelance' },
   ];
 
   await prisma.employee.createMany({
     data: employees,
     skipDuplicates: true,
   });
-  console.log('✅ Created 12 employees (2 managers, 3 cashiers, 3 chefs, 2 waiters, 2 baristas)');
+  console.log('✅ Created 12 employees (2 managers, 2 cashiers, 2 chefs, 2 waiters, 2 baristas - 5 freelance, 7 permanent)');
+
+  // Step 5: Generate Sample Orders for Reports
+  console.log('📊 Generating sample orders for reports...');
+
+  // Get existing data for relationships
+  const allProducts = await prisma.product.findMany();
+  const cashierRole = await prisma.role.findUnique({ where: { name: 'cashier' } });
+  const cashiers = await prisma.profile.findMany({
+    where: { role_id: cashierRole!.id }
+  });
+  const tables = await prisma.table.findMany();
+
+  if (allProducts.length === 0 || cashiers.length === 0) {
+    console.log('⚠️  Skipping order generation - missing products or cashiers');
+  } else {
+    // Generate 400 orders over 90 days (increased for higher revenue)
+    const numberOfOrders = 400;
+    const daysToCover = 90;
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysToCover);
+
+    const paymentMethods = ['cash', 'card', 'transfer'];
+    const orderStatuses = ['completed', 'paid', 'paid', 'paid', 'pending', 'cancelled']; // Weighted towards completed/paid
+
+    for (let i = 0; i < numberOfOrders; i++) {
+      // Generate realistic timestamp with peak hours
+      const orderDate = new Date(startDate);
+      const daysOffset = Math.floor(Math.random() * daysToCover);
+      orderDate.setDate(orderDate.getDate() + daysOffset);
+
+      // Peak hours: 11am-2pm, 6pm-9pm
+      const hour = Math.random();
+      let orderHour;
+      if (hour < 0.4) {
+        // 11am-2pm (40% of orders)
+        orderHour = 11 + Math.floor(Math.random() * 3);
+      } else if (hour < 0.8) {
+        // 6pm-9pm (40% of orders)
+        orderHour = 18 + Math.floor(Math.random() * 3);
+      } else {
+        // Other hours (20% of orders)
+        orderHour = 9 + Math.floor(Math.random() * 12);
+      }
+
+      orderDate.setHours(orderHour, Math.floor(Math.random() * 60), 0, 0);
+
+      // Weekend boost (20% more orders on weekends)
+      const dayOfWeek = orderDate.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        // Weekend - already handled by random distribution
+      }
+
+      // Select random cashier
+      const cashier = cashiers[Math.floor(Math.random() * cashiers.length)];
+
+      // Select random payment method
+      const paymentMethod = paymentMethods[Math.floor(Math.random() * paymentMethods.length)];
+
+      // Select order status (weighted)
+      const orderStatus = orderStatuses[Math.floor(Math.random() * orderStatuses.length)];
+
+      // Decide if dine-in or takeaway (70% dine-in)
+      const isDineIn = Math.random() < 0.7;
+      const tableNumber = isDineIn ? tables[Math.floor(Math.random() * tables.length)]?.table_number : null;
+
+      // Generate order items (3-8 items per order - increased for higher revenue)
+      const numberOfItems = 3 + Math.floor(Math.random() * 6);
+      const orderItems = [];
+      let totalAmount = 0;
+
+      for (let j = 0; j < numberOfItems; j++) {
+        const product = allProducts[Math.floor(Math.random() * allProducts.length)];
+        const quantity = 1 + Math.floor(Math.random() * 4); // 1-5 quantity per item (increased)
+        const priceAtTime = product.price;
+        const itemTotal = priceAtTime * quantity;
+        totalAmount += itemTotal;
+
+        orderItems.push({
+          id: randomUUID(),
+          product_id: product.id,
+          quantity,
+          price_at_time: priceAtTime,
+          status: 'completed',
+        });
+      }
+
+      // Add small random discount (15% of orders)
+      let discountAmount = 0;
+      if (Math.random() < 0.15) {
+        discountAmount = totalAmount * 0.1;
+        totalAmount -= discountAmount;
+      }
+
+      // Create order first
+      const orderId = randomUUID();
+      const order = await prisma.order.create({
+        data: {
+          id: orderId,
+          cashier_id: cashier.id,
+          outlet_id: outlet1.id,
+          total_amount: totalAmount,
+          payment_method: paymentMethod,
+          status: orderStatus,
+          created_at: orderDate,
+          table_number: tableNumber,
+          discount_amount: discountAmount,
+          items: {
+            create: orderItems,
+          },
+        },
+      });
+
+      // Create payment transaction if order is paid/completed
+      if (orderStatus === 'paid' || orderStatus === 'completed') {
+        const gateway = paymentMethod === 'cash' ? 'manual' : 'qris';
+        const paymentTransaction = await prisma.paymentTransaction.create({
+          data: {
+            id: randomUUID(),
+            order_id: orderId,
+            gateway,
+            amount: totalAmount,
+            payment_method: paymentMethod,
+            status: 'completed',
+            paid_at: orderDate,
+          },
+        });
+
+        // Update order with payment transaction reference
+        await prisma.order.update({
+          where: { id: orderId },
+          data: { payment_transaction_id: paymentTransaction.id },
+        });
+      }
+
+      if (i % 20 === 0) {
+        console.log(`  Generated ${i}/${numberOfOrders} orders...`);
+      }
+    }
+
+    console.log(`✅ Generated ${numberOfOrders} sample orders over ${daysToCover} days`);
+  }
+
+  // Step 6: Generate Sample Payroll Data for Reports
+  console.log('💰 Generating sample payroll data for reports...');
+
+  const employeesForPayroll = await prisma.employee.findMany();
+  const payrollCount = 1; // Generate 1 month of payroll data (reduced from 3)
+
+  for (let monthOffset = 0; monthOffset < payrollCount; monthOffset++) {
+    const currentDate = new Date();
+    currentDate.setMonth(currentDate.getMonth() - monthOffset);
+    
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const monthStr = month.toString().padStart(2, '0');
+    
+    const periodStart = new Date(year, month - 1, 1);
+    const periodEnd = new Date(year, month, 0); // Last day of the month
+
+    for (const employee of employeesForPayroll) {
+      // Generate realistic working days (20-26 days per month)
+      const workingDays = 20 + Math.floor(Math.random() * 7);
+      
+      // Calculate base salary based on employment type
+      let baseSalary = 0;
+      let overtimeHours = 0;
+      let overtimePay = 0;
+      
+      if (employee.employment_type === 'permanent') {
+        baseSalary = employee.base_salary;
+        // Random overtime (0-20 hours per month)
+        overtimeHours = Math.floor(Math.random() * 20);
+        const hourlyRate = employee.base_salary / (22 * 8); // Daily rate / 8 hours
+        overtimePay = overtimeHours * hourlyRate * 1.5; // 1.5x overtime rate
+      } else {
+        // Freelance: hourly rate * working days * 8 hours
+        const hourlyRate = employee.hourly_rate || 0;
+        baseSalary = 0; // Freelance don't have base salary
+        overtimeHours = Math.floor(Math.random() * 10);
+        overtimePay = overtimeHours * hourlyRate * 1.5;
+      }
+      
+      // Random bonus (0-500,000)
+      const bonus = Math.floor(Math.random() * 500000);
+      
+      // Random deduction (0-100,000)
+      const deduction = Math.floor(Math.random() * 100000);
+      
+      // Calculate total pay differently for permanent vs freelance
+      let totalPay;
+      if (employee.employment_type === 'permanent') {
+        totalPay = baseSalary + overtimePay + bonus - deduction;
+      } else {
+        // Freelance: regular wages (hourly_rate * working_days * 8) + overtime + bonus - deduction
+        const hourlyRate = employee.hourly_rate || 0;
+        const regularWages = hourlyRate * workingDays * 8;
+        totalPay = regularWages + overtimePay + bonus - deduction;
+      }
+      
+      await prisma.payroll.create({
+        data: {
+          id: randomUUID(),
+          employee_id: employee.id,
+          period_start: periodStart,
+          period_end: periodEnd,
+          base_salary: Math.round(baseSalary),
+          overtime_hours: overtimeHours,
+          overtime_pay: Math.round(overtimePay),
+          bonus,
+          deduction,
+          total_pay: Math.round(totalPay),
+        },
+      });
+    }
+  }
+
+  console.log(`✅ Generated ${payrollCount} months of payroll data for ${employeesForPayroll.length} employees (${payrollCount * employeesForPayroll.length} total payroll records)`);
+
+  // Step 7: Generate Sample Petty Cash Data for Reports
+  console.log('� Generating sample petty cash data for reports...');
+
+  const pettyCashCategories = ['ad_hoc_purchase', 'operational', 'misc'];
+  const pettyCashDescriptions = {
+    ad_hoc_purchase: ['Beli bahan tambahan', 'Pembelian alat dapur', 'Beli kemasan'],
+    operational: ['Transportasi kirim barang', 'Biaya parkir', 'Bensin operasional'],
+    misc: ['Tips pengiriman', 'Biaya tak terduga', 'Lain-lain'],
+  };
+
+  const pettyCashDays = 90; // Generate petty cash for 90 days
+
+  for (let dayOffset = 0; dayOffset < pettyCashDays; dayOffset++) {
+    const expenseDate = new Date();
+    expenseDate.setDate(expenseDate.getDate() - dayOffset);
+    
+    // Generate 0-1 petty cash entries per day (reduce frequency)
+    const entriesPerDay = Math.floor(Math.random() * 2); // 0 or 1 entry per day
+    
+    for (let i = 0; i < entriesPerDay; i++) {
+      const category = pettyCashCategories[Math.floor(Math.random() * pettyCashCategories.length)];
+      const descriptions = pettyCashDescriptions[category as keyof typeof pettyCashDescriptions];
+      const description = descriptions[Math.floor(Math.random() * descriptions.length)];
+      
+      // Random amount between 5,000 and 50,000 (further reduced)
+      const amount = 5000 + Math.random() * 45000;
+      
+      // Use the first admin user as created_by
+      const adminUser = await prisma.profile.findFirst({
+        where: { username: 'admin' }
+      });
+      
+      await prisma.pettyCash.create({
+        data: {
+          id: randomUUID(),
+          amount: Math.round(amount),
+          description,
+          category,
+          expense_date: expenseDate,
+          created_by: adminUser!.id,
+        },
+      });
+    }
+  }
+
+  console.log(`✅ Generated sample petty cash data for ${pettyCashDays} days`);
+
+  // Step 7.5: Generate Sample Ingredients for Wastage Reports
+  console.log('🥗 Generating sample ingredients for wastage reports...');
+
+  const sampleIngredients = [
+    { name: 'Tepung Terigu', unit: 'kg', unit_price: 15000, current_stock: 50, min_stock: 10 },
+    { name: 'Gula Pasir', unit: 'kg', unit_price: 18000, current_stock: 30, min_stock: 5 },
+    { name: 'Minyak Goreng', unit: 'liter', unit_price: 25000, current_stock: 40, min_stock: 10 },
+    { name: 'Telur Ayam', unit: 'kg', unit_price: 32000, current_stock: 25, min_stock: 5 },
+    { name: 'Susu UHT', unit: 'liter', unit_price: 22000, current_stock: 20, min_stock: 5 },
+    { name: 'Keju Cheddar', unit: 'kg', unit_price: 85000, current_stock: 15, min_stock: 3 },
+    { name: 'Daging Sapi', unit: 'kg', unit_price: 120000, current_stock: 20, min_stock: 5 },
+    { name: 'Ayam Potong', unit: 'kg', unit_price: 45000, current_stock: 30, min_stock: 8 },
+    { name: 'Sayur Bayam', unit: 'kg', unit_price: 12000, current_stock: 10, min_stock: 3 },
+    { name: 'Tomat', unit: 'kg', unit_price: 15000, current_stock: 12, min_stock: 3 },
+    { name: 'Bawang Merah', unit: 'kg', unit_price: 35000, current_stock: 8, min_stock: 2 },
+    { name: 'Bawang Putih', unit: 'kg', unit_price: 40000, current_stock: 6, min_stock: 2 },
+    { name: 'Kopi Bubuk', unit: 'kg', unit_price: 95000, current_stock: 25, min_stock: 5 },
+    { name: 'Susu Segar', unit: 'liter', unit_price: 18000, current_stock: 15, min_stock: 4 },
+    { name: 'Coklat Bubuk', unit: 'kg', unit_price: 75000, current_stock: 10, min_stock: 2 },
+  ];
+
+  const warehouse = await prisma.warehouse.findFirst();
+  
+  for (const ingredient of sampleIngredients) {
+    await prisma.ingredient.create({
+      data: {
+        id: randomUUID(),
+        name: ingredient.name,
+        unit: ingredient.unit,
+        unit_price: ingredient.unit_price,
+        current_stock: ingredient.current_stock,
+        min_stock: ingredient.min_stock,
+        restock_quantity: ingredient.min_stock * 2,
+        warehouse_id: warehouse?.id,
+      },
+    });
+  }
+
+  console.log(`✅ Created ${sampleIngredients.length} sample ingredients`);
+
+  // Step 8: Generate Sample Stock Write-Off Data for Wastage Reports
+  console.log('🗑️  Generating sample stock write-off data for wastage reports...');
+
+  const ingredients = await prisma.ingredient.findMany();
+  
+  if (ingredients.length === 0) {
+    console.log('⚠️  No ingredients found, skipping stock write-off generation');
+  } else {
+    const writeOffReasons = ['expired', 'damaged', 'spoiled', 'quality_issue', 'measurement_error'];
+    const writeOffDescriptions = {
+      expired: ['Kedaluwarsa', 'Masa habis terlewati'],
+      damaged: ['Kemasan rusak', 'Bocor', 'Terjatuh'],
+      spoiled: ['Basi', 'Busuk', 'Terkontaminasi'],
+      quality_issue: ['Kualitas tidak memenuhi standar', 'Warna berubah', 'Bau tidak sedap'],
+      measurement_error: ['Kesalahan timbangan', 'Salah pengukuran'],
+    };
+
+    const writeOffDays = 90; // Generate write-offs for 90 days
+
+    for (let dayOffset = 0; dayOffset < writeOffDays; dayOffset++) {
+      const writeOffDate = new Date();
+      writeOffDate.setDate(writeOffDate.getDate() - dayOffset);
+      
+      // Generate 0-2 write-offs per day (some days have no wastage)
+      const writeOffsPerDay = Math.floor(Math.random() * 3);
+      
+      for (let i = 0; i < writeOffsPerDay; i++) {
+        const ingredient = ingredients[Math.floor(Math.random() * ingredients.length)];
+        const reason = writeOffReasons[Math.floor(Math.random() * writeOffReasons.length)];
+        const descriptions = writeOffDescriptions[reason as keyof typeof writeOffDescriptions];
+        const description = descriptions[Math.floor(Math.random() * descriptions.length)];
+        
+        // Random quantity (0.1 - 5 units)
+        const quantity = 0.1 + Math.random() * 4.9;
+        
+        // Calculate estimated price
+        const estimatedPrice = quantity * (ingredient.unit_price || 0);
+        
+        // Use the first admin user as requested_by
+        const adminUser = await prisma.profile.findFirst({
+          where: { username: 'admin' }
+        });
+        
+        await prisma.stockWriteOff.create({
+          data: {
+            id: randomUUID(),
+            ingredient_id: ingredient.id,
+            ingredient_name: ingredient.name,
+            quantity_written_off: Math.round(quantity * 100) / 100,
+            unit: ingredient.unit,
+            reason,
+            notes: description,
+            proof_file: 'sample_proof.jpg', // Placeholder for proof file
+            proof_file_name: 'sample_proof.jpg',
+            status: 'approved', // Auto-approve for sample data
+            requested_by: adminUser!.id,
+            requested_by_name: adminUser!.full_name,
+            approved_by: adminUser!.id,
+            approved_by_name: adminUser!.full_name,
+            requested_at: writeOffDate,
+            approved_at: writeOffDate,
+          },
+        });
+      }
+    }
+
+    console.log(`✅ Generated sample stock write-off data for ${writeOffDays} days`);
+  }
 
   console.log('🎉 Seeding complete');
 }

@@ -40,7 +40,6 @@ export default function ReportsPage() {
 
   useEffect(() => {
     loadChartData();
-    loadWastageData();
   }, []);
 
   useEffect(() => {
@@ -64,6 +63,9 @@ export default function ReportsPage() {
       setPaymentMethodSummary(paymentSummary);
       setBestSellingProducts(bestProducts);
       setPayrollSummary(payroll);
+      
+      // Also load wastage data with the same period
+      loadWastageData();
     } catch (error) {
       console.error('Failed to load chart data:', error);
     } finally {
@@ -93,7 +95,7 @@ export default function ReportsPage() {
     try {
       const token = getToken();
 
-      const response = await fetch(`${API_BASE_URL}/api/stock-approval-requests?status=Approved`, {
+      const response = await fetch(`${API_BASE_URL}/api/reports/wastage?days=${chartPeriod}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
@@ -101,41 +103,7 @@ export default function ReportsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        // Group by ingredient and calculate total loss
-        const wastageMap = new Map<string, WastageData>();
-
-        for (const request of data) {
-          if (request.type === 'Stock Out') {
-            const key = request.item_name;
-            const existing = wastageMap.get(key) || {
-              ingredient_name: request.item_name,
-              total_quantity: 0,
-              unit: request.unit,
-              total_loss: 0,
-              request_count: 0
-            };
-
-            existing.total_quantity += request.quantity;
-            existing.request_count += 1;
-
-            // Calculate loss based on unit price (need to fetch ingredient price)
-            const ingredientResponse = await fetch(`${API_BASE_URL}/api/ingredients?name=${encodeURIComponent(request.item_name)}`, {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
-            if (ingredientResponse.ok) {
-              const ingredients = await ingredientResponse.json();
-              const ingredient = ingredients.find((ing: any) => ing.name === request.item_name);
-              if (ingredient) {
-                existing.total_loss += request.quantity * ingredient.unit_price;
-                existing.unit = ingredient.unit;
-              }
-            }
-
-            wastageMap.set(key, existing);
-          }
-        }
-
-        setWastageData(Array.from(wastageMap.values()).sort((a, b) => b.total_loss - a.total_loss));
+        setWastageData(data);
       }
     } catch (error) {
       console.error('Failed to load wastage data:', error);
