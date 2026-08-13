@@ -7,6 +7,7 @@ export interface PageHeaderConfig {
   title?: string;
   onSearch?: (query: string) => void;
   actions?: ReactNode;
+  titleActions?: ReactNode;
 }
 
 interface PageHeaderContextValue {
@@ -36,7 +37,7 @@ export function usePageHeaderContext() {
 // about every page. Keeps the effect dependency array stable (title is a
 // primitive, onSearch is read via ref) so pages can pass an inline arrow
 // function without retriggering this on every render.
-export function usePageHeader({ title, onSearch, actions }: PageHeaderConfig) {
+export function usePageHeader({ title, onSearch, actions, titleActions }: PageHeaderConfig) {
   const { setConfig } = usePageHeaderContext();
   const onSearchRef = useRef(onSearch);
 
@@ -49,8 +50,9 @@ export function usePageHeader({ title, onSearch, actions }: PageHeaderConfig) {
       title,
       onSearch: onSearch ? (query: string) => onSearchRef.current?.(query) : undefined,
       actions,
+      titleActions,
     });
     return () => setConfig({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, !!onSearch]);
+  }, [title, !!onSearch, titleActions]);
 }

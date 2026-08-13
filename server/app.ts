@@ -48,6 +48,10 @@ import companyRoutes from './routes/company';
 import purchaseRequisitionRoutes from './routes/purchaseRequisitions';
 import pettyCashRoutes from './routes/pettyCash';
 import reportsRoutes from './routes/reports';
+import eventRoutes from './routes/events';
+import eventStockTransferRoutes from './routes/eventStockTransfers';
+import eventOperationalCostRoutes from './routes/eventOperationalCosts';
+import eventStockRoutes from './routes/eventStocks';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -164,6 +168,10 @@ app.use('/api/audit', auditRoutes);
 app.use('/api/user/preferences', userPreferencesRoutes);
 app.use('/api/purchase-requisitions', purchaseRequisitionRoutes);
 app.use('/api/petty-cash', pettyCashRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/event-stock-transfers', eventStockTransferRoutes);
+app.use('/api/event-operational-costs', eventOperationalCostRoutes);
+app.use('/api/event-stocks', eventStockRoutes);
 app.use('/api', reportsRoutes);
 
 app.use((_req: Request, res: Response) => {

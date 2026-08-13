@@ -407,13 +407,13 @@ export async function checkStockAvailability(productId: string, quantity: number
 }
 
 // Deduct stock based on product recipe
-export async function deductStockForSale(productId: string, quantity: number = 1): Promise<{
+export async function deductStockForSale(productId: string, quantity: number = 1, eventId?: string): Promise<{
   success: boolean;
   deductedIngredients: Array<{ name: string; quantity: number; unit: string }>;
   failedIngredients: Array<{ name: string; error: string }>;
   message: string;
 }> {
-  console.log(`Deducting stock for product ${productId}, quantity: ${quantity}`);
+  console.log(`Deducting stock for product ${productId}, quantity: ${quantity}, eventId: ${eventId}`);
   
   try {
     const token = getToken();
@@ -425,71 +425,133 @@ export async function deductStockForSale(productId: string, quantity: number = 1
     if (!recipesResponse.ok) throw new Error('Failed to fetch recipes');
     const recipes: Recipe[] = await recipesResponse.json();
     
-    // Get current inventory
-    const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
-    if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
-    const ingredients: Ingredient[] = await ingredientsResponse.json();
-    
-    // Create a map of ingredient ID to current stock
-    const stockMap = new Map<string, Ingredient>(ingredients.map((ingredient) => [ingredient.id, ingredient]));
-    
     const deductedIngredients: Array<{ name: string; quantity: number; unit: string }> = [];
     const failedIngredients: Array<{ name: string; error: string }> = [];
     
-    for (const recipe of recipes) {
-      const ingredient = stockMap.get(recipe.ingredient_id);
-      if (!ingredient) {
-        console.error(`Ingredient ${recipe.ingredient_id} not found in inventory`);
-        failedIngredients.push({
-          name: recipe.ingredient?.name || 'Unknown',
-          error: 'Ingredient not found in inventory',
-        });
-        continue;
-      }
+    if (eventId) {
+      // Event mode: deduct from event stock
+      const eventStockResponse = await fetch(`${API_BASE_URL}/api/events/${eventId}/stock`, { headers });
+      if (!eventStockResponse.ok) throw new Error('Failed to fetch event stock');
+      const eventStocks: any[] = await eventStockResponse.json();
       
-      const required = recipe.quantity_required * quantity;
-      const newStock = ingredient.current_stock - required;
+      // Create a map of ingredient ID to event stock
+      const eventStockMap = new Map<string, any>(eventStocks.map((es) => [es.ingredient_id, es]));
       
-      if (newStock < 0) {
-        console.error(`Insufficient stock for ${ingredient.name}: required ${required}, available ${ingredient.current_stock}`);
-        failedIngredients.push({
-          name: ingredient.name,
-          error: `Insufficient stock: required ${required}, available ${ingredient.current_stock}`,
-        });
-        continue;
-      }
-      
-      try {
-        // Update ingredient stock via API
-        const updateResponse = await fetch(`${API_BASE_URL}/api/ingredients/${ingredient.id}`, {
-          method: 'PUT',
-          headers,
-          body: JSON.stringify({
-            name: ingredient.name,
-            current_stock: newStock,
-            unit: ingredient.unit,
-            min_stock: ingredient.min_stock,
-            unit_price: ingredient.unit_price,
-            supplier_id: ingredient.supplier_id,
-          }),
-        });
-        
-        if (!updateResponse.ok) {
-          throw new Error('Failed to update ingredient stock');
+      for (const recipe of recipes) {
+        const eventStock = eventStockMap.get(recipe.ingredient_id);
+        if (!eventStock) {
+          console.error(`Ingredient ${recipe.ingredient_id} not found in event stock`);
+          failedIngredients.push({
+            name: recipe.ingredient?.name || 'Unknown',
+            error: 'Ingredient not allocated to event',
+          });
+          continue;
         }
         
-        console.log(`✅ Deducted ${required} ${ingredient.unit} from ${ingredient.name} (new stock: ${newStock})`);
-        deductedIngredients.push({
-          name: ingredient.name,
-          quantity: required,
-          unit: ingredient.unit,
-        });
-      } catch (error) {
-        console.error(`Failed to deduct stock for ${ingredient.name}:`, error);
-        failedIngredients.push({
-          name: ingredient.name,
-          error: error instanceof Error ? error.message : 'Unknown error',
-        });
+        const required = recipe.quantity_required * quantity;
+        const availableStock = eventStock.quantity_allocated - eventStock.quantity_used;
+        
+        if (availableStock < required) {
+          console.error(`Insufficient event stock for ${recipe.ingredient?.name}: required ${required}, available ${availableStock}`);
+          failedIngredients.push({
+            name: recipe.ingredient?.name || 'Unknown',
+            error: `Insufficient event stock: required ${required}, available ${availableStock}`,
+          });
+          continue;
+        }
+        
+        try {
+          // Update event stock via API
+          const updateResponse = await fetch(`${API_BASE_URL}/api/event-stocks/${eventStock.id}`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify({
+              quantity_used: eventStock.quantity_used + required,
+            }),
+          });
+          
+          if (!updateResponse.ok) {
+            throw new Error('Failed to update event stock');
+          }
+          
+          console.log(`✅ Deducted ${required} ${recipe.unit} from event stock for ${recipe.ingredient?.name}`);
+          deductedIngredients.push({
+            name: recipe.ingredient?.name || 'Unknown',
+            quantity: required,
+            unit: recipe.unit || 'g',
+          });
+        } catch (error) {
+          console.error(`Failed to deduct event stock for ${recipe.ingredient?.name}:`, error);
+          failedIngredients.push({
+            name: recipe.ingredient?.name || 'Unknown',
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
+      }
+    } else {
+      // Regular mode: deduct from main inventory
+      const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
+      if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
+      const ingredients: Ingredient[] = await ingredientsResponse.json();
+      
+      // Create a map of ingredient ID to current stock
+      const stockMap = new Map<string, Ingredient>(ingredients.map((ingredient) => [ingredient.id, ingredient]));
+      
+      for (const recipe of recipes) {
+        const ingredient = stockMap.get(recipe.ingredient_id);
+        if (!ingredient) {
+          console.error(`Ingredient ${recipe.ingredient_id} not found in inventory`);
+          failedIngredients.push({
+            name: recipe.ingredient?.name || 'Unknown',
+            error: 'Ingredient not found in inventory',
+          });
+          continue;
+        }
+        
+        const required = recipe.quantity_required * quantity;
+        const newStock = ingredient.current_stock - required;
+        
+        if (newStock < 0) {
+          console.error(`Insufficient stock for ${ingredient.name}: required ${required}, available ${ingredient.current_stock}`);
+          failedIngredients.push({
+            name: ingredient.name,
+            error: `Insufficient stock: required ${required}, available ${ingredient.current_stock}`,
+          });
+          continue;
+        }
+        
+        try {
+          // Update ingredient stock via API
+          const updateResponse = await fetch(`${API_BASE_URL}/api/ingredients/${ingredient.id}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({
+              name: ingredient.name,
+              current_stock: newStock,
+              unit: ingredient.unit,
+              min_stock: ingredient.min_stock,
+              unit_price: ingredient.unit_price,
+              supplier_id: ingredient.supplier_id,
+            }),
+          });
+          
+          if (!updateResponse.ok) {
+            throw new Error('Failed to update ingredient stock');
+          }
+          
+          console.log(`✅ Deducted ${required} ${ingredient.unit} from ${ingredient.name} (new stock: ${newStock})`);
+          deductedIngredients.push({
+            name: ingredient.name,
+            quantity: required,
+            unit: ingredient.unit,
+          });
+        } catch (error) {
+          console.error(`Failed to deduct stock for ${ingredient.name}:`, error);
+          failedIngredients.push({
+            name: ingredient.name,
+            error: error instanceof Error ? error.message : 'Unknown error',
+          });
+        }
       }
     }
     

@@ -91,6 +91,7 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
               </>
             )}
             <span className="truncate text-sm font-semibold text-ink">{pageTitle}</span>
+            {config.titleActions && <div className="ml-2 flex items-center gap-2">{config.titleActions}</div>}
           </div>}
 
           {onSearch && (

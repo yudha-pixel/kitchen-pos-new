@@ -25,6 +25,7 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
   const { can } = useAuth();
 
   const currentModule = findModuleForPath(pathname);
+  const ModuleIcon = currentModule?.iconName ? MODULE_ICON_MAP[currentModule.iconName] : LayoutGrid;
   const moduleLinks = currentModule?.subLinks.filter((sub) => can(sub.requiredPermission)) ?? [];
 
   const isMobileDrawerActive = propIsMobileOpen !== undefined ? propIsMobileOpen : internalMobileOpen;
@@ -97,8 +98,6 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
     `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
       active ? 'bg-primary-soft font-semibold text-primary' : 'text-ink-secondary hover:bg-surface-alt'
     }`;
-
-  const ModuleIcon = currentModule ? MODULE_ICON_MAP[currentModule.iconName] : LayoutGrid;
 
   const renderNavContent = (expanded: boolean, mobile = false) => (
     <>

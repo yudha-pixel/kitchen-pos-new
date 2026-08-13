@@ -159,6 +159,7 @@ model Modifier {
 
 model Order {
   id                     String              @id @default(uuid()) @db.Uuid
+  order_number           String?             @unique // INV-EVENT-XXX for events, regular invoice for daily
   cashier_id             String?             @db.Uuid
   customer_id            String?             @db.Uuid
   total_amount           Float
@@ -172,6 +173,7 @@ model Order {
   customer_order_id      String?             @db.Uuid
   outlet_id              String?             @db.Uuid
   payment_transaction_id String?             @unique @db.Uuid
+  event_id               String?             @db.Uuid // Event mode flag
   items                  OrderItem[]
   void_logs              OrderVoidLog[]
   cashier                Profile?            @relation(fields: [cashier_id], references: [id])
@@ -179,6 +181,7 @@ model Order {
   customerOrder          CustomerOrder?      @relation(fields: [customer_order_id], references: [id])
   outlet                 Outlet?             @relation(fields: [outlet_id], references: [id])
   paymentTransaction     PaymentTransaction?
+  event                  Event?              @relation(fields: [event_id], references: [id])
 
   @@index([cashier_id])
   @@index([customer_id])
@@ -188,6 +191,7 @@ model Order {
   @@index([outlet_id])
   @@index([customer_order_id])
   @@index([payment_transaction_id])
+  @@index([event_id])
   @@map("orders")
 }
 
@@ -648,6 +652,8 @@ model Ingredient {
   pettyCashExpenses PettyCash[]   @relation("PettyCashIngredient")
   stockBatches    StockBatch[]
   stockLogs       StockLog[]
+  eventStocks     EventStock[]
+  eventTransferItems EventStockTransferItem[]
 
   @@index([name])
   @@index([sku])
@@ -1328,7 +1334,115 @@ model PettyCash {
 
   @@index([created_by])
   @@index([expense_date])
-  @@index([ingredient_id])
-  @@index([shift_id])
   @@map("petty_cash")
+}
+
+// Event Management Module
+model Event {
+  id                String   @id @default(uuid()) @db.Uuid
+  event_code        String   @unique // EVENT-001, EVENT-002, etc.
+  name              String
+  location          String
+  start_date        DateTime
+  end_date          DateTime
+  status            String   @default("planned") // planned, active, closed, cancelled
+  description       String?
+  total_budget      Float?
+  actual_revenue    Float    @default(0)
+  actual_cost       Float    @default(0)
+  created_by        String   @db.Uuid
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+  closed_at         DateTime?
+  closed_by         String?  @db.Uuid
+  
+  // Relations
+  eventStock        EventStock[]
+  eventCosts        EventOperationalCost[]
+  orders            Order[]
+  stockTransfers    EventStockTransfer[]
+  
+  @@index([status])
+  @@index([start_date])
+  @@index([event_code])
+  @@map("events")
+}
+
+// Event Virtual Warehouse Stock
+model EventStock {
+  id              String   @id @default(uuid()) @db.Uuid
+  event_id        String   @db.Uuid
+  ingredient_id   String   @db.Uuid
+  quantity_allocated Float  @default(0)
+  quantity_used   Float    @default(0)
+  quantity_returned Float  @default(0)
+  quantity_damaged Float   @default(0)
+  unit            String
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  event           Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  ingredient      Ingredient @relation(fields: [ingredient_id], references: [id])
+  
+  @@unique([event_id, ingredient_id])
+  @@index([event_id])
+  @@index([ingredient_id])
+  @@map("event_stocks")
+}
+
+// Event Operational Costs
+model EventOperationalCost {
+  id              String   @id @default(uuid()) @db.Uuid
+  event_id        String   @db.Uuid
+  category        String   // booth_rent, transportation, labor, marketing, other
+  description     String
+  amount          Float
+  receipt_url     String?
+  created_by      String   @db.Uuid
+  created_at      DateTime @default(now())
+  
+  event           Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  
+  @@index([event_id])
+  @@index([category])
+  @@map("event_operational_costs")
+}
+
+// Event Stock Transfer (from main warehouse to event)
+model EventStockTransfer {
+  id              String   @id @default(uuid()) @db.Uuid
+  event_id        String   @db.Uuid
+  transfer_number String   @unique // TRANSFER-EVENT-001
+  from_warehouse_id String @db.Uuid
+  status          String   @default("pending") // pending, approved, completed, cancelled
+  requested_by    String   @db.Uuid
+  approved_by     String?  @db.Uuid
+  approved_at     DateTime?
+  notes           String?
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+  
+  event           Event    @relation(fields: [event_id], references: [id], onDelete: Cascade)
+  items           EventStockTransferItem[]
+  
+  @@index([event_id])
+  @@index([status])
+  @@index([transfer_number])
+  @@map("event_stock_transfers")
+}
+
+model EventStockTransferItem {
+  id              String   @id @default(uuid()) @db.Uuid
+  transfer_id     String   @db.Uuid
+  ingredient_id   String   @db.Uuid
+  quantity        Float
+  unit            String
+  created_at      DateTime @default(now())
+  
+  transfer        EventStockTransfer @relation(fields: [transfer_id], references: [id], onDelete: Cascade)
+  ingredient      Ingredient @relation(fields: [ingredient_id], references: [id])
+  
+  @@index([transfer_id])
+  @@index([ingredient_id])
+  @@map("event_stock_transfer_items")
 }

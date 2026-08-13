@@ -92,6 +92,8 @@ const orderSchema = z.object({
   discount_amount: z.number().nonnegative().optional(),
   rounding_amount: z.number().optional(),
   notes: z.string().max(1000).nullish(),
+  order_number: z.string().max(50).nullish(),
+  event_id: uuid.nullish(),
   created_at: z.string().optional(),
 });
 

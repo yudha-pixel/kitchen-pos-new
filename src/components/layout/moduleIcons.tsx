@@ -7,6 +7,7 @@ import {
   Users,
   Tag,
   CalendarCheck,
+  Calendar,
   IdCard,
   Wallet,
   BarChart3,
@@ -46,6 +47,7 @@ import {
   Puzzle,
   Package,
   FileStack,
+  TrendingUp,
 } from 'lucide-react';
 
 // Shared between Header (breadcrumb icon) and Sidebar (module rail icon) so
@@ -59,6 +61,7 @@ export const MODULE_ICON_MAP: Record<string, React.ComponentType<{ className?: s
   Users,
   Tag,
   CalendarCheck,
+  Calendar,
   IdCard,
   Wallet,
   BarChart3,
@@ -102,4 +105,6 @@ export const NAVIGATION_ICON_MAP: Record<string, React.ComponentType<{ className
   Wallet,
   Package,
   FileStack,
+  Calendar,
+  TrendingUp,
 };

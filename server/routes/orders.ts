@@ -196,6 +196,26 @@ router.get('/orders/:id/items', authMiddleware, requirePermission(PERMISSIONS.or
 router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.create), async (req: Request, res: Response) => {
   const { order, items } = createOrderSchema.parse(req.body);
   const orderId = order.id ?? randomUUID();
+  const eventId = order.event_id ?? null;
+
+  // Generate event-specific order number if event_id is provided
+  let orderNumber = order.order_number;
+  if (eventId && !orderNumber) {
+    // Generate INV-EVENT-XXX format
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      select: { event_code: true },
+    });
+    
+    if (event) {
+      // Count existing orders for this event
+      const orderCount = await prisma.order.count({
+        where: { event_id: eventId },
+      });
+      const sequenceNumber = String(orderCount + 1).padStart(3, '0');
+      orderNumber = `INV-${event.event_code}-${sequenceNumber}`;
+    }
+  }
 
   // Validate stock availability before creating order (early UX check only;
   // the authoritative, race-safe check happens inside the transaction below).
@@ -303,6 +323,8 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
           discount_amount: order.discount_amount ?? 0,
           rounding_amount: order.rounding_amount ?? 0,
           notes: order.notes ?? null,
+          order_number: orderNumber,
+          event_id: eventId,
           created_at: order.created_at ? new Date(order.created_at) : new Date(),
         },
       });

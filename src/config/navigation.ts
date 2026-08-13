@@ -212,6 +212,23 @@ export const APPS_REGISTRY: AppDefinition[] = [
     ],
   },
   {
+    id: 'events',
+    title: 'Event Management',
+    description: 'Kelola event, alokasi stok event, dan laporan laba rugi event.',
+    category: 'operations',
+    categoryLabel: 'Operasional',
+    iconName: 'Calendar',
+    route: '/events',
+    requiredPermission: PERMISSIONS.reports.view,
+    keywords: ['event', 'acara', 'event management', 'manajemen event', 'stok event', 'laba rugi event'],
+    subLinks: [
+      { label: 'Daftar Event', href: '/events', iconName: 'Calendar', requiredPermission: PERMISSIONS.reports.view },
+      { label: 'Alokasi Stok Event', href: '/events/stock-allocation', iconName: 'Package', requiredPermission: PERMISSIONS.reports.view },
+      { label: 'Biaya Operasional', href: '/events/operational-costs', iconName: 'Receipt', requiredPermission: PERMISSIONS.reports.view },
+      { label: 'Laporan Laba Rugi', href: '/events/profit-loss', iconName: 'TrendingUp', requiredPermission: PERMISSIONS.reports.view },
+    ],
+  },
+  {
     id: 'settings',
     title: 'Settings',
     description: 'Atur konfigurasi sistem, peran, dan preferensi.',

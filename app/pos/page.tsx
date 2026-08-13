@@ -26,8 +26,9 @@ import { ProductCardSkeleton } from '@/src/components/ui/Skeleton';
 import { useGlobalHotkey } from '@/src/hooks/useGlobalHotkey';
 import { useMnemonic } from '@/src/hooks/useMnemonic';
 import { Menu } from '@base-ui/react/menu';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, Users, DollarSign } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, Users, DollarSign, Calendar } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
+import { getToken } from '@/src/lib/api';
 import { calculateMenuStocks, seedSampleInventoryData, forceReseedInventoryData, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
 import { PERMISSIONS } from '@/src/config/permissions';
@@ -67,6 +68,10 @@ export default function POSPage() {
   const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any>(null);
   const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
   const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
+  const [eventMode, setEventMode] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [events, setEvents] = useState<any[]>([]);
+  const [eventSelectorOpen, setEventSelectorOpen] = useState(false);
 
   // Keep the cart store aware of the logged-in cashier
   useEffect(() => {
@@ -81,6 +86,40 @@ export default function POSPage() {
       router.replace('/login?redirect=/pos');
     }
   }, [authLoading, user, router]);
+
+  // Fetch active events for event mode selector
+  useEffect(() => {
+    const fetchEvents = async () => {
+      if (!user) return; // Only fetch if user is authenticated
+      
+      try {
+        const token = getToken();
+        if (!token) {
+          console.warn('No token found');
+          return;
+        }
+        
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/events/active`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setEvents(data);
+        } else if (response.status === 401) {
+          // Token expired or invalid - silently fail, button won't show
+          console.warn('Authentication failed when fetching events');
+        } else if (response.status === 404) {
+          // Route not found - server might need restart
+          console.warn('Events route not found, server may need restart');
+        } else {
+          console.error('Failed to fetch events:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Error fetching events:', error);
+      }
+    };
+    fetchEvents();
+  }, [user]);
 
   const cartItemCount = useCartStore((state) => state.items.reduce((sum, item) => sum + item.quantity, 0));
 
@@ -351,7 +390,7 @@ export default function POSPage() {
 
   // Surface sync errors as a toast instead of a persistent second banner
   useEffect(() => {
-    if (syncError) toast('error', syncError);
+    if (syncError) toast('error', syncError instanceof Error ? syncError.message : String(syncError));
   }, [syncError, toast]);
 
   // Listen for order completion events from KDS and orderCreated events
@@ -1271,7 +1310,24 @@ export default function POSPage() {
     </>
   );
 
-  usePageHeader({ title: 'POS Utama', actions: syncMenuActions });
+  usePageHeader({ 
+    title: eventMode ? `POS Event - ${selectedEvent?.name || 'Event'}` : 'POS Utama', 
+    titleActions: events.length > 0 && (
+      <button
+        key="event-mode-toggle"
+        onClick={() => setEventSelectorOpen(true)}
+        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+          eventMode 
+            ? 'bg-orange-100 text-orange-700 hover:bg-orange-200' 
+            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+        }`}
+      >
+        <Calendar className="h-4 w-4" />
+        {eventMode ? 'Mode Event Aktif' : 'Mode Event'}
+      </button>
+    ),
+    actions: syncMenuActions
+  });
 
   // Filter products (sorted alphabetically by name for a stable, predictable order)
   const filteredProducts = useMemo(() => {
@@ -1854,6 +1910,75 @@ export default function POSPage() {
           paymentAmount={selectedPaymentForVoid.amount}
           onVoided={handleVoidPaymentComplete}
         />
+      )}
+
+      {/* Event Selector Modal */}
+      {eventSelectorOpen && (
+        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl w-full max-w-md p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-orange-600" />
+                Mode Event
+              </h3>
+              <button
+                onClick={() => setEventSelectorOpen(false)}
+                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-lg border border-gray-200"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Pilih Event
+                </label>
+                <select
+                  value={selectedEvent?.id || ''}
+                  onChange={(e) => {
+                    const event = events.find((ev) => ev.id === e.target.value);
+                    setSelectedEvent(event || null);
+                  }}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                >
+                  <option value="">-- Pilih Event --</option>
+                  {events.map((event) => (
+                    <option key={event.id} value={event.id}>
+                      {event.event_code} - {event.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setEventMode(false);
+                    setSelectedEvent(null);
+                    setEventSelectorOpen(false);
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  Mode Harian
+                </button>
+                <button
+                  onClick={() => {
+                    if (selectedEvent) {
+                      setEventMode(true);
+                      setEventSelectorOpen(false);
+                      toast('success', `Mode Event ${selectedEvent.name} diaktifkan`);
+                    } else {
+                      toast('error', 'Pilih event terlebih dahulu');
+                    }
+                  }}
+                  disabled={!selectedEvent}
+                  className="flex-1 px-4 py-2 rounded-lg bg-orange-600 text-white hover:bg-orange-700 transition-colors disabled:opacity-50"
+                >
+                  Aktifkan Event
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Petty Cash Modal */}

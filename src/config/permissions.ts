@@ -21,6 +21,7 @@ export const PERMISSIONS = {
   audit: { view: 'audit.view' },
   printing: { use: 'printing.use', manage: 'printing.manage' },
   approvals: { view: 'approvals.view', create: 'approvals.create', edit: 'approvals.edit', delete: 'approvals.delete', approve: 'approvals.approve' },
+  events: { view: 'events.view', create: 'events.create', edit: 'events.edit', delete: 'events.delete', close: 'events.close', manageStock: 'events.manage_stock', manageCosts: 'events.manage_costs' },
 } as const;
 
 type PermissionGroup = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -39,6 +40,7 @@ const MANAGEMENT_DENIED = new Set<PermissionName>([
   PERMISSIONS.orders.refund,
   PERMISSIONS.backup.restore,
   PERMISSIONS.backup.delete,
+  PERMISSIONS.events.close,
 ]);
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<'admin' | 'owner' | 'management' | 'cashier', PermissionName[]> = {
@@ -56,6 +58,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<'admin' | 'owner' | 'management' |
     PERMISSIONS.tables.edit,
     PERMISSIONS.printing.use,
     PERMISSIONS.reports.view,
+    PERMISSIONS.events.view,
   ],
 };
 
