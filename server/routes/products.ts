@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { resolveOutletFilter } from '../lib/outletAccess';
 import { auditLogger } from './audit';
 import {
   createCategorySchema,
@@ -179,6 +180,18 @@ router.get('/products', authMiddleware, requirePermission(PERMISSIONS.products.v
   }
   if (includeInactive !== 'true') {
     where.is_active = true;
+  }
+
+  // Produk tanpa outlet berlaku untuk semua cabang - itu keadaan seluruh
+  // katalog saat ini, jadi menyaring ketat pada outlet akan mengosongkan menu.
+  // Yang dikembalikan: milik outlet tersebut DITAMBAH yang berlaku umum.
+  const outletFilter = resolveOutletFilter(req, req.query.outlet_id);
+  if (outletFilter === 'denied') {
+    res.status(403).json({ error: 'Tidak punya akses ke outlet ini' });
+    return;
+  }
+  if (outletFilter) {
+    where.OR = [{ outlet_id: outletFilter }, { outlet_id: null }];
   }
 
   const products = await prisma.product.findMany({

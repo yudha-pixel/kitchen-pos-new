@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { canAccessOutlet, resolveOutletFilter } from '../lib/outletAccess';
 
 const router = Router();
 
@@ -12,6 +13,8 @@ const router = Router();
 const createTableSchema = z.object({
   table_number: z.string().min(1).max(30),
   qr_code: z.string().optional(),
+  // Lantai/zona meja, mis. "Lantai 1", "Indoor", "VIP".
+  area: z.string().max(50).nullish(),
   outlet_id: z.string().uuid().optional(),
 });
 
@@ -20,20 +23,30 @@ const updateTableSchema = z.object({
   qr_code: z.string().optional(),
   is_active: z.boolean().optional(),
   status: z.enum(['available', 'occupied', 'dirty', 'reserved']).optional(),
+  area: z.string().max(50).nullish(),
   outlet_id: z.string().uuid().optional(),
 });
 
 // GET /tables - Get all tables with status
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.tables.view), async (req: Request, res: Response) => {
   try {
-    const { status, outlet_id, table_number } = req.query;
+    const { status, outlet_id, table_number, area } = req.query;
 
     const where: Prisma.TableWhereInput = {};
     if (status && typeof status === 'string') {
       where.status = status;
     }
-    if (outlet_id && typeof outlet_id === 'string') {
-      where.outlet_id = outlet_id;
+
+    const outletFilter = resolveOutletFilter(req, outlet_id);
+    if (outletFilter === 'denied') {
+      return res.status(403).json({ error: 'Tidak punya akses ke outlet ini' });
+    }
+    if (outletFilter) {
+      where.outlet_id = outletFilter;
+    }
+
+    if (area && typeof area === 'string') {
+      where.area = area;
     }
     if (table_number && typeof table_number === 'string') {
       // Handle URL encoding and trim whitespace for robust matching
@@ -149,13 +162,22 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.tables.create), a
   try {
     const data = createTableSchema.parse(req.body);
 
-    // Check if table number already exists
-    const existing = await prisma.table.findUnique({
-      where: { table_number: data.table_number },
+    if (!canAccessOutlet(req, data.outlet_id)) {
+      return res.status(403).json({ error: 'Tidak punya akses ke outlet ini' });
+    }
+
+    // Nomor meja unik per outlet, bukan global - cabang lain boleh punya
+    // "Meja 1" sendiri. findFirst dipakai karena Postgres memperlakukan NULL
+    // sebagai berbeda, jadi meja tanpa outlet lolos dari constraint.
+    const existing = await prisma.table.findFirst({
+      where: {
+        table_number: data.table_number,
+        outlet_id: data.outlet_id ?? null,
+      },
     });
 
     if (existing) {
-      return res.status(400).json({ error: 'Table number already exists' });
+      return res.status(400).json({ error: 'Table number already exists in this outlet' });
     }
 
     // Generate QR code URL with table number parameter
@@ -166,6 +188,7 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.tables.create), a
       data: {
         table_number: data.table_number,
         qr_code: qrCodeUrl,
+        area: data.area ?? null,
         outlet_id: data.outlet_id,
         status: 'available',
       },
@@ -206,14 +229,25 @@ router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.tables.edit), a
       return res.status(404).json({ error: 'Table not found' });
     }
 
-    // If updating table_number, check for conflicts
-    if (data.table_number && data.table_number !== existing.table_number) {
-      const conflict = await prisma.table.findUnique({
-        where: { table_number: data.table_number },
+    if (!canAccessOutlet(req, existing.outlet_id) || !canAccessOutlet(req, data.outlet_id)) {
+      return res.status(403).json({ error: 'Tidak punya akses ke outlet ini' });
+    }
+
+    // Konflik dinilai terhadap outlet tujuan: memindahkan meja ke outlet lain
+    // bisa bertabrakan walau nomornya tidak berubah.
+    const targetOutletId = data.outlet_id ?? existing.outlet_id ?? null;
+    const targetNumber = data.table_number ?? existing.table_number;
+    if (targetNumber !== existing.table_number || targetOutletId !== existing.outlet_id) {
+      const conflict = await prisma.table.findFirst({
+        where: {
+          table_number: targetNumber,
+          outlet_id: targetOutletId,
+          id: { not: existing.id },
+        },
       });
 
       if (conflict) {
-        return res.status(400).json({ error: 'Table number already exists' });
+        return res.status(400).json({ error: 'Table number already exists in this outlet' });
       }
     }
 

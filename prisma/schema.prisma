@@ -328,10 +328,15 @@ model Warehouse {
 
 model Table {
   id             String          @id @default(uuid()) @db.Uuid
-  table_number   String          @unique
+  // NOT globally unique: a second branch must be able to have its own
+  // "Meja 1". Uniqueness is scoped per outlet by the @@unique below.
+  table_number   String
   qr_code        String?
   is_active      Boolean         @default(true)
   status         String          @default("available") // available, occupied, dirty, reserved
+  // Floor / zone the table sits in, e.g. "Lantai 1", "Indoor", "VIP".
+  // Free text so it can mirror the labels already kept in AppSettings.areas.
+  area           String?
   outlet_id      String?         @db.Uuid
   created_at     DateTime        @default(now())
   updated_at     DateTime        @updatedAt
@@ -339,9 +344,14 @@ model Table {
   reservations   Reservation[]
   outlet         Outlet?         @relation(fields: [outlet_id], references: [id])
 
+  // Postgres treats NULLs as distinct, so rows with no outlet escape this
+  // constraint; the create/update routes keep an explicit duplicate check
+  // that also covers unassigned tables.
+  @@unique([outlet_id, table_number])
   @@index([table_number])
   @@index([outlet_id])
   @@index([status])
+  @@index([area])
   @@map("tables")
 }
 

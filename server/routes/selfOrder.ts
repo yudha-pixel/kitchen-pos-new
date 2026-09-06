@@ -217,7 +217,11 @@ router.get('/tables/:tableNumber', async (req: Request, res: Response) => {
     const { tableNumber } = req.params;
     const tableNumberStr = Array.isArray(tableNumber) ? tableNumber[0] : tableNumber;
 
-    const table = await prisma.table.findUnique({
+    // Nomor meja kini hanya unik per outlet, jadi findUnique tidak berlaku lagi.
+    // QR self-order membawa nomor meja tanpa outlet, sehingga meja pertama yang
+    // cocok yang dipakai - perilaku ini sama seperti sebelumnya saat nomor meja
+    // masih unik global.
+    const table = await prisma.table.findFirst({
       where: { table_number: tableNumberStr },
       include: {
         outlet: {

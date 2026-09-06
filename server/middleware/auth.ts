@@ -17,6 +17,9 @@ export interface TokenPayload {
   username: string;
   role?: string;
   role_id?: string;
+  /** Outlet asal user. Dibaca ulang dari DB tiap request, bukan dari klaim JWT,
+   *  supaya pemindahan outlet oleh admin langsung berlaku. */
+  outlet_id?: string | null;
 }
 
 // Augment Express Request type to include user property
@@ -46,6 +49,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
         username: true,
         is_active: true,
         role_id: true,
+        outlet_id: true,
         role: { select: { name: true } },
       },
     });
@@ -60,6 +64,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       username: profile.username,
       role: profile.role.name,
       role_id: profile.role_id,
+      outlet_id: profile.outlet_id,
     };
     req.userPermissions = await loadRolePermissions(profile.role_id);
 

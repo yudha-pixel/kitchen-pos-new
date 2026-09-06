@@ -164,7 +164,9 @@ async function main() {
   // Dine-in tables for /pos/meja and the QR self-order links at /order/[tableId]
   for (let i = 1; i <= 8; i++) {
     await prisma.table.upsert({
-      where: { table_number: `Meja ${i}` },
+      where: {
+        outlet_id_table_number: { outlet_id: outlet1.id, table_number: `Meja ${i}` },
+      },
       update: {},
       create: {
         id: randomUUID(),
