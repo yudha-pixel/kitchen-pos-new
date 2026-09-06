@@ -105,7 +105,7 @@ export class OfflineErrorHandler {
   /**
    * Get detailed error suggestions with actions
    */
-  static getErrorSuggestions(error: unknown, context?: Partial<OfflineErrorContext>): OfflineErrorSuggestion {
+  static getErrorSuggestions(error: unknown, _context?: Partial<OfflineErrorContext>): OfflineErrorSuggestion {
     if (error instanceof NetworkError) {
       return {
         title: 'Connection Unavailable',

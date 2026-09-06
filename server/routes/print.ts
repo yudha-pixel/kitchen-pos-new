@@ -144,7 +144,11 @@ router.get('/printers/orders/:orderId/jobs', async (req: Request, res: Response)
   }
 
   // Group items by printer
-  const printerJobs: Record<string, any> = {};
+  interface PrinterJob {
+    printer: { id: string; name: string };
+    items: { name: string; quantity: number; modifiers: unknown }[];
+  }
+  const printerJobs: Record<string, PrinterJob> = {};
 
   for (const item of order.items) {
     if (!item.product?.category) continue;
@@ -153,7 +157,6 @@ router.get('/printers/orders/:orderId/jobs', async (req: Request, res: Response)
     
     for (const cp of categoryPrinters) {
       const printerId = cp.printer.id;
-      const printerType = cp.printer.type;
 
       if (!printerJobs[printerId]) {
         printerJobs[printerId] = {

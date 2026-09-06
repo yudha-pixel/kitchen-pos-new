@@ -1,9 +1,10 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { pollPaymentStatus } from '@/src/features/payment/paymentService';
-import { X, Clock, CheckCircle, XCircle, RefreshCw } from 'lucide-react';
+import { X, Clock, RefreshCw } from 'lucide-react';
 
 interface QRISModalProps {
   onClose: () => void;
@@ -12,7 +13,7 @@ interface QRISModalProps {
 }
 
 export function QRISModal({ onClose, onSuccess, onFailed }: QRISModalProps) {
-  const { currentPayment, loading, clearPayment } = usePaymentStore();
+  const { currentPayment, loading } = usePaymentStore();
   const [timeLeft, setTimeLeft] = useState(900); // 15 minutes in seconds
   const [polling, setPolling] = useState(false);
 
@@ -52,7 +53,7 @@ export function QRISModal({ onClose, onSuccess, onFailed }: QRISModalProps) {
     return () => {
       clearInterval(timer);
     };
-  }, [currentPayment]);
+  }, [currentPayment, onClose, onFailed, onSuccess]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -87,9 +88,11 @@ export function QRISModal({ onClose, onSuccess, onFailed }: QRISModalProps) {
         <div className="text-center mb-6">
           <div className="bg-gray-100 rounded-lg p-6 mb-4">
             {currentPayment.qr_code ? (
-              <img
+              <Image
                 src={`data:image/png;base64,${currentPayment.qr_code}`}
                 alt="QRIS Code"
+                width={192}
+                height={192}
                 className="w-48 h-48 mx-auto"
               />
             ) : (

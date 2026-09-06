@@ -51,7 +51,7 @@ async function main() {
           },
         });
         recipeCount++;
-      } catch (error) {
+      } catch {
         // Recipe might already exist, skip it
         console.log(`⚠️ Recipe already exists for ${product.name} with ingredient ${recipe.ingredient_id}, skipping`);
       }

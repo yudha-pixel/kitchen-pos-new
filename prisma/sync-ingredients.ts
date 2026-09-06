@@ -8,7 +8,7 @@ async function main() {
   // Check warehouses
   let warehouses = await prisma.warehouse.findMany();
   console.log(`📦 Found ${warehouses.length} warehouses:`);
-  warehouses.forEach((w: any) => console.log(`   - ${w.name} (${w.id})`));
+  warehouses.forEach((w) => console.log(`   - ${w.name} (${w.id})`));
 
   // Create default warehouse if none exists
   if (warehouses.length === 0) {
@@ -55,7 +55,7 @@ async function main() {
   console.log(`\n📝 Found ${ingredients.length} ingredients:`);
   
   let ingredientsWithoutWarehouse = 0;
-  ingredients.forEach((ing: any) => {
+  ingredients.forEach((ing) => {
     if (!ing.warehouse_id) {
       ingredientsWithoutWarehouse++;
     }

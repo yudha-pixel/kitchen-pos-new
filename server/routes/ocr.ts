@@ -6,17 +6,19 @@ import { PERMISSIONS } from '../../src/config/permissions';
 import multer, { FileFilterCallback } from 'multer';
 import path from 'path';
 import fs from 'fs/promises';
+import { Prisma } from '@prisma/client';
+import { queryString } from '../lib/query';
 
 const router = express.Router();
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: async (req: any, file: any, cb: any) => {
+  destination: async (_req: Request, _file: Express.Multer.File, cb: (error: Error | null, destination: string) => void) => {
     const uploadDir = path.join(process.cwd(), 'uploads', 'ocr');
     await fs.mkdir(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
-  filename: (req: any, file: any, cb: any) => {
+  filename: (_req: Request, file: Express.Multer.File, cb: (error: Error | null, filename: string) => void) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   },
@@ -25,7 +27,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (req: any, file: any, cb: FileFilterCallback) => {
+  fileFilter: (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
     const allowedTypes = /jpeg|jpg|png|pdf/;
     const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedTypes.test(file.mimetype);
@@ -44,7 +46,7 @@ router.post('/scan', authMiddleware, requirePermission(PERMISSIONS.finance.creat
     }
 
     const { scan_type = 'receipt' } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Create OCR scan record
     const ocrScan = await prisma.ocrScan.create({
@@ -87,12 +89,12 @@ router.post('/scan', authMiddleware, requirePermission(PERMISSIONS.finance.creat
 // GET /ocr/scans - Get all OCR scans for current user
 router.get('/scans', authMiddleware, requirePermission(PERMISSIONS.finance.view), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { scan_type, status, limit = 50, offset = 0 } = req.query;
 
-    const where: any = { user_id: userId };
-    if (scan_type) where.scan_type = scan_type;
-    if (status) where.status = status;
+    const where: Prisma.OcrScanWhereInput = { user_id: userId };
+    where.scan_type = queryString(scan_type);
+    where.status = queryString(status);
 
     const scans = await prisma.ocrScan.findMany({
       where,
@@ -119,7 +121,7 @@ router.get('/scans', authMiddleware, requirePermission(PERMISSIONS.finance.view)
 router.get('/scans/:id', authMiddleware, requirePermission(PERMISSIONS.finance.view), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const idStr = Array.isArray(id) ? id[0] : id;
 
     const scan = await prisma.ocrScan.findFirst({
@@ -141,7 +143,7 @@ router.get('/scans/:id', authMiddleware, requirePermission(PERMISSIONS.finance.v
 router.delete('/scans/:id', authMiddleware, requirePermission(PERMISSIONS.finance.delete), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const idStr = Array.isArray(id) ? id[0] : id;
 
     const scan = await prisma.ocrScan.findFirst({

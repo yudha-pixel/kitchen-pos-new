@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Plus, Trash2, ChevronDown, ChevronUp, CheckCircle, AlertCircle, Settings } from 'lucide-react';
@@ -61,17 +62,19 @@ export const EditProductModal = ({
   // Load existing modifier groups when modal opens
   useEffect(() => {
     if (isOpen && product.modifier_groups && product.modifier_groups.length > 0) {
-      const loadedGroups: ModifierGroup[] = product.modifier_groups.map((group: any) => ({
+      const loadedGroups: ModifierGroup[] = product.modifier_groups.map((group) => ({
         id: group.id,
         name: group.name,
         type: (group.max_selections > 1 ? 'multiple' : 'single') as 'single' | 'multiple',
-        options: group.modifiers.map((mod: any) => ({
+        options: group.modifiers.map((mod) => ({
           id: mod.id,
           name: mod.name,
           price: mod.price_extra || 0
         })),
         isExpanded: true
       }));
+      // Resets the editable modifier list when a different product is opened.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setModifierGroups(loadedGroups);
     } else if (isOpen) {
       setModifierGroups([]);
@@ -192,7 +195,7 @@ export const EditProductModal = ({
         modifier_groups: dbModifierGroups,
       });
       onClose();
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal menyimpan perubahan');
     } finally {
       setIsSaving(false);
@@ -314,9 +317,11 @@ export const EditProductModal = ({
           <span className="mb-1.5 block text-sm font-medium text-ink">Foto Produk</span>
           <div className="space-y-3">
             {formData.image_url && (
-              <img
+              <Image
                 src={formData.image_url}
                 alt={`Pratinjau ${formData.name}`}
+                width={128}
+                height={128}
                 className="h-32 w-32 rounded-lg object-cover"
               />
             )}

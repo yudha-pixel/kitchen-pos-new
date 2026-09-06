@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, Minus, ChevronDown, ChevronLeft, CheckCircle2, Building2 } from 'lucide-react';
@@ -18,6 +19,7 @@ import {
   type Category,
 } from '@/src/features/self-order/selfOrderService';
 import type { GuestSelfOrderPaymentMethod } from '@/src/features/self-order/selfOrderService';
+import type { Product } from '@/src/types/database.types';
 
 interface SelfOrderExperienceProps {
   tableId: string;
@@ -93,7 +95,7 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
         setCategories(categoryList);
         setPaymentMethods(config.methods);
         setSelectedPaymentMethodId(config.methods[0]?.id ?? '');
-      } catch (err) {
+      } catch {
         if (!cancelled) setProductsError('Gagal memuat menu');
       } finally {
         if (!cancelled) setProductsLoading(false);
@@ -107,14 +109,14 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
   }, []);
 
   const getProductModifiers = (product: ProductWithCategory): UIModifierGroup[] => {
-    const groups = (product as any).modifier_groups;
+    const groups = (product as Product).modifier_groups;
     if (!groups || groups.length === 0) return [];
-    return groups.map((group: any) => ({
+    return groups.map((group) => ({
       id: group.id,
       name: group.name,
       required: group.is_required,
       multiSelect: group.max_selections > 1,
-      options: group.modifiers.map((mod: any) => ({
+      options: group.modifiers.map((mod) => ({
         id: mod.id,
         name: mod.name,
         price: mod.price_extra || 0,
@@ -313,8 +315,8 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
                 <div className="mt-4 rounded-lg bg-surface-alt p-4">
                   <div className="flex flex-col items-center space-y-3">
                     {paymentMethods.find((method) => method.id === 'qris')?.image_url && (
-                      <img
-                        src={paymentMethods.find((method) => method.id === 'qris')?.image_url}
+                      <Image
+                        src={paymentMethods.find((method) => method.id === 'qris')?.image_url ?? ''}
                         alt="Kode QRIS resmi restoran"
                         width={192}
                         height={192}
@@ -484,9 +486,15 @@ export default function SelfOrderExperience({ tableId, tableNumber }: SelfOrderE
                   onClick={() => handleProductClick(product)}
                   className="rounded-xl bg-surface p-3 text-left shadow-sm transition-shadow hover:shadow-md active:scale-95"
                 >
-                  <div className="mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-surface-alt">
+                  <div className="relative mb-2 flex aspect-square items-center justify-center overflow-hidden rounded-lg bg-surface-alt">
                     {product.image_url ? (
-                      <img src={product.image_url} alt={product.name} className="h-full w-full object-cover" />
+                      <Image
+                        src={product.image_url}
+                        alt={product.name}
+                        fill
+                        sizes="(max-width: 768px) 50vw, 25vw"
+                        className="object-cover"
+                      />
                     ) : (
                       <span className="text-2xl text-ink-muted">🍽️</span>
                     )}

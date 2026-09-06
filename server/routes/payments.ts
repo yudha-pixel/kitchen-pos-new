@@ -273,7 +273,7 @@ router.post('/payments/:id/void', paymentLimiter, authMiddleware, requirePermiss
 // Payment gateways (Midtrans/Xendit) authenticate via their own signature scheme, not our JWTs
 router.post('/webhooks/payment', paymentLimiter, webhookSignatureMiddleware, async (req: Request, res: Response) => {
   try {
-    const { gateway, gateway_tx_id, status, amount } = req.body;
+    const { gateway_tx_id, status } = req.body;
 
     // Find payment by gateway transaction ID
     const payment = await prisma.paymentTransaction.findFirst({

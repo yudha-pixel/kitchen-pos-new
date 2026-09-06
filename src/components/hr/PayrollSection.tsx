@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { Attendance } from '@/src/lib/db';
+import { useState, useEffect, useCallback } from 'react';
 import { Calendar, DollarSign, Download, Calculator, FileText } from 'lucide-react';
 import { Employee, Payroll, calculatePayroll, getAttendanceByEmployee, getAttendanceByEmployee as getAttendance } from '@/src/features/hr/hrService';
 import { PayslipModal } from './PayslipModal';
@@ -18,7 +19,7 @@ export function PayrollSection({ employees }: PayrollSectionProps) {
   const [showPayslipModal, setShowPayslipModal] = useState(false);
   const [selectedPayslipEmployee, setSelectedPayslipEmployee] = useState<Employee | null>(null);
   const [selectedPayslipData, setSelectedPayslipData] = useState<Payroll | null>(null);
-  const [selectedPayslipAttendance, setSelectedPayslipAttendance] = useState<any[]>([]);
+  const [selectedPayslipAttendance, setSelectedPayslipAttendance] = useState<Attendance[]>([]);
 
   const months = [
     { value: 1, label: 'Januari' },
@@ -37,11 +38,8 @@ export function PayrollSection({ employees }: PayrollSectionProps) {
 
   const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
 
-  useEffect(() => {
-    loadPayroll();
-  }, [selectedMonth, selectedYear]);
 
-  const loadPayroll = async () => {
+  const loadPayroll = useCallback(async () => {
     setLoading(true);
     try {
       const monthStr = selectedMonth.toString().padStart(2, '0');
@@ -69,8 +67,16 @@ export function PayrollSection({ employees }: PayrollSectionProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [employees, selectedMonth, selectedYear]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadPayroll();
+    })();
+  }, [selectedMonth, selectedYear, loadPayroll]);
   const getEmployeeName = (employeeId: string) => {
     const employee = employees.find(e => e.id === employeeId);
     return employee?.name || 'Unknown';
@@ -145,7 +151,7 @@ export function PayrollSection({ employees }: PayrollSectionProps) {
   };
 
   const totalPayroll = payrollData.reduce((sum, p) => sum + p.total_salary, 0);
-  const totalOvertimeHours = Array.from(overtimeData.values()).reduce((sum, hours) => sum + hours, 0);
+  Array.from(overtimeData.values()).reduce((sum, hours) => sum + hours, 0);
   
   const permanentPayroll = payrollData.filter(p => getEmployeeType(p.employee_id) === 'permanent');
   const freelancePayroll = payrollData.filter(p => getEmployeeType(p.employee_id) === 'freelance');

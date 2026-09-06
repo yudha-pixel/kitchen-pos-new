@@ -7,16 +7,14 @@ import { OnlineCartPanel } from '@/src/features/online-order/components/OnlineCa
 import { OnlineCheckoutModal } from '@/src/features/online-order/components/OnlineCheckoutModal';
 import { VoidPaymentModal } from '@/src/components/ui/VoidPaymentModal';
 import { useOnlineCartStore } from '@/src/store/useOnlineCartStore';
-import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
-import { Loader2, Home, ShoppingCart, User, Menu, X } from 'lucide-react';
-import { ModifierOption, UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
+import { Loader2, Home, ShoppingCart, User, X } from 'lucide-react';
+import { UIModifierGroup } from '@/src/features/pos/components/ModifierModal';
 import { useRouter } from 'next/navigation';
-import { PERMISSIONS } from '@/src/config/permissions';
+import type { Product } from '@/src/types/database.types';
 
 export default function OnlineOrderPage() {
   const router = useRouter();
-  const { can } = useAuth();
   const { toast } = useToast();
   const { products, loading: productsLoading, error: productsError } = useProducts();
   const { categories, loading: categoriesLoading } = useCategories();
@@ -24,20 +22,14 @@ export default function OnlineOrderPage() {
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
   const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
-  const [outletName, setOutletName] = useState<string>('');
+  // Build-time constant, identical on server and client, so it needs no state
+  // and no effect (which is what made this a set-state-in-effect violation).
+  const outletName = process.env.NEXT_PUBLIC_OUTLET_NAME || 'Restoran';
   const [showMobileCart, setShowMobileCart] = useState(false);
 
-  const cartItemCount = useOnlineCartStore((state: any) => state.items.reduce((sum: number, item: any) => sum + item.quantity, 0));
-  const setDeliveryFee = useOnlineCartStore((state: any) => state.setDeliveryFee);
+  const cartItemCount = useOnlineCartStore((state) => state.items.reduce((sum: number, item) => sum + item.quantity, 0));
+  const setDeliveryFee = useOnlineCartStore((state) => state.setDeliveryFee);
 
-  const handleVoidPayment = (paymentId: string, amount: number) => {
-    if (!can(PERMISSIONS.orders.void)) {
-      toast('error', 'Anda tidak memiliki izin untuk void pembayaran');
-      return;
-    }
-    setSelectedPaymentForVoid({ id: paymentId, amount });
-    setVoidPaymentModalOpen(true);
-  };
 
   const handleVoidPaymentComplete = () => {
     setVoidPaymentModalOpen(false);
@@ -46,17 +38,17 @@ export default function OnlineOrderPage() {
   };
 
   // Transform API modifier groups to UI format
-  const getProductModifiers = (product: any): UIModifierGroup[] => {
+  const getProductModifiers = (product: Product): UIModifierGroup[] => {
     if (!product.modifier_groups || product.modifier_groups.length === 0) {
       return [];
     }
 
-    return product.modifier_groups.map((group: any) => ({
+    return product.modifier_groups.map((group) => ({
       id: group.id,
       name: group.name,
       required: group.is_required,
       multiSelect: group.max_selections > 1,
-      options: group.modifiers.map((mod: any) => ({
+      options: group.modifiers.map((mod) => ({
         id: mod.id,
         name: mod.name,
         price: mod.price_extra,
@@ -66,10 +58,6 @@ export default function OnlineOrderPage() {
   };
 
   useEffect(() => {
-    // Get outlet name and delivery fee from environment or API
-    const outletName = process.env.NEXT_PUBLIC_OUTLET_NAME || 'Restoran';
-    setOutletName(outletName);
-
     // Fetch outlet delivery fee
     const fetchOutletDeliveryFee = async () => {
       try {

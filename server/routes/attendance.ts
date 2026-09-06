@@ -1,8 +1,10 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { queryString } from '../lib/query';
 
 const router = express.Router();
 
@@ -11,15 +13,11 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.attendance.view), 
   try {
     const { employee_id, shift_type, date_from, date_to } = req.query;
 
-    const where: any = {};
+    const where: Prisma.AttendanceWhereInput = {};
 
-    if (employee_id) {
-      where.employee_id = employee_id;
-    }
+    where.employee_id = queryString(employee_id);
 
-    if (shift_type) {
-      where.shift_type = shift_type;
-    }
+    where.shift_type = queryString(shift_type);
 
     if (date_from || date_to) {
       where.check_in_time = {};
@@ -220,7 +218,7 @@ router.get('/summary/today', authMiddleware, requirePermission(PERMISSIONS.atten
     });
 
     const present = attendances.length;
-    const checkedOut = attendances.filter((a: any) => a.check_out_time !== null).length;
+    const checkedOut = attendances.filter((a) => a.check_out_time !== null).length;
     const stillWorking = present - checkedOut;
 
     res.json({

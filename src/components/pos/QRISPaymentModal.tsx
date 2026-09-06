@@ -3,24 +3,23 @@
 import { useState, useEffect } from 'react';
 import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
-import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
 import { QrCode, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import type { PosOrder } from '@/src/types/pos-order';
 
 interface QRISPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  order: any;
+  order: PosOrder | null;
   onPaymentComplete: () => void;
 }
 
 export const QRISPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: QRISPaymentModalProps) => {
   const [status, setStatus] = useState<'scanning' | 'success' | 'failed'>('scanning');
   const [countdown, setCountdown] = useState(60);
-  const { toast } = useToast();
 
   const calculateTotal = () => {
-    return order.items?.reduce((sum: number, item: any) => {
+    return order?.items?.reduce((sum: number, item) => {
       const price = Number(item.price_at_time) || 0;
       return sum + (price * item.quantity);
     }, 0) || 0;
@@ -28,6 +27,8 @@ export const QRISPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
 
   useEffect(() => {
     if (!isOpen) {
+      // Resets payment state when the modal closes so the next open starts clean.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatus('scanning');
       setCountdown(60);
       return;
@@ -108,7 +109,7 @@ export const QRISPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-600">Meja</span>
-            <span className="font-medium">{order.table_number || 'Direct'}</span>
+            <span className="font-medium">{order?.table_number || 'Direct'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Total</span>

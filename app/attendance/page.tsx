@@ -7,12 +7,8 @@ import { Employee, getAllEmployees, initializeDefaultShifts } from '@/src/featur
 
 export default function AttendancePage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadEmployees();
-    initializeDefaultShifts();
-  }, []);
 
   const loadEmployees = async () => {
     try {
@@ -25,6 +21,14 @@ export default function AttendancePage() {
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await Promise.all([loadEmployees(), initializeDefaultShifts()]);
+    })();
+  }, []);
   const handleAttendanceUpdate = () => {
     // Refresh stats if needed
   };

@@ -96,9 +96,9 @@ export async function verifySmtpConnection(config: SmtpConfig): Promise<{ succes
 
     await transporter.verify();
     return { success: true, message: 'Koneksi server SMTP berhasil diverifikasi' };
-  } catch (err: any) {
+  } catch (err) {
     console.error('SMTP verification error:', err);
-    return { success: false, message: err.message || 'Gagal terhubung ke server SMTP' };
+    return { success: false, message: err instanceof Error ? err.message : 'Gagal terhubung ke server SMTP' };
   }
 }
 
@@ -158,7 +158,7 @@ export async function sendEmail(options: SendEmailOptions, customConfig?: SmtpCo
     });
 
     return { success: true, messageId: info.messageId };
-  } catch (err: any) {
+  } catch (err) {
     console.error('Error sending email via SMTP:', err);
 
     // Log failed attempt in database
@@ -169,19 +169,19 @@ export async function sendEmail(options: SendEmailOptions, customConfig?: SmtpCo
           subject: options.subject,
           template_code: options.templateCode || null,
           status: 'FAILED',
-          error_message: err.message || 'Gagal mengirim email via SMTP',
+          error_message: err instanceof Error ? err.message : 'Gagal mengirim email via SMTP',
         },
       });
     } catch (e) {
       console.error('Failed to log failed email attempt:', e);
     }
 
-    return { success: false, error: err.message || 'Gagal mengirim email via SMTP' };
+    return { success: false, error: err instanceof Error ? err.message : 'Gagal mengirim email via SMTP' };
   }
 }
 
 // Compile template string by replacing {{variable_name}}
-export function compileTemplate(templateText: string, variables: Record<string, any>): string {
+export function compileTemplate(templateText: string, variables: Record<string, unknown>): string {
   let result = templateText;
   Object.keys(variables).forEach((key) => {
     const regex = new RegExp(`{{\\s*${key}\\s*}}`, 'g');
@@ -196,7 +196,7 @@ export async function sendPasswordResetEmail(user: { id: string; username: strin
   const storeName = 'Kitchen POS Restaurant System';
 
   // Try to load template from database
-  let template = await prisma.emailTemplate.findUnique({
+  const template = await prisma.emailTemplate.findUnique({
     where: { code: 'reset_password' },
   }).catch(() => null);
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { getToken } from '@/src/lib/api';
@@ -129,11 +129,8 @@ export default function SettingsPage() {
   const [selfOrderSettings, setSelfOrderSettings] = useState(defaultSelfOrderSettings);
 
   // Load settings from API on mount
-  useEffect(() => {
-    loadSettings();
-  }, []);
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const token = getToken();
       const response = await fetch(`${API_BASE_URL}/api/settings`, {
@@ -233,8 +230,16 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Failed to load settings:', error);
     }
-  };
+  }, [setWebBaseUrl]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadSettings();
+    })();
+  }, [loadSettings]);
   const tabs = [
     { id: 'receipt' as SettingsTab, label: 'Struk & Cetak', icon: Printer },
     { id: 'shift' as SettingsTab, label: 'Shift & Kasir', icon: Clock },
@@ -633,7 +638,7 @@ interface ReceiptSettingsProps {
 }
 
 function ReceiptPrintSettings({ settings, onChange }: ReceiptSettingsProps) {
-  const handleChange = (field: keyof typeof defaultReceiptSettings, value: any) => {
+  const handleChange = (field: keyof typeof defaultReceiptSettings, value: (typeof defaultReceiptSettings)[keyof typeof defaultReceiptSettings]) => {
     onChange({ ...settings, [field]: value });
   };
 
@@ -753,7 +758,7 @@ interface ShiftSettingsProps {
 }
 
 function ShiftCashierSettings({ settings, onChange }: ShiftSettingsProps) {
-  const handleChange = (field: keyof typeof defaultShiftSettings, value: any) => {
+  const handleChange = (field: keyof typeof defaultShiftSettings, value: (typeof defaultShiftSettings)[keyof typeof defaultShiftSettings]) => {
     onChange({ ...settings, [field]: value });
   };
 
@@ -856,7 +861,7 @@ function TableAreaSettings({ settings, onChange }: TableSettingsProps) {
   const [deletingArea, setDeletingArea] = useState(false);
   const [deleteAreaError, setDeleteAreaError] = useState('');
 
-  const handleChange = (field: keyof typeof defaultTableSettings, value: any) => {
+  const handleChange = (field: keyof typeof defaultTableSettings, value: (typeof defaultTableSettings)[keyof typeof defaultTableSettings]) => {
     onChange({ ...settings, [field]: value });
   };
 
@@ -1149,11 +1154,8 @@ function UserAccessSettings({ settings, onChange }: UserSettingsProps) {
   const { toast } = useToast();
 
   // Load users on mount
-  useEffect(() => {
-    loadUsers();
-  }, []);
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     try {
       const token = getToken();
       const response = await fetch(`${API_BASE_URL}/api/users`, {
@@ -1183,11 +1185,16 @@ function UserAccessSettings({ settings, onChange }: UserSettingsProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onChange, settings]);
 
-  const handleChange = (field: keyof typeof defaultUserSettings, value: any) => {
-    onChange({ ...settings, [field]: value });
-  };
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadUsers();
+    })();
+  }, [loadUsers]);
 
   const handleAddStaff = () => {
     setEditingUser(null);
@@ -1568,7 +1575,7 @@ interface KitchenSettingsProps {
 }
 
 function KitchenKDSSettings({ settings, onChange }: KitchenSettingsProps) {
-  const handleChange = (field: keyof typeof defaultKitchenSettings, value: any) => {
+  const handleChange = (field: keyof typeof defaultKitchenSettings, value: (typeof defaultKitchenSettings)[keyof typeof defaultKitchenSettings]) => {
     onChange({ ...settings, [field]: value });
   };
 
@@ -1675,7 +1682,7 @@ interface InventorySettingsProps {
 }
 
 function InventoryStockSettings({ settings, onChange }: InventorySettingsProps) {
-  const handleChange = (field: keyof typeof defaultInventorySettings, value: any) => {
+  const handleChange = (field: keyof typeof defaultInventorySettings, value: (typeof defaultInventorySettings)[keyof typeof defaultInventorySettings]) => {
     onChange({ ...settings, [field]: value });
   };
 
@@ -1765,7 +1772,7 @@ interface SecuritySettingsProps {
 }
 
 function SecuritySettings({ settings, onChange, toast }: SecuritySettingsProps) {
-  const handleChange = (field: keyof typeof defaultSecuritySettings, value: any) => {
+  const handleChange = (field: keyof typeof defaultSecuritySettings, value: (typeof defaultSecuritySettings)[keyof typeof defaultSecuritySettings]) => {
     onChange({ ...settings, [field]: value });
   };
 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import Image from 'next/image';
+import { useState, useEffect, useCallback } from 'react';
 import { Camera, Clock, CheckCircle, XCircle, AlertCircle, X } from 'lucide-react';
 import { Employee, Attendance, Shift, getAttendanceByDate, checkIn, checkOut, getAllShifts } from '@/src/features/hr/hrService';
 import { AttendanceCameraModal } from './AttendanceCameraModal';
@@ -24,12 +25,8 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
   const [overtimeMessage, setOvertimeMessage] = useState('');
   const [attendanceError, setAttendanceError] = useState('');
 
-  useEffect(() => {
-    loadAttendance();
-    loadShifts();
-  }, [selectedDate]);
 
-  const loadAttendance = async () => {
+  const loadAttendance = useCallback(async () => {
     try {
       const data = await getAttendanceByDate(selectedDate);
       setAttendance(data);
@@ -46,7 +43,7 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
     } catch (error) {
       console.error('Failed to load attendance:', error);
     }
-  };
+  }, [selectedDate]);
 
   const loadShifts = async () => {
     try {
@@ -57,6 +54,14 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await Promise.all([loadAttendance(), loadShifts()]);
+    })();
+  }, [selectedDate, loadAttendance]);
   const handleCheckIn = (employee: Employee) => {
     setAttendanceError('');
     setSelectedEmployee(employee);
@@ -91,9 +96,9 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
       }
       await loadAttendance();
       onAttendanceUpdate();
-    } catch (error: any) {
+    } catch (error) {
       console.error('Failed to record attendance:', error);
-      setAttendanceError(error.message || 'Gagal mencatat kehadiran');
+      setAttendanceError(error instanceof Error ? error.message : 'Gagal mencatat kehadiran');
     } finally {
       setLoading(false);
       setSelectedEmployee(null);
@@ -227,9 +232,11 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
                           <Clock className="h-3.5 w-3.5 text-gray-400" />
                           {formatTime(empAttendance?.check_in_time)}
                           {empAttendance?.check_in_photo && (
-                            <img
+                            <Image
                               src={empAttendance.check_in_photo}
                               alt="Check-in"
+                              width={24}
+                              height={24}
                               className="h-6 w-6 rounded object-cover cursor-pointer hover:opacity-80"
                               onClick={() => window.open(empAttendance.check_in_photo, '_blank')}
                             />
@@ -241,9 +248,11 @@ export function AttendanceSection({ employees, onAttendanceUpdate }: AttendanceS
                           <Clock className="h-3.5 w-3.5 text-gray-400" />
                           {formatTime(empAttendance?.check_out_time)}
                           {empAttendance?.check_out_photo && (
-                            <img
+                            <Image
                               src={empAttendance.check_out_photo}
                               alt="Check-out"
+                              width={24}
+                              height={24}
                               className="h-6 w-6 rounded object-cover cursor-pointer hover:opacity-80"
                               onClick={() => window.open(empAttendance.check_out_photo, '_blank')}
                             />

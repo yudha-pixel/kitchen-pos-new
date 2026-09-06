@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { useOutletStore } from '@/src/features/outlet/outletStore';
-import { getOutlets, createOutlet, updateOutlet, deleteOutlet } from '@/src/features/outlet/outletService';
+import { createOutlet, updateOutlet, deleteOutlet } from '@/src/features/outlet/outletService';
 import { Outlet } from '@/src/lib/db';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
-import { Building2, Plus, Edit, Trash2, MapPin, Phone, Check, X } from 'lucide-react';
+import { Building2, Plus, Edit, Trash2, Check, X } from 'lucide-react';
 
 export default function OutletManagementPage() {
   const router = useRouter();
@@ -38,7 +38,7 @@ export default function OutletManagementPage() {
     if (user) {
       loadOutlets();
     }
-  }, [user]);
+  }, [user, loadOutlets]);
 
   const handleOpenModal = (outlet?: Outlet) => {
     setFormError('');

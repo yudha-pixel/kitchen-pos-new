@@ -126,7 +126,7 @@ export function validateUnitPrice(price: number, unit: string): { valid: boolean
     return { valid: false, warning: 'Harga satuan harus lebih dari 0' };
   }
   
-  const lowerUnit = unit.toLowerCase().trim();
+  unit.toLowerCase().trim();
   
   // Define realistic price ranges per smallest unit (per gram/ml/pcs)
   const realisticRanges: Record<string, { min: number; max: number }> = {

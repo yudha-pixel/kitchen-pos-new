@@ -2,11 +2,33 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// $queryRaw is untyped, so the aggregate row shapes are declared here.
+interface DuplicateNameGroup {
+  normalized_name: string;
+  count: bigint;
+  ids: string[];
+  names: string[];
+  stocks: number[];
+  skus: (string | null)[];
+}
+
+interface DuplicateSkuGroup {
+  sku: string;
+  count: bigint;
+  ids: string[];
+  names: string[];
+  stocks: number[];
+}
+
+interface CountRow {
+  count: bigint;
+}
+
 async function detectDuplicates() {
   console.log('=== DETECTING DUPLICATE INGREDIENTS ===\n');
 
   // Find duplicates by name (case-insensitive)
-  const duplicatesByName: any[] = await prisma.$queryRaw`
+  const duplicatesByName: DuplicateNameGroup[] = await prisma.$queryRaw`
     SELECT
       LOWER(name) as normalized_name,
       COUNT(*) as count,
@@ -22,7 +44,7 @@ async function detectDuplicates() {
 
   console.log(`Found ${duplicatesByName.length} groups of duplicates by name:\n`);
 
-  duplicatesByName.forEach((group: any, idx: number) => {
+  duplicatesByName.forEach((group, idx: number) => {
     console.log(`${idx + 1}. Name: "${group.names[0]}" (${group.count} duplicates)`);
     console.log(`   IDs: ${group.ids.join(', ')}`);
     console.log(`   Stocks: ${group.stocks.join(', ')}`);
@@ -31,7 +53,7 @@ async function detectDuplicates() {
   });
 
   // Find duplicates by SKU
-  const duplicatesBySku: any[] = await prisma.$queryRaw`
+  const duplicatesBySku: DuplicateSkuGroup[] = await prisma.$queryRaw`
     SELECT
       sku,
       COUNT(*) as count,
@@ -47,7 +69,7 @@ async function detectDuplicates() {
 
   console.log(`\nFound ${duplicatesBySku.length} groups of duplicates by SKU:\n`);
 
-  duplicatesBySku.forEach((group: any, idx: number) => {
+  duplicatesBySku.forEach((group, idx: number) => {
     console.log(`${idx + 1}. SKU: "${group.sku}" (${group.count} duplicates)`);
     console.log(`   Names: ${group.names.join(', ')}`);
     console.log(`   IDs: ${group.ids.join(', ')}`);
@@ -61,7 +83,7 @@ async function detectDuplicates() {
 async function deduplicateIngredients() {
   console.log('=== DEDUPLICATING INGREDIENTS ===\n');
 
-  const { duplicatesByName, duplicatesBySku } = await detectDuplicates();
+  const { duplicatesByName } = await detectDuplicates();
 
   let totalDeleted = 0;
   let totalKept = 0;
@@ -81,7 +103,8 @@ async function deduplicateIngredients() {
     let maxStock = 0;
 
     for (let i = 0; i < ids.length; i++) {
-      const stock = parseFloat(stocks[i]);
+      // array_agg over a double precision column comes back as numbers.
+      const stock = Number(stocks[i]);
       if (stock > maxStock) {
         maxStock = stock;
         bestIndex = i;
@@ -89,7 +112,7 @@ async function deduplicateIngredients() {
     }
 
     const keepId = ids[bestIndex];
-    const deleteIds = ids.filter((_: any, i: number) => i !== bestIndex);
+    const deleteIds = ids.filter((_, i: number) => i !== bestIndex);
 
     console.log(`  Keeping: ID ${keepId} (stock: ${stocks[bestIndex]})`);
     console.log(`  Deleting: ${deleteIds.join(', ')}`);
@@ -139,7 +162,7 @@ async function verifyIntegrity() {
   console.log(`Ingredients with stock > 0: ${totalWithStock}`);
 
   // Check for remaining duplicates
-  const remainingNameDuplicates: any[] = await prisma.$queryRaw`
+  const remainingNameDuplicates: CountRow[] = await prisma.$queryRaw`
     SELECT COUNT(*) as count
     FROM (
       SELECT LOWER(name) as normalized_name

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
@@ -12,7 +13,7 @@ router.get('/summary', authMiddleware, requirePermission(PERMISSIONS.finance.vie
   try {
     const { start_date, end_date } = req.query;
 
-    const where: any = {};
+    const where: Prisma.PettyCashWhereInput = {};
 
     if (start_date && end_date) {
       where.expense_date = {
@@ -48,7 +49,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.finance.view), asy
   try {
     const { start_date, end_date, category } = req.query;
 
-    const where: any = {};
+    const where: Prisma.PettyCashWhereInput = {};
 
     if (start_date && end_date) {
       where.expense_date = {
@@ -127,7 +128,7 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.finance.view), 
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.finance.create), async (req: Request, res: Response) => {
   try {
     const { amount, description, category, receipt_url, ingredient_id, shift_id } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!amount || !description) {
       return res.status(400).json({ error: 'Amount and description are required' });

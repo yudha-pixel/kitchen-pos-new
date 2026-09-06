@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
 import { randomUUID } from 'crypto';
@@ -46,7 +47,6 @@ describe('Supplier & Purchase Order Integration Tests', () => {
     });
     cashierUserId = cashierUser.id;
 
-    const jwt = require('jsonwebtoken');
     adminToken = jwt.sign(
       { id: adminUser.id, username: adminUser.username, role: 'admin' },
       process.env.JWT_SECRET || 'test-secret',

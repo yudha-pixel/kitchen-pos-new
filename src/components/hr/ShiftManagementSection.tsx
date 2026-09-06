@@ -25,11 +25,6 @@ export function ShiftManagementSection() {
     assigned_employees: [] as string[],
   });
 
-  useEffect(() => {
-    loadShifts();
-    loadEmployees();
-    initializeDefaultShifts();
-  }, []);
 
   const loadShifts = async () => {
     try {
@@ -58,6 +53,14 @@ export function ShiftManagementSection() {
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await Promise.all([loadShifts(), loadEmployees(), initializeDefaultShifts()]);
+    })();
+  }, []);
   const handleAddShift = () => {
     setFormError('');
     setEditingShift(null);

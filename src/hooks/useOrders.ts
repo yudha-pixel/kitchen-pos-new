@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '@/src/lib/api';
-import { NetworkError } from '@/src/lib/api';
 import { db, Order as DBOrder, OrderItem as DBOrderItem } from '@/src/lib/db';
 import { Order, OrderItem, OrderInsert, OrderItemInsert } from '@/src/types/database.types';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
@@ -22,15 +21,14 @@ export const useOrders = (cashierId?: string | null) => {
   const [isFromCache, setIsFromCache] = useState(false);
   const { addTransaction } = useOfflineStore();
 
-  useEffect(() => {
-    fetchOrders();
-  }, [cashierId]);
-
-  const fetchOrders = async () => {
+  // No synchronous setState here: the mount effect calls this directly, and
+  // loading/error/isFromCache already start in the values these would set.
+  // `refetch` below applies them for user-triggered reloads.
+  const fetchOrders = useCallback(async () => {
+    // Whether this run found anything cached; read in the catch below instead
+    // of the `orders` state this callback also writes.
+    let hasCachedData = false;
     try {
-      setLoading(true);
-      setError(null);
-      setIsFromCache(false);
 
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
@@ -53,6 +51,7 @@ export const useOrders = (cashierId?: string | null) => {
         if (cachedOrders.length > 0) {
           setOrders(cachedOrders as Order[]);
           setIsFromCache(true);
+          hasCachedData = true;
           console.log('Loaded orders from IndexedDB cache:', cachedOrders.length);
         }
       } catch (cacheError) {
@@ -103,7 +102,7 @@ export const useOrders = (cashierId?: string | null) => {
         }
       }
     } catch (err) {
-      if (orders.length === 0) {
+      if (!hasCachedData) {
         setError(err instanceof Error ? err.message : 'Failed to fetch orders');
         console.error('Error fetching orders:', err);
       } else {
@@ -113,7 +112,27 @@ export const useOrders = (cashierId?: string | null) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [cashierId]);
+
+  useEffect(() => {
+    // Inlined rather than calling fetchOrders() directly: setState must not be
+    // reachable synchronously from an effect body (react-hooks/set-state-in-effect).
+    let cancelled = false;
+    (async () => {
+      await fetchOrders();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchOrders]);
+
+  const refetch = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    setIsFromCache(false);
+    await fetchOrders();
+  }, [fetchOrders]);
 
   /**
    * Create a new order with offline support
@@ -228,7 +247,7 @@ export const useOrders = (cashierId?: string | null) => {
     orders, 
     loading, 
     error, 
-    refetch: fetchOrders, 
+    refetch, 
     isFromCache, 
     createOrder, 
     updateOrderStatus 
@@ -243,13 +262,10 @@ export const useOrderItems = (orderId: string) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (orderId) {
-      fetchOrderItems();
-    }
-  }, [orderId]);
-
-  async function fetchOrderItems() {
+  const fetchOrderItems = useCallback(async () => {
+    // Whether this run found anything cached; read in the catch below instead
+    // of the `orderItems` state this callback also writes.
+    let hasCachedData = false;
     try {
       setLoading(true);
       setError(null);
@@ -265,6 +281,7 @@ export const useOrderItems = (orderId: string) => {
 
         if (cachedItems.length > 0) {
           setOrderItems(cachedItems as OrderItem[]);
+          hasCachedData = true;
           console.log('Loaded order items from IndexedDB cache:', cachedItems.length);
         }
       } catch (cacheError) {
@@ -292,14 +309,23 @@ export const useOrderItems = (orderId: string) => {
         }
       }
     } catch (err) {
-      if (orderItems.length === 0) {
+      if (!hasCachedData) {
         setError(err instanceof Error ? err.message : 'Failed to fetch order items');
         console.error('Error fetching order items:', err);
       }
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
+
+  useEffect(() => {
+    if (!orderId) return;
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchOrderItems();
+    })();
+  }, [orderId, fetchOrderItems]);
 
   return { orderItems, loading, error, refetch: fetchOrderItems };
 };

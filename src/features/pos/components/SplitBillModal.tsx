@@ -6,16 +6,32 @@ import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
+import type { PosOrder, PosOrderItem } from '@/src/types/pos-order';
+import type { AppliedModifier } from '@/src/lib/db';
+
+/**
+ * The modal accepts either persisted order lines or cart lines. They are
+ * normalised to this shape once, so the rest of the component works with a
+ * single set of fields instead of probing for both spellings everywhere.
+ */
+export interface SplitBillSelectableItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  modifiers: AppliedModifier[];
+  modifierTotal: number;
+}
 
 interface SplitBillModalProps {
   isOpen: boolean;
   onClose: () => void;
-  order?: any;
-  onSplitComplete: (selectedItems: any[], paymentMethod: string) => void;
+  order?: PosOrder;
+  onSplitComplete: (selectedItems: SplitBillSelectableItem[], paymentMethod: string) => void;
 }
 
 export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: SplitBillModalProps) => {
-  const { items: cartItems, splitBill } = useCartStore();
+  const { items: cartItems } = useCartStore();
   const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -27,8 +43,22 @@ export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: Spli
     { value: 'DEBIT', label: 'Debit/Kartu' },
   ];
 
-  // Use order items if provided, otherwise use cart items
-  const items = order?.items || cartItems;
+  // Use order items if provided, otherwise use cart items.
+  const items: SplitBillSelectableItem[] = (order?.items ?? cartItems ?? []).map((item) => {
+    const raw = item as PosOrderItem & { modifiers?: { price?: number }[] };
+    const modifiers = raw.modifiers_applied ?? raw.modifiers ?? [];
+    return {
+      id: raw.id ?? '',
+      name: raw.product?.name || raw.name || 'Unknown',
+      price: Number(raw.price_at_time ?? raw.price) || 0,
+      quantity: raw.quantity,
+      modifiers,
+      modifierTotal: modifiers.reduce(
+        (sum: number, m) => sum + Number(('price_extra' in m ? m.price_extra : undefined) ?? m.price ?? 0),
+        0,
+      ),
+    };
+  });
 
   const handleToggleItem = (itemId: string) => {
     if (isProcessing) return;
@@ -41,7 +71,7 @@ export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: Spli
 
   const handleSelectAll = () => {
     if (isProcessing) return;
-    const allItemIds = items.map((item: any) => item.id) || [];
+    const allItemIds = items.map((item) => item.id) || [];
     if (selectedItemIds.length === allItemIds.length) {
       setSelectedItemIds([]);
     } else {
@@ -64,7 +94,7 @@ export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: Spli
     setIsProcessing(true);
 
     try {
-      const selectedItems = items.filter((item: any) => selectedItemIds.includes(item.id)) || [];
+      const selectedItems = items.filter((item) => selectedItemIds.includes(item.id)) || [];
       
       // Add small delay to prevent double-click
       await new Promise(resolve => setTimeout(resolve, 300));
@@ -89,31 +119,22 @@ export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: Spli
     onClose();
   };
 
-  const calculateItemTotal = (item: any) => {
-    // Handle both order items and cart items
-    const price = Number(item.price_at_time || item.price) || 0;
-    const modifiers = item.modifiers_applied || item.modifiers || [];
-    const modifierTotal = modifiers.reduce((sum: number, m: any) => sum + (m.price_extra || m.price || 0), 0) || 0;
-    return (price + modifierTotal) * item.quantity;
-  };
+  const calculateItemTotal = (item: SplitBillSelectableItem) =>
+    (item.price + item.modifierTotal) * item.quantity;
 
   const calculateSelectedTotal = () => {
     return items
-      ?.filter((item: any) => selectedItemIds.includes(item.id))
-      .reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0) || 0;
+      ?.filter((item) => selectedItemIds.includes(item.id))
+      .reduce((sum: number, item) => sum + calculateItemTotal(item), 0) || 0;
   };
 
-  const getItemName = (item: any) => {
-    return item.product?.name || item.name || 'Unknown';
+  const getItemName = (item: SplitBillSelectableItem) => item.name;
+
+  const getItemPrice = (item: SplitBillSelectableItem) => {
+    return item.price;
   };
 
-  const getItemPrice = (item: any) => {
-    return Number(item.price_at_time || item.price) || 0;
-  };
-
-  const getItemModifiers = (item: any) => {
-    return item.modifiers_applied || item.modifiers || [];
-  };
+  const getItemModifiers = (item: SplitBillSelectableItem) => item.modifiers;
 
   return (
     <Modal
@@ -165,7 +186,7 @@ export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: Spli
           </label>
 
           <div className="space-y-2 max-h-60 overflow-y-auto">
-            {items.map((item: any) => {
+            {items.map((item) => {
               const itemTotal = calculateItemTotal(item);
               const isSelected = selectedItemIds.includes(item.id);
               const modifiers = getItemModifiers(item);
@@ -193,7 +214,7 @@ export const SplitBillModal = ({ isOpen, onClose, order, onSplitComplete }: Spli
                         </p>
                         {modifiers && modifiers.length > 0 && (
                           <div className="mt-1 text-xs text-ink-muted">
-                            {modifiers.map((mod: any) => (
+                            {modifiers.map((mod) => (
                               <span key={mod.id} className="mr-2">+ {mod.name}</span>
                             ))}
                           </div>

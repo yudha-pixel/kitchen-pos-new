@@ -3,8 +3,16 @@
 import { createContext, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
+export interface BreadcrumbSegment {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+}
+
 export interface PageHeaderConfig {
   title?: string;
+  /** Overrides the path-derived breadcrumb trail in Header when provided. */
+  breadcrumbs?: BreadcrumbSegment[];
   onSearch?: (query: string) => void;
   actions?: ReactNode;
 }

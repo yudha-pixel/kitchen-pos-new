@@ -1,8 +1,10 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response, NextFunction } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { queryString } from '../lib/query';
 
 const router = express.Router();
 
@@ -11,11 +13,11 @@ export const auditLogger = (action: string, entity_type: string) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     const originalSend = res.send;
     
-    res.send = function(data: any) {
+    res.send = function (data?: unknown) {
       // Log after response is sent
       setImmediate(async () => {
         try {
-          const userId = (req as any).user?.id;
+          const userId = req.user?.id;
           const ipAddress = req.ip || req.socket.remoteAddress;
           const userAgent = req.get('user-agent');
 
@@ -24,8 +26,8 @@ export const auditLogger = (action: string, entity_type: string) => {
               user_id: userId,
               action,
               entity_type,
-              entity_id: req.params.id || (req.body as any).id,
-              old_value: (req.body as any).old_value || null,
+              entity_id: queryString(req.params.id) ?? (typeof (req.body as Record<string, unknown>)?.id === 'string' ? (req.body as Record<string, string>).id : null),
+              old_value: ((req.body as Record<string, unknown>)?.old_value ?? null) as Prisma.InputJsonValue,
               new_value: req.body,
               ip_address: ipAddress,
               user_agent: userAgent,
@@ -49,10 +51,10 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.audit.view), async
   try {
     const { user_id, action, entity_type, limit = 100, offset = 0 } = req.query;
 
-    const where: any = {};
-    if (user_id) where.user_id = user_id;
-    if (action) where.action = action;
-    if (entity_type) where.entity_type = entity_type;
+    const where: Prisma.AuditLogWhereInput = {};
+    where.user_id = queryString(user_id);
+    where.action = queryString(action);
+    where.entity_type = queryString(entity_type);
 
     const logs = await prisma.auditLog.findMany({
       where,

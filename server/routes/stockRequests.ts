@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ const rejectStockRequestSchema = z.object({
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const { status, approval_level, requested_by, dateFrom, dateTo } = req.query;
-    const where: any = {};
+    const where: Prisma.StockRequestWhereInput = {};
     if (status) where.status = status as string;
     if (approval_level) where.approval_level = parseInt(approval_level as string);
     if (requested_by) where.requested_by = requested_by as string;

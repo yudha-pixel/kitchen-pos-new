@@ -1,3 +1,4 @@
+import type { Outlet, TableEntity } from '@/src/lib/db';
 import { API_BASE_URL } from '../config/runtime';
 import type { AuthenticatedUser } from '@/src/types/auth';
 
@@ -304,11 +305,11 @@ export async function updateUserPin(data: { pin?: string; enabled: boolean }) {
 }
 
 export async function getUserPreferences() {
-  return request<Record<string, any>>('GET', '/api/user/preferences');
+  return request<Record<string, unknown>>('GET', '/api/user/preferences');
 }
 
-export async function updateUserPreferences(preferences: Record<string, any>) {
-  return request<Record<string, any>>('PUT', '/api/user/preferences', preferences);
+export async function updateUserPreferences(preferences: Record<string, unknown>) {
+  return request<Record<string, unknown>>('PUT', '/api/user/preferences', preferences);
 }
 
 // User Management (List & CRUD for Settings)
@@ -359,7 +360,12 @@ export async function fetchRoles() {
 }
 
 export async function fetchOutlets() {
-  return request<any[]>('GET', '/api/outlets');
+  return request<Outlet[]>('GET', '/api/outlets');
+}
+
+// Public self-order endpoint (no auth), used by the offline sync to cache tables.
+export async function fetchTables() {
+  return request<TableEntity[]>('GET', '/api/self-order/tables');
 }
 
 export interface SmtpSettingsData {

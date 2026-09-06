@@ -75,7 +75,11 @@ export default function PesananPembelianPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchOrders();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchOrders();
+    })();
   }, [fetchOrders]);
 
   // Robust Date Formatter (Fixes 'Invalid Date' bug)
@@ -134,7 +138,7 @@ export default function PesananPembelianPage() {
     }
   };
 
-  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+  const toggleSelectOne = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
@@ -270,7 +274,7 @@ export default function PesananPembelianPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={(e) => toggleSelectOne(po.id, e as any)}
+                              onChange={(e) => toggleSelectOne(po.id, e)}
                               className="rounded border-line text-primary focus:ring-primary"
                             />
                           </td>

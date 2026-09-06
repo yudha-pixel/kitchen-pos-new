@@ -2,6 +2,7 @@
  * Reports Service
  * Handles all report-related data aggregation and queries for the Kitchen POS system
  */
+import { useConfigStore } from '@/src/store/useConfigStore';
 
 /**
  * Reverse calculation for internal reporting
@@ -9,8 +10,6 @@
  * Uses dynamic rates from global configuration
  */
 function getInternalBreakdown(finalPrice: number) {
-  // Import config store dynamically to avoid circular dependencies
-  const { useConfigStore } = require('@/src/store/useConfigStore');
   const taxRate = useConfigStore.getState().getTaxRateAsDecimal();
   const serviceChargeRate = useConfigStore.getState().getServiceChargeRateAsDecimal();
   
@@ -146,13 +145,13 @@ export async function getExpensesDataByPeriod(days: number): Promise<
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     
-    const filteredExpenses = expenses.filter((expense: any) => 
+    const filteredExpenses = expenses.filter((expense) => 
       new Date(expense.date) >= cutoffDate
     );
     
     const groupedData = new Map<string, number>();
     
-    filteredExpenses.forEach((expense: any) => {
+    filteredExpenses.forEach((expense) => {
       const date = new Date(expense.date).toLocaleDateString('id-ID', {
         day: '2-digit',
         month: '2-digit',
@@ -212,14 +211,14 @@ export async function getPaymentMethodSummary(days: number): Promise<
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     
-    const filteredOrders = orders.filter((order: any) => 
+    const filteredOrders = orders.filter((order) => 
       new Date(order.created_at) >= cutoffDate
     );
     
     const summary = new Map<string, { count: number; total: number }>();
     let grandTotal = 0;
     
-    filteredOrders.forEach((order: any) => {
+    filteredOrders.forEach((order) => {
       const method = order.payment_method || 'unknown';
       const current = summary.get(method) || { count: 0, total: 0 };
       summary.set(method, {
@@ -284,11 +283,11 @@ export async function getBestSellingProducts(days: number, limit: number = 10): 
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - days);
     
-    const filteredOrders = orders.filter((order: any) => 
+    const filteredOrders = orders.filter((order) => 
       new Date(order.created_at) >= cutoffDate
     );
     
-    const orderIds = filteredOrders.map((o: any) => o.id).filter(Boolean);
+    const orderIds = filteredOrders.flatMap((o) => (o.id ? [o.id] : []));
     
     if (orderIds.length === 0) {
       return [];
@@ -304,7 +303,7 @@ export async function getBestSellingProducts(days: number, limit: number = 10): 
     }
     
     // Get unique product IDs from order items
-    const productIds = [...new Set(orderItems.map((item: any) => item.product_id))];
+    const productIds = [...new Set(orderItems.map((item) => item.product_id))];
     
     // Fetch product names from products table
     const products = await db.products.where('id').anyOf(productIds).toArray();
@@ -312,7 +311,7 @@ export async function getBestSellingProducts(days: number, limit: number = 10): 
     
     const productStats = new Map<string, { product_name: string; quantity: number; revenue: number }>();
     
-    orderItems.forEach((item: any) => {
+    orderItems.forEach((item) => {
       const productName = productMap.get(item.product_id) || `Unknown Product (${item.product_id})`;
       const current = productStats.get(item.product_id) || {
         product_name: productName,

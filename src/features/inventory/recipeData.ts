@@ -695,7 +695,7 @@ export const comprehensiveIngredients = [
  * Recipe mapping function - creates recipes for products based on their name
  * Returns array of recipe objects with ingredient quantities
  */
-export function createRecipesForProduct(product: any, ingredientMap: Map<string, string>) {
+export function createRecipesForProduct(product: { id?: string; name: string }, ingredientMap: Map<string, string>) {
   const recipes = [];
   const productName = product.name.toLowerCase();
 

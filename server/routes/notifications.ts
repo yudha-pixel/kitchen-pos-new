@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
 import { authMiddleware } from '../middleware/auth';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -17,14 +18,14 @@ const createNotificationSchema = z.object({
 // GET /notifications - Get notifications for current user
 router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const { unread_only } = req.query;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const where: any = { user_id: userId };
+    const where: Prisma.NotificationWhereInput = { user_id: userId };
     if (unread_only === 'true') {
       where.is_read = false;
     }
@@ -45,7 +46,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 // GET /notifications/unread-count - Get unread count for current user
 router.get('/unread-count', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -70,7 +71,7 @@ router.patch('/:id/mark-read', authMiddleware, async (req: Request, res: Respons
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -104,7 +105,7 @@ router.patch('/:id/mark-read', authMiddleware, async (req: Request, res: Respons
 // PATCH /notifications/mark-all-read - Mark all notifications as read for current user
 router.patch('/mark-all-read', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -130,7 +131,7 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });

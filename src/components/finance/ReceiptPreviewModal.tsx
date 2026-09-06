@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { X, ZoomIn, ZoomOut, Download, Maximize2 } from 'lucide-react';
 import { Expense } from '@/src/features/finance/expenseService';
@@ -93,10 +94,13 @@ export function ReceiptPreviewModal({ isOpen, onClose, expense }: ReceiptPreview
         {/* Image Preview */}
         <div className="flex-1 overflow-auto p-4 bg-gray-100 flex items-center justify-center">
           <div className="relative" style={{ transform: `scale(${zoom})`, transformOrigin: 'center' }}>
-            <img
+            <Image
               src={expense.proof_file}
               alt="Receipt Preview"
-              className="max-w-full max-h-[70vh] object-contain rounded shadow-lg"
+              width={0}
+              height={0}
+              sizes="100vw"
+              className="h-auto w-auto max-w-full max-h-[70vh] object-contain rounded shadow-lg"
             />
           </div>
         </div>

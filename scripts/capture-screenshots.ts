@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page, type BrowserContext } from '@playwright/test';
+import { chromium, type Page } from '@playwright/test';
 import path from 'path';
 import fs from 'fs';
 

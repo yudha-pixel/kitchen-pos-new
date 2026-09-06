@@ -143,7 +143,7 @@ export function getDefaultCategories(): ExpenseCategory[] {
  * Simulate OCR processing on uploaded file
  * This is a mock implementation for demo purposes
  */
-export async function simulateOCR(file: File): Promise<OCRResult> {
+export async function simulateOCR(_file: File): Promise<OCRResult> {
   // Simulate processing delay
   await new Promise(resolve => setTimeout(resolve, 1500));
 

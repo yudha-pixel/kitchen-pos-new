@@ -23,6 +23,9 @@ export interface TokenPayload {
 declare module 'express' {
   interface Request {
     user?: TokenPayload;
+    /** Raw request body, captured by the express.json verify hook in app.ts
+     *  for webhook signature verification. */
+    rawBody?: Buffer;
   }
 }
 
@@ -61,7 +64,7 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     req.userPermissions = await loadRolePermissions(profile.role_id);
 
     next();
-  } catch (error) {
+  } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
 };

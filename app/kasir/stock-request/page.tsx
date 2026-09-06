@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
@@ -14,7 +15,7 @@ interface Ingredient {
   name: string;
   unit: string;
   current_stock: number;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export default function StockRequestPage() {
@@ -33,7 +34,7 @@ export default function StockRequestPage() {
   const [selectedIngredient, setSelectedIngredient] = useState<Ingredient | null>(null);
 
   // Image upload state
-  const [evidenceImage, setEvidenceImage] = useState<string | null>(null);
+  const [, setEvidenceImage] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
 
@@ -58,6 +59,8 @@ export default function StockRequestPage() {
   // Auto-set requester name from user if available
   useEffect(() => {
     if (user?.username) {
+      // Seeds the field once auth resolves; the user may then edit it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRequesterName(user.username);
     }
   }, [user]);
@@ -345,11 +348,13 @@ export default function StockRequestPage() {
                       </label>
                     </div>
                   ) : (
-                    <div className="relative">
-                      <img
+                    <div className="relative h-48">
+                      <Image
                         src={imagePreview}
                         alt="Evidence preview"
-                        className="w-full h-48 object-cover rounded-lg border border-slate-200"
+                        fill
+                        sizes="100vw"
+                        className="object-cover rounded-lg border border-slate-200"
                       />
                       <button
                         type="button"

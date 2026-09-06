@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -27,7 +28,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.tables.view), asyn
   try {
     const { status, outlet_id, table_number } = req.query;
 
-    const where: any = {};
+    const where: Prisma.TableWhereInput = {};
     if (status && typeof status === 'string') {
       where.status = status;
     }
@@ -66,7 +67,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.tables.view), asyn
     });
 
     // Enrich with derived status based on active orders
-    const enrichedTables = tables.map((table: any) => ({
+    const enrichedTables = tables.map((table) => ({
       ...table,
       hasActiveOrders: table._count.customerOrders > 0,
     }));
@@ -90,10 +91,10 @@ router.get('/summary', authMiddleware, requirePermission(PERMISSIONS.tables.view
 
     const summary = {
       total: tables.length,
-      available: tables.filter((t: any) => t.status === 'available').length,
-      occupied: tables.filter((t: any) => t.status === 'occupied').length,
-      dirty: tables.filter((t: any) => t.status === 'dirty').length,
-      reserved: tables.filter((t: any) => t.status === 'reserved').length,
+      available: tables.filter((t) => t.status === 'available').length,
+      occupied: tables.filter((t) => t.status === 'occupied').length,
+      dirty: tables.filter((t) => t.status === 'dirty').length,
+      reserved: tables.filter((t) => t.status === 'reserved').length,
     };
 
     res.json(summary);
@@ -318,10 +319,10 @@ router.get('/summary', authMiddleware, requirePermission(PERMISSIONS.tables.view
 
     const summary = {
       total: tables.length,
-      available: tables.filter((t: any) => t.status === 'available').length,
-      occupied: tables.filter((t: any) => t.status === 'occupied').length,
-      dirty: tables.filter((t: any) => t.status === 'dirty').length,
-      reserved: tables.filter((t: any) => t.status === 'reserved').length,
+      available: tables.filter((t) => t.status === 'available').length,
+      occupied: tables.filter((t) => t.status === 'occupied').length,
+      dirty: tables.filter((t) => t.status === 'dirty').length,
+      reserved: tables.filter((t) => t.status === 'reserved').length,
     };
 
     res.json(summary);

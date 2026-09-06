@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { Upload, Plus, X, Calculator } from 'lucide-react';
 import * as api from '@/src/lib/api';
@@ -92,8 +93,8 @@ export const AddProductModal = ({
 
   useEffect(() => {
     if (isOpen) {
-      fetchCategories();
-      fetchIngredients();
+      void (async () => { await fetchCategories(); })();
+      void (async () => { await fetchIngredients(); })();
     }
   }, [isOpen]);
 
@@ -323,9 +324,11 @@ export const AddProductModal = ({
           <span className="mb-1.5 block text-sm font-medium text-ink">Foto Produk</span>
           <div className="space-y-3">
             {formData.image_url && (
-              <img
+              <Image
                 src={formData.image_url}
                 alt="Pratinjau produk"
+                width={128}
+                height={128}
                 className="h-32 w-32 rounded-lg object-cover"
               />
             )}

@@ -33,8 +33,6 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
       orderId,
       tableNumber,
       items,
-      subtotal,
-      tax,
       discount,
       roundingAmount,
       total,
@@ -47,7 +45,7 @@ export const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptTemplateProps>(
     },
     ref
   ) => {
-    const taxRate = useConfigStore((state) => state.taxRate); // Get dynamic tax rate from config
+    useConfigStore((state) => state.taxRate); // Get dynamic tax rate from config
     const formatDate = () => {
       const now = new Date();
       const day = String(now.getDate()).padStart(2, '0');

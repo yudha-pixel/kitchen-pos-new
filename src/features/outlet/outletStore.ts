@@ -39,7 +39,7 @@ export const useOutletStore = create<OutletState>()(
         try {
           const outlets = await getOutlets();
           set({ outlets, loading: false });
-        } catch (error) {
+        } catch {
           set({ error: 'Gagal memuat outlet', loading: false });
         }
       },

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ const createPurchaseOrderSchema = z.object({
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, supplier_id } = req.query;
-    const where: any = {};
+    const where: Prisma.PurchaseOrderWhereInput = {};
     if (status) where.status = status as string;
     if (supplier_id) where.supplier_id = supplier_id as string;
 
@@ -53,11 +54,6 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), 
 
 const isUUID = (str: string) => /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(str);
 
-const resolvePOId = async (id: string): Promise<string | null> => {
-  if (isUUID(id)) return id;
-  const found = await prisma.purchaseOrder.findFirst({ where: { po_number: id }, select: { id: true } });
-  return found?.id || null;
-};
 
 // GET /purchase-orders/:id - Get details with items
 router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {

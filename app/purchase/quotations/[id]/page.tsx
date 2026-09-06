@@ -8,7 +8,8 @@ import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
 import { PurchaseFormSheet, FormSheetAuditLog } from '@/src/components/purchase/PurchaseFormSheet';
 import { Check, Plus } from 'lucide-react';
-import { buildDocumentNavigationParams } from '@/src/lib/navigationContext';
+import type { PurchaseDocument } from '@/src/types/purchase-document';
+import { formatDocumentDate, formatDocumentDateTime } from '@/src/lib/format';
 
 interface QuotationPageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +19,7 @@ export default function QuotationDetailPage({ params }: QuotationPageProps) {
   const { id } = use(params);
   const { toast } = useToast();
 
-  const [quotation, setQuotation] = useState<any>(null);
+  const [quotation, setQuotation] = useState<PurchaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchQuotation = useCallback(async () => {
@@ -55,7 +56,11 @@ export default function QuotationDetailPage({ params }: QuotationPageProps) {
   }, [id, toast]);
 
   useEffect(() => {
-    fetchQuotation();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchQuotation();
+    })();
   }, [fetchQuotation]);
 
   if (loading || !quotation) {
@@ -70,7 +75,7 @@ export default function QuotationDetailPage({ params }: QuotationPageProps) {
   }
 
   const auditLogs: FormSheetAuditLog[] = [
-    { timestamp: new Date(quotation.created_at).toLocaleString('id-ID'), user: quotation.supplier?.name || 'Vendor', action: 'Penawaran Harga dibuat' },
+    { timestamp: formatDocumentDateTime(quotation.created_at), user: quotation.supplier?.name || 'Vendor', action: 'Penawaran Harga dibuat' },
     { timestamp: new Date().toLocaleString('id-ID'), user: 'Purchasing Team', action: 'Status diverifikasi & disetujui' },
   ];
 
@@ -82,25 +87,25 @@ export default function QuotationDetailPage({ params }: QuotationPageProps) {
       ];
 
   return (
-    <ResponsiveShell title={quotation.quotation_number}>
+    <ResponsiveShell title={quotation.quotation_number ?? ''}>
       <div className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
         <div className="w-full">
           <PurchaseFormSheet
             documentTitle="Penawaran Harga Vendor"
             documentNumber={quotation.quotation_number || `#QT-${id}`}
-            status={quotation.status}
+            status={quotation.status ?? ''}
             pipelineSteps={[
               { key: 'draft', label: 'Draf' },
               { key: 'open', label: 'Aktif' },
               { key: 'approved', label: 'Disetujui' },
               { key: 'closed', label: 'Selesai' },
             ]}
-            activeStepKey={quotation.status}
+            activeStepKey={quotation.status ?? ''}
             requesterOrSupplierLabel="Supplier Vendor"
             requesterOrSupplierValue={quotation.supplier?.name || 'PT Sumber Pangan Utama'}
             outletName="Kitchen POS - Outlet Utama"
-            notes={quotation.notes}
-            submittedDate={new Date(quotation.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+            notes={quotation.notes ?? undefined}
+            submittedDate={formatDocumentDate(quotation.created_at)}
             approvedByDate={quotation.valid_until ? `Berlaku s/d ${new Date(quotation.valid_until).toLocaleDateString('id-ID')}` : undefined}
             totalAmount={quotation.total_amount || 12500000}
             primaryActions={
@@ -119,8 +124,8 @@ export default function QuotationDetailPage({ params }: QuotationPageProps) {
             onPrint={() => toast('info', `Cetak ${quotation.quotation_number}`)}
             onDuplicate={() => toast('success', `Duplikat ${quotation.quotation_number}`)}
             onDelete={() => toast('success', `Penawaran ${quotation.quotation_number} dihapus`)}
-            items={rawItems.map((item: any, idx: number) => ({
-              id: item.id || idx,
+            items={rawItems.map((item, idx: number) => ({
+              id: item.id ?? idx,
               code: `QT-ITEM-${idx + 1}`,
               name: item.ingredient_name || item.name || 'Item Penawaran',
               category: 'Penawaran Vendor',

@@ -1,18 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { LucideIcon } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Clock, CheckCircle, Truck, Package, XCircle, Loader2 } from 'lucide-react';
 import { formatRupiah } from '@/src/lib/format';
 import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
+import type { PosOrder } from '@/src/types/pos-order';
+
+/**
+ * Either order endpoint may answer here. The self-order flow adds its own
+ * states ('accepted', payment status) on top of the shared order shape.
+ */
+type StatusOrder = Omit<PosOrder, 'status'> & {
+  status?: PosOrder['status'] | 'accepted';
+  payment_status?: string;
+};
 
 type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'on_the_way' | 'completed' | 'cancelled';
 
 interface OrderStatusInfo {
   label: string;
   description: string;
-  icon: any;
+  icon: LucideIcon;
   color: string;
 }
 
@@ -67,29 +78,24 @@ export default function OrderStatusPage() {
   const orderId = params.orderId as string;
 
   const [orderStatus, setOrderStatus] = useState<OrderStatus>('pending');
-  const [orderData, setOrderData] = useState<any>(null);
+  const [orderData, setOrderData] = useState<StatusOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelError, setCancelError] = useState('');
 
-  useEffect(() => {
-    fetchOrderStatus();
-    // Poll for status updates every 10 seconds
-    const interval = setInterval(fetchOrderStatus, 10000);
-    return () => clearInterval(interval);
-  }, [orderId]);
 
-  const fetchOrderStatus = async () => {
+  const fetchOrderStatus = useCallback(async () => {
     try {
       const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
 
       if (isOnline) {
         try {
           const { getCustomerOrder } = await import('@/src/features/self-order/selfOrderService');
-          const customerOrder = await getCustomerOrder(orderId) as any;
-          const order = customerOrder ?? await (await import('@/src/lib/api')).fetchOrder(orderId) as any;
+          const customerOrder = (await getCustomerOrder(orderId)) as StatusOrder | null;
+          const order =
+            customerOrder ?? ((await (await import('@/src/lib/api')).fetchOrder(orderId)) as StatusOrder);
           setOrderData(order);
           setOrderStatus(customerOrder && order.status === 'accepted' ? 'confirmed' : order.status as OrderStatus);
           setLoading(false);
@@ -116,8 +122,15 @@ export default function OrderStatusPage() {
       setError('Gagal memuat status pesanan');
       setLoading(false);
     }
-  };
+  }, [orderId]);
 
+
+  useEffect(() => {
+    void (async () => { await fetchOrderStatus(); })();
+    // Poll for status updates every 10 seconds
+    const interval = setInterval(fetchOrderStatus, 10000);
+    return () => clearInterval(interval);
+  }, [orderId, fetchOrderStatus]);
   const closeCancelConfirm = () => {
     if (isCancelling) return;
     setCancelConfirmOpen(false);
@@ -135,7 +148,7 @@ export default function OrderStatusPage() {
       await db.orders.update(orderId, { status: 'cancelled' });
 
       setOrderStatus('cancelled');
-      setOrderData((prev: any) => (prev ? { ...prev, status: 'cancelled' } : prev));
+      setOrderData((prev) => (prev ? { ...prev, status: 'cancelled' as const } : prev));
       setCancelConfirmOpen(false);
     } catch (err) {
       console.error('Error cancelling order:', err);
@@ -217,7 +230,7 @@ export default function OrderStatusPage() {
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total</span>
-                <span className="font-bold text-primary">{formatRupiah(orderData.total_amount)}</span>
+                <span className="font-bold text-primary">{formatRupiah(orderData.total_amount ?? 0)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Metode Pembayaran</span>
@@ -226,7 +239,7 @@ export default function OrderStatusPage() {
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Waktu Pemesanan</span>
                 <span className="font-medium">
-                  {new Date(orderData.created_at).toLocaleString('id-ID')}
+                  {orderData.created_at ? new Date(orderData.created_at).toLocaleString('id-ID') : '—'}
                 </span>
               </div>
             </div>
@@ -235,10 +248,10 @@ export default function OrderStatusPage() {
             <div className="border-t pt-4">
               <h3 className="font-semibold mb-3">Item Pesanan</h3>
               <div className="space-y-2">
-                {orderData.items?.map((item: any) => (
+                {orderData.items?.map((item) => (
                   <div key={item.id} className="flex justify-between text-sm">
                     <span>{item.product?.name || 'Unknown'} x{item.quantity}</span>
-                    <span>{formatRupiah(item.price_at_time * item.quantity)}</span>
+                    <span>{formatRupiah((item.price_at_time ?? 0) * item.quantity)}</span>
                   </div>
                 ))}
               </div>
@@ -250,7 +263,7 @@ export default function OrderStatusPage() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <h2 className="text-lg font-bold text-ink mb-4">Timeline Status</h2>
           <div className="space-y-4">
-            {Object.entries(statusMap).map(([key, info], index) => {
+            {Object.entries(statusMap).map(([key, info]) => {
               const isActive = key === orderStatus;
               const isPast = Object.keys(statusMap).indexOf(key) < Object.keys(statusMap).indexOf(orderStatus);
               const Icon = info.icon;

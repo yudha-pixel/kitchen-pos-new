@@ -77,7 +77,11 @@ export default function PenerimaanBarangPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchGRNs();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchGRNs();
+    })();
   }, [fetchGRNs]);
 
   const formatDate = (dateStr?: string | null): string => {
@@ -128,7 +132,7 @@ export default function PenerimaanBarangPage() {
     }
   };
 
-  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+  const toggleSelectOne = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
@@ -260,7 +264,7 @@ export default function PenerimaanBarangPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={(e) => toggleSelectOne(grn.id, e as any)}
+                              onChange={(e) => toggleSelectOne(grn.id, e)}
                               className="rounded border-line text-primary focus:ring-primary"
                             />
                           </td>

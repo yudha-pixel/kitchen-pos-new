@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
-import { Save, RefreshCw, X, Zap, Hash, HelpCircle, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Save, RefreshCw, X, Zap, HelpCircle, CheckCircle, ArrowLeft } from 'lucide-react';
 import { DocumentSequenceRule } from '@/server/lib/sequence';
 
 export interface SequenceRecord extends DocumentSequenceRule {
@@ -194,7 +194,7 @@ export function SequenceFormView({ sequence: initialSeq, onSave, onClose, saving
               <label className="text-xs font-semibold text-ink-muted">Domain / Kategori</label>
               <select
                 value={seq.category}
-                onChange={(e) => setSeq({ ...seq, category: e.target.value as any })}
+                onChange={(e) => setSeq({ ...seq, category: e.target.value as typeof seq.category })}
                 className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="purchasing">Pembelian (Purchasing)</option>
@@ -208,7 +208,7 @@ export function SequenceFormView({ sequence: initialSeq, onSave, onClose, saving
               <label className="text-xs font-semibold text-ink-muted">Tipe Implementasi</label>
               <select
                 value={seq.implementation_type}
-                onChange={(e) => setSeq({ ...seq, implementation_type: e.target.value as any })}
+                onChange={(e) => setSeq({ ...seq, implementation_type: e.target.value as typeof seq.implementation_type })}
                 className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="standard">Standard Auto-Increment</option>
@@ -287,7 +287,7 @@ export function SequenceFormView({ sequence: initialSeq, onSave, onClose, saving
               <label className="text-xs font-semibold text-ink-muted">Aturan Reset Counter</label>
               <select
                 value={seq.reset_frequency}
-                onChange={(e) => setSeq({ ...seq, reset_frequency: e.target.value as any })}
+                onChange={(e) => setSeq({ ...seq, reset_frequency: e.target.value as typeof seq.reset_frequency })}
                 className="mt-1 w-full rounded-lg border border-line bg-surface text-ink px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="never">Tidak Pernah (Auto-increment)</option>

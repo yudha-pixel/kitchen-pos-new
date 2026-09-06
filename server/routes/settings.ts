@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import multer from 'multer';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
@@ -142,7 +143,9 @@ router.get('/login-config', async (_req, res) => {
   }
 });
 
-function validateSelfOrderSettings(data: any, current: any): string | null {
+type SettingsPayload = Record<string, unknown>;
+
+function validateSelfOrderSettings(data: SettingsPayload, current: SettingsPayload | null): string | null {
   const methods = data.selforder_payment_methods ?? current?.selforder_payment_methods ?? ['cashier'];
   const instructions = resolveSelfOrderPaymentInstructions(
     data.selforder_payment_instructions ?? current?.selforder_payment_instructions
@@ -165,7 +168,7 @@ function validateSelfOrderSettings(data: any, current: any): string | null {
       return 'QRIS image URL must be a valid HTTPS URL';
     }
   }
-  if (data.selforder_routing !== undefined && !['review', 'auto'].includes(data.selforder_routing)) {
+  if (data.selforder_routing !== undefined && !['review', 'auto'].includes(String(data.selforder_routing))) {
     return "selforder_routing must be 'review' or 'auto'";
   }
   return null;
@@ -214,7 +217,7 @@ router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), as
     
     if (settings) {
       // Update existing settings - only update fields that are provided
-      const updateData: any = {};
+      const updateData: Prisma.AppSettingsUncheckedUpdateInput = {};
       
       // UI Settings
       if (data.primary_color !== undefined) updateData.primary_color = data.primary_color;
@@ -293,7 +296,7 @@ router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), as
       }
 
       if (data.selforder_payment_instructions !== undefined) {
-        updateData.selforder_payment_instructions = resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions);
+        updateData.selforder_payment_instructions = resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions) as Prisma.InputJsonObject;
       }
 
       if (data.selforder_routing !== undefined) {
@@ -376,7 +379,7 @@ router.put('/', authMiddleware, requirePermission(PERMISSIONS.settings.edit), as
           waiter_count: data.waiter_count || 3,
           require_2fa: data.require_2fa !== undefined ? data.require_2fa : false,
           selforder_payment_methods: data.selforder_payment_methods ?? ['cashier'],
-          selforder_payment_instructions: resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions) as any,
+          selforder_payment_instructions: resolveSelfOrderPaymentInstructions(data.selforder_payment_instructions) as Prisma.InputJsonObject,
           selforder_routing: data.selforder_routing ?? 'review',
         },
       });
@@ -507,7 +510,7 @@ router.put('/smtp', authMiddleware, requirePermission(PERMISSIONS.settings.edit)
 
     let settings = await prisma.appSettings.findFirst();
 
-    const updateData: any = {
+    const updateData: Prisma.AppSettingsUncheckedUpdateInput = {
       smtp_host: smtp_host !== undefined ? smtp_host : undefined,
       smtp_port: smtp_port !== undefined ? parseInt(smtp_port, 10) : undefined,
       smtp_user: smtp_user !== undefined ? smtp_user : undefined,
@@ -528,7 +531,7 @@ router.put('/smtp', authMiddleware, requirePermission(PERMISSIONS.settings.edit)
       });
     } else {
       settings = await prisma.appSettings.create({
-        data: updateData,
+        data: updateData as Prisma.AppSettingsUncheckedCreateInput,
       });
     }
 
@@ -601,9 +604,9 @@ router.post('/smtp/test', authMiddleware, requirePermission(PERMISSIONS.settings
         ? `Koneksi SMTP berhasil & email uji telah dikirim ke ${test_recipient}` 
         : 'Koneksi ke server SMTP berhasil diverifikasi',
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error testing SMTP settings:', error);
-    res.status(500).json({ error: error.message || 'Gagal menguji koneksi SMTP' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Gagal menguji koneksi SMTP' });
   }
 });
 

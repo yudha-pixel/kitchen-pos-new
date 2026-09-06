@@ -7,6 +7,26 @@ import { ReceiptTemplate } from '@/src/components/features/ReceiptTemplate';
 import html2canvas from 'html2canvas-pro';
 import jsPDF from 'jspdf';
 
+/** The receipt payload a caller assembles before opening the modal. */
+export interface ReceiptData {
+  orderId: string;
+  tableNumber: string;
+  items: Array<{
+    name: string;
+    quantity: number;
+    price: number;
+    modifiers: string[];
+  }>;
+  subtotal: number;
+  tax: number;
+  discount: number;
+  roundingAmount: number;
+  total: number;
+  paymentMethod: string;
+  cashierName: string;
+  notes: string;
+}
+
 interface ReceiptModalProps {
   isOpen: boolean;
   onClose: () => void;

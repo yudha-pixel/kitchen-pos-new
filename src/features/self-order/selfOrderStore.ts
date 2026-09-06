@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { ProductWithCategory, Category, CustomerOrderWithItems } from './selfOrderService';
+import type { AppliedModifier } from '@/src/lib/db';
 
 export interface CartItem {
   productId: string;
@@ -8,7 +9,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   image_url?: string;
-  modifiers_applied?: any[];
+  modifiers_applied?: AppliedModifier[];
 }
 
 interface SelfOrderState {

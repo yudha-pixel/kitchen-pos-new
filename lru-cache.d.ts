@@ -8,8 +8,8 @@ declare module 'lru-cache' {
 
   interface LRUCacheConstructor {
     new (options?: LRUCacheOptions): {
-      get(key: string): any;
-      set(key: string, value: any): void;
+      get(key: string): unknown;
+      set(key: string, value: unknown): void;
       del(key: string): void;
       reset(): void;
     };

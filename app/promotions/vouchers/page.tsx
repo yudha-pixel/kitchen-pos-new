@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { formatRupiah } from '@/src/lib/format';
 import { getToken } from '@/src/lib/api';
-import { Plus, Edit, Trash2, Calendar, Tag, Percent, DollarSign, Check, X } from 'lucide-react';
+import { Plus, Edit, Trash2, Calendar, Tag, Check, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { API_BASE_URL } from '@/src/config/runtime';
@@ -38,7 +38,7 @@ export default function VouchersPage() {
   const { toast } = useToast();
 
   // Form state
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     code: '',
     name: '',
     description: '',
@@ -50,13 +50,10 @@ export default function VouchersPage() {
     valid_from: new Date().toISOString().split('T')[0],
     valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_active: true,
-  });
+  }));
 
-  useEffect(() => {
-    loadVouchers();
-  }, []);
 
-  const loadVouchers = async () => {
+  const loadVouchers = useCallback(async () => {
     try {
       const token = getToken();
       const response = await fetch(`${API_BASE_URL}/api/vouchers`, {
@@ -79,8 +76,16 @@ export default function VouchersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadVouchers();
+    })();
+  }, [loadVouchers]);
   const handleSave = async () => {
     try {
       if (!formData.code || !formData.name) {
@@ -246,7 +251,7 @@ export default function VouchersPage() {
             ) : vouchers.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 <Tag className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                <p>Belum ada voucer. Klik "Tambah Voucer" untuk membuat voucer baru.</p>
+                <p>Belum ada voucer. Klik &quot;Tambah Voucer&quot; untuk membuat voucer baru.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
 import { Modal } from '@/src/components/ui/Modal';
-import { Clock, DollarSign, TrendingUp, TrendingDown, AlertCircle, CheckCircle, ArrowLeft, Printer, Download } from 'lucide-react';
+import { Clock, DollarSign, TrendingUp, TrendingDown, Printer, Download } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas-pro';
 import { getToken } from '@/src/lib/api';
@@ -47,7 +47,7 @@ const mockTransactions: Transaction[] = [
 const SHIFT_STORAGE_KEY = 'kitchen_pos_shift';
 
 export default function ShiftPage() {
-  const router = useRouter();
+  useRouter();
   const { user } = useAuth();
   const [shiftData, setShiftData] = useState<ShiftData>({
     isOpen: false,
@@ -120,6 +120,8 @@ export default function ShiftPage() {
   useEffect(() => {
     const saved = localStorage.getItem(SHIFT_STORAGE_KEY);
     if (saved) {
+      // localStorage is client-only; reading it during render would break SSR hydration.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setShiftData(JSON.parse(saved));
     }
   }, []);
@@ -140,9 +142,9 @@ export default function ShiftPage() {
         });
 
         if (response.ok) {
-          const expenses = await response.json();
+          const expenses: { amount: number }[] = await response.json();
           // Calculate total petty cash expenses
-          const totalPettyCash = expenses.reduce((sum: number, exp: any) => sum + exp.amount, 0);
+          const totalPettyCash = expenses.reduce((sum: number, exp) => sum + exp.amount, 0);
 
           // Update shift data with petty cash expenses
           setShiftData(prev => ({

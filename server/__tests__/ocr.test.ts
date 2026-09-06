@@ -6,7 +6,6 @@ import bcrypt from 'bcrypt';
 
 describe('OCR API', () => {
   let authToken: string;
-  let testScanId: string;
 
   beforeAll(async () => {
     // Create admin user for testing

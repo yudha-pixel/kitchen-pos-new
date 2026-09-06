@@ -17,6 +17,7 @@ export const PERMISSIONS = {
   modules: { view: 'modules.view', manage: 'modules.manage' },
   kitchen: { view: 'kitchen.view', manage: 'kitchen.manage' },
   tables: { view: 'tables.view', create: 'tables.create', edit: 'tables.edit', delete: 'tables.delete' },
+  reservations: { view: 'reservations.view', create: 'reservations.create', edit: 'reservations.edit', delete: 'reservations.delete', confirm: 'reservations.confirm', cancel: 'reservations.cancel' },
   backup: { view: 'backup.view', create: 'backup.create', restore: 'backup.restore', delete: 'backup.delete' },
   audit: { view: 'audit.view' },
   printing: { use: 'printing.use', manage: 'printing.manage' },

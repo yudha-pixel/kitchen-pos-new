@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -174,12 +175,12 @@ router.post('/:id/purchase-orders', authMiddleware, requirePermission(PERMISSION
 // PATCH /suppliers/:id/purchase-orders/:poId/receive - Receive purchase order (adds stock)
 router.patch('/:id/purchase-orders/:poId/receive', authMiddleware, requirePermission(PERMISSIONS.purchasing.receive), async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
     const supplierId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
     const poId = Array.isArray(req.params.poId) ? req.params.poId[0] : req.params.poId;
 
     // Use transaction to ensure atomicity
-    const result = await prisma.$transaction(async (tx: any) => {
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const purchaseOrder = await tx.purchaseOrder.findFirst({
         where: { id: poId, supplier_id: supplierId },
         include: { items: true },
@@ -227,12 +228,13 @@ router.patch('/:id/purchase-orders/:poId/receive', authMiddleware, requirePermis
     });
 
     res.json(result);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error receiving purchase order:', error);
-    if (error.message === 'Purchase order not found') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'Purchase order not found') {
       return res.status(404).json({ error: 'Purchase order not found' });
     }
-    if (error.message === 'Purchase order is not in pending status') {
+    if (message === 'Purchase order is not in pending status') {
       return res.status(400).json({ error: 'Purchase order is not in pending status' });
     }
     res.status(500).json({ error: 'Failed to receive purchase order' });

@@ -13,6 +13,7 @@ import {
 } from '../../src/features/self-order/paymentMethods';
 import { resolveSelfOrderRouting } from '../../src/features/self-order/orderRouting';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -302,7 +303,7 @@ router.get('/products', async (req: Request, res: Response) => {
   try {
     const { outlet_id, category_id } = req.query;
 
-    const where: any = {
+    const where: Prisma.ProductWhereInput = {
       is_active: true,
     };
 
@@ -428,13 +429,13 @@ router.post('/orders', async (req: Request, res: Response) => {
       where: { id: { in: productIds } },
     });
 
-    const productMap = new Map(products.map((p: any) => [p.id, p]));
+    const productMap = new Map(products.map((p) => [p.id, p]));
 
     // Modifier prices are looked up from the DB, never trusted from the request —
     // same reasoning as product price above. A guest client claiming
     // {"id": "...", "price": -50000} for a modifier must not be able to discount
     // (or, submitting an inflated price, inconsistently overcharge) their own order.
-    const modifierIds = data.items.flatMap((item) => (item.modifiers_applied ?? []).map((m: any) => m?.id).filter(Boolean));
+    const modifierIds = data.items.flatMap((item) => (item.modifiers_applied ?? []).map((m) => m?.id).filter(Boolean));
     const modifiers = modifierIds.length > 0
       ? await prisma.modifier.findMany({ where: { id: { in: modifierIds } } })
       : [];
@@ -446,10 +447,10 @@ router.post('/orders', async (req: Request, res: Response) => {
       if (!product) {
         throw new Error(`Product ${item.product_id} not found`);
       }
-      const priceAtTime = (product as any).price;
+      const priceAtTime = product.price;
       const modifiersApplied = item.modifiers_applied || [];
       const modifiersTotal = modifiersApplied.reduce(
-        (sum: number, m: any) => sum + (modifierPriceMap.get(m?.id) ?? 0),
+        (sum: number, m: { id?: string }) => sum + (modifierPriceMap.get(m?.id ?? '') ?? 0),
         0
       );
       totalAmount += (priceAtTime + modifiersTotal) * item.quantity;
@@ -463,7 +464,7 @@ router.post('/orders', async (req: Request, res: Response) => {
     });
 
     // Create customer order with items
-    const customerOrder = await prisma.$transaction(async (tx: any) => {
+    const customerOrder = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const newOrder = await tx.customerOrder.create({
         data: {
           id: orderId,

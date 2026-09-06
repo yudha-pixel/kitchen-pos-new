@@ -150,7 +150,7 @@ export class DataValidator {
   /**
    * Check for orphaned or inconsistent data
    */
-  private async checkForOrphanedData(warnings: string[], dataCounts: any) {
+  private async checkForOrphanedData(warnings: string[], dataCounts: Record<string, number>) {
     try {
       // Check for products without categories
       if (dataCounts.products > 0 && dataCounts.categories > 0) {
@@ -158,7 +158,7 @@ export class DataValidator {
           .where('category_id')
           .equals('')
           .or('category_id')
-          .equals(null as any)
+          .equals('')
           .count();
 
         if (productsWithoutCategories > 0) {

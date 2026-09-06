@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -22,7 +23,7 @@ const createQuotationSchema = z.object({
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, quotation_request_id, supplier_id } = req.query;
-    const where: any = {};
+    const where: Prisma.QuotationWhereInput = {};
     if (status) where.status = status as string;
     if (quotation_request_id) where.quotation_request_id = quotation_request_id as string;
     if (supplier_id) where.supplier_id = supplier_id as string;
@@ -110,8 +111,6 @@ router.get('/compare/:requestId', authMiddleware, requirePermission(PERMISSIONS.
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
     const data = createQuotationSchema.parse(req.body);
-    const userId = req.user?.id;
-    const username = req.user?.username;
 
     const quotationRequest = await prisma.quotationRequest.findUnique({
       where: { id: data.quotation_request_id },

@@ -84,10 +84,14 @@ export function UserProfileMenu({ user, onLogout }: UserProfileMenuProps) {
         </Menu.Portal>
       </Menu.Root>
 
-      <UserProfileModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
+      {/* Mounted only while open: the modal pulls from AuthContext and the
+          settings API, none of which a closed dialog needs. */}
+      {isModalOpen && (
+        <UserProfileModal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      )}
     </>
   );
 }

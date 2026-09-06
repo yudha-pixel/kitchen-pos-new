@@ -1,7 +1,6 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Receipt as ReceiptIcon } from 'lucide-react';
 
 interface ReceiptItem {
   name: string;
@@ -11,7 +10,7 @@ interface ReceiptItem {
   isFree?: boolean;
 }
 
-interface ReceiptProps {
+export interface ReceiptProps {
   orderId: string;
   tableNumber: string;
   items: ReceiptItem[];
@@ -40,14 +39,10 @@ export const Receipt = ({
   tableNumber,
   items,
   freeItems = [],
-  subtotal,
-  tax,
   discount,
   discountType = 'nominal',
   globalDiscount = 0,
   globalDiscountType = 'nominal',
-  globalDiscountAuthorizedBy,
-  globalDiscountReason,
   roundingAmount,
   total,
   paymentMethod,
@@ -369,3 +364,6 @@ export const Receipt = ({
     </div>
   );
 };
+
+/** The receipt payload a caller assembles before rendering <Receipt />. */
+export type ReceiptPayload = Omit<ReceiptProps, 'onClose'>;

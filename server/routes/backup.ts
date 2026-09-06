@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
@@ -7,6 +8,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import path from 'path';
 import fs from 'fs/promises';
+import { queryString } from '../lib/query';
 
 const execAsync = promisify(exec);
 const router = express.Router();
@@ -15,7 +17,7 @@ const router = express.Router();
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.backup.create), async (req: Request, res: Response) => {
   try {
     const { backup_type = 'manual', notes } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `kitchen-pos-backup-${timestamp}.sql`;
@@ -87,9 +89,9 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.backup.view), asyn
   try {
     const { backup_type, status, limit = 50, offset = 0 } = req.query;
 
-    const where: any = {};
-    if (backup_type) where.backup_type = backup_type;
-    if (status) where.status = status;
+    const where: Prisma.DatabaseBackupWhereInput = {};
+    where.backup_type = queryString(backup_type);
+    where.status = queryString(status);
 
     const backups = await prisma.databaseBackup.findMany({
       where,
@@ -148,7 +150,6 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.backup.view), a
 router.post('/:id/restore', authMiddleware, requirePermission(PERMISSIONS.backup.restore), async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).user?.id;
 
     const backup = await prisma.databaseBackup.findUnique({
       where: { id: id as string },

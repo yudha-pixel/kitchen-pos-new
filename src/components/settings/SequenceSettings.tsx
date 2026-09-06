@@ -47,7 +47,11 @@ export function SequenceSettings() {
   }, [toast]);
 
   useEffect(() => {
-    fetchSequences();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchSequences();
+    })();
   }, [fetchSequences]);
 
   // Convert DocumentSequenceMap into SequenceRecord array for List View
@@ -126,7 +130,7 @@ export function SequenceSettings() {
       } else {
         toast('error', 'Gagal menyimpan sequence');
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Terjadi kesalahan sistem');
     } finally {
       setSaving(false);

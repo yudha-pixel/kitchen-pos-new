@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Search, Edit, Trash2, Filter, Package, AlertCircle } from 'lucide-react';
+import { Plus, Search, Edit, Package, AlertCircle } from 'lucide-react';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { EditProductModal } from '@/src/features/pos/components/EditProductModal';
 import { AddProductModal } from '@/src/features/pos/components/AddProductModal';
@@ -12,9 +12,10 @@ import { Product } from '@/src/types/database.types';
 import { calculateMenuStocks } from '@/src/features/inventory/inventoryService';
 import { useAuth } from '@/src/context/AuthContext';
 import { PERMISSIONS } from '@/src/config/permissions';
+import type { Category } from '@/src/lib/db';
 
 export default function ProductManagementPage() {
-  const router = useRouter();
+  useRouter();
   const { toast } = useToast();
   const { can } = useAuth();
   const { products, loading, refetch } = useProducts();
@@ -25,7 +26,7 @@ export default function ProductManagementPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<any>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
 
@@ -87,7 +88,7 @@ export default function ProductManagementPage() {
     }
   };
 
-  const handleEditCategory = (category: any) => {
+  const handleEditCategory = (category: Category) => {
     setEditingCategory(category);
     setCategoryName(category.name);
     setIsCategoryModalOpen(true);
@@ -101,7 +102,7 @@ export default function ProductManagementPage() {
 
     try {
       const { updateCategory } = await import('@/src/lib/api');
-      await updateCategory(editingCategory.id, { name: categoryName.trim() });
+      await updateCategory(editingCategory.id ?? '', { name: categoryName.trim() });
       toast('success', 'Kategori berhasil diperbarui');
       refetchCategories();
       refetch(); // Refresh products to reflect category name changes

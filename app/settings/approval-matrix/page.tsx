@@ -12,8 +12,6 @@ export default function ApprovalMatrixPage() {
   const [matrix, setMatrix] = useState<ApprovalRule[]>(DEFAULT_APPROVAL_MATRIX);
   const [saving, setSaving] = useState(false);
 
-  const formatCurrency = (val: number = 0) =>
-    new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(val);
 
   const handleAddRule = () => {
     const newRule: ApprovalRule = {
@@ -89,7 +87,7 @@ export default function ApprovalMatrixPage() {
                         <select
                           value={rule.module}
                           onChange={(e) => {
-                            const val = e.target.value as any;
+                            const val = e.target.value as typeof rule.module;
                             setMatrix(matrix.map(r => r.id === rule.id ? { ...r, module: val } : r));
                           }}
                           className="bg-surface border border-line rounded px-2 py-1 text-xs text-ink font-semibold"
@@ -125,7 +123,7 @@ export default function ApprovalMatrixPage() {
                         <select
                           value={rule.required_role}
                           onChange={(e) => {
-                            const val = e.target.value as any;
+                            const val = e.target.value as typeof rule.required_role;
                             setMatrix(matrix.map(r => r.id === rule.id ? { ...r, required_role: val } : r));
                           }}
                           className="bg-surface border border-line rounded px-2 py-1 text-xs text-ink font-semibold"

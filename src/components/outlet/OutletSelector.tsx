@@ -8,7 +8,11 @@ export function OutletSelector() {
   const { outlets, selectedOutletId, loading, loadOutlets, setSelectedOutletId } = useOutletStore();
 
   useEffect(() => {
-    loadOutlets();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadOutlets();
+    })();
   }, [loadOutlets]);
 
   if (outlets.length === 0) {

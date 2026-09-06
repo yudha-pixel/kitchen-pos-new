@@ -1,5 +1,6 @@
 'use client';
 
+import type { AppliedModifier } from '@/src/lib/db';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { Clock, CheckCircle, AlertCircle, ChefHat, Wine, RefreshCw, Flame, Bell } from 'lucide-react';
 import * as api from '@/src/lib/api';
@@ -14,7 +15,7 @@ interface OrderItem {
   product_id: string | null;
   quantity: number;
   price_at_time: number;
-  modifiers_applied: any;
+  modifiers_applied: AppliedModifier[];
   status: string;
   product?: {
     name: string;
@@ -71,7 +72,7 @@ export default function KitchenDisplayPage() {
   const playNotificationSound = () => {
     // Create audio context for notification sound
     try {
-      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       const oscillator = audioContext.createOscillator();
       const gainNode = audioContext.createGain();
       
@@ -367,7 +368,7 @@ export default function KitchenDisplayPage() {
           <EmptyState icon={AlertCircle} title="Tidak ada order pending" message="Order baru akan muncul di sini" />
         ) : (
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredItems.map((item: any) => {
+            {filteredItems.map((item) => {
               const order = item.order;
               const urgency = getUrgency(order.created_at);
               const { border, chip, label } = urgencyStyles[urgency];
@@ -415,8 +416,8 @@ export default function KitchenDisplayPage() {
                       </div>
                       {item.modifiers_applied && Array.isArray(item.modifiers_applied) && item.modifiers_applied.length > 0 && (
                         <div className="mt-1 text-sm text-kds-text-secondary">
-                          {item.modifiers_applied.map((mod: any, idx: number) => (
-                            <span key={idx} className="block">+ {mod.name || mod}</span>
+                          {item.modifiers_applied.map((mod, idx: number) => (
+                            <span key={idx} className="block">+ {mod.name ?? ''}</span>
                           ))}
                         </div>
                       )}

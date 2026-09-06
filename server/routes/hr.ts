@@ -1,8 +1,10 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { queryString } from '../lib/query';
 
 const router = express.Router();
 
@@ -11,15 +13,11 @@ router.get('/employees', authMiddleware, requirePermission(PERMISSIONS.hr.view),
   try {
     const { position, employment_type, is_active, search } = req.query;
 
-    const where: any = {};
+    const where: Prisma.EmployeeWhereInput = {};
 
-    if (position) {
-      where.position = position;
-    }
+    where.position = queryString(position);
 
-    if (employment_type) {
-      where.employment_type = employment_type;
-    }
+    where.employment_type = queryString(employment_type);
 
     if (is_active !== undefined) {
       where.is_active = is_active === 'true';
@@ -205,14 +203,14 @@ router.get('/payroll-summary', authMiddleware, requirePermission(PERMISSIONS.pay
     });
 
     const totalPermanentSalary = payrolls
-      .filter((p: any) => p.employee.employment_type === 'permanent')
-      .reduce((sum: number, p: any) => sum + p.base_salary, 0);
+      .filter((p) => p.employee.employment_type === 'permanent')
+      .reduce((sum: number, p) => sum + p.base_salary, 0);
 
     const totalFreelanceWages = payrolls
-      .filter((p: any) => p.employee.employment_type === 'freelance')
-      .reduce((sum: number, p: any) => sum + p.total_pay, 0);
+      .filter((p) => p.employee.employment_type === 'freelance')
+      .reduce((sum: number, p) => sum + p.total_pay, 0);
 
-    const totalOvertime = payrolls.reduce((sum: number, p: any) => sum + p.overtime_pay, 0);
+    const totalOvertime = payrolls.reduce((sum: number, p) => sum + p.overtime_pay, 0);
 
     const totalHRExpenses = totalPermanentSalary + totalFreelanceWages + totalOvertime;
 
@@ -265,15 +263,11 @@ router.get('/payroll', authMiddleware, requirePermission(PERMISSIONS.payroll.vie
   try {
     const { employee_id, status } = req.query;
 
-    const where: any = {};
+    const where: Prisma.PayrollWhereInput = {};
 
-    if (employee_id) {
-      where.employee_id = employee_id;
-    }
+    where.employee_id = queryString(employee_id);
 
-    if (status) {
-      where.status = status;
-    }
+    where.status = queryString(status);
 
     const payrolls = await prisma.payroll.findMany({
       where,

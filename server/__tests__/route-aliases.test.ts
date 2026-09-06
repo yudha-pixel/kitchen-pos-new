@@ -21,6 +21,15 @@ describe('business route migration aliases', () => {
       { source: '/admin/reports', destination: '/reports', permanent: true },
       { source: '/admin/settings', destination: '/settings', permanent: true },
       { source: '/admin/vouchers', destination: '/promotions/vouchers', permanent: true },
+      // Procurement moved out of /inventory into its own /purchase module,
+      // with supplier payments landing in /finance (segregation of duties).
+      { source: '/inventory/purchase-requisitions', destination: '/purchase/requisitions', permanent: true },
+      { source: '/inventory/quotation-requests', destination: '/purchase/quotations', permanent: true },
+      { source: '/inventory/quotations', destination: '/purchase/quotations', permanent: true },
+      { source: '/inventory/purchase-orders', destination: '/purchase/orders', permanent: true },
+      { source: '/inventory/goods-received-notes', destination: '/purchase/goods-received', permanent: true },
+      { source: '/inventory/invoices', destination: '/purchase/invoices', permanent: true },
+      { source: '/inventory/supplier-payments', destination: '/finance/supplier-payments', permanent: true },
     ]);
   });
 

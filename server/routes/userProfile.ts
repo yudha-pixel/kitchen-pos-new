@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { loadRolePermissions } from '../middleware/permissions';
 import { serializeAuthenticatedUser } from '../lib/authenticatedUser';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -71,7 +72,7 @@ router.patch('/profile', authMiddleware, async (req: Request, res: Response) => 
       message: 'Profil berhasil diperbarui',
       user: serialized,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0]?.message || 'Data tidak valid' });
     }
@@ -113,7 +114,7 @@ router.post('/change-password', authMiddleware, async (req: Request, res: Respon
       success: true,
       message: 'Kata sandi berhasil diperbarui',
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0]?.message || 'Data tidak valid' });
     }
@@ -141,9 +142,9 @@ router.post('/pin', authMiddleware, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Pengguna tidak ditemukan' });
     }
 
-    const currentPreferences = (user.preferences as Record<string, any>) || {};
+    const currentPreferences = (user.preferences as Record<string, unknown> | null) ?? {};
 
-    let pinHash = currentPreferences.pos_pin_hash;
+    let pinHash = typeof currentPreferences.pos_pin_hash === 'string' ? currentPreferences.pos_pin_hash : null;
     if (enabled && pin) {
       pinHash = await bcrypt.hash(pin, 10);
     } else if (!enabled) {
@@ -158,7 +159,7 @@ router.post('/pin', authMiddleware, async (req: Request, res: Response) => {
 
     await prisma.profile.update({
       where: { id: userId },
-      data: { preferences: updatedPreferences },
+      data: { preferences: updatedPreferences as Prisma.InputJsonObject },
     });
 
     res.json({
@@ -166,7 +167,7 @@ router.post('/pin', authMiddleware, async (req: Request, res: Response) => {
       message: 'Pengaturan PIN POS berhasil disimpan',
       enabled,
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.issues[0]?.message || 'Data tidak valid' });
     }
@@ -240,9 +241,9 @@ router.post('/send-reset-password', authMiddleware, async (req: Request, res: Re
         email: user.email,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error sending reset password email:', error);
-    res.status(500).json({ error: error.message || 'Gagal mengirim email reset password' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Gagal mengirim email reset password' });
   }
 });
 

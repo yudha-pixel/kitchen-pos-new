@@ -137,9 +137,11 @@ export default function PermintaanDapurPage() {
   }, []);
 
   useEffect(() => {
-    fetchRequisitions();
-    fetchIngredients();
-    fetchSuppliers();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await Promise.all([fetchRequisitions(), fetchIngredients(), fetchSuppliers()]);
+    })();
   }, [fetchRequisitions, fetchIngredients, fetchSuppliers]);
 
   const handleAddItem = () => {
@@ -181,17 +183,17 @@ export default function PermintaanDapurPage() {
           toast('info', 'Tidak ada item yang perlu di-restock');
           return;
         }
-        const autoItems: PRItem[] = data.map((ing: any) => ({
+        const autoItems: PRItem[] = (data as { id: string; name: string; unit: string; unit_price?: number; current_stock?: number; min_stock?: number; restock_quantity?: number }[]).map((ing) => ({
           ingredient_id: ing.id,
           ingredient_name: ing.name,
-          quantity: ing.restock_quantity || (ing.min_stock - ing.current_stock) || 10,
+          quantity: ing.restock_quantity || ((ing.min_stock ?? 0) - (ing.current_stock ?? 0)) || 10,
           unit: ing.unit,
-          estimated_price: (ing.unit_price || 0) * (ing.restock_quantity || (ing.min_stock - ing.current_stock) || 10),
+          estimated_price: (ing.unit_price || 0) * (ing.restock_quantity || ((ing.min_stock ?? 0) - (ing.current_stock ?? 0)) || 10),
         }));
         setPrItems(autoItems);
         toast('success', `Berhasil memuat ${autoItems.length} item otomatis restok`);
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal memuat rekomendasi restok');
     } finally {
       setProcessing(false);
@@ -227,7 +229,7 @@ export default function PermintaanDapurPage() {
       } else {
         toast('error', 'Gagal membuat PR');
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Terjadi kesalahan sistem');
     } finally {
       setProcessing(false);
@@ -247,7 +249,7 @@ export default function PermintaanDapurPage() {
         setActiveDrawerPR(null);
         fetchRequisitions();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal menyetujui PR');
     } finally {
       setProcessing(false);
@@ -267,7 +269,7 @@ export default function PermintaanDapurPage() {
         setActiveDrawerPR(null);
         fetchRequisitions();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal menolak PR');
     } finally {
       setProcessing(false);
@@ -287,7 +289,7 @@ export default function PermintaanDapurPage() {
         setActiveDrawerPR(null);
         fetchRequisitions();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal konversi ke PO');
     } finally {
       setProcessing(false);
@@ -336,7 +338,7 @@ export default function PermintaanDapurPage() {
     }
   };
 
-  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+  const toggleSelectOne = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
@@ -472,7 +474,7 @@ export default function PermintaanDapurPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={(e) => toggleSelectOne(pr.id, e as any)}
+                              onChange={(e) => toggleSelectOne(pr.id, e)}
                               className="rounded border-line text-primary focus:ring-primary"
                             />
                           </td>

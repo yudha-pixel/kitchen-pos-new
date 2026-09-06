@@ -1,6 +1,7 @@
 import { TableEntity, Product, Category, CustomerOrder, CustomerOrderItem } from '@/src/lib/db';
 import { API_BASE_URL } from '@/src/config/runtime';
 import { resolveSelfOrderPaymentMethods, type SelfOrderPaymentMethod } from '@/src/features/self-order/paymentMethods';
+import type { AppliedModifier } from '@/src/lib/db';
 
 export interface GuestSelfOrderPaymentMethod extends SelfOrderPaymentMethod {
   instructions?: string;
@@ -132,7 +133,7 @@ export async function createCustomerOrder(
   items: Array<{
     product_id: string;
     quantity: number;
-    modifiers_applied?: any[];
+    modifiers_applied?: AppliedModifier[];
   }>
 ): Promise<CustomerOrderWithItems & { routing: 'review' | 'auto' }> {
   const response = await fetch(`${API_BASE_URL}/api/self-order/orders`, {

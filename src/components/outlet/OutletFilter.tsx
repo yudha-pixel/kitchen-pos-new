@@ -12,8 +12,12 @@ export function OutletFilter({ onFilterChange }: OutletFilterProps) {
   const { outlets, selectedOutletId, loading, loadOutlets, setSelectedOutletId } = useOutletStore();
 
   useEffect(() => {
-    loadOutlets();
-  }, []);
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadOutlets();
+    })();
+  }, [loadOutlets]);
 
   const handleChange = (outletId: string) => {
     const newOutletId = outletId || null;

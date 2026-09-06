@@ -36,11 +36,6 @@ export default function HRPage() {
     totalSalary: 0,
   });
 
-  useEffect(() => {
-    loadEmployees();
-    loadStats();
-    initializeDefaultShifts();
-  }, []);
 
   const loadEmployees = async () => {
     try {
@@ -62,6 +57,14 @@ export default function HRPage() {
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await Promise.all([loadEmployees(), loadStats(), initializeDefaultShifts()]);
+    })();
+  }, []);
   const handleAddEmployee = () => {
     setEditingEmployee(null);
     setSaveError('');

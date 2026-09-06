@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
-import { randomUUID } from 'crypto';
 
 describe('Inventory Security Tests', () => {
   let adminToken: string;
@@ -39,16 +39,15 @@ describe('Inventory Security Tests', () => {
     cashierUserId = cashierUser.id;
 
     // Get tokens (simulating login)
-    const adminLogin = await request(app)
+    await request(app)
       .post('/auth/login')
       .send({ username: 'inventory_admin_test', password: 'password' });
     
-    const cashierLogin = await request(app)
+    await request(app)
       .post('/auth/login')
       .send({ username: 'inventory_cashier_test', password: 'password' });
 
     // For testing, we'll manually create JWT tokens
-    const jwt = require('jsonwebtoken');
     adminToken = jwt.sign(
       { id: adminUserId, username: 'inventory_admin_test', role: 'admin' },
       process.env.JWT_SECRET || 'test-secret',

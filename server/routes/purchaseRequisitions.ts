@@ -22,6 +22,14 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), 
   }
 });
 
+interface PurchaseRequisitionItemInput {
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity: number;
+  unit: string;
+  estimated_price: number;
+}
+
 // POST /api/purchase-requisitions - Create a new purchase requisition
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create), async (req: Request, res: Response) => {
   try {
@@ -46,7 +54,7 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.create
         total_estimated,
         notes,
         prItems: {
-          create: items.map((item: any) => ({
+          create: (items as PurchaseRequisitionItemInput[]).map((item) => ({
             ingredient_id: item.ingredient_id,
             ingredient_name: item.ingredient_name,
             quantity: item.quantity,
@@ -115,7 +123,7 @@ router.patch('/:id/approve', authMiddleware, requirePermission(PERMISSIONS.purch
       data: {
         status: 'Approved',
         approved_at: new Date(),
-        approved_by: approved_by || (req as any).user?.full_name || 'Admin'
+        approved_by: approved_by || req.user?.username || 'Admin'
       },
       include: {
         prItems: true
@@ -209,7 +217,7 @@ router.post('/:id/convert-to-po', authMiddleware, requirePermission(PERMISSIONS.
         total,
         notes: `Converted from PR ${pr.pr_number}`,
         items: {
-          create: pr.prItems.map((item: any) => ({
+          create: pr.prItems.map((item) => ({
             ingredient_id: item.ingredient_id,
             ingredient_name: item.ingredient_name,
             quantity: item.quantity,

@@ -41,7 +41,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.users.view), async
     });
 
     // Remove password_hash from response
-    const sanitizedUsers = users.map((user: any) => {
+    const sanitizedUsers = users.map((user) => {
       const { password_hash, ...rest } = user;
       return rest;
     });
@@ -71,7 +71,7 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.users.view), as
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const { password_hash, ...sanitizedUser } = user as any;
+    const { password_hash: _password, ...sanitizedUser } = user;
     res.json(sanitizedUser);
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -135,7 +135,7 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.users.create), as
       },
     });
 
-    const { password_hash: _, ...sanitizedUser } = user as any;
+    const { password_hash: _password, ...sanitizedUser } = user;
     res.status(201).json(sanitizedUser);
   } catch (error) {
     console.error('Error creating user:', error);
@@ -182,7 +182,7 @@ router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.users.update), 
       },
     });
 
-    const { password_hash, ...sanitizedUser } = user as any;
+    const { password_hash: _password, ...sanitizedUser } = user;
     res.json(sanitizedUser);
   } catch (error) {
     console.error('Error updating user:', error);
@@ -252,7 +252,7 @@ router.patch('/:id/status', authMiddleware, requirePermission(PERMISSIONS.users.
       },
     });
 
-    const { password_hash, ...sanitizedUser } = user as any;
+    const { password_hash: _password, ...sanitizedUser } = user;
     res.json(sanitizedUser);
   } catch (error) {
     console.error('Error updating user status:', error);

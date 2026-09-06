@@ -5,6 +5,7 @@ import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
 import { createCategorySchema, updateCategorySchema } from '../lib/validation';
 import { getStockLogs, getActiveBatches, getInventoryKPI } from '../lib/inventoryService';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -132,7 +133,7 @@ router.get('/low-stock', authMiddleware, requirePermission(PERMISSIONS.inventory
       return res.json([]);
     }
 
-    const where: any = {
+    const where: Prisma.IngredientWhereInput = {
       current_stock: {
         lte: prisma.ingredient.fields.min_stock,
       },
@@ -225,7 +226,7 @@ router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.create)
 router.put('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.edit), async (req: Request, res: Response) => {
   try {
     const { name, sku, barcode, current_stock, unit, min_stock, restock_quantity, unit_price, supplier_id, ad_hoc_supplier, ad_hoc_price, category_id, adjustment_type, reason } = req.body;
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Get current ingredient for audit log
     const currentIngredient = await prisma.ingredient.findUnique({

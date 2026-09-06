@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app';
@@ -64,7 +66,16 @@ function getFullPath(file: string, path: string): string {
 
 describe('Backend Route Smoke Test', () => {
   let adminToken: string;
-  let brokenRoutes: any[] = [];
+  interface BrokenRoute {
+    file: string;
+    path: string;
+    fullPath: string;
+    method: string;
+    status: number;
+    expected: number | string;
+    accessLevel: string;
+  }
+  const brokenRoutes: BrokenRoute[] = [];
 
   beforeAll(async () => {
     // Ensure admin user exists
@@ -97,8 +108,6 @@ describe('Backend Route Smoke Test', () => {
     await prisma.$disconnect();
     // Write broken routes report
     if (brokenRoutes.length > 0) {
-      const fs = require('fs');
-      const path = require('path');
       const reportPath = path.join(process.cwd(), 'audit/broken-api-routes.json');
       fs.writeFileSync(reportPath, JSON.stringify(brokenRoutes, null, 2));
       console.log(`\n⚠️  Found ${brokenRoutes.length} broken API routes. See audit/broken-api-routes.json`);
@@ -107,10 +116,10 @@ describe('Backend Route Smoke Test', () => {
 
   describe('Public GET routes', () => {
     const publicRoutes = auditData.routes.filter(
-      (r: any) => r.accessLevel === 'public' && r.method === 'GET'
+      (r) => r.accessLevel === 'public' && r.method === 'GET'
     );
 
-    it.each(publicRoutes.map((r: any) => ({ ...r, fullPath: getFullPath(r.file, r.path) })))(
+    it.each(publicRoutes.map((r) => ({ ...r, fullPath: getFullPath(r.file, r.path) })))(
       '$file $path should return 200 (public)',
       async ({ file, path, fullPath }) => {
         // Skip parameterized routes that require specific IDs - they need real test data
@@ -139,10 +148,10 @@ describe('Backend Route Smoke Test', () => {
 
   describe('Authenticated routes without token', () => {
     const authRoutes = auditData.routes.filter(
-      (r: any) => r.accessLevel === 'authenticated' || r.accessLevel === 'admin'
+      (r) => r.accessLevel === 'authenticated' || r.accessLevel === 'admin'
     );
 
-    it.each(authRoutes.slice(0, 20).map((r: any) => ({ ...r, fullPath: getFullPath(r.file, r.path) })))(
+    it.each(authRoutes.slice(0, 20).map((r) => ({ ...r, fullPath: getFullPath(r.file, r.path) })))(
       '$file $path $method should return 401 without token',
       async ({ file, path, method, fullPath }) => {
         let response;
@@ -186,10 +195,10 @@ describe('Backend Route Smoke Test', () => {
 
   describe('Admin routes with admin token', () => {
     const adminRoutes = auditData.routes.filter(
-      (r: any) => r.accessLevel === 'admin' && r.method === 'GET'
+      (r) => r.accessLevel === 'admin' && r.method === 'GET'
     );
 
-    it.each(adminRoutes.slice(0, 15).map((r: any) => ({ ...r, fullPath: getFullPath(r.file, r.path) })))(
+    it.each(adminRoutes.slice(0, 15).map((r) => ({ ...r, fullPath: getFullPath(r.file, r.path) })))(
       '$file $path should return 200 with admin token',
       async ({ file, path, fullPath }) => {
         if (!adminToken) {

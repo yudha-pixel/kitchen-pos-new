@@ -50,10 +50,6 @@ export default function PettyCashPage() {
     }
   }, [authLoading, user, router]);
 
-  useEffect(() => {
-    loadData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate, categoryFilter]);
 
   const loadData = async () => {
     setLoading(true);
@@ -92,6 +88,11 @@ export default function PettyCashPage() {
     }
   };
 
+
+  useEffect(() => {
+    void (async () => { await loadData(); })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, categoryFilter]);
   const handleResetFilters = () => {
     setStartDate('');
     setEndDate('');

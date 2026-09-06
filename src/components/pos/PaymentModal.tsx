@@ -1,5 +1,6 @@
 'use client';
 
+import type { SplitBillSelectableItem } from '@/src/features/pos/components/SplitBillModal';
 import { useState } from 'react';
 import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
@@ -9,13 +10,15 @@ import { CreditCard, QrCode, Banknote, Divide } from 'lucide-react';
 import { QRISPaymentModal } from './QRISPaymentModal';
 import { CardPaymentModal } from './CardPaymentModal';
 import { TransferPaymentModal } from './TransferPaymentModal';
+import type { PosOrder, PosOrderItem } from '@/src/types/pos-order';
+import type { AppliedModifier } from '@/src/lib/db';
 
 interface PaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  order: any;
+  order: PosOrder | null;
   onPaymentComplete: (paymentMethod: string, amount?: number) => void;
-  onSplitBillComplete: (selectedItems: any[], paymentMethod: string) => void;
+  onSplitBillComplete: (selectedItems: SplitBillSelectableItem[], paymentMethod: string) => void;
 }
 
 const paymentMethods = [
@@ -50,7 +53,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
 
   const calculateTotal = () => {
     if (!order || !order.items) return 0;
-    return order.items.reduce((sum: number, item: any) => {
+    return order.items.reduce((sum: number, item) => {
       const price = Number(item.price_at_time) || 0;
       return sum + (price * item.quantity);
     }, 0);
@@ -91,7 +94,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
   };
 
   const handleQuickCashAmount = (amount: number) => {
-    const total = calculateTotal();
+    calculateTotal();
     const roundedAmount = Math.ceil(amount / 1000) * 1000;
     setCashAmount(roundedAmount.toString());
   };
@@ -135,7 +138,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
 
   const handleSelectAll = () => {
     if (isProcessingSplit) return;
-    const allItemIds = order?.items?.map((item: any) => item.id) || [];
+    const allItemIds = (order?.items ?? []).flatMap((item) => (item.id ? [item.id] : []));
     if (selectedItemIds.length === allItemIds.length) {
       setSelectedItemIds([]);
     } else {
@@ -158,11 +161,21 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
     setIsProcessingSplit(true);
 
     try {
-      const selectedItems = order.items?.filter((item: any) => selectedItemIds.includes(item.id)) || [];
+      const selectedItems = (order?.items ?? []).filter((item) => item.id !== undefined && selectedItemIds.includes(item.id));
       
       await new Promise(resolve => setTimeout(resolve, 300));
       
-      onSplitBillComplete(selectedItems, splitPaymentMethod);
+      onSplitBillComplete(
+        selectedItems.map((item) => ({
+          id: item.id ?? '',
+          name: getItemName(item),
+          price: getItemPrice(item),
+          quantity: item.quantity,
+          modifiers: getItemModifiers(item),
+          modifierTotal: calculateItemTotal(item) / (item.quantity || 1) - getItemPrice(item),
+        })),
+        splitPaymentMethod,
+      );
       setSelectedItemIds([]);
       setSplitPaymentMethod('');
       setShowSplitBill(false);
@@ -243,31 +256,33 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
     return cash - selectedTotal;
   };
 
-  const calculateItemTotal = (item: any) => {
+  const calculateItemTotal = (item: PosOrderItem) => {
     const price = Number(item.price_at_time) || 0;
-    const modifiers = item.modifiers_applied || item.modifiers || [];
-    const modifierTotal = modifiers.reduce((sum: number, m: any) => sum + (m.price_extra || m.price || 0), 0) || 0;
+    const modifiers = item.modifiers_applied ?? item.modifiers ?? [];
+    const modifierTotal = modifiers.reduce(
+      (sum: number, m) => sum + Number(('price_extra' in m ? m.price_extra : undefined) ?? m.price ?? 0),
+      0,
+    );
     return (price + modifierTotal) * item.quantity;
   };
 
   const calculateSelectedTotal = () => {
     if (!order || !order.items) return 0;
     return order.items
-      .filter((item: any) => selectedItemIds.includes(item.id))
-      .reduce((sum: number, item: any) => sum + calculateItemTotal(item), 0);
+      .filter((item) => item.id !== undefined && selectedItemIds.includes(item.id))
+      .reduce((sum: number, item) => sum + calculateItemTotal(item), 0);
   };
 
-  const getItemName = (item: any) => {
+  const getItemName = (item: PosOrderItem) => {
     return item.product?.name || item.name || 'Unknown';
   };
 
-  const getItemPrice = (item: any) => {
+  const getItemPrice = (item: PosOrderItem) => {
     return Number(item.price_at_time) || 0;
   };
 
-  const getItemModifiers = (item: any) => {
-    return item.modifiers_applied || item.modifiers || [];
-  };
+  const getItemModifiers = (item: PosOrderItem): AppliedModifier[] =>
+    item.modifiers_applied ?? item.modifiers ?? [];
 
   const total = calculateTotal();
   const change = calculateChange();
@@ -432,7 +447,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
               <label className="mb-4 flex min-h-11 cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
-                  checked={selectedItemIds.length === (order.items?.length || 0)}
+                  checked={selectedItemIds.length === (order?.items?.length || 0)}
                   onChange={handleSelectAll}
                   disabled={isProcessingSplit}
                   className="h-5 w-5 rounded accent-[var(--primary)]"
@@ -441,9 +456,9 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
               </label>
 
               <div className="space-y-2 max-h-60 overflow-y-auto">
-                {order.items?.map((item: any) => {
+                {order?.items?.map((item) => {
                   const itemTotal = calculateItemTotal(item);
-                  const isSelected = selectedItemIds.includes(item.id);
+                  const isSelected = item.id !== undefined && selectedItemIds.includes(item.id);
                   const modifiers = getItemModifiers(item);
 
                   return (
@@ -456,7 +471,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                       <input
                         type="checkbox"
                         checked={isSelected}
-                        onChange={() => handleToggleItem(item.id)}
+                        onChange={() => item.id && handleToggleItem(item.id)}
                         disabled={isProcessingSplit}
                         className="h-5 w-5 rounded accent-[var(--primary)]"
                       />
@@ -469,7 +484,7 @@ export const PaymentModal = ({ isOpen, onClose, order, onPaymentComplete, onSpli
                             </p>
                             {modifiers && modifiers.length > 0 && (
                               <div className="mt-1 text-xs text-ink-muted">
-                                {modifiers.map((mod: any) => (
+                                {modifiers.map((mod) => (
                                   <span key={mod.id} className="mr-2">+ {mod.name}</span>
                                 ))}
                               </div>

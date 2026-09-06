@@ -71,7 +71,7 @@ router.get('/:orderId', authMiddleware, requirePermission(PERMISSIONS.orders.vie
     const { taxRate, serviceChargeRate } = await getCompanyCharges();
 
     // Calculate item-level breakdown
-    const itemBreakdown = order.items.map((item: any) => ({
+    const itemBreakdown = order.items.map((item) => ({
       id: item.id,
       name: item.product?.name || 'Unknown',
       quantity: item.quantity,
@@ -122,12 +122,12 @@ router.post('/by-items', authMiddleware, requirePermission(PERMISSIONS.orders.ed
 
     // Calculate each split
     const splits = data.splits.map(split => {
-      const splitItems = order.items.filter((item: any) => 
+      const splitItems = order.items.filter((item) => 
         split.item_ids.includes(item.id)
       );
 
       const subtotal = splitItems.reduce(
-        (sum: number, item: any) => sum + (item.price_at_time * item.quantity),
+        (sum: number, item) => sum + (item.price_at_time * item.quantity),
         0
       );
 
@@ -139,7 +139,7 @@ router.post('/by-items', authMiddleware, requirePermission(PERMISSIONS.orders.ed
 
       return {
         name: split.name,
-        items: splitItems.map((item: any) => ({
+        items: splitItems.map((item) => ({
           id: item.id,
           name: item.product?.name || 'Unknown',
           quantity: item.quantity,
@@ -154,13 +154,13 @@ router.post('/by-items', authMiddleware, requirePermission(PERMISSIONS.orders.ed
     });
 
     // Validate that all items are assigned
-    const assignedItemIds = new Set(data.splits.flatMap((s: any) => s.item_ids));
-    const unassignedItems = order.items.filter((item: any) => !assignedItemIds.has(item.id));
+    const assignedItemIds = new Set(data.splits.flatMap((s) => s.item_ids));
+    const unassignedItems = order.items.filter((item) => !assignedItemIds.has(item.id));
 
     if (unassignedItems.length > 0) {
       return res.status(400).json({
         error: 'Not all items are assigned to splits',
-        unassigned_items: unassignedItems.map((i: any) => i.id),
+        unassigned_items: unassignedItems.map((i) => i.id),
       });
     }
 
@@ -284,7 +284,7 @@ router.post('/equal', authMiddleware, requirePermission(PERMISSIONS.orders.edit)
       serviceChargeRate
     );
 
-    const splits = Array.from({ length: number_of_people }, (_: any, i: number) => ({
+    const splits = Array.from({ length: number_of_people }, (_, i: number) => ({
       name: `Person ${i + 1}`,
       subtotal: subtotalPerPerson,
       tax,

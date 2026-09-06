@@ -8,6 +8,8 @@
  * UUID-based schema for improved scalability and offline-first support
  */
 
+import type { AppliedModifier } from '@/src/lib/db';
+
 // ============================================================================
 // Profile Types (User/Kasir)
 // ============================================================================
@@ -180,7 +182,7 @@ export interface OrderItem {
   quantity: number;
   price_at_time: number;
   discount_item: number;
-  modifiers_applied: any[]; // JSONB array of modifier objects
+  modifiers_applied: AppliedModifier[]; // JSONB array of modifier objects
   split_group_id: string | null;
 }
 
@@ -191,7 +193,7 @@ export interface OrderItemInsert {
   quantity: number;
   price_at_time: number;
   discount_item?: number;
-  modifiers_applied?: any[];
+  modifiers_applied?: AppliedModifier[];
   split_group_id?: string | null;
 }
 
@@ -202,7 +204,7 @@ export interface OrderItemUpdate {
   quantity?: number;
   price_at_time?: number;
   discount_item?: number;
-  modifiers_applied?: any[];
+  modifiers_applied?: AppliedModifier[];
   split_group_id?: string | null;
 }
 
@@ -251,7 +253,7 @@ export interface SyncQueueItem {
   id: string; // UUID
   operation: SyncOperation;
   table_name: string;
-  data: any; // JSONB data for the operation
+  data: unknown; // JSONB data for the operation
   status: SyncStatus;
   error_message: string | null;
   retry_count: number;
@@ -263,7 +265,7 @@ export interface SyncQueueItemInsert {
   id?: string;
   operation: SyncOperation;
   table_name: string;
-  data: any;
+  data: unknown;
   status?: SyncStatus;
   error_message?: string | null;
   retry_count?: number;
@@ -275,7 +277,7 @@ export interface SyncQueueItemUpdate {
   id?: string;
   operation?: SyncOperation;
   table_name?: string;
-  data?: any;
+  data?: unknown;
   status?: SyncStatus;
   error_message?: string | null;
   retry_count?: number;

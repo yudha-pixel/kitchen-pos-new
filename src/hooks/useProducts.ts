@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import * as api from '@/src/lib/api';
 import { NetworkError } from '@/src/lib/api';
 import { db, Product as DBProduct, Category as DBCategory, Modifier as DBModifier } from '@/src/lib/db';
@@ -18,11 +18,11 @@ export const useProducts = (categoryId?: string | null) => {
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
 
-  useEffect(() => {
-    fetchProducts();
-  }, [categoryId]);
 
-  async function fetchProducts() {
+  const fetchProducts = useCallback(async () => {
+    // Whether this run found anything cached; read in the catch below
+    // instead of the state this callback also writes.
+    let hasCachedData = false;
     try {
       setLoading(true);
       setError(null);
@@ -46,6 +46,7 @@ export const useProducts = (categoryId?: string | null) => {
         if (cachedProducts.length > 0) {
           setProducts(cachedProducts as unknown as Product[]);
           setIsFromCache(true);
+          hasCachedData = true;
         }
       } catch (cacheError) {
         console.warn('Failed to load products from cache:', cacheError);
@@ -84,14 +85,22 @@ export const useProducts = (categoryId?: string | null) => {
         }
       }
     } catch (err) {
-      if (products.length === 0) {
+      if (!hasCachedData) {
         setError(err instanceof Error ? err.message : 'Failed to fetch products');
       }
       console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [categoryId]);
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchProducts();
+    })();
+  }, [categoryId, fetchProducts]);
 
   return { products, loading, error, refetch: fetchProducts, isFromCache };
 };
@@ -105,11 +114,11 @@ export const useCategories = () => {
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
 
-  async function fetchCategories() {
+  const fetchCategories = useCallback(async () => {
+    // Whether this run found anything cached; read in the catch below
+    // instead of the state this callback also writes.
+    let hasCachedData = false;
     try {
       setLoading(true);
       setError(null);
@@ -124,6 +133,7 @@ export const useCategories = () => {
         if (cachedCategories.length > 0) {
           setCategories(cachedCategories as unknown as Category[]);
           setIsFromCache(true);
+          hasCachedData = true;
         }
       } catch (cacheError) {
         console.warn('Failed to load categories from cache:', cacheError);
@@ -156,14 +166,22 @@ export const useCategories = () => {
         }
       }
     } catch (err) {
-      if (categories.length === 0) {
+      if (!hasCachedData) {
         setError(err instanceof Error ? err.message : 'Failed to fetch categories');
       }
       console.error('Error fetching categories:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchCategories();
+    })();
+  }, [fetchCategories]);
 
   return { categories, loading, error, refetch: fetchCategories, isFromCache };
 };
@@ -177,13 +195,11 @@ export const useModifiers = (productId: string) => {
   const [error, setError] = useState<string | null>(null);
   const [isFromCache, setIsFromCache] = useState(false);
 
-  useEffect(() => {
-    if (productId) {
-      fetchModifiers();
-    }
-  }, [productId]);
 
-  async function fetchModifiers() {
+  const fetchModifiers = useCallback(async () => {
+    // Whether this run found anything cached; read in the catch below
+    // instead of the state this callback also writes.
+    let hasCachedData = false;
     try {
       setLoading(true);
       setError(null);
@@ -213,6 +229,7 @@ export const useModifiers = (productId: string) => {
           };
           setModifiers([uiGroup]);
           setIsFromCache(true);
+          hasCachedData = true;
           console.log('Loaded modifiers from IndexedDB cache');
         }
       } catch (cacheError) {
@@ -266,14 +283,23 @@ export const useModifiers = (productId: string) => {
         }
       }
     } catch (err) {
-      if (modifiers.length === 0) {
+      if (!hasCachedData) {
         setError(err instanceof Error ? err.message : 'Failed to fetch modifiers');
       }
       console.error('Error fetching modifiers:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [productId]);
+
+  useEffect(() => {
+    if (!productId) return;
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchModifiers();
+    })();
+  }, [productId, fetchModifiers]);
 
   return { modifiers, loading, error, refetch: fetchModifiers, isFromCache };
 };

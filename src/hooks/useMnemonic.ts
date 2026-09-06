@@ -11,7 +11,11 @@ import { useShortcutContext } from '@/src/context/ShortcutContext';
 export function useMnemonic(letter: string | undefined, onTrigger: () => void, disabled = false) {
   const { registerMnemonic } = useShortcutContext();
   const onTriggerRef = useRef(onTrigger);
-  onTriggerRef.current = onTrigger;
+  // Kept current in an effect, not during render: the trigger only fires from
+  // the listener registered below, which cannot run before effects flush.
+  useEffect(() => {
+    onTriggerRef.current = onTrigger;
+  });
 
   useEffect(() => {
     if (!letter || disabled) return;

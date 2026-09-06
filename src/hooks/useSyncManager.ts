@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState, useSyncExternalStore } from 'react';
 import * as api from '@/src/lib/api';
-import { db, SyncQueueItem } from '@/src/lib/db';
+import { db, SyncQueueItem, Order, OrderItem, OrderVoidLog } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
 
 const MAX_RETRIES = 5;
@@ -71,14 +71,16 @@ export const useSyncManager = () => {
    */
   const replayQueueItem = useCallback(async (item: SyncQueueItem) => {
     if (item.table_name === 'orders' && item.operation === 'create') {
-      const { orderItems, ...order } = item.data;
+      // The queue stores one payload shape per table_name; narrow per branch.
+      const { orderItems, ...order } = item.data as Order & { orderItems?: OrderItem[] };
       await api.createOrder(order, orderItems ?? []);
       if (order.id) {
         await db.orders.update(order.id, { sync_status: 'synced' });
       }
     } else if (item.table_name === 'orders' && item.operation === 'update') {
       // Conflict resolution for order status updates
-      const localOrder = await db.orders.get(item.data.id);
+      const payload = item.data as { id: string; status: Order['status'] };
+      const localOrder = await db.orders.get(payload.id);
       
       if (localOrder) {
         // Check if we have timestamp information for conflict resolution
@@ -89,18 +91,18 @@ export const useSyncManager = () => {
         if (localTimestamp && queuedTimestamp) {
           const comparison = compareTimestamps(queuedTimestamp, localTimestamp);
           if (comparison === 'server') {
-            console.warn(`⚠️ Conflict detected for order ${item.data.id}: Server version is newer, skipping local update`);
+            console.warn(`⚠️ Conflict detected for order ${payload.id}: Server version is newer, skipping local update`);
             // Skip the update as server version is newer
             return;
           } else if (comparison === 'local') {
-            console.log(`✓ Local version is newer for order ${item.data.id}, proceeding with update`);
+            console.log(`✓ Local version is newer for order ${payload.id}, proceeding with update`);
           }
         }
       }
       
-      await api.updateOrderStatus(item.data.id, item.data.status);
+      await api.updateOrderStatus(payload.id, payload.status);
     } else if (item.table_name === 'order_void_logs' || item.table_name === 'void_logs') {
-      await api.createVoidLogs([item.data]);
+      await api.createVoidLogs([item.data as OrderVoidLog]);
     } else {
       // Unknown operation: drop it rather than blocking the queue forever
       console.warn(`Dropping unknown sync queue item: ${item.operation} on ${item.table_name}`);
@@ -288,7 +290,7 @@ export const useSyncManager = () => {
   useEffect(() => {
     if (isOnline && pendingTransactions > 0) {
       console.log('Back online with pending transactions, triggering sync...');
-      syncOfflineOrders();
+      void (async () => { await syncOfflineOrders(); })();
     }
   }, [isOnline, pendingTransactions, syncOfflineOrders]);
 

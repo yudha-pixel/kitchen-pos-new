@@ -1,8 +1,10 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { queryString } from '../lib/query';
 
 const router = express.Router();
 
@@ -11,11 +13,9 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.crm.view), async (
   try {
     const { tier, is_active, search } = req.query;
 
-    const where: any = {};
+    const where: Prisma.CustomerWhereInput = {};
 
-    if (tier) {
-      where.tier = tier;
-    }
+    where.tier = queryString(tier);
 
     if (is_active !== undefined) {
       where.is_active = is_active === 'true';
@@ -69,7 +69,7 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.crm.view), asyn
 // Create new customer
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.crm.create), async (req: Request, res: Response) => {
   try {
-    const { name, phone, email, tier, points, total_spent, discount_percentage, is_active } = req.body;
+    const { name, phone, email, points, total_spent, is_active } = req.body;
 
     if (!name || !phone) {
       return res.status(400).json({ error: 'Name and phone are required' });

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { CartItem } from '@/src/store/useCartStore';
+import { useState, useMemo } from 'react';
 import { X, Users, DollarSign, Divide, Check, Plus } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { formatRupiah } from '@/src/lib/format';
@@ -8,10 +9,19 @@ import { Button } from '@/src/components/ui/Button';
 
 type SplitMethod = 'equal' | 'items' | 'amount';
 
+/** One share of a split bill: an even portion, or a named group of items. */
+export interface BillSplit {
+  name: string;
+  items?: CartItem[];
+  subtotal: number;
+  tax: number;
+  total: number;
+}
+
 interface SplitBillModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: (splits: any[]) => void;
+  onConfirm: (splits: BillSplit[]) => void;
 }
 
 export function SplitBillModal({ isOpen, onClose, onConfirm }: SplitBillModalProps) {
@@ -21,15 +31,15 @@ export function SplitBillModal({ isOpen, onClose, onConfirm }: SplitBillModalPro
   const [itemAssignments, setItemAssignments] = useState<Record<string, string>>({});
   const [amountSplits, setAmountSplits] = useState<number[]>([]);
   const [splitNames, setSplitNames] = useState<string[]>(['Person 1', 'Person 2']);
-  const [calculatedSplits, setCalculatedSplits] = useState<any[]>([]);
 
   const subtotal = getSubtotal();
   const tax = getTax();
   const total = subtotal + tax;
 
-  // Calculate splits based on selected method
-  useEffect(() => {
-    if (!isOpen) return;
+  // Splits are derived from the current method and inputs, so they are
+  // computed during render rather than mirrored into state from an effect.
+  const calculatedSplits = useMemo<BillSplit[]>(() => {
+    if (!isOpen) return [];
 
     if (method === 'equal') {
       const perPerson = total / numberOfPeople;
@@ -39,9 +49,11 @@ export function SplitBillModal({ isOpen, onClose, onConfirm }: SplitBillModalPro
         tax: tax / numberOfPeople,
         total: perPerson,
       }));
-      setCalculatedSplits(splits);
-    } else if (method === 'items') {
-      const splits: any[] = [];
+      return splits;
+    }
+
+    if (method === 'items') {
+      const splits: BillSplit[] = [];
       const uniqueGroups = Array.from(new Set(Object.values(itemAssignments)));
       
       uniqueGroups.forEach((groupId, index) => {
@@ -59,10 +71,10 @@ export function SplitBillModal({ isOpen, onClose, onConfirm }: SplitBillModalPro
         });
       });
       
-      setCalculatedSplits(splits);
-    } else if (method === 'amount') {
-      const totalAmount = amountSplits.reduce((sum, amount) => sum + amount, 0);
-      const difference = total - totalAmount;
+      return splits;
+    }
+
+    if (method === 'amount') {
       
       const splits = amountSplits.map((amount, index) => {
         const subtotal = amount / 1.1; // Reverse tax calculation
@@ -76,8 +88,10 @@ export function SplitBillModal({ isOpen, onClose, onConfirm }: SplitBillModalPro
         };
       });
       
-      setCalculatedSplits(splits);
+      return splits;
     }
+
+    return [];
   }, [method, numberOfPeople, itemAssignments, amountSplits, splitNames, items, subtotal, tax, total, isOpen]);
 
   const handleConfirm = () => {
@@ -218,7 +232,6 @@ export function SplitBillModal({ isOpen, onClose, onConfirm }: SplitBillModalPro
                 <label className="block text-sm font-medium text-gray-700">Alokasi Item</label>
                 <button
                   onClick={() => {
-                    const newGroupId = `group-${Date.now()}`;
                     setSplitNames(prev => [...prev, `Group ${prev.length + 1}`]);
                   }}
                   className="text-sm text-indigo-600 hover:text-indigo-700"

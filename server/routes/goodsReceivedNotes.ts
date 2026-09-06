@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -32,7 +33,7 @@ const generateGRNNumber = (): string => {
 };
 
 // Generate batch code
-const generateBatchCode = (ingredientId: string): string => {
+const generateBatchCode = (_ingredientId: string): string => {
   const date = new Date();
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -45,7 +46,7 @@ const generateBatchCode = (ingredientId: string): string => {
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, purchase_order_id, supplier_id } = req.query;
-    const where: any = {};
+    const where: Prisma.GoodsReceivedNoteWhereInput = {};
     if (status) where.status = status as string;
     if (purchase_order_id) where.purchase_order_id = purchase_order_id as string;
     if (supplier_id) where.supplier_id = supplier_id as string;

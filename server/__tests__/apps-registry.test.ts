@@ -49,17 +49,20 @@ describe('APPS_REGISTRY', () => {
     expect(APPS_REGISTRY.every((app) => app.subLinks.every((link) => Boolean(link.requiredPermission)))).toBe(true);
   });
 
-  it('exposes the complete inventory navigation from the approved wireframe', () => {
+  it('exposes the complete inventory navigation', () => {
     const inventory = APPS_REGISTRY.find((app) => app.id === 'inventory');
 
+    // Labels are Bahasa Indonesia, matching the rest of the UI. Supplier
+    // master data sits here rather than in the Pembelian module, which is
+    // pinned to its five procurement submenus.
     expect(inventory?.subLinks.map((link) => link.label)).toEqual([
-      'All Items',
-      'Stock Approvals',
-      'Categories',
-      'Stock Adjustments',
-      'Stock Transfers',
-      'Suppliers',
-      'Automation',
+      'Data Barang & Bahan',
+      'Persetujuan Stok',
+      'Kategori Barang',
+      'Penyesuaian Stok',
+      'Transfer Stok',
+      'Supplier',
+      'Otomatisasi Stok',
     ]);
     expect(inventory?.subLinks.every((link) => link.iconName)).toBe(true);
     expect(findModuleForPath('/inventory-suppliers')?.id).toBe('inventory');

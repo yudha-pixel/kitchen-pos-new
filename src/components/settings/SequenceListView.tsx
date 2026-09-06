@@ -80,7 +80,7 @@ export function SequenceListView({ sequences, onSelectSequence, onCreateNew, loa
     }
   };
 
-  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+  const toggleSelectOne = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
@@ -208,7 +208,7 @@ export function SequenceListView({ sequences, onSelectSequence, onCreateNew, loa
                         <input
                           type="checkbox"
                           checked={isSelected}
-                          onChange={(e) => toggleSelectOne(seq.id, e as any)}
+                          onChange={(e) => toggleSelectOne(seq.id, e)}
                           className="rounded border-line text-primary focus:ring-primary"
                         />
                       </td>
@@ -216,7 +216,7 @@ export function SequenceListView({ sequences, onSelectSequence, onCreateNew, loa
                         <div className="flex items-center gap-2">
                           <span>{seq.name}</span>
                           {seq.active !== false && (
-                            <CheckCircle className="h-3.5 w-3.5 text-emerald-500" title="Sequence Aktif" />
+                            <span title="Sequence Aktif"><CheckCircle className="h-3.5 w-3.5 text-emerald-500" aria-label="Sequence Aktif" /></span>
                           )}
                         </div>
                       </td>

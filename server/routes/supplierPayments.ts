@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -20,7 +21,7 @@ const createPaymentSchema = z.object({
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, invoice_id, supplier_id } = req.query;
-    const where: any = {};
+    const where: Prisma.PaymentWhereInput = {};
     if (status) where.status = status as string;
     if (invoice_id) where.invoice_id = invoice_id as string;
     if (supplier_id) where.supplier_id = supplier_id as string;

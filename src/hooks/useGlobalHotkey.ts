@@ -18,7 +18,11 @@ const TYPING_TAGS = new Set(['INPUT', 'TEXTAREA', 'SELECT']);
  */
 export function useGlobalHotkey(combo: string, handler: (event: KeyboardEvent) => void, options?: UseGlobalHotkeyOptions) {
   const handlerRef = useRef(handler);
-  handlerRef.current = handler;
+  // Kept current in an effect, not during render: the handler only fires from
+  // the keydown listener below, which cannot run before effects flush.
+  useEffect(() => {
+    handlerRef.current = handler;
+  });
 
   useEffect(() => {
     if (options?.enabled === false) return;

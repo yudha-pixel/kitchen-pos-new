@@ -1,12 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { deductManufactureStock, deductKitStock, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useConfigStore } from './useConfigStore';
 import * as api from '@/src/lib/api';
 import { NetworkError } from '@/src/lib/api';
+import type { Member, Promotion } from '@/src/lib/db';
 import { db } from '@/src/lib/db';
 import { useOfflineStore } from '@/src/store/useOfflineStore';
-import { reduceStockForOrder, restoreStockForOrder } from '@/src/features/inventory/inventoryService';
 import { addCustomerPoints } from '@/src/features/crm/customerService';
 import { generateUUID } from '@/src/lib/utils';
 import { checkStockAvailability, deductStockForSale } from '@/src/features/inventory/recipeApiService';
@@ -46,9 +45,9 @@ interface CartState {
   voucherDiscountType: 'nominal' | 'percentage' | null;
   voucherDiscountValue: number;
   voucherDiscountAmount: number;
-  member: any | null;
+  member: Member | null;
   memberDiscountAmount: number;
-  appliedPromotion: any | null;
+  appliedPromotion: Promotion | null;
   promotionDiscountAmount: number;
   kitchenSent: boolean;
   setCashierId: (id: string | null) => void;
@@ -60,7 +59,7 @@ interface CartState {
   clearGlobalDiscount: () => void;
   setVoucher: (code: string, id: string, discountType: 'nominal' | 'percentage', discountValue: number, discountAmount: number) => void;
   clearVoucher: () => void;
-  setMember: (member: any) => void;
+  setMember: (member: Member | null) => void;
   clearMember: () => void;
   checkPromotions: () => Promise<void>;
   clearPromotion: () => void;
@@ -284,7 +283,7 @@ export const useCartStore = create<CartState>()(
         set({ kitchenSent: false });
 
         const state = get();
-        const item = state.items.find((i) => i.id === id);
+        state.items.find((i) => i.id === id);
 
         set((state) => ({
           items: state.items.filter((item) => item.id !== id),
@@ -296,7 +295,7 @@ export const useCartStore = create<CartState>()(
         set({ kitchenSent: false });
 
         const state = get();
-        const item = state.items.find((i) => i.id === id);
+        state.items.find((i) => i.id === id);
 
         set((state) => {
           if (quantity <= 0) {
@@ -352,8 +351,8 @@ export const useCartStore = create<CartState>()(
           }
         }
 
-        const subtotal = state.getSubtotal();
-        const tax = state.getTax();
+        state.getSubtotal();
+        state.getTax();
         const discount = state.getDiscount();
         const globalDiscount = state.getGlobalDiscount();
         const total = state.getTotal();
@@ -622,7 +621,7 @@ export const useCartStore = create<CartState>()(
 
             // Update order status to 'completed' after successful payment
             try {
-              await db.orders.where('id').equals(orderId).modify({ status: 'completed' as any });
+              await db.orders.where('id').equals(orderId).modify({ status: 'completed' });
               console.log('✅ Order status updated to completed');
               
               // Dispatch event to notify POS page to update table status
@@ -693,7 +692,7 @@ export const useCartStore = create<CartState>()(
         return await saveOffline(!isOnline ? 'Offline' : 'API fallback');
       },
 
-      voidItem: async (itemId, reason) => {
+      voidItem: async (itemId, _reason) => {
         try {
           const state = get();
           const item = state.items.find((i) => i.id === itemId);
@@ -933,7 +932,7 @@ export const useCartStore = create<CartState>()(
 
       mergeTable: async (targetTable, sourceTable) => {
         try {
-          const result = await api.mergeTable(targetTable, sourceTable);
+          await api.mergeTable(targetTable, sourceTable);
           return { success: true, message: `Berhasil menggabungkan meja ${sourceTable} ke ${targetTable}` };
         } catch (error) {
           console.error('Failed to merge tables:', error);
@@ -963,10 +962,10 @@ export const useCartStore = create<CartState>()(
           }
         }
 
-        const subtotal = state.getSubtotal();
-        const tax = state.getTax();
+        state.getSubtotal();
+        state.getTax();
         const discount = state.getDiscount();
-        const globalDiscount = state.getGlobalDiscount();
+        state.getGlobalDiscount();
         const total = state.getTotal();
 
         const orderId = generateUUID();

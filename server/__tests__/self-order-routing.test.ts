@@ -81,8 +81,8 @@ describe('Self-order routing modes and idempotent submission', () => {
     const res = await request(app).get('/api/self-order/config');
     expect(res.status).toBe(200);
     expect(res.body.counter_routing).toBe('review');
-    expect(res.body.methods.map((method: any) => method.id)).toEqual(['cashier', 'qris']);
-    expect(res.body.methods.find((method: any) => method.id === 'qris').instructions).toBeTruthy();
+    expect(res.body.methods.map((method: { id: string }) => method.id)).toEqual(['cashier', 'qris']);
+    expect(res.body.methods.find((method: { id: string }) => method.id === 'qris').instructions).toBeTruthy();
     expect(res.body).not.toHaveProperty('manager_pin');
     expect(res.body).not.toHaveProperty('store_email');
   });

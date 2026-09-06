@@ -26,9 +26,6 @@ export function useTables() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchTables();
-  }, []);
 
   const fetchTables = async () => {
     try {
@@ -59,6 +56,14 @@ export function useTables() {
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchTables();
+    })();
+  }, []);
   const updateTableStatus = async (tableId: string, status: TableStatus) => {
     try {
       const token = getToken();

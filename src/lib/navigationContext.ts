@@ -101,7 +101,6 @@ export function getModuleInfoForPath(pathname: string): { label: string; href: s
     '/purchase/quotations': { label: 'Penawaran Harga', href: '/purchase/quotations' },
     '/purchase/goods-receipt': { label: 'Penerimaan Barang', href: '/purchase/goods-receipt' },
     '/purchase/vendor-invoices': { label: 'Faktur Supplier', href: '/purchase/vendor-invoices' },
-    '/inventory/purchase-requisitions': { label: 'Permintaan Dapur', href: '/inventory/purchase-requisitions' },
   };
   
   // Find the most specific match

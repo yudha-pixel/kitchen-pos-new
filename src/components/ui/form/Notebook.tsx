@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, createContext, useContext } from 'react';
+import React, { useState, createContext } from 'react';
 
 interface NotebookContextType {
   activeTab: string;
@@ -18,10 +18,11 @@ export interface NotebookProps {
 export function Notebook({ children, defaultTab, className = '' }: NotebookProps) {
   // Collect children tabs metadata
   const pages = React.Children.toArray(children).filter(
-    (child): child is React.ReactElement => React.isValidElement(child) && Boolean(child.props.id && child.props.label)
+    (child): child is React.ReactElement<PageProps> =>
+      React.isValidElement<PageProps>(child) && Boolean(child.props.id && child.props.label)
   );
 
-  const initialTab = defaultTab || (pages[0]?.props.id as string) || '';
+  const initialTab = defaultTab || pages[0]?.props.id || '';
   const [activeTab, setActiveTab] = useState<string>(initialTab);
 
   return (

@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { elapsedMinutes } from '../../src/lib/format';
 
 // Urgency thresholds in minutes (matching KDS contract)
 const URGENCY_WARN_MIN = 10;

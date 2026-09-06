@@ -72,7 +72,11 @@ export default function PenawaranHargaPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchQuotations();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchQuotations();
+    })();
   }, [fetchQuotations]);
 
   // Helper to safely format quantity numeric value (Fixes [object Object] bug)
@@ -126,7 +130,7 @@ export default function PenawaranHargaPage() {
     }
   };
 
-  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+  const toggleSelectOne = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
@@ -258,7 +262,7 @@ export default function PenawaranHargaPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={(e) => toggleSelectOne(q.id, e as any)}
+                              onChange={(e) => toggleSelectOne(q.id, e)}
                               className="rounded border-line text-primary focus:ring-primary"
                             />
                           </td>

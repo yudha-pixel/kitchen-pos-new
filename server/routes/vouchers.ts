@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
@@ -11,7 +12,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.promotions.view), 
   try {
     const { is_active, search } = req.query;
 
-    const where: any = {};
+    const where: Prisma.VoucherWhereInput = {};
 
     if (is_active !== undefined) {
       where.is_active = is_active === 'true';

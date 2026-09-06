@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { normalizeUserPreferences } from '../../src/config/routes';
+import { Prisma } from '@prisma/client';
 
 const router = Router();
 
@@ -22,7 +23,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     }
     
     // Return preferences or default empty object
-    const preferences = profile.preferences as any || {};
+    const preferences = (profile.preferences as Record<string, unknown> | null) ?? {};
     res.json(normalizeUserPreferences(preferences));
   } catch (error) {
     console.error('Error fetching preferences:', error);
@@ -61,7 +62,7 @@ router.put('/', authMiddleware, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'User not found' });
     }
     
-    const currentPreferences = currentProfile.preferences as any || {};
+    const currentPreferences = (currentProfile.preferences as Record<string, unknown> | null) ?? {};
     
     // Update with new values, preserving existing structure
     const updatedPreferences = {
@@ -72,10 +73,10 @@ router.put('/', authMiddleware, async (req: Request, res: Response) => {
     
     const updated = await prisma.profile.update({
       where: { id: userId },
-      data: { preferences: updatedPreferences as any }
+      data: { preferences: updatedPreferences as Prisma.InputJsonObject }
     });
     
-    const preferences = updated.preferences as any || {};
+    const preferences = (updated.preferences as Record<string, unknown> | null) ?? {};
     res.json(normalizeUserPreferences(preferences));
   } catch (error) {
     console.error('Error updating preferences:', error);

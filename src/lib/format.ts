@@ -16,3 +16,15 @@ export const formatElapsed = (dateString: string | Date): string => {
   if (diff < 60) return `${diff} menit`;
   return `${Math.floor(diff / 60)} jam ${diff % 60} menit`;
 };
+
+// Document dates may be absent on a draft. Render a dash rather than falling
+// back to Date.now(), which both lies about the date and is impure at render.
+const MISSING_DATE = '—';
+
+export const formatDocumentDate = (dateString: string | Date | null | undefined): string =>
+  dateString
+    ? new Date(dateString).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+    : MISSING_DATE;
+
+export const formatDocumentDateTime = (dateString: string | Date | null | undefined): string =>
+  dateString ? new Date(dateString).toLocaleString('id-ID') : MISSING_DATE;

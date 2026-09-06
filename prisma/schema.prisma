@@ -27,6 +27,9 @@ model Profile {
   role          Role             @relation(fields: [role_id], references: [id])
   notifications Notification[]
   pettyCashExpenses PettyCash[]   @relation("PettyCashCreatedBy")
+  reservationsCreated   Reservation[] @relation("ReservationCreatedBy")
+  reservationsConfirmed Reservation[] @relation("ReservationConfirmedBy")
+  reservationsCancelled Reservation[] @relation("ReservationCancelledBy")
 
   @@index([outlet_id])
   @@index([role_id])
@@ -333,6 +336,7 @@ model Table {
   created_at     DateTime        @default(now())
   updated_at     DateTime        @updatedAt
   customerOrders CustomerOrder[]
+  reservations   Reservation[]
   outlet         Outlet?         @relation(fields: [outlet_id], references: [id])
 
   @@index([table_number])
@@ -508,6 +512,10 @@ model AppSettings {
   smtp_from_email    String?  @default("")
   smtp_from_name     String?  @default("Kitchen POS")
   smtp_secure        Boolean? @default(true)
+
+  // Per-document-type numbering config (prefix/padding/next counter), managed
+  // by server/lib/sequence.ts. Shape is validated there, not by the DB.
+  document_sequences Json?
 
   @@map("app_settings")
 }
@@ -1372,4 +1380,47 @@ model PettyCash {
   @@index([ingredient_id])
   @@index([shift_id])
   @@map("petty_cash")
+}
+
+// Table reservations. Served by server/routes/reservations.ts; `status` moves
+// pending -> confirmed -> completed, with cancelled/no_show as terminal states.
+model Reservation {
+  id                  String    @id @default(uuid()) @db.Uuid
+  customer_name       String
+  customer_phone      String
+  customer_email      String?
+  party_size          Int
+  reservation_date    DateTime  @db.Timestamptz(6)
+  reservation_time    DateTime  @db.Timestamptz(6)
+  // No DB default: the route falls back to 120 minutes when this is null.
+  duration_minutes    Int?
+  area                String // Indoor, Outdoor, VIP
+  special_requests    String?
+  deposit_amount      Float?
+  deposit_paid        Boolean   @default(false)
+  status              String    @default("pending") // pending, confirmed, cancelled, completed, no_show
+  confirmation_notes  String?
+  cancellation_reason String?
+  confirmed_at        DateTime? @db.Timestamptz(6)
+  cancelled_at        DateTime? @db.Timestamptz(6)
+  table_id            String?   @db.Uuid
+  outlet_id           String?   @db.Uuid
+  created_by          String?   @db.Uuid
+  confirmed_by        String?   @db.Uuid
+  cancelled_by        String?   @db.Uuid
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  table       Table?   @relation(fields: [table_id], references: [id])
+  createdBy   Profile? @relation("ReservationCreatedBy", fields: [created_by], references: [id])
+  confirmedBy Profile? @relation("ReservationConfirmedBy", fields: [confirmed_by], references: [id])
+  cancelledBy Profile? @relation("ReservationCancelledBy", fields: [cancelled_by], references: [id])
+
+  @@index([reservation_date])
+  @@index([status])
+  @@index([area])
+  @@index([table_id])
+  @@index([outlet_id])
+  @@index([created_by])
+  @@map("reservations")
 }

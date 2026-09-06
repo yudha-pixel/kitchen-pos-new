@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
@@ -122,7 +123,7 @@ router.get('/templates', authMiddleware, requirePermission(PERMISSIONS.settings.
       orderBy: { created_at: 'asc' },
     });
     res.json(templates);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching email templates:', error);
     res.status(500).json({ error: 'Gagal mengambil data template email' });
   }
@@ -131,7 +132,7 @@ router.get('/templates', authMiddleware, requirePermission(PERMISSIONS.settings.
 // GET /api/email-templates/:id - Get email template detail
 router.get('/templates/:id', authMiddleware, requirePermission(PERMISSIONS.settings.view), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const template = await prisma.emailTemplate.findFirst({
       where: {
         OR: [{ id }, { code: id }],
@@ -143,7 +144,7 @@ router.get('/templates/:id', authMiddleware, requirePermission(PERMISSIONS.setti
     }
 
     res.json(template);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching email template:', error);
     res.status(500).json({ error: 'Gagal mengambil detail template email' });
   }
@@ -152,7 +153,7 @@ router.get('/templates/:id', authMiddleware, requirePermission(PERMISSIONS.setti
 // PUT /api/email-templates/:id - Update email template content
 router.put('/templates/:id', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const { name, description, subject, body_html, body_text, is_active } = req.body;
 
     const existing = await prisma.emailTemplate.findFirst({
@@ -180,7 +181,7 @@ router.put('/templates/:id', authMiddleware, requirePermission(PERMISSIONS.setti
       message: `Template '${updated.name}' berhasil diperbarui`,
       template: updated,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error updating email template:', error);
     res.status(500).json({ error: 'Gagal memperbarui template email' });
   }
@@ -189,7 +190,7 @@ router.put('/templates/:id', authMiddleware, requirePermission(PERMISSIONS.setti
 // POST /api/email-templates/:id/reset - Reset email template to system default
 router.post('/templates/:id/reset', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const existing = await prisma.emailTemplate.findFirst({
       where: { OR: [{ id }, { code: id }] },
     });
@@ -218,7 +219,7 @@ router.post('/templates/:id/reset', authMiddleware, requirePermission(PERMISSION
       message: `Template '${resetTpl.name}' berhasil direset ke nilai default`,
       template: resetTpl,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error resetting email template:', error);
     res.status(500).json({ error: 'Gagal mereset template email' });
   }
@@ -232,7 +233,7 @@ router.get('/logs', authMiddleware, requirePermission(PERMISSIONS.settings.view)
   try {
     const { status, search, limit = '50' } = req.query;
 
-    const whereClause: any = {};
+    const whereClause: Prisma.EmailLogWhereInput = {};
     if (status && status !== 'all') {
       whereClause.status = String(status);
     }
@@ -250,7 +251,7 @@ router.get('/logs', authMiddleware, requirePermission(PERMISSIONS.settings.view)
     });
 
     res.json(logs);
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error fetching email logs:', error);
     res.status(500).json({ error: 'Gagal mengambil log email terkirim' });
   }
@@ -259,7 +260,7 @@ router.get('/logs', authMiddleware, requirePermission(PERMISSIONS.settings.view)
 // POST /api/email-logs/:id/resend - Resend email from log entry
 router.post('/logs/:id/resend', authMiddleware, requirePermission(PERMISSIONS.settings.edit), async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params as { id: string };
     const log = await prisma.emailLog.findUnique({ where: { id } });
 
     if (!log) {
@@ -281,9 +282,9 @@ router.post('/logs/:id/resend', authMiddleware, requirePermission(PERMISSIONS.se
       success: true,
       message: `Email berhasil dikirim ulang ke ${log.recipient}`,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error resending email from log:', error);
-    res.status(500).json({ error: error.message || 'Gagal mengirim ulang email' });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Gagal mengirim ulang email' });
   }
 });
 

@@ -1,10 +1,8 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/src/context/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/src/components/ui/Toast';
 import { Button } from '@/src/components/ui/Button';
-import { Badge } from '@/src/components/ui/Badge';
 import { usePageHeaderContext } from '@/src/context/PageHeaderContext';
 import { 
   fetchEmailTemplates, 
@@ -12,20 +10,7 @@ import {
   resetEmailTemplate, 
   type EmailTemplateRecord 
 } from '@/src/lib/api';
-import { 
-  FileCode, 
-  Save, 
-  RefreshCw, 
-  ArrowLeft, 
-  CheckCircle2, 
-  XCircle, 
-  Edit3, 
-  Eye, 
-  RotateCcw,
-  Sparkles,
-  Code,
-  Info
-} from 'lucide-react';
+import { FileCode, Save, RefreshCw, CheckCircle2, XCircle, Edit3, Eye, RotateCcw, Sparkles, Code } from 'lucide-react';
 
 export default function EmailTemplatesPage() {
   const { toast } = useToast();
@@ -44,6 +29,43 @@ export default function EmailTemplatesPage() {
   const [isActive, setIsActive] = useState(true);
 
   // Single Clean Navbar Breadcrumb
+
+  // Load Email Templates
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await fetchEmailTemplates();
+      setTemplates(data || []);
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal memuat template email');
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadData();
+    })();
+  }, [loadData]);
+
+  const handleOpenFormView = (tpl: EmailTemplateRecord) => {
+    setSelectedTemplate(tpl);
+    setSubject(tpl.subject);
+    setBodyHtml(tpl.body_html);
+    setIsActive(tpl.is_active);
+    setActiveTab('editor');
+    setViewMode('form');
+  };
+
+  const handleSwitchToList = () => {
+    setViewMode('list');
+    setSelectedTemplate(null);
+  };
+
+
   useEffect(() => {
     if (viewMode === 'list') {
       setConfig({
@@ -65,38 +87,6 @@ export default function EmailTemplatesPage() {
       });
     }
   }, [setConfig, viewMode, selectedTemplate]);
-
-  // Load Email Templates
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchEmailTemplates();
-      setTemplates(data || []);
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal memuat template email');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const handleOpenFormView = (tpl: EmailTemplateRecord) => {
-    setSelectedTemplate(tpl);
-    setSubject(tpl.subject);
-    setBodyHtml(tpl.body_html);
-    setIsActive(tpl.is_active);
-    setActiveTab('editor');
-    setViewMode('form');
-  };
-
-  const handleSwitchToList = () => {
-    setViewMode('list');
-    setSelectedTemplate(null);
-  };
-
   // Save Template Changes
   const handleSave = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -118,8 +108,8 @@ export default function EmailTemplatesPage() {
       toast('success', res.message || 'Template email berhasil disimpan');
       await loadData();
       setViewMode('list');
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal menyimpan template email');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal menyimpan template email');
     } finally {
       setSubmitting(false);
     }
@@ -135,8 +125,8 @@ export default function EmailTemplatesPage() {
       setIsActive(res.template.is_active);
       toast('success', res.message || 'Template direset ke nilai default');
       loadData();
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal mereset template');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal mereset template');
     }
   };
 

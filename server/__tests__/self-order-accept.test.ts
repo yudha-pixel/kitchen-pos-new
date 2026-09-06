@@ -133,7 +133,7 @@ describe('Self-order accept/reject flow', () => {
       .get('/api/self-order/orders/pending')
       .set('Authorization', `Bearer ${authToken}`);
     expect(res.status).toBe(200);
-    expect(res.body.some((o: any) => o.id === created.body.id)).toBe(true);
+    expect(res.body.some((o: { id: string }) => o.id === created.body.id)).toBe(true);
   });
 
   it('accepts a counter-method order and creates a linked kitchen-visible Order', async () => {

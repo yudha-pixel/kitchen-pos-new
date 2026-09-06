@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest';
 import request from 'supertest';
+import type { Request, Response } from 'express';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
 import {
@@ -21,7 +22,6 @@ describe('Permission-based middleware', () => {
   let adminToken: string;
   let adminRoleId: string;
   let cashierToken: string;
-  let ownerToken: string;
 
   beforeAll(async () => {
     // Ensure critical permissions exist for the migrated routes under test
@@ -56,11 +56,9 @@ describe('Permission-based middleware', () => {
     adminToken = admin.token;
     adminRoleId = admin.user.role_id;
 
-    const cashier = await login('cashier1', 'cashier123');
+    const cashier = await login('cashier', 'cashier123');
     cashierToken = cashier.token;
 
-    const owner = await login('owner1', 'owner123');
-    ownerToken = owner.token;
   });
 
   afterAll(async () => {
@@ -100,7 +98,7 @@ describe('Permission-based middleware', () => {
     });
 
     it('rejects an inactive profile even when its token is still valid', async () => {
-      const cashier = await prisma.profile.findUniqueOrThrow({ where: { username: 'cashier1' } });
+      const cashier = await prisma.profile.findUniqueOrThrow({ where: { username: 'cashier' } });
       await prisma.profile.update({ where: { id: cashier.id }, data: { is_active: false } });
       try {
         const res = await request(app)
@@ -277,52 +275,52 @@ describe('Permission-based middleware', () => {
 
   describe('requirePermission helpers', () => {
     it('requirePermission calls next when permission is present', () => {
-      const req: any = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
-      const res: any = { status: vi.fn(() => res), json: vi.fn() };
+      const req = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
+      const res = { status: vi.fn(() => res), json: vi.fn() };
       const next = vi.fn();
-      requirePermission('users.view')(req, res, next);
+      requirePermission('users.view')(req as unknown as Request, res as unknown as Response, next);
       expect(next).toHaveBeenCalled();
       expect(res.status).not.toHaveBeenCalled();
     });
 
     it('requirePermission returns 403 when permission is missing', () => {
-      const req: any = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
-      const res: any = { status: vi.fn(() => res), json: vi.fn() };
+      const req = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
+      const res = { status: vi.fn(() => res), json: vi.fn() };
       const next = vi.fn();
-      requirePermission('users.delete')(req, res, next);
+      requirePermission('users.delete')(req as unknown as Request, res as unknown as Response, next);
       expect(res.status).toHaveBeenCalledWith(403);
       expect(next).not.toHaveBeenCalled();
     });
 
     it('requireAnyPermission allows any matching permission', () => {
-      const req: any = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
-      const res: any = { status: vi.fn(() => res), json: vi.fn() };
+      const req = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
+      const res = { status: vi.fn(() => res), json: vi.fn() };
       const next = vi.fn();
-      requireAnyPermission('users.delete', 'users.view')(req, res, next);
+      requireAnyPermission('users.delete', 'users.view')(req as unknown as Request, res as unknown as Response, next);
       expect(next).toHaveBeenCalled();
     });
 
     it('requireAnyPermission denies when no permission matches', () => {
-      const req: any = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
-      const res: any = { status: vi.fn(() => res), json: vi.fn() };
+      const req = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
+      const res = { status: vi.fn(() => res), json: vi.fn() };
       const next = vi.fn();
-      requireAnyPermission('users.delete', 'settings.edit')(req, res, next);
+      requireAnyPermission('users.delete', 'settings.edit')(req as unknown as Request, res as unknown as Response, next);
       expect(res.status).toHaveBeenCalledWith(403);
     });
 
     it('requireAllPermissions requires every permission', () => {
-      const req: any = { user: { id: '1' }, userPermissions: ['users.view', 'users.create'], originalUrl: '/test', method: 'GET' };
-      const res: any = { status: vi.fn(() => res), json: vi.fn() };
+      const req = { user: { id: '1' }, userPermissions: ['users.view', 'users.create'], originalUrl: '/test', method: 'GET' };
+      const res = { status: vi.fn(() => res), json: vi.fn() };
       const next = vi.fn();
-      requireAllPermissions('users.view', 'users.create')(req, res, next);
+      requireAllPermissions('users.view', 'users.create')(req as unknown as Request, res as unknown as Response, next);
       expect(next).toHaveBeenCalled();
     });
 
     it('requireAllPermissions denies when one permission is missing', () => {
-      const req: any = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
-      const res: any = { status: vi.fn(() => res), json: vi.fn() };
+      const req = { user: { id: '1' }, userPermissions: ['users.view'], originalUrl: '/test', method: 'GET' };
+      const res = { status: vi.fn(() => res), json: vi.fn() };
       const next = vi.fn();
-      requireAllPermissions('users.view', 'users.create')(req, res, next);
+      requireAllPermissions('users.view', 'users.create')(req as unknown as Request, res as unknown as Response, next);
       expect(res.status).toHaveBeenCalledWith(403);
     });
   });

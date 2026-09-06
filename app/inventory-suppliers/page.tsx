@@ -9,6 +9,7 @@ import { Modal } from '@/src/components/ui/Modal';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
+import type { Supplier } from '@/src/lib/db';
 
 const fieldClass = 'w-full min-h-11 rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink placeholder:text-ink-muted focus:border-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/30';
 
@@ -39,11 +40,11 @@ const emptyForm = {
 export default function SuppliersPage() {
   const router = useRouter();
   const { user, isLoading } = useAuth();
-  const [suppliers, setSuppliers] = useState<any[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [selectedSupplier, setSelectedSupplier] = useState<any>(null);
+  const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pageStatus, setPageStatus] = useState('');
   const [formError, setFormError] = useState('');
@@ -58,11 +59,6 @@ export default function SuppliersPage() {
     }
   }, [user, isLoading, router]);
 
-  useEffect(() => {
-    if (user) {
-      loadSuppliers();
-    }
-  }, [user]);
 
   const loadSuppliers = async () => {
     try {
@@ -75,6 +71,12 @@ export default function SuppliersPage() {
     }
   };
 
+
+  useEffect(() => {
+    if (user) {
+      void (async () => { await loadSuppliers(); })();
+    }
+  }, [user]);
   const filteredSuppliers = useMemo(() => {
     if (!searchQuery.trim()) return suppliers;
     const q = searchQuery.toLowerCase();
@@ -92,7 +94,7 @@ export default function SuppliersPage() {
     setModalOpen(true);
   };
 
-  const handleEdit = (supplier: any) => {
+  const handleEdit = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setFormData({
       name: supplier.name,
@@ -118,7 +120,7 @@ export default function SuppliersPage() {
     setFormError('');
   };
 
-  const handleDelete = (supplier: any) => {
+  const handleDelete = (supplier: Supplier) => {
     setSelectedSupplier(supplier);
     setDeleteError('');
     setDeleteModalOpen(true);
@@ -155,7 +157,7 @@ export default function SuppliersPage() {
     setIsSubmitting(true);
     try {
       if (selectedSupplier) {
-        const result = await updateSupplier(selectedSupplier.id, buildPayload());
+        const result = await updateSupplier(selectedSupplier.id ?? '', buildPayload());
         if (result.success) {
           setPageStatus('Supplier berhasil diperbarui');
           setModalOpen(false);
@@ -187,7 +189,7 @@ export default function SuppliersPage() {
     setDeleteError('');
     setIsSubmitting(true);
     try {
-      const result = await deleteSupplier(selectedSupplier.id);
+      const result = await deleteSupplier(selectedSupplier.id ?? '');
       if (result.success) {
         setPageStatus('Supplier berhasil dihapus');
         setDeleteModalOpen(false);

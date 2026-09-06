@@ -16,13 +16,6 @@ export function useUserPreferences() {
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (user) {
-      fetchPreferences();
-    } else {
-      setLoading(false);
-    }
-  }, [user]);
 
   const fetchPreferences = async () => {
     try {
@@ -42,6 +35,18 @@ export function useUserPreferences() {
     }
   };
 
+
+  useEffect(() => {
+    if (!user) {
+      // Nothing to fetch without a signed-in user; clear the initial flag on a
+      // microtask so no setState is reachable synchronously from the effect.
+      void Promise.resolve().then(() => setLoading(false));
+      return;
+    }
+    void (async () => {
+      await fetchPreferences();
+    })();
+  }, [user]);
   const updatePreferences = async (newPrefs: Partial<UserPreferences>) => {
     try {
       const token = getToken();

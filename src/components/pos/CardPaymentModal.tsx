@@ -6,11 +6,12 @@ import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
 import { CreditCard, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import type { PosOrder } from '@/src/types/pos-order';
 
 interface CardPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  order: any;
+  order: PosOrder | null;
   onPaymentComplete: () => void;
 }
 
@@ -20,7 +21,7 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
   const { toast } = useToast();
 
   const calculateTotal = () => {
-    return order.items?.reduce((sum: number, item: any) => {
+    return order?.items?.reduce((sum: number, item) => {
       const price = Number(item.price_at_time) || 0;
       return sum + (price * item.quantity);
     }, 0) || 0;
@@ -107,7 +108,7 @@ export const CardPaymentModal = ({ isOpen, onClose, order, onPaymentComplete }: 
         <div className="bg-gray-50 rounded-lg p-4">
           <div className="flex justify-between items-center mb-2">
             <span className="text-sm text-gray-600">Meja</span>
-            <span className="font-medium">{order.table_number || 'Direct'}</span>
+            <span className="font-medium">{order?.table_number || 'Direct'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-600">Total</span>

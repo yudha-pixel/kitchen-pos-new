@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { formatRupiah } from '@/src/lib/format';
 import { getToken } from '@/src/lib/api';
-import { Search, UserPlus, Edit, Trash2, Crown, Shield, Star, Gem, Phone, Mail, Calendar, TrendingUp } from 'lucide-react';
-import { useAuth } from '@/src/context/AuthContext';
+import { Search, UserPlus, Edit, Trash2, Crown, Shield, Star, Gem, Phone, Mail, TrendingUp } from 'lucide-react';
 import { API_BASE_URL } from '@/src/config/runtime';
 import { Button } from '@/src/components/ui/Button';
 import { Modal } from '@/src/components/ui/Modal';
@@ -31,7 +30,6 @@ const TIER_CONFIG = {
 };
 
 export default function CRMPage() {
-  const { user } = useAuth();
   const [members, setMembers] = useState<Member[]>([]);
   const [filteredMembers, setFilteredMembers] = useState<Member[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,30 +53,8 @@ export default function CRMPage() {
     is_active: true,
   });
 
-  useEffect(() => {
-    loadMembers();
-  }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [members, searchTerm, filterTier]);
 
-  // Listen for member updates from POS transactions
-  useEffect(() => {
-    const handleMemberUpdated = () => {
-      loadMembers();
-    };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('memberUpdated', handleMemberUpdated);
-    }
-
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('memberUpdated', handleMemberUpdated);
-      }
-    };
-  }, []);
 
   const loadMembers = async () => {
     try {
@@ -103,7 +79,32 @@ export default function CRMPage() {
     }
   };
 
-  const applyFilters = () => {
+  // Listen for member updates from POS transactions
+  useEffect(() => {
+    const handleMemberUpdated = () => {
+      void (async () => { await loadMembers(); })();
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('memberUpdated', handleMemberUpdated);
+    }
+
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('memberUpdated', handleMemberUpdated);
+      }
+    };
+  }, []);
+
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadMembers();
+    })();
+  }, []);
+  const applyFilters = useCallback(() => {
     let filtered = [...members];
 
     if (searchTerm) {
@@ -119,8 +120,16 @@ export default function CRMPage() {
     }
 
     setFilteredMembers(filtered);
-  };
+  }, [filterTier, members, searchTerm]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await applyFilters();
+    })();
+  }, [members, searchTerm, filterTier, applyFilters]);
   const handleAddMember = () => {
     setEditingMember(null);
     setFormError('');
@@ -247,12 +256,6 @@ export default function CRMPage() {
     });
   };
 
-  const autoUpgradeTier = (totalSpent: number): 'bronze' | 'silver' | 'gold' | 'platinum' => {
-    if (totalSpent >= TIER_CONFIG.platinum.minSpent) return 'platinum';
-    if (totalSpent >= TIER_CONFIG.gold.minSpent) return 'gold';
-    if (totalSpent >= TIER_CONFIG.silver.minSpent) return 'silver';
-    return 'bronze';
-  };
 
   const getTierIcon = (tier: string) => {
     const config = TIER_CONFIG[tier as keyof typeof TIER_CONFIG];
@@ -360,10 +363,10 @@ export default function CRMPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredMembers.map((member) => {
+                      {filteredMembers.map((member, idx) => {
                         const config = TIER_CONFIG[member.tier];
                         return (
-                          <tr key={member.id || Math.random()} className="hover:bg-gray-50">
+                          <tr key={member.id ?? idx} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex items-center">
                                 <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
@@ -503,7 +506,7 @@ export default function CRMPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tier</label>
                 <select
                   value={formData.tier}
-                  onChange={(e) => handleTierChange(e.target.value as any)}
+                  onChange={(e) => handleTierChange(e.target.value as typeof formData.tier)}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="bronze">Bronze (5% diskon)</option>

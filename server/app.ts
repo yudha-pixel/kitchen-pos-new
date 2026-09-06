@@ -48,6 +48,9 @@ import companyRoutes from './routes/company';
 import purchaseRequisitionRoutes from './routes/purchaseRequisitions';
 import pettyCashRoutes from './routes/pettyCash';
 import reportsRoutes from './routes/reports';
+import userProfileRoutes from './routes/userProfile';
+import emailManagementRoutes from './routes/emailManagement';
+import reservationRoutes from './routes/reservations';
 
 if (!process.env.JWT_SECRET) {
   console.error('FATAL: JWT_SECRET environment variable is not set. Add it to .env before starting the API.');
@@ -104,14 +107,14 @@ const authLimiter = rateLimit({
   message: 'Too many authentication attempts, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => {
+  skip: (_req) => {
     // Skip rate limiting in test environment
     return process.env.NODE_ENV === 'test';
   },
 });
 
 // Raw body parser for webhook signature verification (Xendit requires raw body)
-app.use(express.json({ limit: '10mb', verify: (req: any, _res, buf) => {
+app.use(express.json({ limit: '10mb', verify: (req: Request, _res, buf: Buffer) => {
   req.rawBody = buf;
 } }));
 
@@ -162,6 +165,9 @@ app.use('/api/kitchen', kitchenRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/user/preferences', userPreferencesRoutes);
+app.use('/api/user', userProfileRoutes);
+app.use('/api/email', emailManagementRoutes);
+app.use('/api/reservations', reservationRoutes);
 app.use('/api/purchase-requisitions', purchaseRequisitionRoutes);
 app.use('/api/petty-cash', pettyCashRoutes);
 app.use('/api', reportsRoutes);

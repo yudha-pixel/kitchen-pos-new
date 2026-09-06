@@ -8,7 +8,7 @@ import crypto from 'crypto';
  */
 export function verifyMidtransSignature(
   signature: string | undefined,
-  body: any,
+  body: { order_id?: string; status_code?: string; gross_amount?: string | number },
   serverKey: string
 ): boolean {
   if (!signature) {
@@ -99,7 +99,9 @@ export function webhookSignatureMiddleware(req: Request, res: Response, next: Ne
       return res.status(500).json({ error: 'Server configuration error' });
     }
     // For Xendit, we need the raw body, which should be available if we use express raw body parser
-    const rawBody = (req as any).rawBody || JSON.stringify(req.body);
+    // Decode the captured bytes rather than re-serialising req.body: the HMAC
+    // must be computed over exactly what the sender signed.
+    const rawBody = req.rawBody?.toString('utf8') ?? JSON.stringify(req.body);
     isValid = verifyXenditSignature(signature, rawBody, xenditWebhookToken);
   } else {
     console.error('❌ Unknown payment gateway:', gateway);

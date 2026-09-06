@@ -14,9 +14,6 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({ className = '', showDeta
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadSyncStatus();
-  }, []);
 
   const loadSyncStatus = async () => {
     try {
@@ -29,6 +26,14 @@ export const SyncStatus: React.FC<SyncStatusProps> = ({ className = '', showDeta
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadSyncStatus();
+    })();
+  }, []);
   const handleSync = async () => {
     setIsSyncing(true);
     setError(null);

@@ -1,6 +1,5 @@
 import { db, type OfflineUser } from './db';
 import type { AuthenticatedUser } from '@/src/types/auth';
-import * as api from './api';
 
 export interface OfflineAuthResult {
   success: boolean;
@@ -37,7 +36,7 @@ export async function cacheUserCredentials(user: AuthenticatedUser, password: st
       password_hash: passwordHash,
       role_id: user.role_id || user.role,
       role: user.role as 'admin' | 'cashier',
-      permissions: user.permissions as any,
+      permissions: [...user.permissions],
       full_name: user.full_name || undefined,
       last_sync: new Date().toISOString(),
     };
@@ -101,7 +100,7 @@ export async function authenticateOffline(username: string, password: string): P
       username: offlineUser.username,
       role_id: offlineUser.role_id || offlineUser.role || '',
       role: offlineUser.role as 'admin' | 'cashier',
-      permissions: offlineUser.permissions as any,
+      permissions: offlineUser.permissions as AuthenticatedUser['permissions'],
       full_name: offlineUser.full_name || '',
     };
 
@@ -157,7 +156,7 @@ export async function updateOfflineUserPermissions(user: AuthenticatedUser): Pro
     
     if (existingUser) {
       await db.users.update(user.id, {
-        permissions: user.permissions as any,
+        permissions: [...user.permissions],
         role: user.role as 'admin' | 'cashier',
         full_name: user.full_name || undefined,
         last_sync: new Date().toISOString(),

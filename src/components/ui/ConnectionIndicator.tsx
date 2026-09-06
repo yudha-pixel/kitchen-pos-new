@@ -12,6 +12,8 @@ export const ConnectionIndicator = () => {
   const { isOnline, pendingTransactions, syncInProgress } = useOfflineStore();
 
   useEffect(() => {
+    // Hydration guard: the first client render must match the server output.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 

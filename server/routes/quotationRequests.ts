@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -16,7 +17,7 @@ const createQuotationRequestSchema = z.object({
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.purchasing.view), async (req: Request, res: Response) => {
   try {
     const { status, stock_request_id } = req.query;
-    const where: any = {};
+    const where: Prisma.QuotationRequestWhereInput = {};
     if (status) where.status = status as string;
     if (stock_request_id) where.stock_request_id = stock_request_id as string;
 

@@ -12,7 +12,7 @@ interface OfflineState {
   
   // Actions
   setOnlineStatus: (isOnline: boolean) => void;
-  addTransaction: (operation: 'create' | 'update' | 'delete', tableName: string, data: any) => Promise<void>;
+  addTransaction: (operation: 'create' | 'update' | 'delete', tableName: string, data: unknown) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
   clearTransactions: () => Promise<void>;
   setSyncInProgress: (inProgress: boolean) => void;
@@ -41,7 +41,7 @@ export const useOfflineStore = create<OfflineState>()(
       },
 
       // Add a transaction to the offline queue
-      addTransaction: async (operation: 'create' | 'update' | 'delete', tableName: string, data: any) => {
+      addTransaction: async (operation: 'create' | 'update' | 'delete', tableName: string, data: unknown) => {
         try {
           const queueItem: SyncQueueItem = {
             id: generateUUID(),

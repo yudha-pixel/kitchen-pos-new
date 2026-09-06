@@ -76,7 +76,7 @@ export const useOfflineDetection = (): UseOfflineDetectionReturn => {
 
     // If network came back online, check server status
     if (isNetworkOnline) {
-      checkServerStatus();
+      void (async () => { await checkServerStatus(); })();
     }
   }, [checkServerStatus]);
 
@@ -86,7 +86,7 @@ export const useOfflineDetection = (): UseOfflineDetectionReturn => {
     window.addEventListener('offline', handleNetworkChange);
 
     // Initial server check
-    checkServerStatus();
+    void (async () => { await checkServerStatus(); })();
 
     // Periodic server checks
     const intervalId = setInterval(checkServerStatus, SERVER_CHECK_INTERVAL);

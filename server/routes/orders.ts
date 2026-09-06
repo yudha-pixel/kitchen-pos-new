@@ -197,10 +197,32 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
   const { order, items } = createOrderSchema.parse(req.body);
   const orderId = order.id ?? randomUUID();
 
+  // Item ids are settled here so the rest of this handler can tell which lines
+  // it is actually inserting. This endpoint upserts the order so an offline
+  // client can re-send a queued order, and that client re-sends the SAME item
+  // ids - meaning those rows already exist and must not consume stock a second
+  // time. Before this, every re-sync decremented product and ingredient stock
+  // again, silently draining inventory on any retry (e.g. the response was
+  // lost after the server had already committed).
+  const itemsWithIds = items.map((item) => ({ ...item, id: item.id ?? randomUUID() }));
+
+  const alreadyStoredItemIds = new Set(
+    (
+      await prisma.orderItem.findMany({
+        where: { id: { in: itemsWithIds.map((item) => item.id) } },
+        select: { id: true },
+      })
+    ).map((row) => row.id)
+  );
+
+  // Only genuinely new lines get validated and charged against stock; lines
+  // already on record make this request a no-op re-sync for them.
+  const newItems = itemsWithIds.filter((item) => !alreadyStoredItemIds.has(item.id));
+
   // Validate stock availability before creating order (early UX check only;
   // the authoritative, race-safe check happens inside the transaction below).
   // Note: Backend uses product.stock_quantity for basic stock validation
-  const productIds = items.map(item => item.product_id).filter((id): id is string => id !== null);
+  const productIds = itemsWithIds.map(item => item.product_id).filter((id): id is string => id !== null);
   const products = await prisma.product.findMany({
     where: { id: { in: productIds } },
   });
@@ -208,7 +230,7 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
   const productMap = new Map(products.map(p => [p.id, p]));
 
   // Check stock availability using product.stock_quantity
-  for (const item of items) {
+  for (const item of newItems) {
     if (!item.product_id) continue;
 
     const product = productMap.get(item.product_id);
@@ -249,20 +271,30 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
   // (multiple items/products can share the same ingredient). Each partial
   // product and the running sum are rounded to neutralize floating-point
   // drift (see roundQty above) before ever being compared/persisted.
-  const ingredientNeeds = new Map<string, { quantity: number; name: string; unit: string }>();
-  for (const item of items) {
-    if (!item.product_id) continue;
-    const productRecipes = recipesByProduct.get(item.product_id) ?? [];
-    for (const recipe of productRecipes) {
-      const required = roundQty(recipe.quantity_required * item.quantity);
-      const existing = ingredientNeeds.get(recipe.ingredient_id);
-      ingredientNeeds.set(recipe.ingredient_id, {
-        quantity: roundQty((existing?.quantity ?? 0) + required),
-        name: recipe.ingredient.name,
-        unit: recipe.ingredient.unit,
-      });
+  // Built as a function because it is needed twice: once here against the
+  // optimistically-new lines for the pre-check, and once inside the
+  // transaction against the lines that were actually inserted.
+  const buildIngredientNeeds = (
+    itemList: Array<{ product_id?: string | null; quantity: number }>
+  ) => {
+    const needs = new Map<string, { quantity: number; name: string; unit: string }>();
+    for (const item of itemList) {
+      if (!item.product_id) continue;
+      const productRecipes = recipesByProduct.get(item.product_id) ?? [];
+      for (const recipe of productRecipes) {
+        const required = roundQty(recipe.quantity_required * item.quantity);
+        const existing = needs.get(recipe.ingredient_id);
+        needs.set(recipe.ingredient_id, {
+          quantity: roundQty((existing?.quantity ?? 0) + required),
+          name: recipe.ingredient.name,
+          unit: recipe.ingredient.unit,
+        });
+      }
     }
-  }
+    return needs;
+  };
+
+  const ingredientNeeds = buildIngredientNeeds(newItems);
 
   // Early ingredient stock pre-check (UX only, same spirit as the product
   // pre-check above): lets the cashier see "bahan habis" immediately without
@@ -307,28 +339,43 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
         },
       });
 
-      await tx.orderItem.createMany({
-        data: items.map((item) => ({
-          id: item.id ?? randomUUID(),
-          order_id: newOrder.id,
-          product_id: item.product_id ?? null,
-          quantity: item.quantity,
-          price_at_time: item.price_at_time,
-          modifiers_applied: item.modifiers_applied ?? [],
-          discount_item: item.discount_item ?? 0,
-          split_group_id: item.split_group_id ?? null,
-          status: item.status ?? 'pending',
-          created_at: item.created_at ? new Date(item.created_at) : new Date(),
-        })),
-        skipDuplicates: true,
-      });
+      // Inserted one row at a time so Postgres reports, per line, whether THIS
+      // request created it (count 1) or it already existed (count 0). Deciding
+      // from the pre-read above instead would leave a race: two concurrent
+      // re-syncs of the same order could both read "not present" and both go on
+      // to charge stock. INSERT ... ON CONFLICT DO NOTHING settles it
+      // atomically, and only the winner consumes stock.
+      const insertedItems: typeof itemsWithIds = [];
+      for (const item of itemsWithIds) {
+        const inserted = await tx.orderItem.createMany({
+          data: [
+            {
+              id: item.id,
+              order_id: newOrder.id,
+              product_id: item.product_id ?? null,
+              quantity: item.quantity,
+              price_at_time: item.price_at_time,
+              modifiers_applied: item.modifiers_applied ?? [],
+              discount_item: item.discount_item ?? 0,
+              split_group_id: item.split_group_id ?? null,
+              status: item.status ?? 'pending',
+              created_at: item.created_at ? new Date(item.created_at) : new Date(),
+            },
+          ],
+          skipDuplicates: true,
+        });
+        if (inserted.count === 1) insertedItems.push(item);
+      }
+
+      // Stock is consumed strictly for the lines this request inserted.
+      const actualIngredientNeeds = buildIngredientNeeds(insertedItems);
 
       // Reduce stock for each product. Uses a conditional updateMany
       // (decrement only if stock_quantity >= requested quantity) so
       // concurrent orders can't both pass a stale pre-check and oversell the
       // same product; if the row doesn't match, count is 0 and we abort the
       // whole transaction (Prisma rolls back automatically on throw).
-      for (const item of items) {
+      for (const item of insertedItems) {
         if (!item.product_id) continue;
 
         const product = productMap.get(item.product_id);
@@ -361,7 +408,7 @@ router.post('/orders', authMiddleware, requirePermission(PERMISSIONS.orders.crea
       // Reduce ingredient stock (BOM/Recipe) using the same atomic,
       // conditional-update pattern so ingredient stock can never go negative
       // even under concurrent orders.
-      for (const [ingredientId, need] of ingredientNeeds) {
+      for (const [ingredientId, need] of actualIngredientNeeds) {
         const result = await tx.ingredient.updateMany({
           where: {
             id: ingredientId,

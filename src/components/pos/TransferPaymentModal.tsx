@@ -4,12 +4,13 @@ import { useState } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { formatRupiah } from '@/src/lib/format';
-import { CreditCard, CheckCircle, XCircle, Building2 } from 'lucide-react';
+import { CheckCircle, XCircle, Building2 } from 'lucide-react';
+import type { PosOrder } from '@/src/types/pos-order';
 
 interface TransferPaymentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  order: any;
+  order: PosOrder | null;
   onPaymentComplete: () => void;
 }
 
@@ -20,7 +21,7 @@ export const TransferPaymentModal = ({ isOpen, onClose, order, onPaymentComplete
 
   const calculateTotal = () => {
     if (!order || !order.items) return 0;
-    return order.items.reduce((sum: number, item: any) => {
+    return order.items.reduce((sum: number, item) => {
       const price = Number(item.price_at_time) || 0;
       return sum + (price * item.quantity);
     }, 0);

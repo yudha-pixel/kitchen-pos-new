@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -29,7 +30,7 @@ router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), a
   try {
     const { status, from_warehouse, to_warehouse } = req.query;
 
-    const where: any = {};
+    const where: Prisma.StockTransferWhereInput = {};
     if (status) where.status = status as string;
     if (from_warehouse) where.from_warehouse_id = from_warehouse as string;
     if (to_warehouse) where.to_warehouse_id = to_warehouse as string;
@@ -105,7 +106,7 @@ router.get('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.view)
 router.post('/', authMiddleware, requirePermission(PERMISSIONS.inventory.transfer), async (req: Request, res: Response) => {
   try {
     const data = createTransferSchema.parse(req.body);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     if (!userId) {
       return res.status(401).json({ error: 'Unauthorized' });
@@ -194,7 +195,7 @@ router.patch('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.tra
     const { id } = req.params;
     const idStr = Array.isArray(id) ? id[0] : id;
     const data = updateTransferSchema.parse(req.body);
-    const userId = (req as any).user?.id;
+    const userId = req.user?.id;
 
     // Check if transfer exists
     const transfer = await prisma.stockTransfer.findUnique({
@@ -230,7 +231,7 @@ router.patch('/:id', authMiddleware, requirePermission(PERMISSIONS.inventory.tra
     }
 
     // Handle approval
-    const updateData: any = { ...data };
+    const updateData: Prisma.StockTransferUncheckedUpdateInput = { ...data };
     if (data.status === 'approved') {
       // Reserve stock from source warehouse
       for (const item of transfer.items) {

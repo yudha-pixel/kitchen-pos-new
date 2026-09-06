@@ -18,7 +18,7 @@ export interface DocumentChatterProps {
   onAddComment?: (comment: string) => void;
 }
 
-export function DocumentChatter({ entityType, entityId, initialLogs = [], onAddComment }: DocumentChatterProps) {
+export function DocumentChatter({ entityType: _entityType, entityId: _entityId, initialLogs = [], onAddComment }: DocumentChatterProps) {
   const [commentText, setCommentText] = useState('');
   const [logs, setLogs] = useState<AuditLogItem[]>(initialLogs);
 

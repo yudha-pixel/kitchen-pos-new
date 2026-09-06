@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDocumentDate, formatDocumentDateTime } from '@/src/lib/format';
 import { useState, useEffect, useCallback, use } from 'react';
 import { useToast } from '@/src/components/ui/Toast';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
@@ -9,6 +10,7 @@ import { API_BASE_URL } from '@/src/config/runtime';
 import { PurchaseFormSheet, FormSheetAuditLog } from '@/src/components/purchase/PurchaseFormSheet';
 import { CheckCircle } from 'lucide-react';
 import { buildDocumentNavigationParams } from '@/src/lib/navigationContext';
+import type { PurchaseDocument } from '@/src/types/purchase-document';
 
 interface InvoicePageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +20,7 @@ export default function VendorInvoiceDetailPage({ params }: InvoicePageProps) {
   const { id } = use(params);
   const { toast } = useToast();
 
-  const [invoice, setInvoice] = useState<any>(null);
+  const [invoice, setInvoice] = useState<PurchaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchInvoice = useCallback(async () => {
@@ -58,7 +60,11 @@ export default function VendorInvoiceDetailPage({ params }: InvoicePageProps) {
   }, [id, toast]);
 
   useEffect(() => {
-    fetchInvoice();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchInvoice();
+    })();
   }, [fetchInvoice]);
 
   if (loading || !invoice) {
@@ -73,7 +79,7 @@ export default function VendorInvoiceDetailPage({ params }: InvoicePageProps) {
   }
 
   const auditLogs: FormSheetAuditLog[] = [
-    { timestamp: new Date(invoice.invoice_date || invoice.created_at || Date.now()).toLocaleString('id-ID'), user: 'Finance / AP Team', action: 'Dokumen Faktur Supplier (Vendor Bill) dicatat' },
+    { timestamp: formatDocumentDateTime(invoice.invoice_date || invoice.created_at), user: 'Finance / AP Team', action: 'Dokumen Faktur Supplier (Vendor Bill) dicatat' },
     { timestamp: new Date().toLocaleString('id-ID'), user: 'Senior Accountant', action: 'Faktur diverifikasi & dicatat ke Hutang Dagang (AP)' },
   ];
 
@@ -84,13 +90,13 @@ export default function VendorInvoiceDetailPage({ params }: InvoicePageProps) {
         { id: '2', ingredient_name: 'Bawang Merah', quantity: 4, unit: 'kg', unit_price: 29000, total_price: 116000 },
       ];
 
-  const totalAmountCalculated = rawItems.reduce((sum: number, item: any) => sum + (item.total_price || ((item.quantity || 1) * (item.unit_price || 65000))), 0);
+  const totalAmountCalculated = rawItems.reduce((sum: number, item) => sum + (item.total_price || ((item.quantity || 1) * (item.unit_price || 65000))), 0);
 
   // Build navigation context for GRN links
   const grnId = invoice.grn?.id || 'grn-001';
   const grnHref = `/purchase/goods-received/${grnId}`;
   const navigationParams = buildDocumentNavigationParams(
-    { number: invoice.invoice_number, id: invoice.id, href: `/purchase/invoices/${id}` },
+    { number: invoice.invoice_number ?? '', id: invoice.id ?? '', href: `/purchase/invoices/${id}` },
     grnHref,
     'Faktur Supplier',
     '/purchase/invoices'
@@ -98,24 +104,24 @@ export default function VendorInvoiceDetailPage({ params }: InvoicePageProps) {
   const grnHrefWithContext = grnHref + (navigationParams ? `?${navigationParams}` : '');
 
   return (
-    <ResponsiveShell title={invoice.invoice_number}>
+    <ResponsiveShell title={invoice.invoice_number ?? ''}>
       <div className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
         <div className="w-full">
           <PurchaseFormSheet
             documentTitle="Faktur Supplier (Vendor Bill)"
-            documentNumber={invoice.invoice_number}
-            status={invoice.status}
+            documentNumber={invoice.invoice_number ?? ''}
+            status={invoice.status ?? ''}
             pipelineSteps={[
               { key: 'pending', label: 'Pending' },
               { key: 'verified', label: 'Diverifikasi AP' },
               { key: 'paid', label: 'Lunas' },
             ]}
-            activeStepKey={invoice.status}
+            activeStepKey={invoice.status ?? ''}
             requesterOrSupplierLabel="Supplier Vendor"
             requesterOrSupplierValue={invoice.supplier_name || invoice.grn?.purchase_order?.supplier?.name || 'PT Sumber Pangan Utama'}
             outletName="Kitchen POS - Outlet Utama"
-            notes={invoice.notes}
-            submittedDate={new Date(invoice.invoice_date || invoice.created_at || Date.now()).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+            notes={invoice.notes ?? undefined}
+            submittedDate={formatDocumentDate(invoice.invoice_date || invoice.created_at)}
             approvedByDate={invoice.due_date ? `Jatuh Tempo: ${new Date(invoice.due_date).toLocaleDateString('id-ID')}` : undefined}
             totalAmount={invoice.total || totalAmountCalculated || 842600}
             primaryActions={
@@ -137,8 +143,8 @@ export default function VendorInvoiceDetailPage({ params }: InvoicePageProps) {
             onPrint={() => toast('info', `Cetak Faktur ${invoice.invoice_number}`)}
             onDuplicate={() => toast('success', `Duplikat Faktur ${invoice.invoice_number}`)}
             onDelete={() => toast('success', `Faktur ${invoice.invoice_number} dihapus`)}
-            items={rawItems.map((item: any, idx: number) => ({
-              id: item.id || idx,
+            items={rawItems.map((item, idx: number) => ({
+              id: item.id ?? idx,
               code: `BILL-ITEM-${idx + 1}`,
               name: item.ingredient_name || item.name || 'Tagihan Vendor',
               category: 'Tagihan Vendor',

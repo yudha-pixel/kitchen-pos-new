@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Camera, RotateCcw, AlertCircle, Video } from 'lucide-react';
 
 interface AttendanceCameraModalProps {
@@ -14,25 +15,16 @@ interface AttendanceCameraModalProps {
 export function AttendanceCameraModal({ isOpen, onClose, onCapture, title, children }: AttendanceCameraModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  // The live stream is held in a ref, not state: nothing renders from it, and
+  // a ref lets stopCamera reach the current tracks without a dependency on
+  // state it also clears.
+  const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>('user');
 
-  useEffect(() => {
-    if (isOpen) {
-      enumerateDevices();
-      startCamera();
-    } else {
-      stopCamera();
-    }
-
-    return () => {
-      stopCamera();
-    };
-  }, [isOpen]);
 
   const enumerateDevices = async () => {
     try {
@@ -52,7 +44,12 @@ export function AttendanceCameraModal({ isOpen, onClose, onCapture, title, child
     }
   };
 
-  const startCamera = async () => {
+  const stopCamera = useCallback(() => {
+    streamRef.current?.getTracks().forEach((track) => track.stop());
+    streamRef.current = null;
+  }, []);
+
+  const startCamera = useCallback(async () => {
     try {
       setError(null);
       stopCamera();
@@ -64,7 +61,7 @@ export function AttendanceCameraModal({ isOpen, onClose, onCapture, title, child
       };
       
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-      setStream(mediaStream);
+      streamRef.current = mediaStream;
       
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
@@ -85,15 +82,22 @@ export function AttendanceCameraModal({ isOpen, onClose, onCapture, title, child
         setError('Tidak dapat mengakses kamera. Pastikan izin kamera diberikan.');
       }
     }
-  };
+  }, [facingMode, selectedDeviceId, stopCamera]);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
+
+  useEffect(() => {
+    if (isOpen) {
+      void (async () => {
+        await Promise.all([enumerateDevices(), startCamera()]);
+      })();
+    } else {
+      stopCamera();
     }
-  };
 
+    return () => {
+      stopCamera();
+    };
+  }, [isOpen, startCamera, stopCamera]);
   const switchCamera = () => {
     if (devices.length > 1) {
       const currentIndex = devices.findIndex(d => d.deviceId === selectedDeviceId);
@@ -214,10 +218,12 @@ export function AttendanceCameraModal({ isOpen, onClose, onCapture, title, child
 
               <div className="relative bg-black rounded-lg overflow-hidden aspect-video">
                 {capturedPhoto ? (
-                  <img
+                  <Image
                     src={capturedPhoto}
                     alt="Captured photo"
-                    className="w-full h-full object-contain"
+                    fill
+                    sizes="100vw"
+                    className="object-contain"
                   />
                 ) : (
                   <video

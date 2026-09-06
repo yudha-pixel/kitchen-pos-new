@@ -23,7 +23,6 @@ import { prisma } from '../lib/prisma';
  */
 
 let token: string;
-let categoryId: string;
 const createdOrderIds: string[] = [];
 const createdPaymentIds: string[] = [];
 
@@ -47,7 +46,6 @@ beforeAll(async () => {
 
   const categoriesRes = await request(app).get('/api/categories').set('Authorization', `Bearer ${token}`);
   expect(categoriesRes.status).toBe(200);
-  categoryId = categoriesRes.body[0]?.id;
 });
 
 afterAll(async () => {

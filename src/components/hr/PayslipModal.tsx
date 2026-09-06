@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { X, Printer, FileText, DollarSign, Clock, Calendar, User, Briefcase } from 'lucide-react';
+import { X, Printer, FileText, DollarSign, Clock, Calendar, User } from 'lucide-react';
 import { Employee, Payroll, Attendance } from '@/src/features/hr/hrService';
 
 interface PayslipModalProps {

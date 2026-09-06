@@ -1,17 +1,17 @@
 'use client';
 
+import type { SplitBillSelectableItem } from '@/src/features/pos/components/SplitBillModal';
+import type { ReceiptPayload } from '@/src/components/pos/Receipt';
+import type { Member } from '@/src/lib/db';
 import { useState, useEffect } from 'react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { useConfigStore } from '@/src/store/useConfigStore';
 import { ShoppingCart, Trash2, Plus, Minus, Ban, X, User, ChevronDown, Utensils, Loader2, StickyNote } from 'lucide-react';
 import { Receipt } from '@/src/components/pos/Receipt';
-import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useTables } from '@/src/hooks/useTables';
-import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { generateUUID } from '@/src/lib/utils';
-import { useOutletStore } from '@/src/features/outlet/outletStore';
 import { reduceStockForOrder } from '@/src/features/inventory/inventoryService';
 import { ConfirmDialog } from '@/src/components/ui/ConfirmDialog';
 import { PromptDialog } from '@/src/components/ui/PromptDialog';
@@ -21,7 +21,7 @@ import { Modal } from '@/src/components/ui/Modal';
 import { formatRupiah } from '@/src/lib/format';
 import { createPaymentTransaction } from '@/src/features/payment/paymentService';
 import { searchCustomers } from '@/src/features/crm/customerService';
-import { validateVoucher, useVoucher } from '@/src/features/pos/voucherService';
+import { validateVoucher, redeemVoucher, type Voucher as ServiceVoucher } from '@/src/features/pos/voucherService';
 import { usePaymentStore } from '@/src/features/payment/paymentStore';
 import { SplitBillModal } from './SplitBillModal';
 import { QRISModal } from '@/src/components/payment/QRISModal';
@@ -41,7 +41,7 @@ interface CartPanelProps {
 }
 
 export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, customerName, deliveryAddress, courierName, courierType, receiptNumber }: CartPanelProps) => {
-  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, getServiceCharge, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod, discountAmount, discountType, setDiscount, freeItems, clearFreeItems, getDiscount, globalDiscountAmount, globalDiscountType, setGlobalDiscount, clearGlobalDiscount, getGlobalDiscount, setVoucher, clearVoucher, voucherDiscountAmount, setMember, clearMember, member, sendToKitchen, kitchenSent } = useCartStore();
+  const { items, removeFromCart, updateQuantity, getSubtotal, getTax, getServiceCharge, clearCart, tableNumber: storeTableNumber, notes, setTableNumber, setNotes, processPayment, assignSplitGroup, getSplitGroupTotal, voidItem, calculateRoundedTotal, paymentMethod, setPaymentMethod, discountAmount, discountType, setDiscount, freeItems, clearFreeItems, getDiscount, globalDiscountAmount, globalDiscountType, setGlobalDiscount, clearGlobalDiscount, getGlobalDiscount, setVoucher, clearVoucher, setMember, clearMember, sendToKitchen, kitchenSent } = useCartStore();
   const { user, can } = useAuth();
   const { toast } = useToast();
   const { setCurrentPayment, clearPayment } = usePaymentStore();
@@ -55,27 +55,27 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
   const [currentSplitGroup, setCurrentSplitGroup] = useState<string | null>(null);
   const [roundTo] = useState<number>(1000);
   const [showReceipt, setShowReceipt] = useState(false);
-  const [receiptData, setReceiptData] = useState<any>(null);
+  const [receiptData, setReceiptData] = useState<ReceiptPayload | null>(null);
   const [cashReceived, setCashReceived] = useState<string>('');
   const [showSplitBillModal, setShowSplitBillModal] = useState(false);
   const [paying, setPaying] = useState(false);
   const [showQRISModal, setShowQRISModal] = useState(false);
-  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [, setShowDiscountInput] = useState(false);
   const [discountValue, setDiscountValue] = useState<string>('');
   const [localDiscountType, setLocalDiscountType] = useState<'nominal' | 'percentage'>('nominal');
   const [showDiscountModal, setShowDiscountModal] = useState(false);
   const [discountTab, setDiscountTab] = useState<'regular' | 'global' | 'voucher'>('regular');
   const [voucherCode, setVoucherCode] = useState<string>('');
-  const [appliedVoucher, setAppliedVoucher] = useState<any>(null);
-  const [showGlobalDiscountInput, setShowGlobalDiscountInput] = useState(false);
+  const [appliedVoucher, setAppliedVoucher] = useState<ServiceVoucher | null>(null);
+  const [, setShowGlobalDiscountInput] = useState(false);
   const [globalDiscountValue, setGlobalDiscountValue] = useState<string>('');
   const [localGlobalDiscountType, setLocalGlobalDiscountType] = useState<'nominal' | 'percentage'>('nominal');
   const [showPinModal, setShowPinModal] = useState(false);
   const [pinValue, setPinValue] = useState<string>('');
   const [discountReason, setDiscountReason] = useState<string>('');
   const [memberSearchTerm, setMemberSearchTerm] = useState<string>('');
-  const [memberSearchResults, setMemberSearchResults] = useState<any[]>([]);
-  const [selectedMember, setSelectedMember] = useState<any>(null);
+  const [memberSearchResults, setMemberSearchResults] = useState<Member[]>([]);
+  const [selectedMember, setSelectedMember] = useState<Member | null>(null);
   const [showNewSplitBillModal, setShowNewSplitBillModal] = useState(false);
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showNotesModal, setShowNotesModal] = useState(false);
@@ -84,6 +84,8 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
 
   // Prevent hydration mismatch by only rendering after mount
   useEffect(() => {
+    // Hydration guard: the first client render must match the server output.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
   }, []);
 
@@ -142,7 +144,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
       setShowDiscountModal(false);
 
       // Increment voucher usage count
-      await useVoucher(voucher.id);
+      await redeemVoucher(voucher.id);
 
       toast('success', `Voucer ${voucher.name} berhasil diterapkan`);
     } catch (error) {
@@ -151,7 +153,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
     }
   };
 
-  const handleSelectMember = (member: any) => {
+  const handleSelectMember = (member: Member) => {
     setSelectedMember(member);
     setMember(member);
     setMemberSearchTerm('');
@@ -208,10 +210,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
     toast('success', `Diskon ${localDiscountType === 'percentage' ? value + '%' : formatRupiah(value)} diterapkan`);
   };
 
-  const handleClearDiscount = () => {
-    setDiscount(0, 'nominal');
-    toast('success', 'Diskon dihapus');
-  };
 
   const handleGlobalDiscountPinSubmit = () => {
     // Simple PIN validation - in production, this should verify against a secure system
@@ -243,10 +241,6 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
     toast('success', `Global Diskon ${localGlobalDiscountType === 'percentage' ? value + '%' : formatRupiah(value)} diterapkan dengan otorisasi ${user?.username}`);
   };
 
-  const handleClearGlobalDiscount = () => {
-    clearGlobalDiscount();
-    toast('success', 'Global Diskon dihapus');
-  };
 
   const handlePayment = async (): Promise<boolean> => {
     if (items.length === 0) {
@@ -296,8 +290,8 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
             // reliable source of totals here — recomputing via getSubtotal()/
             // calculateRoundedTotal() now would read the post-clear (empty) cart.
             setReceiptData({
-              ...(result.receiptData as Record<string, unknown>),
-              cashierName: (user as any)?.name || 'Kasir',
+              ...(result.receiptData as ReceiptPayload),
+              cashierName: user?.full_name || 'Kasir',
             });
             return true;
           } else {
@@ -336,8 +330,8 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
         // reliable source of totals here — recomputing via getSubtotal()/
         // calculateRoundedTotal() now would read the post-clear (empty) cart.
         setReceiptData({
-          ...(result.receiptData as Record<string, unknown>),
-          cashierName: (user as any)?.name || 'Kasir',
+          ...(result.receiptData as ReceiptPayload),
+          cashierName: user?.full_name || 'Kasir',
         });
         setShowReceipt(true);
         clearCart();
@@ -380,7 +374,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
     // In production, you might want to void the order or mark it as unpaid
   };  
 
-  const handleSplitComplete = (selectedItems: any[], paymentMethod: string) => {
+  const handleSplitComplete = (selectedItems: SplitBillSelectableItem[], _paymentMethod: string) => {
     toast('success', `Split bill berhasil! ${selectedItems.length} item dipisah ke transaksi baru.`);
   };
 
@@ -458,7 +452,7 @@ export const CartPanel = ({ orderCategory = 'dine-in', onOrderCategoryChange, cu
         roundingAmount: 0,
         total: splitFinalTotal,
         paymentMethod: paymentMethod,
-        cashierName: (user as any)?.name || 'Kasir',
+        cashierName: user?.full_name || 'Kasir',
         notes: `Split Payment - Group: ${currentSplitGroup.slice(0, 8)}`,
       };
 

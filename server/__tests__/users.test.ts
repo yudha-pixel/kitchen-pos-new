@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
-import bcrypt from 'bcrypt';
 
 describe('User Management API', () => {
   let testUserId: string;

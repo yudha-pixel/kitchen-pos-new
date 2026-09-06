@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
@@ -44,12 +46,17 @@ const ROUTES_TO_TEST = [
 ];
 
 test.describe('Frontend Route Navigation Smoke Test', () => {
-  let brokenRoutes: any[] = [];
+  const brokenRoutes: {
+    path: string;
+    description?: string;
+    status?: number;
+    expected?: number | string;
+    auth?: string;
+    error?: string;
+  }[] = [];
 
   test.afterAll(async () => {
     if (brokenRoutes.length > 0) {
-      const fs = require('fs');
-      const path = require('path');
       const reportPath = path.join(process.cwd(), 'broken-frontend-routes.json');
       fs.writeFileSync(reportPath, JSON.stringify(brokenRoutes, null, 2));
       console.log(`\n⚠️  Found ${brokenRoutes.length} broken frontend routes. See broken-frontend-routes.json`);
@@ -76,7 +83,7 @@ test.describe('Frontend Route Navigation Smoke Test', () => {
         if (expectedStatus === 401) {
           // Should either redirect to login or show auth error
           const currentUrl = page.url();
-          const isLoginRedirect = currentUrl.includes('/login');
+          currentUrl.includes('/login');
           expect(response?.status()).not.toBe(404);
         } else {
           // Public routes should return expected status

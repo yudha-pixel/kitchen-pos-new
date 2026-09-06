@@ -1,15 +1,16 @@
 'use client';
 
+import type { OfflineUser, SyncStatus } from '@/src/lib/db';
 import React, { useState, useEffect } from 'react';
 import { db } from '@/src/lib/db';
 import * as offlineAuth from '@/src/lib/offlineAuth';
 import { ChevronDown, ChevronUp, Bug } from 'lucide-react';
 
 export const OfflineDebug: React.FC = () => {
-  const [dbInfo, setDbInfo] = useState<any>(null);
-  const [users, setUsers] = useState<any[]>([]);
-  const [syncStatus, setSyncStatus] = useState<any>(null);
-  const [storageInfo, setStorageInfo] = useState<any>(null);
+  const [dbInfo, setDbInfo] = useState<Record<string, number | string> | null>(null);
+  const [users, setUsers] = useState<OfflineUser[]>([]);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
+  const [storageInfo, setStorageInfo] = useState<{ usage: string; quota: string } | null>(null);
   const [isDbOpen, setIsDbOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -41,14 +42,14 @@ export const OfflineDebug: React.FC = () => {
             usage: estimate.usage ? (estimate.usage / 1024 / 1024).toFixed(2) + ' MB' : 'Unknown',
             quota: estimate.quota ? (estimate.quota / 1024 / 1024 / 1024).toFixed(2) + ' GB' : 'Unknown',
           });
-        } catch (e) {
+        } catch {
           console.warn('Could not get storage estimate');
         }
       }
 
       setDbInfo(tables);
       setUsers(allUsers);
-      setSyncStatus(status);
+      setSyncStatus(status ?? null);
     } catch (error) {
       console.error('Failed to load debug info:', error);
       setDbInfo({ error: String(error) });
@@ -56,7 +57,7 @@ export const OfflineDebug: React.FC = () => {
   };
 
   useEffect(() => {
-    loadDebugInfo();
+    void (async () => { await loadDebugInfo(); })();
     // Set up interval to refresh debug info
     const interval = setInterval(loadDebugInfo, 5000);
     return () => clearInterval(interval);

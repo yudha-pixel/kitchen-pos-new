@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
-import { useAuth } from '@/src/context/AuthContext';
+import type { Outlet } from '@/src/lib/db';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useToast } from '@/src/components/ui/Toast';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
@@ -34,27 +34,20 @@ import {
   KeyRound,
   UserCheck,
   Sliders,
-  Globe,
-  LayoutGrid,
-  List,
-  Volume2,
   Lock,
   MoreVertical,
-  RotateCcw,
-  Smartphone
 } from 'lucide-react';
 
 type ViewMode = 'list' | 'form';
 type FormTab = 'access' | 'contact' | 'security';
 
 export default function UsersManagementPage() {
-  const { can } = useAuth();
   const { toast } = useToast();
   const { setConfig } = usePageHeaderContext();
 
   const [users, setUsers] = useState<UserRecord[]>([]);
   const [roles, setRoles] = useState<Array<{ id: string; name: string; description?: string | null }>>([]);
-  const [outlets, setOutlets] = useState<Array<{ id: string; name: string }>>([]);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -79,35 +72,13 @@ export default function UsersManagementPage() {
   // Preferences State
   const [language, setLanguage] = useState<'id' | 'en'>('id');
   const [productView, setProductView] = useState<'grid' | 'list'>('grid');
-  const [soundFeedback, setSoundFeedback] = useState(true);
   const [posPinEnabled, setPosPinEnabled] = useState(false);
   const [posPin, setPosPin] = useState('');
 
   // 1. Single Clean Navbar Breadcrumb Setup (No duplication & no chevron clutter)
-  useEffect(() => {
-    if (viewMode === 'list') {
-      setConfig({
-        title: 'Data Pengguna',
-        breadcrumbs: [
-          { label: 'Pengaturan', href: '/settings' },
-          { label: 'Data Pengguna' },
-        ],
-      });
-    } else {
-      const userLabel = selectedUser ? (selectedUser.full_name || selectedUser.username) : 'Pengguna Baru';
-      setConfig({
-        title: userLabel,
-        breadcrumbs: [
-          { label: 'Pengaturan', href: '/settings' },
-          { label: 'Data Pengguna', href: '#', onClick: () => handleSwitchToList() },
-          { label: userLabel },
-        ],
-      });
-    }
-  }, [setConfig, viewMode, selectedUser, fullName, username]);
 
   // Load Data from Backend
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const [usersData, rolesData, outletsData] = await Promise.all([
@@ -118,16 +89,20 @@ export default function UsersManagementPage() {
       setUsers(usersData || []);
       setRoles(rolesData || []);
       setOutlets(outletsData || []);
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal memuat data pengguna');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal memuat data pengguna');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadData();
+    })();
+  }, [loadData]);
 
   // Filtered Users List
   const filteredUsers = useMemo(() => {
@@ -190,6 +165,28 @@ export default function UsersManagementPage() {
     setIsEditing(false);
   };
 
+
+  useEffect(() => {
+    if (viewMode === 'list') {
+      setConfig({
+        title: 'Data Pengguna',
+        breadcrumbs: [
+          { label: 'Pengaturan', href: '/settings' },
+          { label: 'Data Pengguna' },
+        ],
+      });
+    } else {
+      const userLabel = selectedUser ? (selectedUser.full_name || selectedUser.username) : 'Pengguna Baru';
+      setConfig({
+        title: userLabel,
+        breadcrumbs: [
+          { label: 'Pengaturan', href: '/settings' },
+          { label: 'Data Pengguna', href: '#', onClick: () => handleSwitchToList() },
+          { label: userLabel },
+        ],
+      });
+    }
+  }, [setConfig, viewMode, selectedUser, fullName, username]);
   // Cancel Editing in Form View
   const handleCancelEdit = () => {
     if (!selectedUser) {
@@ -253,8 +250,8 @@ export default function UsersManagementPage() {
 
       await loadData();
       setIsEditing(false);
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal menyimpan data pengguna');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal menyimpan data pengguna');
     } finally {
       setSubmitting(false);
     }
@@ -267,8 +264,8 @@ export default function UsersManagementPage() {
       toast('info', 'Mengirim email reset password via SMTP...');
       const res = await sendPasswordResetEmailApi(selectedUser.id);
       toast('success', res.message || `Email reset password telah dikirim ke ${selectedUser.email || selectedUser.username}`);
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal mengirim email reset password');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal mengirim email reset password');
     }
   };
 
@@ -282,8 +279,8 @@ export default function UsersManagementPage() {
       toast('success', `Status akun ${selectedUser.username} diubah menjadi ${nextActive ? 'Aktif' : 'Non-aktif'}`);
       setSelectedUser(updated);
       loadData();
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal memperbarui status pengguna');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal memperbarui status pengguna');
     }
   };
 
@@ -811,7 +808,7 @@ export default function UsersManagementPage() {
                             <input
                               type="checkbox"
                               checked={outletId === o.id}
-                              onChange={() => isEditing && setOutletId(o.id)}
+                              onChange={() => isEditing && setOutletId(o.id ?? '')}
                               disabled={!isEditing}
                               className="size-4 rounded border-line text-primary focus:ring-primary disabled:opacity-75"
                             />

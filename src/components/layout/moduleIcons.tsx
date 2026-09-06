@@ -45,7 +45,6 @@ import {
   MapPin,
   Palette,
   Puzzle,
-  Package,
   FileStack,
 } from 'lucide-react';
 

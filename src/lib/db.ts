@@ -77,6 +77,13 @@ export interface Order {
   promotion_discount_amount?: number;
 }
 
+/** A modifier as persisted on an order line (name/price snapshotted at sale time). */
+export interface AppliedModifier {
+  id?: string;
+  name?: string;
+  price?: number;
+}
+
 export interface OrderItem {
   id?: string; // UUID
   order_id: string; // UUID
@@ -84,7 +91,7 @@ export interface OrderItem {
   quantity: number;
   price_at_time: number;
   discount_item: number;
-  modifiers_applied: any[];
+  modifiers_applied: AppliedModifier[];
   split_group_id: string | null;
   status: string; // pending, preparing, ready, served, cancelled
   is_free?: boolean; // Flag for free/complimentary items
@@ -104,7 +111,7 @@ export interface SyncQueueItem {
   id?: string; // UUID
   operation: 'create' | 'update' | 'delete';
   table_name: string;
-  data: any;
+  data: unknown;
   status: 'pending' | 'synced' | 'failed';
   error_message: string | null;
   retry_count: number;
@@ -208,7 +215,7 @@ export interface CustomerOrderItem {
   product_id: string; // UUID
   quantity: number;
   price_at_time: number;
-  modifiers_applied?: any[];
+  modifiers_applied?: AppliedModifier[];
   created_at: string;
 }
 
@@ -388,6 +395,16 @@ export interface Supplier {
   phone: string; // Kontak/Telepon
   email?: string; // Email
   address?: string; // Alamat
+  // Vendor master data, mirroring the Prisma Supplier model the API returns.
+  payment_terms?: string | null;
+  tax_id?: string | null;
+  pic_name?: string | null; // Contact person name
+  pic_mobile?: string | null; // Contact person mobile/WhatsApp
+  category?: string | null; // Supply category
+  moq_amount?: number | null; // Minimum order quantity
+  moq_unit?: string | null;
+  performance_notes?: string | null;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -410,6 +427,23 @@ export interface StockAdjustment {
 }
 
 // Dexie database class for IndexedDB
+export interface OfflineUser {
+  id: string;
+  username: string;
+  password_hash: string;
+  role_id: string;
+  role: 'admin' | 'cashier';
+  permissions: string[];
+  full_name?: string;
+  last_sync: string;
+}
+
+export interface SyncStatus {
+  id: string;
+  lastSyncTime: string;
+  initialSyncCompleted: boolean;
+}
+
 export class KitchenPOSDB extends Dexie {
   // Define tables with their types and key paths
   products!: DexieTable<Product>;
@@ -439,6 +473,8 @@ export class KitchenPOSDB extends Dexie {
   customer_order_items!: DexieTable<CustomerOrderItem>;
   payment_transactions!: DexieTable<PaymentTransaction>;
   stock_adjustments!: DexieTable<StockAdjustment>;
+  users!: DexieTable<OfflineUser>;
+  sync_status!: DexieTable<SyncStatus>;
 
   constructor() {
     super('KitchenPOSDB');
@@ -708,6 +744,15 @@ export class KitchenPOSDB extends Dexie {
     this.version(19)
       .stores({
         stock_adjustments: 'id, ingredientId, adjustmentType, adjustedAt',
+      });
+
+    // v20: Add users (cached credentials for offline login) and sync_status tables.
+    // These were referenced by offlineAuth/dataSync but never declared, so every
+    // db.users / db.sync_status call threw at runtime.
+    this.version(20)
+      .stores({
+        users: 'id, username, role_id',
+        sync_status: 'id',
       });
 
   }

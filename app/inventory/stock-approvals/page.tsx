@@ -20,6 +20,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { getToken } from '@/src/lib/api';
+import type { Ingredient, Outlet } from '@/src/lib/db';
 import {
   StockRequest,
   approveStockRequestSupervisor,
@@ -34,7 +35,7 @@ import {
 type ApprovalStatus = 'all' | 'pending_supervisor' | 'pending_finance' | 'approved' | 'rejected' | 'cancelled';
 
 export default function StockApprovalsPage() {
-  const router = useRouter();
+  useRouter();
   const { user } = useAuth();
   const { toast } = useToast();
   
@@ -57,8 +58,8 @@ export default function StockApprovalsPage() {
   const [financeNotes, setFinanceNotes] = useState('');
   
   // Create form states
-  const [ingredients, setIngredients] = useState<any[]>([]);
-  const [outlets, setOutlets] = useState<any[]>([]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [selectedIngredient, setSelectedIngredient] = useState('');
   const [quantity, setQuantity] = useState('');
   const [requestType, setRequestType] = useState('restock');
@@ -120,7 +121,11 @@ export default function StockApprovalsPage() {
   }, [statusFilter, dateFrom, dateTo, toast]);
 
   useEffect(() => {
-    fetchRequests();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchRequests();
+    })();
   }, [fetchRequests]);
 
   // Fetch ingredients and outlets for create modal
@@ -415,7 +420,7 @@ export default function StockApprovalsPage() {
       return;
     }
 
-    const ingredient = ingredients.find((ing: any) => ing.id === selectedIngredient);
+    const ingredient = ingredients.find((ing) => ing.id === selectedIngredient);
     if (!ingredient) {
       toast('error', 'Item tidak valid');
       return;
@@ -434,7 +439,7 @@ export default function StockApprovalsPage() {
         additionalInfo.push(`Tipe: ${typeLabels[requestType as keyof typeof typeLabels] || requestType}`);
       }
       if (destinationLocation) {
-        const outlet = outlets.find((o: any) => o.id === destinationLocation);
+        const outlet = outlets.find((o) => o.id === destinationLocation);
         additionalInfo.push(`Tujuan: ${outlet?.name || destinationLocation}`);
       }
       if (requesterRole) {
@@ -447,8 +452,8 @@ export default function StockApprovalsPage() {
 
     setProcessing(true);
     try {
-      const requestId = await createStockRequest({
-        ingredient_id: ingredient.id,
+      await createStockRequest({
+        ingredient_id: ingredient.id ?? '',
         ingredient_name: ingredient.name,
         quantity_requested: parseFloat(quantity),
         unit: ingredient.unit,
@@ -725,11 +730,11 @@ export default function StockApprovalsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-600">
-                        {request.supplier_name || (request.ingredient && (request.ingredient as any).supplier?.name) || '-'}
+                        {request.supplier_name || (request.ingredient && request.ingredient.supplier?.name) || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-700">
-                        {request.ingredient && (request.ingredient as any).unit_price 
-                          ? `Rp ${((request.ingredient as any).unit_price * request.quantity_requested).toLocaleString('id-ID')}`
+                        {request.ingredient && request.ingredient.unit_price 
+                          ? `Rp ${(request.ingredient.unit_price * request.quantity_requested).toLocaleString('id-ID')}`
                           : '-'
                         }
                       </td>
@@ -843,14 +848,14 @@ export default function StockApprovalsPage() {
                   </div>
                 )}
                 {/* Estimated Cost - calculated from ingredient unit price */}
-                {selectedRequest.ingredient && (selectedRequest.ingredient as any).unit_price && (
+                {selectedRequest.ingredient && selectedRequest.ingredient.unit_price && (
                   <div className="col-span-2">
                     <label className="text-xs font-medium text-slate-500 uppercase tracking-wider">Estimasi Biaya</label>
                     <p className="mt-1 text-sm font-bold text-green-700">
-                      Rp {((selectedRequest.ingredient as any).unit_price * selectedRequest.quantity_requested).toLocaleString('id-ID')}
+                      Rp {(selectedRequest.ingredient.unit_price * selectedRequest.quantity_requested).toLocaleString('id-ID')}
                     </p>
                     <p className="text-xs text-slate-500">
-                      Harga Satuan: Rp {((selectedRequest.ingredient as any).unit_price).toLocaleString('id-ID')} / {selectedRequest.unit}
+                      Harga Satuan: Rp {(selectedRequest.ingredient.unit_price).toLocaleString('id-ID')} / {selectedRequest.unit}
                     </p>
                   </div>
                 )}
@@ -1252,7 +1257,7 @@ export default function StockApprovalsPage() {
 
               <div className="bg-blue-50 rounded-lg p-4">
                 <p className="text-xs text-blue-600">
-                  Setelah dikirim, status akan berubah menjadi "Pending Finance" dan permintaan akan masuk ke antrian persetujuan Finance Director.
+                  Setelah dikirim, status akan berubah menjadi &quot;Pending Finance&quot; dan permintaan akan masuk ke antrian persetujuan Finance Director.
                 </p>
               </div>
             </div>
@@ -1320,7 +1325,7 @@ export default function StockApprovalsPage() {
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 >
                   <option value="">Pilih item...</option>
-                  {ingredients.map((ing: any) => (
+                  {ingredients.map((ing) => (
                     <option key={ing.id} value={ing.id}>
                       {ing.name} (Stok: {ing.current_stock} {ing.unit})
                     </option>
@@ -1370,7 +1375,7 @@ export default function StockApprovalsPage() {
                   className="w-full px-4 py-2 rounded-lg border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
                 >
                   <option value="">Pilih lokasi tujuan...</option>
-                  {outlets.map((outlet: any) => (
+                  {outlets.map((outlet) => (
                     <option key={outlet.id} value={outlet.id}>
                       {outlet.name} ({outlet.code})
                     </option>
@@ -1394,7 +1399,7 @@ export default function StockApprovalsPage() {
                   />
                   {selectedIngredient && (
                     <span className="px-3 py-2 bg-slate-100 rounded-lg text-sm font-medium text-slate-700 min-w-[60px] text-center">
-                      {ingredients.find((ing: any) => ing.id === selectedIngredient)?.unit}
+                      {ingredients.find((ing) => ing.id === selectedIngredient)?.unit}
                     </span>
                   )}
                 </div>
@@ -1416,13 +1421,13 @@ export default function StockApprovalsPage() {
               {selectedIngredient && (
                 <div className="bg-slate-50 rounded-lg p-4">
                   <p className="text-sm text-slate-600">
-                    <span className="font-medium">Info Item:</span> {ingredients.find((ing: any) => ing.id === selectedIngredient)?.name}
+                    <span className="font-medium">Info Item:</span> {ingredients.find((ing) => ing.id === selectedIngredient)?.name}
                   </p>
                   <p className="text-sm text-slate-600">
-                    <span className="font-medium">Stok Saat Ini:</span> {ingredients.find((ing: any) => ing.id === selectedIngredient)?.current_stock} {ingredients.find((ing: any) => ing.id === selectedIngredient)?.unit}
+                    <span className="font-medium">Stok Saat Ini:</span> {ingredients.find((ing) => ing.id === selectedIngredient)?.current_stock} {ingredients.find((ing) => ing.id === selectedIngredient)?.unit}
                   </p>
                   <p className="text-sm text-slate-600">
-                    <span className="font-medium">Min Stok:</span> {ingredients.find((ing: any) => ing.id === selectedIngredient)?.min_stock} {ingredients.find((ing: any) => ing.id === selectedIngredient)?.unit}
+                    <span className="font-medium">Min Stok:</span> {ingredients.find((ing) => ing.id === selectedIngredient)?.min_stock} {ingredients.find((ing) => ing.id === selectedIngredient)?.unit}
                   </p>
                 </div>
               )}

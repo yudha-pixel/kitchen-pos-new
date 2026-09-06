@@ -1,10 +1,10 @@
 'use client';
 
+import type { SplitBillSelectableItem } from '@/src/features/pos/components/SplitBillModal';
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { usePageHeader } from '@/src/context/PageHeaderContext';
 import { ProductCard } from '@/src/features/pos/components/ProductCard';
-import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { useCartStore } from '@/src/store/useCartStore';
@@ -28,9 +28,12 @@ import { useMnemonic } from '@/src/hooks/useMnemonic';
 import { Menu } from '@base-ui/react/menu';
 import { ShoppingCart, Search, RefreshCw, AlertCircle, X, Utensils, History, Printer, Trash2, Loader2, CreditCard, Users, DollarSign } from 'lucide-react';
 import { ReceiptModal } from '@/src/components/pos/ReceiptModal';
-import { calculateMenuStocks, seedSampleInventoryData, forceReseedInventoryData, canOrderProduct } from '@/src/features/inventory/inventoryService';
+import { calculateMenuStocks, seedSampleInventoryData, canOrderProduct } from '@/src/features/inventory/inventoryService';
 import { useTheme } from '@/src/context/ThemeContext';
 import { PERMISSIONS } from '@/src/config/permissions';
+import type { PosOrder } from '@/src/types/pos-order';
+import type { Product } from '@/src/types/database.types';
+import type { ReceiptData } from '@/src/components/pos/ReceiptModal';
 
 export default function POSPage() {
   const router = useRouter();
@@ -44,27 +47,27 @@ export default function POSPage() {
   const [showTableMergeModal, setShowTableMergeModal] = useState(false);
   const [showTableOrders, setShowTableOrders] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
-  const [tableOrders, setTableOrders] = useState<any[]>([]);
-  const [transactionHistory, setTransactionHistory] = useState<any[]>([]);
+  const [tableOrders, setTableOrders] = useState<PosOrder[]>([]);
+  const [transactionHistory, setTransactionHistory] = useState<PosOrder[]>([]);
   const [receiptModalOpen, setReceiptModalOpen] = useState(false);
-  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<any>(null);
+  const [selectedOrderForReceipt, setSelectedOrderForReceipt] = useState<ReceiptData | null>(null);
   const [openingReceiptForOrderId, setOpeningReceiptForOrderId] = useState<string | null>(null);
   const [deleteHistoryConfirmOpen, setDeleteHistoryConfirmOpen] = useState(false);
   const [deleteOrderConfirmOpen, setDeleteOrderConfirmOpen] = useState(false);
-  const [orderToDelete, setOrderToDelete] = useState<any>(null);
+  const [orderToDelete, setOrderToDelete] = useState<PosOrder | null>(null);
   const [pettyCashModalOpen, setPettyCashModalOpen] = useState(false);
   const [pettyCashAmount, setPettyCashAmount] = useState('');
   const [pettyCashReason, setPettyCashReason] = useState('');
   const [pettyCashError, setPettyCashError] = useState('');
   const [orderCategory, setOrderCategory] = useState<'dine-in' | 'takeaway' | 'delivery'>('dine-in');
-  const [customerName, setCustomerName] = useState('');
-  const [deliveryAddress, setDeliveryAddress] = useState('');
-  const [courierName, setCourierName] = useState('');
-  const [courierType, setCourierType] = useState<'internal' | 'external'>('internal');
+  const [customerName] = useState('');
+  const [deliveryAddress] = useState('');
+  const [courierName] = useState('');
+  const [courierType] = useState<'internal' | 'external'>('internal');
   const [productStocks, setProductStocks] = useState<Map<string, number | null>>(new Map());
   const [productListModalOpen, setProductListModalOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
-  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<any>(null);
+  const [selectedOrderForPayment, setSelectedOrderForPayment] = useState<PosOrder | null>(null);
   const [voidPaymentModalOpen, setVoidPaymentModalOpen] = useState(false);
   const [selectedPaymentForVoid, setSelectedPaymentForVoid] = useState<{ id: string; amount: number } | null>(null);
 
@@ -91,8 +94,7 @@ export default function POSPage() {
 
   // Listen for order creation to update table status to occupied
   useEffect(() => {
-    const handleOrderCreated = (event: Event) => {
-      const customEvent = event as CustomEvent<{ orderId: string }>;
+    const handleOrderCreated = () => {
       console.log('📡 Order created event received, updating table status...');
       
       // Refetch tables to get updated hasActiveOrders status
@@ -112,8 +114,7 @@ export default function POSPage() {
 
   // Listen for order completion to update table status back to available
   useEffect(() => {
-    const handleOrderCompleted = (event: Event) => {
-      const customEvent = event as CustomEvent<{ orderId: string }>;
+    const handleOrderCompleted = () => {
       console.log('📡 Order completed event received, updating table status...');
       
       // Refetch tables to get updated hasActiveOrders status
@@ -198,7 +199,7 @@ export default function POSPage() {
         console.error('❌ Failed to recalculate stock after outlet change:', error);
       });
     }
-  }, [selectedOutletId, products]);
+  }, [selectedOutletId, products, toast]);
 
   // Listen for order completion and refresh transaction history
   useEffect(() => {
@@ -293,23 +294,6 @@ export default function POSPage() {
   }, []);
 
   // Handler for force re-seeding inventory data
-  const handleForceReseed = async () => {
-    try {
-      console.log('🔄 Force re-seeding inventory data...');
-      await forceReseedInventoryData();
-      toast('success', 'Data inventori berhasil di-reset ulang');
-      
-      // Recalculate stocks after re-seeding
-      if (products && products.length > 0) {
-        const productIds = products.map(p => p.id);
-        const stockMap = await calculateMenuStocks(productIds);
-        setProductStocks(stockMap);
-      }
-    } catch (error) {
-      console.error('❌ Failed to force re-seed:', error);
-      toast('error', 'Gagal me-reset data inventori');
-    }
-  };
 
   const handleOpenProductListModal = () => {
     setProductListModalOpen(true);
@@ -342,7 +326,6 @@ export default function POSPage() {
   // Sync manager for offline-first functionality
   const {
     isOnline,
-    pendingTransactions,
     syncInProgress,
     syncError,
     lastSyncTime,
@@ -681,6 +664,8 @@ export default function POSPage() {
     try {
       const { db } = await import('@/src/lib/db');
       
+      if (!orderToDelete.id) return;
+
       // Delete order items first
       await db.order_items.where('order_id').equals(orderToDelete.id).delete();
       console.log(`✅ Order items for order ${orderToDelete.id} deleted`);
@@ -701,51 +686,19 @@ export default function POSPage() {
   };
 
   // Generate receipt number based on category
-  const generateReceiptNumber = async (category: 'dine-in' | 'takeaway' | 'delivery'): Promise<string> => {
-    try {
-      const { db } = await import('@/src/lib/db');
-      
-      const prefix = category === 'dine-in' ? 'DI-' : category === 'takeaway' ? 'TA-' : 'DL-';
-      
-      // Get the last order for this category
-      const lastOrder = await db.orders
-        .where('order_category')
-        .equals(category)
-        .reverse()
-        .limit(1)
-        .first();
-      
-      let sequenceNumber = 1;
-      if (lastOrder && lastOrder.receipt_number) {
-        // Extract sequence number from last receipt number
-        const lastSequence = parseInt(lastOrder.receipt_number.replace(prefix, ''));
-        if (!isNaN(lastSequence)) {
-          sequenceNumber = lastSequence + 1;
-        }
-      }
-      
-      // Format: DI-0001, TA-0001, DL-0001
-      return `${prefix}${String(sequenceNumber).padStart(4, '0')}`;
-    } catch (error) {
-      console.error('Failed to generate receipt number:', error);
-      // Fallback to timestamp-based number
-      const prefix = category === 'dine-in' ? 'DI-' : category === 'takeaway' ? 'TA-' : 'DL-';
-      return `${prefix}${Date.now().toString().slice(-4)}`;
-    }
-  };
 
   // Transform API modifier groups to UI format
-  const getProductModifiers = (product: any): UIModifierGroup[] => {
+  const getProductModifiers = (product: Product): UIModifierGroup[] => {
     if (!product.modifier_groups || product.modifier_groups.length === 0) {
       return [];
     }
 
-    return product.modifier_groups.map((group: any) => ({
+    return product.modifier_groups.map((group) => ({
       id: group.id,
       name: group.name,
       required: group.is_required,
       multiSelect: group.max_selections > 1,
-      options: group.modifiers.map((mod: any) => ({
+      options: group.modifiers.map((mod) => ({
         id: mod.id,
         name: mod.name,
         price: mod.price_extra,
@@ -771,56 +724,20 @@ export default function POSPage() {
     });
   };
 
-  const handleLoadTableOrder = async (order: any) => {
-    try {
-      // Clear current cart
-      useCartStore.getState().clearCart();
 
-      // Set table number
-      useCartStore.getState().setTableNumber(order.table_number || '');
-
-      // Add items to cart
-      order.items.forEach((item: any) => {
-        const price = Number(item.price_at_time) || 0;
-        const name = item.product?.name || 'Unknown';
-        const modifiers = item.modifiers_applied && Array.isArray(item.modifiers_applied)
-          ? item.modifiers_applied.map((m: any) => ({ id: m.id, name: m.name, price: m.price_extra || 0, selected: true }))
-          : [];
-
-        useCartStore.getState().addToCart({
-          productId: item.product_id,
-          name,
-          price,
-          quantity: item.quantity,
-          modifiers,
-        });
-      });
-
-      // Set notes
-      useCartStore.getState().setNotes(order.notes || '');
-
-      console.log('Table order loaded to cart:', order);
-      toast('success', `Pesanan meja ${order.table_number} dimuat ke keranjang`);
-      setShowTableOrders(false);
-    } catch (error) {
-      console.error('Failed to load table order:', error);
-      toast('error', 'Gagal memuat pesanan');
-    }
-  };
-
-  const handleDirectPayment = (order: any) => {
+  const handleDirectPayment = (order: PosOrder) => {
     // Open payment modal directly with order data
     setSelectedOrderForPayment(order);
     setPaymentModalOpen(true);
   };
 
-  const handleSplitBillComplete = async (selectedItems: any[], paymentMethod: string) => {
+  const handleSplitBillComplete = async (selectedItems: SplitBillSelectableItem[], paymentMethod: string) => {
     try {
       const order = selectedOrderForPayment;
       if (!order) return;
 
       // Prevent duplicate payment: check if order is already paid
-      if (order.status === 'completed' || order.status === 'paid') {
+      if (order.status === 'completed') {
         toast('warning', 'Pesanan ini sudah dibayar sebelumnya');
         setPaymentModalOpen(false);
         setSelectedOrderForPayment(null);
@@ -828,10 +745,10 @@ export default function POSPage() {
       }
 
       // Calculate total for selected items
-      const calculatedTotal = selectedItems.reduce((sum: number, item: any) => {
-        const price = Number(item.price_at_time) || 0;
-        return sum + (price * item.quantity);
-      }, 0);
+      const calculatedTotal = selectedItems.reduce(
+        (sum: number, item) => sum + (item.price + item.modifierTotal) * item.quantity,
+        0,
+      );
 
       // Convert payment method to database format
       const paymentMethodMap: Record<string, 'cash' | 'card' | 'qr' | 'transfer'> = {
@@ -843,6 +760,7 @@ export default function POSPage() {
 
       // Update order status to 'completed' with payment details
       const { db } = await import('@/src/lib/db');
+      if (!order.id) return;
       await db.orders.where('id').equals(order.id).modify({
         status: 'completed',
         payment_method: dbPaymentMethod,
@@ -967,7 +885,7 @@ export default function POSPage() {
       if (!order) return;
 
       // Prevent duplicate payment: check if order is already paid
-      if (order.status === 'completed' || order.status === 'paid') {
+      if (order.status === 'completed') {
         toast('warning', 'Pesanan ini sudah dibayar sebelumnya');
         setPaymentModalOpen(false);
         setSelectedOrderForPayment(null);
@@ -976,8 +894,8 @@ export default function POSPage() {
 
       // Check stock availability for all items in the order
       const stockChecks = await Promise.all(
-        order.items?.map(async (item: any) => {
-          const check = await checkStockAvailability(item.product_id, item.quantity);
+        order.items?.map(async (item) => {
+          const check = await checkStockAvailability(item.product_id ?? '', item.quantity);
           return {
             productName: item.product?.name || 'Unknown',
             ...check,
@@ -1000,7 +918,7 @@ export default function POSPage() {
       }
 
       // Calculate total from order items
-      const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+      const calculatedTotal = order.items?.reduce((sum: number, item) => {
         const price = Number(item.price_at_time) || 0;
         return sum + (price * item.quantity);
       }, 0) || 0;
@@ -1015,6 +933,7 @@ export default function POSPage() {
 
       // Update order status to 'completed' with payment details
       const { db } = await import('@/src/lib/db');
+      if (!order.id) return;
       await db.orders.where('id').equals(order.id).modify({
         status: 'completed',
         payment_method: dbPaymentMethod,
@@ -1026,8 +945,8 @@ export default function POSPage() {
 
       // Deduct stock for each item in the order
       const stockDeductions = await Promise.all(
-        order.items?.map(async (item: any) => {
-          const result = await deductStockForSale(item.product_id, item.quantity);
+        order.items?.map(async (item) => {
+          const result = await deductStockForSale(item.product_id ?? '', item.quantity);
           return {
             productName: item.product?.name || 'Unknown',
             ...result,
@@ -1380,7 +1299,7 @@ export default function POSPage() {
                             <p className="text-sm font-medium text-ink">{order.customer_name}</p>
                           )}
                           <p className="text-xs text-ink-muted">
-                            {new Date(order.created_at).toLocaleString('id-ID')}
+                            {order.created_at ? new Date(order.created_at).toLocaleString('id-ID') : '—'}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -1424,11 +1343,11 @@ export default function POSPage() {
 
                       <div className="mb-3 space-y-1 text-sm">
                         {order.items && order.items.length > 0 ? (
-                          order.items.map((item: any, i: number) => {
+                          order.items.map((item, i: number) => {
                             const price = Number(item.price_at_time) || 0;
                             const name = item.product?.name || 'Unknown';
                             const modifiers = item.modifiers_applied && Array.isArray(item.modifiers_applied)
-                              ? item.modifiers_applied.map((m: any) => m.name || m).join(', ')
+                              ? item.modifiers_applied.map((m) => m.name || m).join(', ')
                               : '';
 
                             return (
@@ -1450,7 +1369,7 @@ export default function POSPage() {
                         <span>Total</span>
                         <span className="text-primary">
                           {(() => {
-                            const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+                            const calculatedTotal = order.items?.reduce((sum: number, item) => {
                               const price = Number(item.price_at_time) || 0;
                               return sum + (price * item.quantity);
                             }, 0) || 0;
@@ -1508,15 +1427,15 @@ export default function POSPage() {
                         <div>
                           <h3 className="font-bold text-lg">Meja {order.table_number || 'Direct'}</h3>
                           <p className="text-sm text-ink-muted">
-                            {new Date(order.created_at).toLocaleString('id-ID')}
+                            {order.created_at ? new Date(order.created_at).toLocaleString('id-ID') : '—'}
                           </p>
                         </div>
                         <Badge tone={
-                          order.status === 'completed' || order.status === 'paid' ? 'success' :
+                          order.status === 'completed' ? 'success' :
                           order.status === 'cancelled' ? 'danger' :
                           'warning'
                         }>
-                          {order.status === 'completed' || order.status === 'paid' ? 'Lunas' :
+                          {order.status === 'completed' ? 'Lunas' :
                            order.status === 'cancelled' ? 'Batal' :
                            'Belum Bayar'}
                         </Badge>
@@ -1524,11 +1443,11 @@ export default function POSPage() {
 
                       <div className="mb-3 space-y-1 text-sm">
                         {order.items && order.items.length > 0 ? (
-                          order.items.map((item: any, i: number) => {
+                          order.items.map((item, i: number) => {
                             const price = Number(item.price_at_time) || 0;
                             const name = item.product?.name || 'Unknown';
                             const modifiers = item.modifiers_applied && Array.isArray(item.modifiers_applied)
-                              ? item.modifiers_applied.map((m: any) => m.name || m).join(', ')
+                              ? item.modifiers_applied.map((m) => m.name || m).join(', ')
                               : '';
 
                             return (
@@ -1550,7 +1469,7 @@ export default function POSPage() {
                         <span>Total</span>
                         <span className="text-primary">
                           {(() => {
-                            const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+                            const calculatedTotal = order.items?.reduce((sum: number, item) => {
                               const price = Number(item.price_at_time) || 0;
                               return sum + (price * item.quantity);
                             }, 0) || 0;
@@ -1576,15 +1495,15 @@ export default function POSPage() {
                             Bayar
                           </button>
                         )}
-                        {(order.status === 'completed' || order.status === 'paid') && can(PERMISSIONS.orders.void) && order.payment_method && (
+                        {order.status === 'completed' && can(PERMISSIONS.orders.void) && order.payment_method && (
                           <button
                             onClick={() => {
-                              const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+                              const calculatedTotal = order.items?.reduce((sum: number, item) => {
                                 const price = Number(item.price_at_time) || 0;
                                 return sum + (price * item.quantity);
                               }, 0) || 0;
                               // Use order ID as payment ID for now - in production this should be the actual payment transaction ID
-                              handleVoidPayment(order.id, calculatedTotal);
+                              if (order.id) handleVoidPayment(order.id, calculatedTotal);
                             }}
                             className="flex-1 flex items-center justify-center gap-2 py-2 px-4 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
                           >
@@ -1594,15 +1513,15 @@ export default function POSPage() {
                         )}
                         <button
                           onClick={() => {
-                            setOpeningReceiptForOrderId(order.id);
-                            const receiptData = {
-                              orderId: order.id,
+                            setOpeningReceiptForOrderId(order.id ?? null);
+                            const receiptData: ReceiptData = {
+                              orderId: order.id ?? '',
                               tableNumber: order.table_number || 'Direct',
-                              items: order.items?.map((item: any) => ({
+                              items: (order.items ?? []).map((item) => ({
                                 name: item.product?.name || 'Unknown',
                                 quantity: item.quantity,
                                 price: Number(item.price_at_time) || 0,
-                                modifiers: item.modifiers_applied?.map((m: any) => m.name) || [],
+                                modifiers: item.modifiers_applied?.map((m) => m.name ?? '') || [],
                               })) || [],
                               subtotal: order.total_amount || 0,
                               tax: 0,
@@ -1610,7 +1529,7 @@ export default function POSPage() {
                               roundingAmount: 0,
                               total: order.total_amount || 0,
                               paymentMethod: order.payment_method || 'cash',
-                              cashierName: (user as any)?.name || 'Kasir',
+                              cashierName: user?.full_name || 'Kasir',
                               notes: '',
                             };
                             setSelectedOrderForReceipt(receiptData);

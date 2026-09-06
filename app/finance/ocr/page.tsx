@@ -9,19 +9,7 @@ import { ExpenseTable } from '@/src/components/finance/ExpenseTable';
 import { ReceiptPreviewModal } from '@/src/components/finance/ReceiptPreviewModal';
 import { Modal } from '@/src/components/ui/Modal';
 import { Button } from '@/src/components/ui/Button';
-import {
-  getAllExpenses,
-  addExpense,
-  updateExpense,
-  deleteExpense,
-  calculateTotalExpenses,
-  getDefaultCategories,
-  simulateOCR,
-  exportExpensesToCSV,
-  fileToBase64,
-  Expense,
-  OCRResult,
-} from '@/src/features/finance/expenseService';
+import { getAllExpenses, addExpense, updateExpense, deleteExpense, getDefaultCategories, simulateOCR, exportExpensesToCSV, fileToBase64, Expense, OCRResult } from '@/src/features/finance/expenseService';
 
 export default function FinancePage() {
   const { user } = useAuth();
@@ -55,9 +43,6 @@ export default function FinancePage() {
     label: cat.name,
   }));
 
-  useEffect(() => {
-    loadExpenses();
-  }, []);
 
   const loadExpenses = async () => {
     try {
@@ -70,6 +55,14 @@ export default function FinancePage() {
     }
   };
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadExpenses();
+    })();
+  }, []);
   const handleAddExpense = () => {
     setExpenseFormError('');
     setEditingExpense(null);
@@ -118,7 +111,7 @@ export default function FinancePage() {
           proof_file_name: proofFileName,
         },
         user?.id,
-        (user as any)?.name
+        user?.full_name
       );
 
       await loadExpenses();
@@ -182,7 +175,7 @@ export default function FinancePage() {
       if (editingExpense) {
         await updateExpense(editingExpense.id!, expenseData);
       } else {
-        await addExpense(expenseData, user?.id, (user as any)?.name);
+        await addExpense(expenseData, user?.id, user?.full_name);
       }
 
       await loadExpenses();
@@ -391,7 +384,7 @@ export default function FinancePage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Metode Pembayaran</label>
                 <select
                   value={formData.payment_method}
-                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value as typeof formData.payment_method })}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="cash">Tunai</option>

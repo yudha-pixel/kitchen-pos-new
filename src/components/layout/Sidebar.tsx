@@ -87,9 +87,9 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
           headers: { 'Authorization': `Bearer ${token}` },
         });
         if (response.ok) {
-          const data = await response.json();
+          const data: { status: string }[] = await response.json();
           // The list endpoint doesn't support server-side status filtering, so filter here.
-          setPendingPRCount(data.filter((pr: any) => pr.status === 'Pending Approval').length);
+          setPendingPRCount(data.filter((pr) => pr.status === 'Pending Approval').length);
         }
       } catch (error) {
         console.error('Failed to fetch pending PR count:', error);
@@ -150,7 +150,7 @@ export const Sidebar = ({ isMobileOpen: propIsMobileOpen, onMobileClose }: Sideb
               : (!isValidParentHref && (pathname === sub.href || (sub.href !== '/' && pathname.startsWith(sub.href + '/'))));
             const NavigationIcon = (sub.iconName && NAVIGATION_ICON_MAP[sub.iconName]) || Circle;
             const showStockBadge = sub.href === '/inventory/stock-approvals' && stockApprovalsPendingCount > 0;
-            const showPRBadge = (sub.href === '/purchase/requisitions' || sub.href === '/inventory/purchase-requisitions') && pendingPRCount > 0;
+            const showPRBadge = sub.href === '/purchase/requisitions' && pendingPRCount > 0;
             const showBadge = showStockBadge || showPRBadge;
             const badgeCount = showStockBadge ? stockApprovalsPendingCount : showPRBadge ? pendingPRCount : 0;
             return (

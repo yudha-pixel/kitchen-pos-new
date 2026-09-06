@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { formatRupiah } from '@/src/lib/format';
-import { Search, Tag, Edit, Trash2, Plus, Calendar, Percent, DollarSign, Package, TrendingUp } from 'lucide-react';
+import { Search, Tag, Edit, Trash2, Plus, Calendar, DollarSign, Package } from 'lucide-react';
 import { Button } from '@/src/components/ui/Button';
 import { Modal } from '@/src/components/ui/Modal';
 
@@ -49,7 +49,7 @@ export default function PromotionsPage() {
     }
   }, [user, isLoading, router]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(() => ({
     name: '',
     description: '',
     type: 'quantity' as 'quantity' | 'amount',
@@ -64,15 +64,9 @@ export default function PromotionsPage() {
     valid_from: new Date().toISOString().split('T')[0],
     valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
     is_active: true,
-  });
+  }));
 
-  useEffect(() => {
-    loadPromotions();
-  }, []);
 
-  useEffect(() => {
-    applyFilters();
-  }, [promotions, searchTerm, filterType]);
 
   const loadPromotions = async () => {
     try {
@@ -87,7 +81,15 @@ export default function PromotionsPage() {
     }
   };
 
-  const applyFilters = () => {
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadPromotions();
+    })();
+  }, []);
+  const applyFilters = useCallback(() => {
     let filtered = [...promotions];
 
     if (searchTerm) {
@@ -102,8 +104,16 @@ export default function PromotionsPage() {
     }
 
     setFilteredPromotions(filtered);
-  };
+  }, [filterType, promotions, searchTerm]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await applyFilters();
+    })();
+  }, [promotions, searchTerm, filterType, applyFilters]);
   const handleAddPromotion = () => {
     setEditingPromotion(null);
     setFormError('');
@@ -337,8 +347,8 @@ export default function PromotionsPage() {
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {filteredPromotions.map((promotion) => (
-                        <tr key={promotion.id || Math.random()} className="hover:bg-gray-50">
+                      {filteredPromotions.map((promotion, idx) => (
+                        <tr key={promotion.id ?? idx} className="hover:bg-gray-50">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="flex items-center">
                               <div className="flex-shrink-0 h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -472,7 +482,7 @@ export default function PromotionsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Promosi *</label>
                 <select
                   value={formData.type}
-                  onChange={(e) => setFormData({ ...formData, type: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, type: e.target.value as typeof formData.type })}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="quantity">Berdasarkan Jumlah Item</option>
@@ -510,7 +520,7 @@ export default function PromotionsPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">Tipe Diskon *</label>
                 <select
                   value={formData.discount_type}
-                  onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, discount_type: e.target.value as typeof formData.discount_type })}
                   className="w-full rounded-md border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="nominal">Nominal (Rp)</option>

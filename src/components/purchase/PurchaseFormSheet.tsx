@@ -2,30 +2,14 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import {
-  MoreHorizontal,
-  Printer,
-  Copy,
-  Edit,
-  Trash2,
-  XCircle,
-  ExternalLink,
-  UserCheck,
-  Building,
-  Calendar,
-  Search,
-  ChevronLeft,
-  ChevronRight,
-  FileText,
-  History,
-  ShoppingCart,
-  Layers
-} from 'lucide-react';
-import { Button } from '@/src/components/ui/Button';
+import { MoreHorizontal, Printer, Copy, Edit, Trash2, XCircle, ExternalLink, Search, ChevronLeft, ChevronRight, FileText, ShoppingCart, Layers } from 'lucide-react';
 import { Notebook } from '@/src/components/ui/form/Notebook';
 import { Page } from '@/src/components/ui/form/Page';
 import { FormStatusBar } from '@/src/components/ui/form/FormStatusBar';
 import { DocumentChatter, AuditLogItem } from '@/src/components/global/DocumentChatter';
+
+/** Alias kept for pages that import the chatter entry type from this module. */
+export type FormSheetAuditLog = AuditLogItem;
 
 export interface FormSheetLineItem {
   id: string | number;
@@ -60,6 +44,8 @@ export interface PurchaseFormSheetProps {
   // Actions & Odoo Smart Buttons
   primaryActions?: React.ReactNode;
   smartButtons?: { label: string; count?: number; href: string; icon?: 'po' | 'pr' | 'inv' | 'grn' }[];
+  /** Convenience for the common single upstream-document shortcut; merged into smartButtons. */
+  smartLink?: { label: string; count?: number; href: string; icon?: 'po' | 'pr' | 'inv' | 'grn' };
   onPrint?: () => void;
   onDuplicate?: () => void;
   onEdit?: () => void;
@@ -75,7 +61,6 @@ export interface PurchaseFormSheetProps {
 }
 
 export function PurchaseFormSheet({
-  documentTitle,
   documentNumber,
   status,
   pipelineSteps = [
@@ -96,6 +81,7 @@ export function PurchaseFormSheet({
   totalAmount,
   primaryActions,
   smartButtons = [],
+  smartLink,
   onPrint,
   onDuplicate,
   onEdit,
@@ -139,7 +125,9 @@ export function PurchaseFormSheet({
     return sum + qty;
   }, 0);
 
-  const isConverted = status.toLowerCase().includes('converted') || status.toLowerCase().includes('dikonversi') || smartButtons.length > 0;
+  const allSmartButtons = smartLink ? [...smartButtons, smartLink] : smartButtons;
+
+  const isConverted = status.toLowerCase().includes('converted') || status.toLowerCase().includes('dikonversi') || allSmartButtons.length > 0;
 
   return (
     <div className="w-full grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
@@ -155,9 +143,9 @@ export function PurchaseFormSheet({
             </div>
 
             {/* Odoo 19 Smart Buttons Bar */}
-            {smartButtons.length > 0 && (
+            {allSmartButtons.length > 0 && (
               <div className="pt-1 flex flex-wrap gap-2">
-                {smartButtons.map((btn, idx) => (
+                {allSmartButtons.map((btn, idx) => (
                   <Link
                     key={idx}
                     href={btn.href}
@@ -418,7 +406,7 @@ export function PurchaseFormSheet({
                 <div>
                   <span className="font-bold text-ink-muted uppercase block">Catatan & Justifikasi Pengadaan</span>
                   <p className="mt-1 text-ink-secondary italic bg-surface p-3 rounded border border-line">
-                    "{notes || 'Tidak ada catatan tambahan.'}"
+                    &quot;{notes || 'Tidak ada catatan tambahan.'}&quot;
                   </p>
                 </div>
                 <div>

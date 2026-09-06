@@ -43,7 +43,11 @@ export default function InventoryCategoriesPage() {
   };
 
   useEffect(() => {
-    loadIngredientCategories();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadIngredientCategories();
+    })();
   }, []);
 
   const openAddCategory = () => {

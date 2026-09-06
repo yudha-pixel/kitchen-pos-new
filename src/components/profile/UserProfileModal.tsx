@@ -14,27 +14,7 @@ import {
   updateUserPreferences 
 } from '@/src/lib/api';
 import { getProfileInitials, formatRoleLabel } from '@/src/components/layout/UserProfileMenu';
-import { 
-  User, 
-  Shield, 
-  Sliders, 
-  Camera, 
-  Lock, 
-  KeyRound, 
-  Globe, 
-  LayoutGrid, 
-  List, 
-  Volume2, 
-  Printer, 
-  Building2, 
-  Save, 
-  RotateCcw,
-  CheckCircle2,
-  Mail,
-  Phone,
-  UserCheck,
-  Smartphone
-} from 'lucide-react';
+import { User, Shield, Sliders, Camera, Building2, Save } from 'lucide-react';
 
 type TabType = 'personal' | 'security' | 'preferences';
 
@@ -70,6 +50,8 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
 
   useEffect(() => {
     if (user) {
+      // Seeds the editable form from the signed-in user when the modal opens.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFullName(user.full_name || '');
       setEmail(user.email || '');
       setPhone(user.phone || '');
@@ -79,10 +61,10 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
       try {
         const prefs = await getUserPreferences();
         if (prefs) {
-          if (prefs.language) setLanguage(prefs.language);
-          if (prefs.product_view) setProductView(prefs.product_view);
+          if (prefs.language === 'id' || prefs.language === 'en') setLanguage(prefs.language);
+          if (prefs.product_view === 'grid' || prefs.product_view === 'list') setProductView(prefs.product_view);
           if (typeof prefs.sound_feedback === 'boolean') setSoundFeedback(prefs.sound_feedback);
-          if (prefs.default_printer) setDefaultPrinter(prefs.default_printer);
+          if (typeof prefs.default_printer === 'string') setDefaultPrinter(prefs.default_printer);
           if (typeof prefs.pos_pin_enabled === 'boolean') setPosPinEnabled(prefs.pos_pin_enabled);
         }
       } catch (err) {
@@ -181,8 +163,8 @@ export function UserProfileModal({ isOpen, onClose }: UserProfileModalProps) {
           toast('success', 'Preferensi POS & UI berhasil disimpan');
         }
       }
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal menyimpan perubahan');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal menyimpan perubahan');
     } finally {
       setLoading(false);
     }

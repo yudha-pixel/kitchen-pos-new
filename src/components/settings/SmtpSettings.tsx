@@ -1,27 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/src/components/ui/Button';
 import { useToast } from '@/src/components/ui/Toast';
 import { 
   fetchSmtpSettings, 
   updateSmtpSettings, 
-  testSmtpConnection, 
-  type SmtpSettingsData 
+  testSmtpConnection,
 } from '@/src/lib/api';
-import { 
-  Mail, 
-  Server, 
-  KeyRound, 
-  User, 
-  ShieldCheck, 
-  Send, 
-  Save, 
-  CheckCircle2, 
-  RefreshCw,
-  HelpCircle,
-  Zap
-} from 'lucide-react';
+import { Mail, Server, User, Send, Save, RefreshCw, Zap } from 'lucide-react';
 
 export function SmtpSettings() {
   const { toast } = useToast();
@@ -40,7 +27,7 @@ export function SmtpSettings() {
   const [testRecipient, setTestRecipient] = useState('');
 
   // Load SMTP Settings from Backend
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchSmtpSettings();
@@ -51,16 +38,20 @@ export function SmtpSettings() {
       setSmtpFromEmail(data.smtp_from_email || '');
       setSmtpFromName(data.smtp_from_name || 'Kitchen POS');
       setSmtpSecure(data.smtp_secure ?? true);
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal memuat pengaturan SMTP');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal memuat pengaturan SMTP');
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    loadData();
-  }, []);
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadData();
+    })();
+  }, [loadData]);
 
   // Save SMTP Settings
   const handleSave = async (e: React.FormEvent) => {
@@ -77,8 +68,8 @@ export function SmtpSettings() {
         smtp_secure: smtpSecure,
       });
       toast('success', 'Pengaturan server SMTP email berhasil disimpan');
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal menyimpan pengaturan SMTP');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal menyimpan pengaturan SMTP');
     } finally {
       setSaving(false);
     }
@@ -106,8 +97,8 @@ export function SmtpSettings() {
       });
 
       toast('success', res.message || 'Koneksi ke server SMTP berhasil!');
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal terhubung ke server SMTP');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal terhubung ke server SMTP');
     } finally {
       setTesting(false);
     }

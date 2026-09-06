@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
+import jwt from 'jsonwebtoken';
 import { app } from '../app';
 import { prisma } from '../lib/prisma';
 import { randomUUID } from 'crypto';
@@ -39,7 +40,6 @@ describe('Customers API', () => {
     cashierUserId = cashierUser.id;
 
     // Generate production-shaped auth tokens backed by real users
-    const jwt = require('jsonwebtoken');
     authToken = jwt.sign(
       { id: adminUserId, username: adminUser.username, role: 'admin' },
       process.env.JWT_SECRET || 'test-secret',

@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDocumentDate, formatDocumentDateTime } from '@/src/lib/format';
 import { useState, useEffect, useCallback, use } from 'react';
 import { useToast } from '@/src/components/ui/Toast';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
@@ -9,6 +10,7 @@ import { API_BASE_URL } from '@/src/config/runtime';
 import { PurchaseFormSheet, FormSheetAuditLog } from '@/src/components/purchase/PurchaseFormSheet';
 import { Send, CheckCircle } from 'lucide-react';
 import { buildDocumentNavigationParams } from '@/src/lib/navigationContext';
+import type { PurchaseDocument } from '@/src/types/purchase-document';
 
 interface POPageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +20,7 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
   const { id } = use(params);
   const { toast } = useToast();
 
-  const [po, setPO] = useState<any>(null);
+  const [po, setPO] = useState<PurchaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -58,7 +60,11 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
   }, [id, toast]);
 
   useEffect(() => {
-    fetchPO();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchPO();
+    })();
   }, [fetchPO]);
 
   const handleSendToSupplier = async () => {
@@ -73,7 +79,7 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
         toast('success', 'Dokumen PO telah dikirim ke supplier');
         fetchPO();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal mengirim PO');
     } finally {
       setProcessing(false);
@@ -92,7 +98,7 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
         toast('success', 'PO dikonfirmasi oleh supplier');
         fetchPO();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal konfirmasi PO');
     } finally {
       setProcessing(false);
@@ -111,7 +117,7 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
   }
 
   const auditLogs: FormSheetAuditLog[] = [
-    { timestamp: new Date(po.order_date || po.created_at || Date.now()).toLocaleString('id-ID'), user: 'Purchasing Manager', action: 'Dokumen Purchase Order (PO) diterbitkan' },
+    { timestamp: formatDocumentDateTime(po.order_date || po.created_at), user: 'Purchasing Manager', action: 'Dokumen Purchase Order (PO) diterbitkan' },
     ...(po.sent_at ? [{ timestamp: new Date(po.sent_at).toLocaleString('id-ID'), user: 'System', action: 'PO dikirim ke supplier via email' }] : []),
     ...(po.acknowledged_at ? [{ timestamp: new Date(po.acknowledged_at).toLocaleString('id-ID'), user: po.supplier?.name || 'Supplier', action: 'Supplier mengonfirmasi tanggal pengiriman' }] : []),
   ];
@@ -129,7 +135,7 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
   const prId = po.pr_id || '4d8dce9f-af02-4e11-924e-ec4d6ba14804';
   const prHref = `/purchase/requisitions/${prId}`;
   const navigationParams = buildDocumentNavigationParams(
-    { number: po.po_number, id: po.id, href: `/purchase/orders/${id}` },
+    { number: po.po_number ?? '', id: po.id ?? '', href: `/purchase/orders/${id}` },
     prHref,
     'Pesanan Pembelian',
     '/purchase/orders'
@@ -137,25 +143,25 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
   const prHrefWithContext = prHref + (navigationParams ? `?${navigationParams}` : '');
 
   return (
-    <ResponsiveShell title={po.po_number}>
+    <ResponsiveShell title={po.po_number ?? ''}>
       <div className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
         <div className="w-full">
           <PurchaseFormSheet
             documentTitle="Pesanan Pembelian (PO)"
-            documentNumber={po.po_number}
-            status={po.status}
+            documentNumber={po.po_number ?? ''}
+            status={po.status ?? ''}
             pipelineSteps={[
               { key: 'draft', label: 'Draf' },
               { key: 'sent', label: 'Terkirim' },
               { key: 'acknowledged', label: 'Konfirmasi' },
               { key: 'completed', label: 'Selesai' },
             ]}
-            activeStepKey={po.status}
+            activeStepKey={po.status ?? ''}
             requesterOrSupplierLabel="Supplier / Vendor Vendor"
             requesterOrSupplierValue={po.supplier?.name || 'PT Supplier Mandiri'}
             outletName="Kitchen POS - Outlet Utama"
-            notes={po.notes}
-            submittedDate={new Date(po.order_date || po.created_at || Date.now()).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+            notes={po.notes ?? undefined}
+            submittedDate={formatDocumentDate(po.order_date || po.created_at)}
             approvedByDate={po.expected_date ? `Estimasi Tiba: ${new Date(po.expected_date).toLocaleDateString('id-ID')}` : undefined}
             totalAmount={po.total || 10164000}
             primaryActions={
@@ -182,8 +188,8 @@ export default function PurchaseOrderDetailPage({ params }: POPageProps) {
             onPrint={() => toast('info', `Cetak PO ${po.po_number}`)}
             onDuplicate={() => toast('success', `Duplikat PO ${po.po_number}`)}
             onDelete={() => toast('success', `PO ${po.po_number} dihapus`)}
-            items={rawItems.map((item: any, idx: number) => ({
-              id: item.id || idx,
+            items={rawItems.map((item, idx: number) => ({
+              id: item.id ?? idx,
               code: `PO-ITEM-${idx + 1}`,
               name: item.ingredient_name || item.name || 'Pesanan PO',
               category: 'Pesanan Pembelian',

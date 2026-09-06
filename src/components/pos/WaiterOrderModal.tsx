@@ -1,18 +1,20 @@
 'use client';
 
+import Image from 'next/image';
+import type { SplitBillSelectableItem } from '@/src/features/pos/components/SplitBillModal';
 import { useState, useEffect } from 'react';
 import { generateUUID } from '@/src/lib/utils';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
 import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
-import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
-import { Search, Plus, Minus, Clock, Send, X, Printer, Trash2, Scissors, ChevronDown } from 'lucide-react';
+import { Search, Plus, Minus, Send, X, Printer, Trash2, Scissors, ChevronDown } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
 import { PaymentModal } from '@/src/components/pos/PaymentModal';
+import type { Product } from '@/src/types/database.types';
 
 interface WaiterOrderModalProps {
   isOpen: boolean;
@@ -29,11 +31,11 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
   const { toast } = useToast();
   const [selectedCategory, setSelectedCategory] = useState<string>('Semua');
   const [searchQuery, setSearchQuery] = useState('');
-  const [guestCount, setGuestCount] = useState<number>(1);
+  const [guestCount] = useState<number>(1);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
-  const [selectedProductForModifier, setSelectedProductForModifier] = useState<any>(null);
+  const [selectedProductForModifier, setSelectedProductForModifier] = useState<Product | null>(null);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [splitBillOpen, setSplitBillOpen] = useState(false);
   const [selectedItemsForSplit, setSelectedItemsForSplit] = useState<Set<string>>(new Set());
@@ -42,7 +44,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [courierName, setCourierName] = useState('');
   const [courierType, setCourierType] = useState<'internal' | 'external'>('internal');
-  const [receiptNumber, setReceiptNumber] = useState<string>('');
+  const [, setReceiptNumber] = useState<string>('');
 
   // Keep the cart store aware of the logged-in waiter
   useEffect(() => {
@@ -71,11 +73,11 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
   }, [splitBillOpen, cancelConfirmOpen, paymentModalOpen, isOpen, onClose]);
 
   // Fetch data from the local API with offline support
-  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts();
+  const { products, loading: productsLoading, error: productsError } = useProducts();
   const { categories } = useCategories();
 
   // Sync manager for offline-first functionality
-  const { isOnline, syncInProgress } = useSyncManager();
+  const { syncInProgress } = useSyncManager();
 
   // Cart store
   const cartItems = useCartStore((state) => state.items);
@@ -86,17 +88,17 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
   const processPayment = useCartStore((state) => state.processPayment);
 
   // Transform API modifier groups to UI format
-  const getProductModifiers = (product: any): UIModifierGroup[] => {
+  const getProductModifiers = (product: Product): UIModifierGroup[] => {
     if (!product.modifier_groups || product.modifier_groups.length === 0) {
       return [];
     }
 
-    return product.modifier_groups.map((group: any) => ({
+    return product.modifier_groups.map((group) => ({
       id: group.id,
       name: group.name,
       required: group.is_required,
       multiSelect: group.max_selections > 1,
-      options: group.modifiers.map((mod: any) => ({
+      options: group.modifiers.map((mod) => ({
         id: mod.id,
         name: mod.name,
         price: mod.price_extra || 0,
@@ -116,7 +118,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
     toast('success', `${name} ditambahkan ke keranjang`);
   };
 
-  const handleProductClick = (product: any) => {
+  const handleProductClick = (product: Product) => {
     // Check if product has modifiers
     const productModifiers = getProductModifiers(product);
     if (productModifiers && productModifiers.length > 0) {
@@ -168,7 +170,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
     }
   };
 
-  const handlePaymentComplete = async (paymentMethod: string, amount?: number) => {
+  const handlePaymentComplete = async (paymentMethod: string, _amount?: number) => {
     // Validate required fields based on category
     if (orderCategory === 'takeaway' && !customerName) {
       toast('error', 'Mohon isi nama pelanggan terlebih dahulu');
@@ -302,7 +304,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
       setCancelConfirmOpen(false);
       toast('success', 'Pesanan dibatalkan');
       onClose();
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal membatalkan pesanan');
     }
   };
@@ -315,7 +317,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
     setSplitBillOpen(true);
   };
 
-  const handleSplitBillComplete = async (selectedItems: any[], paymentMethod: string) => {
+  const handleSplitBillComplete = async (_selectedItems: SplitBillSelectableItem[], _paymentMethod: string) => {
     // Split bill not implemented for waiter flow
     toast('info', 'Split bill tidak tersedia di modul waiter');
   };
@@ -449,7 +451,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
   };
 
   // Filter products
-  const filteredProducts = products.filter((product: any) => {
+  const filteredProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === 'Semua' || product.category_id === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -616,7 +618,7 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
                 >
                   Semua
                 </button>
-                {categories.map((cat: any) => (
+                {categories.map((cat) => (
                   <button
                     key={cat.id}
                     onClick={() => setSelectedCategory(cat.id)}
@@ -654,18 +656,20 @@ export default function WaiterOrderModal({ isOpen, onClose, tableNumber }: Waite
                 />
               ) : (
                 <div className="grid grid-cols-2 gap-3">
-                  {filteredProducts.map((product: any) => (
+                  {filteredProducts.map((product) => (
                     <button
                       key={product.id}
                       onClick={() => handleProductClick(product)}
                       className="bg-surface rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-left active:scale-95"
                     >
-                      <div className="aspect-square bg-surface-alt rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                      <div className="relative aspect-square bg-surface-alt rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                         {product.image_url ? (
-                          <img
+                          <Image
                             src={product.image_url}
                             alt={product.name}
-                            className="w-full h-full object-cover"
+                            fill
+                            sizes="(max-width: 768px) 33vw, 20vw"
+                            className="object-cover"
                           />
                         ) : (
                           <span className="text-ink-muted text-2xl">🍽️</span>

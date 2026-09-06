@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getDataValidationReport, type ValidationResult } from '@/src/lib/dataValidator';
+import { getDataValidationReport } from '@/src/lib/dataValidator';
 import { performDataSync, type SyncProgress } from '@/src/lib/dataSync';
 
 interface DataHealthProps {
@@ -15,17 +15,22 @@ export const DataHealth: React.FC<DataHealthProps> = ({
   autoRefresh = false,
   refreshInterval = 60000 // 1 minute
 }) => {
-  const [report, setReport] = useState<any>(null);
+  const [report, setReport] = useState<Awaited<ReturnType<typeof getDataValidationReport>> | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Age is measured against when the report was fetched, not render time:
+  // the report does not change between loads, and reading the clock during
+  // render is impure.
+  const [reportLoadedAt, setReportLoadedAt] = useState<number | null>(null);
 
   const loadReport = async () => {
     try {
       setIsLoading(true);
       const data = await getDataValidationReport();
       setReport(data);
+      setReportLoadedAt(Date.now());
       setError(null);
     } catch (err) {
       setError('Failed to load data health report');
@@ -36,8 +41,7 @@ export const DataHealth: React.FC<DataHealthProps> = ({
   };
 
   useEffect(() => {
-    loadReport();
-    
+    void (async () => { await loadReport(); })();
     if (autoRefresh) {
       const interval = setInterval(loadReport, refreshInterval);
       return () => clearInterval(interval);
@@ -75,10 +79,9 @@ export const DataHealth: React.FC<DataHealthProps> = ({
   };
 
   const getDataAge = (timestamp: string | null) => {
-    if (!timestamp) return null;
+    if (!timestamp || reportLoadedAt === null) return null;
     const date = new Date(timestamp).getTime();
-    const now = Date.now();
-    const diffHours = (now - date) / (1000 * 60 * 60);
+    const diffHours = (reportLoadedAt - date) / (1000 * 60 * 60);
     
     if (diffHours < 1) return 'Less than 1 hour';
     if (diffHours < 24) return `${Math.round(diffHours)} hours`;
@@ -220,7 +223,7 @@ export const DataHealth: React.FC<DataHealthProps> = ({
       <div>
         <h3 className="font-semibold text-gray-800 mb-3">Data Details</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Object.entries(details).map(([key, value]: [string, any]) => (
+          {Object.entries(details).map(([key, value]) => (
             <div
               key={key}
               className={`p-3 rounded-lg border ${

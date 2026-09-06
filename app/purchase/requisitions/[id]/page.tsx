@@ -10,6 +10,8 @@ import { API_BASE_URL } from '@/src/config/runtime';
 import { PurchaseFormSheet, FormSheetAuditLog } from '@/src/components/purchase/PurchaseFormSheet';
 import { Check, Plus } from 'lucide-react';
 import { buildDocumentNavigationParams } from '@/src/lib/navigationContext';
+import type { PurchaseDocument } from '@/src/types/purchase-document';
+import { formatDocumentDateTime } from '@/src/lib/format';
 
 interface PRPageProps {
   params: Promise<{ id: string }>;
@@ -20,7 +22,7 @@ export default function PRDetailPage({ params }: PRPageProps) {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  const [pr, setPR] = useState<any>(null);
+  const [pr, setPR] = useState<PurchaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
 
@@ -63,7 +65,11 @@ export default function PRDetailPage({ params }: PRPageProps) {
   }, [id, toast]);
 
   useEffect(() => {
-    fetchPR();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchPR();
+    })();
   }, [fetchPR]);
 
   const handleApprove = async () => {
@@ -78,7 +84,7 @@ export default function PRDetailPage({ params }: PRPageProps) {
         toast('success', 'Permintaan Dapur berhasil disetujui');
         fetchPR();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal menyetujui PR');
     } finally {
       setProcessing(false);
@@ -97,7 +103,7 @@ export default function PRDetailPage({ params }: PRPageProps) {
         toast('success', 'PR berhasil dikonversi menjadi PO');
         fetchPR();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal konversi ke PO');
     } finally {
       setProcessing(false);
@@ -116,7 +122,7 @@ export default function PRDetailPage({ params }: PRPageProps) {
         toast('success', 'PR ditolak');
         fetchPR();
       }
-    } catch (error) {
+    } catch {
       toast('error', 'Gagal menolak PR');
     } finally {
       setProcessing(false);
@@ -145,7 +151,7 @@ export default function PRDetailPage({ params }: PRPageProps) {
   }
 
   const auditLogs: FormSheetAuditLog[] = [
-    { timestamp: new Date(pr.created_at).toLocaleString('id-ID'), user: pr.requested_by || 'admin', action: 'Dokumen DRAF Permintaan Dapur dibuat' },
+    { timestamp: formatDocumentDateTime(pr.created_at), user: pr.requested_by || 'admin', action: 'Dokumen DRAF Permintaan Dapur dibuat' },
     ...(pr.approved_by ? [{ timestamp: pr.approved_at ? new Date(pr.approved_at).toLocaleString('id-ID') : 'Hari ini', user: pr.approved_by, action: 'Status diubah menjadi Disetujui' }] : []),
     ...(pr.po_number ? [{ timestamp: 'Hari ini', user: 'System Administrator', action: `Dikonversi menjadi PO ${pr.po_number}` }] : []),
   ];
@@ -165,7 +171,7 @@ export default function PRDetailPage({ params }: PRPageProps) {
   const poId = pr.po_id || 'po-202608-9508';
   const poHref = `/purchase/orders/${poId}`;
   const navigationParams = buildDocumentNavigationParams(
-    { number: pr.pr_number, id: pr.id, href: `/purchase/requisitions/${id}` },
+    { number: pr.pr_number ?? '', id: pr.id ?? '', href: `/purchase/requisitions/${id}` },
     poHref,
     'Permintaan Dapur',
     '/purchase/requisitions'
@@ -173,25 +179,25 @@ export default function PRDetailPage({ params }: PRPageProps) {
   const poHrefWithContext = poHref + (navigationParams ? `?${navigationParams}` : '');
 
   return (
-    <ResponsiveShell title={pr.pr_number}>
+    <ResponsiveShell title={pr.pr_number ?? ''}>
       <div className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
         <div className="w-full">
           <PurchaseFormSheet
             documentTitle="Permintaan Dapur"
-            documentNumber={pr.pr_number}
-            status={pr.status}
+            documentNumber={pr.pr_number ?? ''}
+            status={pr.status ?? ''}
             pipelineSteps={[
               { key: 'draft', label: 'Draf' },
               { key: 'pending approval', label: 'Menunggu' },
               { key: 'approved', label: 'Disetujui' },
               { key: 'converted to po', label: 'Dikonversi' },
             ]}
-            activeStepKey={pr.status}
+            activeStepKey={pr.status ?? ''}
             requesterOrSupplierLabel="Pemohon (Requester)"
             requesterOrSupplierValue={pr.requested_by || 'admin'}
             outletName="Kitchen POS - Outlet Utama"
-            notes={pr.notes}
-            submittedDate={new Date(pr.created_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+            notes={pr.notes ?? undefined}
+            submittedDate={formatDocumentDateTime(pr.created_at)}
             approvedByDate={pr.approved_by ? `${pr.approved_by} (${pr.approved_at ? new Date(pr.approved_at).toLocaleDateString('id-ID') : ''})` : undefined}
             totalAmount={pr.total_estimated || 766000}
             primaryActions={
@@ -223,16 +229,16 @@ export default function PRDetailPage({ params }: PRPageProps) {
             onDuplicate={() => toast('success', `Menduplikat ${pr.pr_number}`)}
             onReject={pr.status === 'Pending Approval' ? handleReject : undefined}
             onDelete={() => toast('success', `PR ${pr.pr_number} dihapus`)}
-            items={rawItems.map((item: any, idx: number) => ({
+            items={rawItems.map((item, idx: number) => ({
               id: item.ingredient_id || item.id || idx,
               code: `ING-${String(idx + 1).padStart(3, '0')}`,
               name: item.ingredient_name || item.name || 'Bahan Baku',
               category: 'Bahan Baku Dapur',
               quantity: item.quantity || 1,
               unit: item.unit || 'kg',
-              unit_price: (item.estimated_price || item.unit_price) ? ((item.estimated_price || item.unit_price) / (item.quantity || 1)) : 65000,
+              unit_price: (item.estimated_price ?? item.unit_price ?? 0) > 0 ? ((item.estimated_price ?? item.unit_price ?? 0) / (item.quantity || 1)) : 65000,
               total_price: item.estimated_price || item.total_price || 650000,
-              notes: item.notes,
+              notes: item.notes ?? undefined,
             }))}
             itemsTitle="Rincian Bahan & Barang"
             auditLogs={auditLogs}

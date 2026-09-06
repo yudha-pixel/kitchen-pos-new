@@ -217,7 +217,7 @@ export default function TableManagementPage() {
           <div className="mt-8 rounded-lg border border-info/30 bg-info-soft p-4">
             <h3 className="mb-1 font-semibold text-info">Petunjuk</h3>
             <p className="text-sm text-info">
-              Ketuk meja lalu pilih status baru: Tersedia, Terisi, Reservasi, atau Kotor. Gunakan tombol "Pesan" untuk memesan menu pada meja yang tersedia atau terisi.
+              Ketuk meja lalu pilih status baru: Tersedia, Terisi, Reservasi, atau Kotor. Gunakan tombol &quot;Pesan&quot; untuk memesan menu pada meja yang tersedia atau terisi.
             </p>
           </div>
         </main>

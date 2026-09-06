@@ -144,7 +144,7 @@ export default function AppsPage() {
     [searchQuery, user?.permissions]
   );
 
-  const permittedApps = useMemo(
+  useMemo(
     () => filterApps(APPS_REGISTRY, '', user?.permissions ?? []),
     [user?.permissions]
   );

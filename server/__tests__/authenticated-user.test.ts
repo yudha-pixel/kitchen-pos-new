@@ -10,6 +10,10 @@ describe('serializeAuthenticatedUser', () => {
         full_name: 'System Administrator',
         role_id: 'af6e65d6-7d7d-4df0-8989-5faad9a04dbd',
         role: { name: 'admin' },
+        email: 'admin@kitchenpos.com',
+        phone: null,
+        outlet_id: null,
+        outlet: null,
       },
       ['users.view', 'settings.view'],
     );
@@ -21,6 +25,10 @@ describe('serializeAuthenticatedUser', () => {
       role_id: 'af6e65d6-7d7d-4df0-8989-5faad9a04dbd',
       role: 'admin',
       permissions: ['users.view', 'settings.view'],
+      email: 'admin@kitchenpos.com',
+      phone: null,
+      outlet_id: null,
+      outlet_name: null,
     });
   });
 });

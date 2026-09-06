@@ -113,7 +113,9 @@ export const getModifiersByCategory = (category: string): ModifierGroup[] => {
 };
 
 // Convert data modifiers to UI format with selected property
-export const convertToUIModifiers = (groups: ModifierGroup[]): any[] => {
+export const convertToUIModifiers = (
+  groups: ModifierGroup[],
+): Array<Omit<ModifierGroup, 'options'> & { options: Array<ModifierOption & { selected: boolean }> }> => {
   return groups.map(group => ({
     ...group,
     options: group.options.map(option => ({

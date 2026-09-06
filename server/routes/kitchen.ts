@@ -1,8 +1,10 @@
+import { Prisma } from '@prisma/client';
 import express, { Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
 import { requirePermission } from '../middleware/permissions';
 import { PERMISSIONS } from '../../src/config/permissions';
+import { queryString } from '../lib/query';
 
 const router = express.Router();
 
@@ -11,8 +13,8 @@ router.get('/stations', authMiddleware, requirePermission(PERMISSIONS.kitchen.vi
   try {
     const { outlet_id, is_active } = req.query;
 
-    const where: any = {};
-    if (outlet_id) where.outlet_id = outlet_id;
+    const where: Prisma.KitchenStationWhereInput = {};
+    where.outlet_id = queryString(outlet_id);
     if (is_active !== undefined) where.is_active = is_active === 'true';
 
     const stations = await prisma.kitchenStation.findMany({

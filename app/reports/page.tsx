@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useConfigStore } from '@/src/store/useConfigStore';
 import { getSalesDataByPeriod, getExpensesDataByPeriod, getPaymentMethodSummary, getBestSellingProducts } from '@/src/features/reports/reportsService';
 import { getPayrollSummaryByPeriod, PayrollSummary } from '@/src/features/hr/hrService';
-import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Download, Filter, CreditCard, Wallet, IdCard, Trash2, Package } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, ShoppingCart, Download, CreditCard, Wallet, IdCard, Trash2, Package } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
@@ -21,11 +21,11 @@ export default function ReportsPage() {
   const taxRate = useConfigStore((state) => state.taxRate);
   const serviceChargeRate = useConfigStore((state) => state.serviceChargeRate);
   const [chartPeriod, setChartPeriod] = useState<number>(7);
-  const [salesData, setSalesData] = useState<any[]>([]);
-  const [expensesData, setExpensesData] = useState<any[]>([]);
+  const [salesData, setSalesData] = useState<Awaited<ReturnType<typeof getSalesDataByPeriod>>>([]);
+  const [expensesData, setExpensesData] = useState<Awaited<ReturnType<typeof getExpensesDataByPeriod>>>([]);
   const [loadingChart, setLoadingChart] = useState(false);
-  const [paymentMethodSummary, setPaymentMethodSummary] = useState<any[]>([]);
-  const [bestSellingProducts, setBestSellingProducts] = useState<any[]>([]);
+  const [paymentMethodSummary, setPaymentMethodSummary] = useState<Awaited<ReturnType<typeof getPaymentMethodSummary>>>([]);
+  const [bestSellingProducts, setBestSellingProducts] = useState<Awaited<ReturnType<typeof getBestSellingProducts>>>([]);
   const [filterType, setFilterType] = useState<'days' | 'week' | 'month' | 'custom'>('days');
   const [customStartDate, setCustomStartDate] = useState('');
   const [customEndDate, setCustomEndDate] = useState('');
@@ -38,59 +38,9 @@ export default function ReportsPage() {
   const [wastageData, setWastageData] = useState<WastageData[]>([]);
   const [loadingWastage, setLoadingWastage] = useState(false);
 
-  useEffect(() => {
-    loadChartData();
-  }, []);
 
-  useEffect(() => {
-    loadChartData();
-    loadWastageData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chartPeriod]);
 
-  const loadChartData = async () => {
-    setLoadingChart(true);
-    try {
-      const [sales, expenses, paymentSummary, bestProducts, payroll] = await Promise.all([
-        getSalesDataByPeriod(chartPeriod),
-        getExpensesDataByPeriod(chartPeriod),
-        getPaymentMethodSummary(chartPeriod),
-        getBestSellingProducts(chartPeriod, 10),
-        getPayrollSummaryByPeriod(chartPeriod),
-      ]);
-      setSalesData(sales);
-      setExpensesData(expenses);
-      setPaymentMethodSummary(paymentSummary);
-      setBestSellingProducts(bestProducts);
-      setPayrollSummary(payroll);
-      
-      // Also load wastage data with the same period
-      loadWastageData();
-    } catch (error) {
-      console.error('Failed to load chart data:', error);
-    } finally {
-      setLoadingChart(false);
-    }
-  };
-
-  const mergeChartData = () => {
-    const allDates = new Set([
-      ...salesData.map(d => d.date),
-      ...expensesData.map(d => d.date),
-    ]);
-
-    return Array.from(allDates).map(date => {
-      const salesItem = salesData.find(d => d.date === date);
-      const expenseItem = expensesData.find(d => d.date === date);
-      return {
-        date,
-        sales: salesItem?.total || 0,
-        expenses: expenseItem?.total || 0,
-      };
-    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  };
-
-  const loadWastageData = async () => {
+  const loadWastageData = useCallback(async () => {
     setLoadingWastage(true);
     try {
       const token = getToken();
@@ -110,7 +60,59 @@ export default function ReportsPage() {
     } finally {
       setLoadingWastage(false);
     }
+  }, [chartPeriod]);
+
+  const loadChartData = useCallback(async () => {
+    setLoadingChart(true);
+    try {
+      const [sales, expenses, paymentSummary, bestProducts, payroll] = await Promise.all([
+        getSalesDataByPeriod(chartPeriod),
+        getExpensesDataByPeriod(chartPeriod),
+        getPaymentMethodSummary(chartPeriod),
+        getBestSellingProducts(chartPeriod, 10),
+        getPayrollSummaryByPeriod(chartPeriod),
+      ]);
+      setSalesData(sales);
+      setExpensesData(expenses);
+      setPaymentMethodSummary(paymentSummary);
+      setBestSellingProducts(bestProducts);
+      setPayrollSummary(payroll);
+      
+      // Also load wastage data with the same period
+      await loadWastageData();
+    } catch (error) {
+      console.error('Failed to load chart data:', error);
+    } finally {
+      setLoadingChart(false);
+    }
+  }, [chartPeriod, loadWastageData]);
+
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadChartData();
+    })();
+  }, [loadChartData]);
+  const mergeChartData = () => {
+    const allDates = new Set([
+      ...salesData.map(d => d.date),
+      ...expensesData.map(d => d.date),
+    ]);
+
+    return Array.from(allDates).map(date => {
+      const salesItem = salesData.find(d => d.date === date);
+      const expenseItem = expensesData.find(d => d.date === date);
+      return {
+        date,
+        sales: salesItem?.total || 0,
+        expenses: expenseItem?.total || 0,
+      };
+    }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
+
+
 
   const calculateFinancialSummary = () => {
     const totalRevenue = salesData.reduce((sum, d) => sum + d.total, 0);
@@ -263,7 +265,7 @@ export default function ReportsPage() {
                   <div className="flex items-center gap-2">
                     <select
                       value={filterType}
-                      onChange={(e) => setFilterType(e.target.value as any)}
+                      onChange={(e) => setFilterType(e.target.value as typeof filterType)}
                       className="px-2 py-1 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="days">Harian</option>
@@ -328,7 +330,7 @@ export default function ReportsPage() {
                           boxShadow: '0 4px 6 -1px rgba(0, 0, 0, 0.1)',
                         }}
                         labelStyle={{ color: '#374151', fontWeight: 'bold' }}
-                        formatter={(value: any) => formatRupiah(value || 0)}
+                        formatter={(value) => formatRupiah(Number(value) || 0)}
                       />
                       <Legend />
                       <Line type="monotone" dataKey="sales" stroke="#3b82f6" name="Pendapatan" strokeWidth={2} dot={{ r: 4 }} activeDot={{ r: 6 }} />

@@ -1,4 +1,4 @@
-import { chromium, type Browser, type Page, type BrowserContext } from '@playwright/test';
+import { chromium, type Page } from '@playwright/test';
 
 const BASE_URL = 'http://localhost:3000';
 

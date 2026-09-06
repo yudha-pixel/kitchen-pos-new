@@ -13,6 +13,7 @@ export interface AppChildLink {
   href: string;
   iconName?: string;
   requiredPermission: PermissionName;
+  keywords?: string[];
 }
 
 export interface AppDefinition {
@@ -97,6 +98,7 @@ export const APPS_REGISTRY: AppDefinition[] = [
       { label: 'Kategori Barang', href: '/inventory/categories', iconName: 'Tags', requiredPermission: PERMISSIONS.inventory.view },
       { label: 'Penyesuaian Stok', href: '/inventory/stock-adjustments', iconName: 'SlidersHorizontal', requiredPermission: PERMISSIONS.inventory.adjust },
       { label: 'Transfer Stok', href: '/inventory/stock-transfers', iconName: 'ArrowLeftRight', requiredPermission: PERMISSIONS.inventory.transfer },
+      { label: 'Supplier', href: '/inventory-suppliers', iconName: 'Truck', requiredPermission: PERMISSIONS.purchasing.view, keywords: ['supplier', 'vendor', 'pemasok', 'rekanan'] },
       { label: 'Otomatisasi Stok', href: '/inventory/automation', iconName: 'Workflow', requiredPermission: PERMISSIONS.inventory.edit },
     ],
   },

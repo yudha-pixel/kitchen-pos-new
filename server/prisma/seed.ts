@@ -1,4 +1,15 @@
 import { prisma } from '../lib/prisma';
+import type {
+  GoodsReceivedNote,
+  Ingredient,
+  IngredientCategory,
+  Invoice,
+  PurchaseOrder,
+  Quotation,
+  StockRequest,
+  Supplier,
+  Warehouse,
+} from '@prisma/client';
 import bcrypt from 'bcrypt';
 import { randomUUID } from 'crypto';
 import { synchronizePermissionCatalog } from '../lib/permissionBackfill';
@@ -120,7 +131,7 @@ async function main() {
   }
 
   // Create additional outlets
-  const outlet2 = await prisma.outlet.upsert({
+  await prisma.outlet.upsert({
     where: { code: 'OUT-002' },
     update: {},
     create: {
@@ -134,7 +145,7 @@ async function main() {
     },
   });
 
-  const outlet3 = await prisma.outlet.upsert({
+  await prisma.outlet.upsert({
     where: { code: 'OUT-003' },
     update: {},
     create: {
@@ -306,14 +317,14 @@ async function main() {
   console.log('✅ Created 6 food/drink/snack modifier groups');
 
   // Create modifiers for each group
-  const temperatureModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: temperatureGroup.id, name: 'Hot', price_extra: 0 },
       { id: randomUUID(), modifier_group_id: temperatureGroup.id, name: 'Iced', price_extra: 3000 },
     ],
   });
 
-  const sugarModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: sugarGroup.id, name: 'Normal Sugar', price_extra: 0 },
       { id: randomUUID(), modifier_group_id: sugarGroup.id, name: 'Less Sugar', price_extra: 0 },
@@ -321,7 +332,7 @@ async function main() {
     ],
   });
 
-  const addonModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: addonGroup.id, name: 'Extra Espresso Shot', price_extra: 5000 },
       { id: randomUUID(), modifier_group_id: addonGroup.id, name: 'Oat Milk Upgrade', price_extra: 8000 },
@@ -329,7 +340,7 @@ async function main() {
   });
 
   // Food modifiers
-  const spicinessModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Tidak Pedas', price_extra: 0 },
       { id: randomUUID(), modifier_group_id: spicinessGroup.id, name: 'Sedikit Pedas', price_extra: 0 },
@@ -338,7 +349,7 @@ async function main() {
     ],
   });
 
-  const foodToppingsModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Nasi', price_extra: 5000 },
       { id: randomUUID(), modifier_group_id: foodToppingsGroup.id, name: 'Extra Telur', price_extra: 3000 },
@@ -348,7 +359,7 @@ async function main() {
   });
 
   // Drink modifiers
-  const drinkSugarModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Tanpa Gula', price_extra: 0 },
       { id: randomUUID(), modifier_group_id: drinkSugarGroup.id, name: 'Sedikit Gula', price_extra: 0 },
@@ -357,7 +368,7 @@ async function main() {
     ],
   });
 
-  const iceModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: iceGroup.id, name: 'Tanpa Es', price_extra: 0 },
       { id: randomUUID(), modifier_group_id: iceGroup.id, name: 'Sedikit Es', price_extra: 0 },
@@ -366,7 +377,7 @@ async function main() {
     ],
   });
 
-  const drinkToppingsModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Jelly', price_extra: 3000 },
       { id: randomUUID(), modifier_group_id: drinkToppingsGroup.id, name: 'Puding', price_extra: 3000 },
@@ -376,7 +387,7 @@ async function main() {
   });
 
   // Snack modifiers
-  const snackToppingsModifiers = await prisma.modifier.createMany({
+  await prisma.modifier.createMany({
     data: [
       { id: randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Saus', price_extra: 2000 },
       { id: randomUUID(), modifier_group_id: snackToppingsGroup.id, name: 'Mayones', price_extra: 2000 },
@@ -761,7 +772,7 @@ async function main() {
 
       // Create order first
       const orderId = randomUUID();
-      const order = await prisma.order.create({
+      await prisma.order.create({
         data: {
           id: orderId,
           cashier_id: cashier.id,
@@ -820,7 +831,7 @@ async function main() {
     
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
-    const monthStr = month.toString().padStart(2, '0');
+    month.toString().padStart(2, '0');
     
     const periodStart = new Date(year, month - 1, 1);
     const periodEnd = new Date(year, month, 0); // Last day of the month
@@ -971,6 +982,9 @@ async function seedInventoryData() {
   // Step 2: Create warehouses and ingredient categories
   console.log('🏗️ Creating warehouses and ingredient categories...');
   const warehouse = await prisma.warehouse.findFirst();
+  if (!warehouse) {
+    throw new Error('Seed requires at least one warehouse; none found.');
+  }
   const ingredientCategories = await createIngredientCategories();
   console.log(`✅ Created ${ingredientCategories.length} ingredient categories`);
 
@@ -1303,7 +1317,7 @@ async function createComprehensiveSuppliers() {
     },
   ];
 
-  const createdSuppliers = await prisma.supplier.createMany({
+  await prisma.supplier.createMany({
     data: supplierData,
     skipDuplicates: true,
   });
@@ -1333,7 +1347,21 @@ async function createIngredientCategories() {
   return await prisma.ingredientCategory.findMany();
 }
 
-async function createComprehensiveIngredients(suppliers: any[], warehouse: any, categories: any[]) {
+// Line items the seed builds in memory before they are written with the order.
+interface SeedPurchaseOrderItem {
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity: number;
+  unit: string;
+}
+
+type SeededPurchaseOrder = PurchaseOrder & { items?: SeedPurchaseOrderItem[] };
+
+async function createComprehensiveIngredients(
+  suppliers: Supplier[],
+  warehouse: Warehouse,
+  categories: IngredientCategory[],
+) {
   const categoryMap = new Map(categories.map(c => [c.name, c.id]));
   
   const ingredientData = [
@@ -1448,7 +1476,7 @@ async function createComprehensiveIngredients(suppliers: any[], warehouse: any, 
   return createdIngredients;
 }
 
-async function generateStockRequests(ingredients: any[], suppliers: any[]) {
+async function generateStockRequests(ingredients: Ingredient[], suppliers: Supplier[]) {
   const stockRequests = [];
   const statuses = ['pending_supervisor', 'pending_manager', 'pending_finance', 'approved', 'rejected', 'cancelled'];
   const daysToCover = 90;
@@ -1487,7 +1515,7 @@ async function generateStockRequests(ingredients: any[], suppliers: any[]) {
   return stockRequests;
 }
 
-async function generateQuotations(stockRequests: any[], suppliers: any[]) {
+async function generateQuotations(stockRequests: StockRequest[], suppliers: Supplier[]) {
   const quotationRequests = [];
   const quotations = [];
   const quotationStatuses = ['received', 'selected', 'rejected'];
@@ -1555,7 +1583,7 @@ async function generateQuotations(stockRequests: any[], suppliers: any[]) {
   return { quotationRequests, quotations };
 }
 
-async function generatePurchaseOrders(quotations: any[], ingredients: any[]) {
+async function generatePurchaseOrders(quotations: Quotation[], ingredients: Ingredient[]) {
   const purchaseOrders = [];
   const poStatuses = ['draft', 'sent', 'acknowledged', 'partially_received', 'received', 'cancelled'];
   const daysToCover = 90;
@@ -1628,7 +1656,7 @@ async function generatePurchaseOrders(quotations: any[], ingredients: any[]) {
   return purchaseOrders;
 }
 
-async function generatePurchaseRequisitions(ingredients: any[], suppliers: any[]) {
+async function generatePurchaseRequisitions(ingredients: Ingredient[], suppliers: Supplier[]) {
   const purchaseRequisitions = [];
   const prStatuses = ['Pending Approval', 'Approved', 'Rejected', 'Converted to PO'];
   const daysToCover = 90;
@@ -1702,7 +1730,7 @@ async function generatePurchaseRequisitions(ingredients: any[], suppliers: any[]
   return purchaseRequisitions;
 }
 
-async function generateGoodsReceivedNotes(purchaseOrders: any[], ingredients: any[]) {
+async function generateGoodsReceivedNotes(purchaseOrders: SeededPurchaseOrder[], _ingredients: Ingredient[]) {
   const goodsReceivedNotes = [];
   const grnStatuses = ['pending', 'quality_check', 'completed', 'cancelled'];
   const daysToCover = 90;
@@ -1742,7 +1770,7 @@ async function generateGoodsReceivedNotes(purchaseOrders: any[], ingredients: an
         quality_checked_at: ['quality_check', 'completed'].includes(status) ? new Date(grnDate.getTime() + 1 * 24 * 60 * 60 * 1000) : null,
         quality_notes: ['quality_check', 'completed'].includes(status) ? 'Quality check passed' : null,
         items: {
-          create: (po.items || []).map((item: any) => ({
+          create: (po.items || []).map((item: SeedPurchaseOrderItem) => ({
             id: randomUUID(),
             ingredient_id: item.ingredient_id,
             ingredient_name: item.ingredient_name,
@@ -1800,7 +1828,7 @@ async function generateGoodsReceivedNotes(purchaseOrders: any[], ingredients: an
   return goodsReceivedNotes;
 }
 
-async function generateInvoices(goodsReceivedNotes: any[]) {
+async function generateInvoices(goodsReceivedNotes: GoodsReceivedNote[]) {
   const invoices = [];
   const invoiceStatuses = ['pending', 'verified', 'partially_paid', 'paid', 'overdue'];
   const daysToCover = 90;
@@ -1851,8 +1879,10 @@ async function generateInvoices(goodsReceivedNotes: any[]) {
   return invoices;
 }
 
-async function generateSupplierPayments(invoices: any[]) {
-  const payments = [];
+async function generateSupplierPayments(invoices: Invoice[]) {
+  // Annotated because the partial-payment amount reads back from `payments`,
+  // which otherwise makes the element type circular.
+  const payments: Awaited<ReturnType<typeof prisma.payment.create>>[] = [];
   const paymentStatuses = ['pending', 'completed', 'cancelled'];
   const paymentMethods = ['transfer', 'cash', 'check'];
   const daysToCover = 90;

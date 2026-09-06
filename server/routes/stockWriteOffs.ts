@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ const rejectStockWriteOffSchema = z.object({
 router.get('/', authMiddleware, requirePermission(PERMISSIONS.inventory.view), async (req: Request, res: Response) => {
   try {
     const { status } = req.query;
-    const where: any = {};
+    const where: Prisma.StockWriteOffWhereInput = {};
     if (status) where.status = status as string;
 
     const writeOffs = await prisma.stockWriteOff.findMany({

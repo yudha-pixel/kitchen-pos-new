@@ -45,11 +45,8 @@ export default function AutomationPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkSupplierId, setBulkSupplierId] = useState('');
   const [bulkRestockQuantity, setBulkRestockQuantity] = useState('');
-  const [showBulkActions, setShowBulkActions] = useState(false);
+  const [, setShowBulkActions] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
 
   const loadData = async () => {
     setLoading(true);
@@ -94,7 +91,15 @@ export default function AutomationPage() {
     }
   };
 
-  const handleIngredientChange = (id: string, field: keyof Ingredient, value: any) => {
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadData();
+    })();
+  }, []);
+  const handleIngredientChange = (id: string, field: keyof Ingredient, value: string | number | boolean | null) => {
     setIngredients(prev => prev.map(ing => {
       if (ing.id === id) {
         // If switching to ad-hoc supplier, clear regular supplier_id
@@ -103,7 +108,7 @@ export default function AutomationPage() {
         }
         // If switching to regular supplier, clear ad-hoc fields
         if (field === 'supplier_id' && value !== 'ad-hoc') {
-          return { ...ing, supplier_id: value, ad_hoc_supplier: null, ad_hoc_price: null, use_petty_cash: false };
+          return { ...ing, supplier_id: typeof value === 'string' ? value : null, ad_hoc_supplier: null, ad_hoc_price: null, use_petty_cash: false };
         }
         return { ...ing, [field]: value };
       }

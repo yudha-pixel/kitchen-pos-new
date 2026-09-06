@@ -182,7 +182,7 @@ export async function getAttendanceByDate(date: string): Promise<Attendance[]> {
       try {
         const errorData = await response.json();
         errorMessage = errorData.error || errorMessage;
-      } catch (e) {
+      } catch {
         // If response is not JSON, use status text
         errorMessage = `Failed to fetch attendance (${response.status}: ${response.statusText})`;
       }
@@ -245,7 +245,7 @@ export async function checkIn(employeeId: string, photo: string, shiftId?: strin
       throw new Error(error.error || 'Failed to check-in');
     }
 
-    const data = await response.json();
+    await response.json();
     // Determine status based on check-in time (simplified for API)
     const isLate = false; // Backend will handle this logic
     return { status: 'present', isLate };
@@ -278,7 +278,7 @@ export async function checkOut(employeeId: string, photo: string): Promise<{ ove
       throw new Error(error.error || 'Failed to check-out');
     }
 
-    const data = await response.json();
+    await response.json();
     return { overtimeHours: 0 }; // Backend will calculate this
   } catch (error) {
     console.error('Failed to check-out:', error);
@@ -415,7 +415,7 @@ export async function getAllShifts(): Promise<Shift[]> {
   try {
     const { db } = await import('@/src/lib/db');
     const shifts = await db.shifts.toArray();
-    return shifts.sort((a: any, b: any) => a.start_time.localeCompare(b.start_time));
+    return shifts.sort((a, b) => a.start_time.localeCompare(b.start_time));
   } catch (error) {
     console.error('Failed to get shifts:', error);
     return [];
@@ -500,8 +500,8 @@ export async function getEmployeeNamesByIds(employeeIds: string[]): Promise<Map<
       .toArray();
     
     const nameMap = new Map<string, string>();
-    employees.forEach((emp: any) => {
-      nameMap.set(emp.id, emp.name);
+    employees.forEach((emp) => {
+      if (emp.id) nameMap.set(emp.id, emp.name);
     });
     
     return nameMap;

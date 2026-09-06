@@ -1,19 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
 import { Building2, Phone, Mail, MapPin, User, Tag, Package, Clock, CheckCircle, XCircle, ArrowLeft, FileText, Calendar, DollarSign } from 'lucide-react';
+import type { Supplier } from '@/src/lib/db';
+import type { PurchaseDocument } from '@/src/types/purchase-document';
 
 export default function SupplierDetailPage() {
   const router = useRouter();
   const params = useParams();
   const { user, isLoading } = useAuth();
-  const [supplier, setSupplier] = useState<any>(null);
-  const [purchaseOrders, setPurchaseOrders] = useState<any[]>([]);
+  const [supplier, setSupplier] = useState<Supplier | null>(null);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseDocument[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -22,13 +24,8 @@ export default function SupplierDetailPage() {
     }
   }, [user, isLoading, router]);
 
-  useEffect(() => {
-    if (user && params.id) {
-      loadSupplierData();
-    }
-  }, [user, params.id]);
 
-  const loadSupplierData = async () => {
+  const loadSupplierData = useCallback(async () => {
     try {
       const token = getToken();
 
@@ -63,8 +60,14 @@ export default function SupplierDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
+
+  useEffect(() => {
+    if (user && params.id) {
+      void (async () => { await loadSupplierData(); })();
+    }
+  }, [user, params.id, loadSupplierData]);
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
       day: '2-digit',
@@ -312,7 +315,7 @@ export default function SupplierDetailPage() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                   <div className="flex items-center">
                                     <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                                    {formatDate(order.order_date)}
+                                    {formatDate(order.order_date ?? '')}
                                   </div>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap">
@@ -328,7 +331,7 @@ export default function SupplierDetailPage() {
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-900">
                                   <div className="flex items-center justify-end">
                                     <DollarSign className="h-4 w-4 text-gray-400 mr-2" />
-                                    {formatCurrency(order.total)}
+                                    {formatCurrency(order.total ?? 0)}
                                   </div>
                                 </td>
                               </tr>

@@ -60,7 +60,7 @@ export default function SelfOrderRequestsPage() {
   }, []);
 
   useEffect(() => {
-    fetchPending(true);
+    void (async () => { await fetchPending(true); })();
     const interval = setInterval(() => fetchPending(false), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [fetchPending]);

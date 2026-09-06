@@ -12,7 +12,7 @@ import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
 import { useAuth } from '@/src/context/AuthContext';
 import { useCompany } from '@/src/context/CompanyContext';
 import { findModuleForPath } from '@/src/config/navigation';
-import { usePageHeaderContext } from '@/src/context/PageHeaderContext';
+import { usePageHeaderContext, type BreadcrumbSegment } from '@/src/context/PageHeaderContext';
 import { Menu as BaseMenu } from '@base-ui/react/menu';
 
 interface HeaderProps {
@@ -53,9 +53,12 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
   const fromParentHref = searchParams?.get('fromParentHref');
 
   // Build dynamic clickable breadcrumb segments
-  const breadcrumbSegments: { label: string; href?: string }[] = [];
+  const breadcrumbSegments: BreadcrumbSegment[] = [];
 
-  if (fromLabel && fromHref) {
+  if (config.breadcrumbs?.length) {
+    // Page supplied its own trail (e.g. in-page list/form views the URL can't express)
+    breadcrumbSegments.push(...config.breadcrumbs);
+  } else if (fromLabel && fromHref) {
     // Document-to-document navigation context (e.g., PR → PO)
     if (fromParentLabel && fromParentHref) {
       breadcrumbSegments.push({ label: fromParentLabel, href: fromParentHref });
@@ -139,7 +142,15 @@ export const Header = ({ title, onSearch, onToggleMobileSidebar }: HeaderProps) 
                 const isLast = idx === breadcrumbSegments.length - 1;
                 return (
                   <div key={idx} className="flex items-center gap-1.5 min-w-0" title={item.label}>
-                    {!isLast && item.href ? (
+                    {!isLast && item.onClick ? (
+                      <button
+                        type="button"
+                        onClick={item.onClick}
+                        className="text-ink-muted hover:text-primary hover:underline font-medium transition-colors truncate"
+                      >
+                        {item.label}
+                      </button>
+                    ) : !isLast && item.href ? (
                       <Link
                         href={item.href}
                         className="text-ink-muted hover:text-primary hover:underline font-medium transition-colors truncate"

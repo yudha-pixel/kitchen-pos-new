@@ -22,13 +22,14 @@ import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { db, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
-import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData, importInventoryData } from '@/src/features/inventory/inventoryService';
+import { recordStockAdjustment, getStockAdjustmentHistory, exportInventoryData } from '@/src/features/inventory/inventoryService';
 import { getIngredientsWithStatus, syncRecipeIngredientsToInventory } from '@/src/features/inventory/recipeApiService';
 import { validateUnitPrice, convertToSmallestUnit, calculateUnitCostFromPackage } from '@/src/features/inventory/unitConversion';
 import { getToken } from '@/src/lib/api';
 import { API_BASE_URL } from '@/src/config/runtime';
 import { createStockRequest } from '@/src/features/inventory/recipeApiService';
 import { useRouter } from 'next/navigation';
+import type { Outlet } from '@/src/lib/db';
 
 interface InventoryItem {
   id: string;
@@ -49,98 +50,6 @@ interface InventoryItem {
   lastUpdated: string;
 }
 
-const MOCK_ITEMS: InventoryItem[] = [
-  {
-    id: '1',
-    name: 'Chicken Breast',
-    sku: 'CHB-001',
-    category: 'Protein',
-    onHand: '45 kg',
-    status: 'In Stock',
-    unitCost: 'Rp 45.000',
-    unit: 'kg',
-    barcode: '8991234567890',
-    supplier: 'PT. Sentosa Food',
-    sellingPrice: 'Rp 85.000',
-    reorderPoint: '10 kg',
-    description: 'Premium chicken breast, skinless.',
-    committed: '8 kg',
-    available: '37 kg',
-    lastUpdated: '10 Aug 2024, 03:15 by admin',
-  },
-  {
-    id: '2',
-    name: 'Beef Tenderloin',
-    sku: 'BFT-002',
-    category: 'Protein',
-    onHand: '12 kg',
-    status: 'Low Stock',
-    unitCost: 'Rp 120.000',
-    unit: 'kg',
-    barcode: '8991234567891',
-    supplier: 'PT. Sentosa Food',
-    sellingPrice: 'Rp 220.000',
-    reorderPoint: '15 kg',
-    description: 'Fresh Australian beef tenderloin.',
-    committed: '2 kg',
-    available: '10 kg',
-    lastUpdated: '10 Aug 2024, 01:20 by admin',
-  },
-  {
-    id: '3',
-    name: 'Cheddar Cheese',
-    sku: 'CHS-003',
-    category: 'Dairy',
-    onHand: '2 kg',
-    status: 'Low Stock',
-    unitCost: 'Rp 85.000',
-    unit: 'kg',
-    barcode: '8991234567892',
-    supplier: 'Dairy Master Ltd',
-    sellingPrice: 'Rp 130.000',
-    reorderPoint: '5 kg',
-    description: 'Aged cheddar cheese blocks.',
-    committed: '0 kg',
-    available: '2 kg',
-    lastUpdated: '9 Aug 2024, 16:40 by admin',
-  },
-  {
-    id: '4',
-    name: 'Olive Oil',
-    sku: 'OIL-004',
-    category: 'Oil',
-    onHand: '0 L',
-    status: 'Out of Stock',
-    unitCost: 'Rp 150.000',
-    unit: 'L',
-    barcode: '8991234567893',
-    supplier: 'Mediterranean Imports',
-    sellingPrice: 'Rp 250.000',
-    reorderPoint: '10 L',
-    description: 'Extra virgin olive oil.',
-    committed: '0 L',
-    available: '0 L',
-    lastUpdated: '9 Aug 2024, 09:30 by admin',
-  },
-  {
-    id: '5',
-    name: 'Tomato Sauce',
-    sku: 'TMS-005',
-    category: 'Sauces',
-    onHand: '18 pcs',
-    status: 'In Stock',
-    unitCost: 'Rp 28.000',
-    unit: 'pcs',
-    barcode: '8991234567894',
-    supplier: 'Saus Nusantara',
-    sellingPrice: 'Rp 40.000',
-    reorderPoint: '5 pcs',
-    description: 'Rich tomato pasta sauce pouch.',
-    committed: '2 pcs',
-    available: '16 pcs',
-    lastUpdated: '9 Aug 2024, 14:20 by admin',
-  },
-];
 
 export default function InventoryPage() {
   const { toast } = useToast();
@@ -170,7 +79,7 @@ export default function InventoryPage() {
   const [bulkRequestType, setBulkRequestType] = useState('restock');
   const [bulkDestination, setBulkDestination] = useState('');
   const [bulkRequesterRole, setBulkRequesterRole] = useState('Kitchen Staff');
-  const [outlets, setOutlets] = useState<any[]>([]);
+  const [outlets, setOutlets] = useState<Outlet[]>([]);
   const [customQuantities, setCustomQuantities] = useState<Record<string, string>>({});
   const [newItem, setNewItem] = useState({
     name: '',
@@ -221,7 +130,11 @@ export default function InventoryPage() {
   };
 
   useEffect(() => {
-    loadIngredientCategories();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadIngredientCategories();
+    })();
   }, []);
 
   // Fetch outlets for bulk request modal
@@ -295,7 +208,7 @@ export default function InventoryPage() {
     };
     
     loadData();
-  }, []);
+  }, [toast]);
 
   const loadAdjustmentHistory = async (ingredientId: string) => {
     try {
@@ -304,16 +217,33 @@ export default function InventoryPage() {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
       if (!res.ok) throw new Error(`Failed to load stock logs: ${res.status}`);
-      const data = await res.json();
+      const data: {
+        logs: {
+          id: string;
+          ingredient_id: string;
+          type: StockAdjustmentType;
+          quantity: number;
+          notes?: string | null;
+          reference_id?: string | null;
+          created_at: string;
+          ingredient?: { id: string; name: string; unit: string } | null;
+        }[];
+      } = await res.json();
       // Transform StockLog data to match the expected format
-      const history: StockAdjustment[] = data.logs.map((log: any) => ({
+      const history: StockAdjustment[] = data.logs.map((log) => ({
         id: log.id,
+        ingredientId: log.ingredient_id,
+        ingredientName: log.ingredient?.name ?? '',
         adjustmentType: log.type,
         adjustmentQuantity: log.quantity,
         previousStock: 0, // StockLog doesn't track previous stock
         newStock: 0, // StockLog doesn't track new stock directly
         adjustedAt: log.created_at,
-        reason: log.notes,
+        reason: log.notes ?? '',
+        // StockLog has no actor columns; the API does not return one.
+        adjustedBy: '',
+        adjustedByName: '',
+        referenceId: log.reference_id ?? undefined,
       }));
       setAdjustmentHistory(history);
     } catch (error) {
@@ -457,7 +387,7 @@ export default function InventoryPage() {
         const suppliers = await db.suppliers.toArray();
         
         const inventoryItems: InventoryItem[] = ingredients.map(ing => {
-          const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
+          const supplier = suppliers.find((s) => s.id === ing.supplier_id);
           const status = ing.current_stock <= 0 ? 'Out of Stock' : 
                         ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
           
@@ -762,7 +692,7 @@ export default function InventoryPage() {
               additionalInfo.push(`Tipe: ${typeLabels[bulkRequestType as keyof typeof typeLabels] || bulkRequestType}`);
             }
             if (bulkDestination) {
-              const outlet = outlets.find((o: any) => o.id === bulkDestination);
+              const outlet = outlets.find((o) => o.id === bulkDestination);
               additionalInfo.push(`Tujuan: ${outlet?.name || bulkDestination}`);
             }
             if (bulkRequesterRole) {
@@ -913,7 +843,7 @@ export default function InventoryPage() {
       const suppliers = await db.suppliers.toArray();
       
       const inventoryItems: InventoryItem[] = ingredients.map(ing => {
-        const supplier = suppliers.find((s: any) => s.id === ing.supplier_id);
+        const supplier = suppliers.find((s) => s.id === ing.supplier_id);
         const status = ing.current_stock <= 0 ? 'Out of Stock' :
                       ing.current_stock <= ing.min_stock ? 'Low Stock' : 'In Stock';
 
@@ -1918,7 +1848,7 @@ export default function InventoryPage() {
                 }`}
               >
                 <option value="">Pilih lokasi tujuan...</option>
-                {outlets.map((outlet: any) => (
+                {outlets.map((outlet) => (
                   <option key={outlet.id} value={outlet.id}>
                     {outlet.name} ({outlet.code})
                   </option>

@@ -26,6 +26,8 @@ export function AddEmployeeModal({ isOpen, onClose, onSave, editingEmployee }: A
   const [formError, setFormError] = useState('');
 
   useEffect(() => {
+    // Resets the form each time the modal opens for a different employee.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setFormError('');
     if (editingEmployee) {
       setFormData({

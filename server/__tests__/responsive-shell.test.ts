@@ -14,9 +14,9 @@ if (typeof window === 'undefined') {
     }
   }
   const target = new EventTarget();
-  (globalThis as any).window = target;
-  (globalThis as any).CustomEvent = MockCustomEvent;
-  (globalThis as any).KeyboardEvent = MockKeyboardEvent;
+  (globalThis as Record<string, unknown>).window = target;
+  (globalThis as Record<string, unknown>).CustomEvent = MockCustomEvent;
+  (globalThis as Record<string, unknown>).KeyboardEvent = MockKeyboardEvent;
 }
 
 describe('Responsive Shell & Off-Canvas Mobile Drawer Contract', () => {
@@ -35,7 +35,7 @@ describe('Responsive Shell & Off-Canvas Mobile Drawer Contract', () => {
 
   it('verifies Escape key handling logic for drawer closure', () => {
     let drawerClosed = false;
-    const handleKeyDown = (e: any) => {
+    const handleKeyDown = (e: { key: string }) => {
       if (e.key === 'Escape') {
         drawerClosed = true;
       }

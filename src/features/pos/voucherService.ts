@@ -5,6 +5,7 @@ export interface Voucher {
   id: string;
   code: string;
   name: string;
+  description?: string | null;
   discount_type: 'nominal' | 'percentage';
   discount_value: number;
   max_discount?: number;
@@ -42,7 +43,9 @@ export async function validateVoucher(
 }
 
 // Increment a voucher's usage count after it's applied to a cart
-export async function useVoucher(voucherId: string): Promise<{ success: boolean; message?: string }> {
+// Named redeem* rather than use* so it is not mistaken for a React hook
+// (the use* prefix also trips react-hooks/rules-of-hooks).
+export async function redeemVoucher(voucherId: string): Promise<{ success: boolean; message?: string }> {
   try {
     const token = getToken();
     const response = await fetch(`${API_BASE_URL}/api/vouchers/${voucherId}/use`, {

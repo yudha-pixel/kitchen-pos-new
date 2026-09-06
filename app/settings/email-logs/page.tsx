@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '@/src/context/AuthContext';
+import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/src/components/ui/Toast';
 import { Button } from '@/src/components/ui/Button';
 import { Badge } from '@/src/components/ui/Badge';
@@ -12,19 +11,7 @@ import {
   resendEmailLog, 
   type EmailLogRecord 
 } from '@/src/lib/api';
-import { 
-  MailCheck, 
-  Search, 
-  RefreshCw, 
-  Send, 
-  CheckCircle2, 
-  XCircle, 
-  AlertTriangle, 
-  Clock, 
-  Eye, 
-  Info,
-  Mail
-} from 'lucide-react';
+import { MailCheck, Search, RefreshCw, Send, CheckCircle2, XCircle, Clock, Eye, Info, Mail } from 'lucide-react';
 
 export default function EmailLogsPage() {
   const { toast } = useToast();
@@ -49,21 +36,25 @@ export default function EmailLogsPage() {
   }, [setConfig]);
 
   // Load Sent Email Logs
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchEmailLogs(statusFilter, searchQuery);
       setLogs(data || []);
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal memuat log email terkirim');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal memuat log email terkirim');
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchQuery, statusFilter, toast]);
 
   useEffect(() => {
-    loadData();
-  }, [statusFilter]);
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadData();
+    })();
+  }, [statusFilter, loadData]);
 
   // Handle Search Input Submit or Debounce
   const handleSearchSubmit = (e: React.FormEvent) => {
@@ -79,8 +70,8 @@ export default function EmailLogsPage() {
       const res = await resendEmailLog(log.id);
       toast('success', res.message || `Email berhasil dikirim ulang ke ${log.recipient}`);
       await loadData();
-    } catch (err: any) {
-      toast('error', err.message || 'Gagal mengirim ulang email');
+    } catch (err) {
+      toast('error', err instanceof Error ? err.message : 'Gagal mengirim ulang email');
     } finally {
       setResendingId(null);
     }

@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { Router, Request, Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { authMiddleware } from '../middleware/auth';
@@ -225,15 +226,15 @@ router.get('/reports/discounts/global', authMiddleware, requirePermission(PERMIS
     const dateFrom = req.query.dateFrom as string;
     const dateTo = req.query.dateTo as string;
     
-    const where: any = {
+    const where: Prisma.OrderWhereInput = {
       discount_amount: { gt: 0 },
     };
     
-    if (dateFrom) {
-      where.created_at = { ...where.created_at, gte: new Date(dateFrom) };
-    }
-    if (dateTo) {
-      where.created_at = { ...where.created_at, lte: new Date(dateTo + 'T23:59:59') };
+    if (dateFrom || dateTo) {
+      where.created_at = {
+        ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+        ...(dateTo ? { lte: new Date(dateTo + 'T23:59:59') } : {}),
+      };
     }
     
     const orders = await prisma.order.findMany({
@@ -271,23 +272,10 @@ router.get('/reports/discounts/global', authMiddleware, requirePermission(PERMIS
  */
 router.get('/reports/discounts/vouchers', authMiddleware, requirePermission(PERMISSIONS.reports.view), async (req: Request, res: Response) => {
   try {
-    const dateFrom = req.query.dateFrom as string;
-    const dateTo = req.query.dateTo as string;
-    
-    const where: any = {};
-    
-    if (dateFrom) {
-      where.created_at = { ...where.created_at, gte: new Date(dateFrom) };
-    }
-    if (dateTo) {
-      where.created_at = { ...where.created_at, lte: new Date(dateTo + 'T23:59:59') };
-    }
-    
-    // Currently voucher tracking is not fully implemented in the schema
-    // Return empty array for now
-    const result: any[] = [];
-    
-    res.json(result);
+    // Voucher tracking is not modelled in the schema yet, so there is nothing to
+    // filter or return. The dateFrom/dateTo query params are accepted and
+    // ignored until it is.
+    res.json([]);
   } catch (error) {
     console.error('Failed to get voucher orders:', error);
     res.status(500).json({ error: 'Failed to get voucher orders' });
@@ -299,23 +287,10 @@ router.get('/reports/discounts/vouchers', authMiddleware, requirePermission(PERM
  */
 router.get('/reports/discounts/free-items', authMiddleware, requirePermission(PERMISSIONS.reports.view), async (req: Request, res: Response) => {
   try {
-    const dateFrom = req.query.dateFrom as string;
-    const dateTo = req.query.dateTo as string;
-    
-    const where: any = {};
-    
-    if (dateFrom) {
-      where.created_at = { ...where.created_at, gte: new Date(dateFrom) };
-    }
-    if (dateTo) {
-      where.created_at = { ...where.created_at, lte: new Date(dateTo + 'T23:59:59') };
-    }
-    
-    // Currently free item tracking is not fully implemented in the schema
-    // Return empty array for now
-    const result: any[] = [];
-    
-    res.json(result);
+    // Free item tracking is not modelled in the schema yet, so there is nothing to
+    // filter or return. The dateFrom/dateTo query params are accepted and
+    // ignored until it is.
+    res.json([]);
   } catch (error) {
     console.error('Failed to get free items:', error);
     res.status(500).json({ error: 'Failed to get free items' });

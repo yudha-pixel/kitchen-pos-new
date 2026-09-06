@@ -10,7 +10,7 @@ interface PermissionCache {
   reset(): void;
 }
 
-const permissionCache = new (LRU as any)({
+const permissionCache = new (LRU as unknown as new (opts: Record<string, unknown>) => PermissionCache)({
   max: 1000,
   maxAge: 60 * 1000,
   stale: false,

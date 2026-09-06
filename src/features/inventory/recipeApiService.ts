@@ -5,6 +5,12 @@ import { convertToSmallestUnit } from '@/src/features/inventory/unitConversion';
 export interface Ingredient {
   id: string;
   name: string;
+  // GET /api/ingredients spreads the Prisma row and enriches it with the
+  // joined supplier/category names, so these all come back on the wire.
+  sku?: string | null;
+  barcode?: string | null;
+  category_id?: string | null;
+  category_name?: string | null;
   current_stock: number;
   unit: string;
   min_stock: number;
@@ -17,6 +23,45 @@ export interface Ingredient {
   };
   created_at: string;
   updated_at: string;
+}
+
+/** Result of calculateProductProfitability. */
+export interface ProductProfitability {
+  hpp: number;
+  netSales: number;
+  taxAmount: number;
+  serviceChargeAmount: number;
+  totalPrice: number;
+  grossProfit: number;
+  netProfit: number;
+  profitMargin: number;
+  netMargin: number;
+}
+
+export interface CreateStockRequestParams {
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity_requested: number;
+  unit: string;
+  notes?: string;
+  supplier_id?: string | null;
+  proof_file?: string;
+  proof_file_name?: string;
+}
+
+export interface CreateStockWriteOffParams {
+  ingredient_id: string;
+  ingredient_name: string;
+  quantity: number;
+  unit: string;
+  reason: string;
+  notes?: string;
+}
+
+/** Row returned by GET /api/reports/purchases. */
+export interface PurchasePeriodRow {
+  date: string;
+  total: number;
 }
 
 export interface Recipe {
@@ -170,7 +215,7 @@ export async function calculateProductProfitability(
   productPrice: number,
   taxRate: number = 0.1,
   serviceChargeRate: number = 0.05
-): Promise<any> {
+): Promise<ProductProfitability | null> {
   try {
     const recipeCost = await calculateRecipeCost(productId);
     
@@ -240,11 +285,11 @@ export async function syncRecipeIngredientsToInventory(): Promise<{
     // Get all inventory ingredients
     const ingredientsResponse = await fetch(`${API_BASE_URL}/api/ingredients`, { headers });
     if (!ingredientsResponse.ok) throw new Error('Failed to fetch ingredients');
-    const inventoryIngredients = await ingredientsResponse.json();
+    const inventoryIngredients: { name: string }[] = await ingredientsResponse.json();
     
     // Create a map of existing ingredient names (case-insensitive) for quick lookup
     const existingIngredientNames = new Set(
-      inventoryIngredients.map((ing: any) => ing.name.toLowerCase())
+      inventoryIngredients.map((ing) => ing.name.toLowerCase())
     );
     
     // Get all recipes to identify unique ingredients used
@@ -556,6 +601,8 @@ export interface StockRequest {
     name: string;
     current_stock: number;
     unit: string;
+    unit_price?: number;
+    supplier?: { id?: string; name?: string } | null;
   };
   supplier?: {
     id: string;
@@ -565,7 +612,7 @@ export interface StockRequest {
 }
 
 // Create stock request
-export async function createStockRequest(params: any): Promise<string> {
+export async function createStockRequest(params: CreateStockRequestParams): Promise<string> {
   try {
     const token = getToken();
     const payload = params.supplier_id == null
@@ -1595,7 +1642,7 @@ export interface StockWriteOff {
 }
 
 // Create stock write-off
-export async function createStockWriteOff(params: any): Promise<string> {
+export async function createStockWriteOff(params: CreateStockWriteOffParams): Promise<string> {
   try {
     const token = getToken();
     const response = await fetch(`${API_BASE_URL}/api/stock-write-offs`, {
@@ -1695,7 +1742,7 @@ export async function rejectStockWriteOff(
 }
 
 // Get purchase data by period
-export async function getPurchaseDataByPeriod(days: number): Promise<any[]> {
+export async function getPurchaseDataByPeriod(days: number): Promise<PurchasePeriodRow[]> {
   try {
     const token = getToken();
     const response = await fetch(`${API_BASE_URL}/api/reports/purchases?days=${days}`, {

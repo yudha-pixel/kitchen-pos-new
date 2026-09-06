@@ -1,36 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  Save,
-  X,
-  Calculator,
-  AlertTriangle,
-  CheckCircle,
-  PlusCircle,
-} from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Search, Plus, Edit, Trash2, Save, X, Calculator, AlertTriangle, CheckCircle } from 'lucide-react';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
 import { Button } from '@/src/components/ui/Button';
 import { Modal } from '@/src/components/ui/Modal';
-import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { fetchProducts } from '@/src/lib/api';
-import { 
-  getIngredientsWithStatus, 
-  addIngredient, 
-  syncRecipeIngredientsToInventory,
-  getRecipesForMenuItem,
-  upsertRecipe,
-  deleteRecipesForMenuItem,
-  calculateRecipeCost,
-  type Ingredient,
-  type Recipe,
-} from '@/src/features/inventory/recipeApiService';
-import { convertToSmallestUnit, getSmallestUnit } from '@/src/features/inventory/unitConversion';
+import { getIngredientsWithStatus, addIngredient, syncRecipeIngredientsToInventory, getRecipesForMenuItem, upsertRecipe, deleteRecipesForMenuItem, type Ingredient, type Recipe } from '@/src/features/inventory/recipeApiService';
+import { convertToSmallestUnit } from '@/src/features/inventory/unitConversion';
 
 interface Product {
   id: string;
@@ -62,587 +40,21 @@ export default function MappingPage() {
   const [loading, setLoading] = useState(false);
   const [recipeCost, setRecipeCost] = useState(0);
   const [newRecipeItems, setNewRecipeItems] = useState<RecipeItem[]>([]);
-  const [hasRunInitialSync, setHasRunInitialSync] = useState(false);
+  // Never rendered — a ref keeps loadData from depending on a flag it also
+  // sets, which would re-run the effect that calls it.
+  const hasRunInitialSync = useRef(false);
   const [recipeToDelete, setRecipeToDelete] = useState<Product | null>(null);
   const [deletingRecipe, setDeletingRecipe] = useState(false);
   const [deleteRecipeError, setDeleteRecipeError] = useState('');
 
   // Load products and ingredients on mount
-  useEffect(() => {
-    loadData();
-  }, []);
 
   // Load recipes when product is selected
-  useEffect(() => {
-    if (selectedProduct) {
-      loadProductRecipes(selectedProduct.id);
-    }
-  }, [selectedProduct?.id]);
 
   // Standard recipe dictionary based on common menu items
-  const STANDARD_RECIPES: Record<string, Array<{ ingredientName: string; quantity: number; unit: string }>> = {
-    // Coffee
-    'affogato': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'vanilla ice cream', quantity: 2, unit: 'scoop' },
-      { ingredientName: 'whipped cream', quantity: 10, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'americano': [
-      { ingredientName: 'espresso', quantity: 60, unit: 'ml' },
-      { ingredientName: 'hot water', quantity: 150, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'caffe latte': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 200, unit: 'ml' },
-      { ingredientName: 'milk foam', quantity: 10, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'cappuccino': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 120, unit: 'ml' },
-      { ingredientName: 'milk foam', quantity: 30, unit: 'ml' },
-      { ingredientName: 'cocoa powder', quantity: 2, unit: 'g' },
-    ],
-    'caramel macchiato': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'milk foam', quantity: 20, unit: 'ml' },
-      { ingredientName: 'chocolate syrup', quantity: 15, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'espresso': [
-      { ingredientName: 'coffee beans', quantity: 18, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 30, unit: 'ml' },
-    ],
-    'flat white': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'milk foam', quantity: 5, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'latte': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 200, unit: 'ml' },
-      { ingredientName: 'milk foam', quantity: 10, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'macchiato': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 30, unit: 'ml' },
-      { ingredientName: 'milk foam', quantity: 20, unit: 'ml' },
-      { ingredientName: 'cocoa powder', quantity: 2, unit: 'g' },
-    ],
-    'mocha': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'chocolate syrup', quantity: 20, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'whipped cream', quantity: 20, unit: 'g' },
-      { ingredientName: 'cocoa powder', quantity: 3, unit: 'g' },
-    ],
-    'nitro cold brew': [
-      { ingredientName: 'coffee beans', quantity: 25, unit: 'g' },
-      { ingredientName: 'cold water', quantity: 300, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'vietnamese iced coffee': [
-      { ingredientName: 'coffee beans', quantity: 20, unit: 'g' },
-      { ingredientName: 'condensed milk', quantity: 40, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 50, unit: 'ml' },
-    ],
-    'vietnamese coffee': [
-      { ingredientName: 'coffee beans', quantity: 20, unit: 'g' },
-      { ingredientName: 'condensed milk', quantity: 40, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 50, unit: 'ml' },
-    ],
-    'vienna coffee': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'steamed milk', quantity: 100, unit: 'ml' },
-      { ingredientName: 'whipped cream', quantity: 30, unit: 'g' },
-      { ingredientName: 'cocoa powder', quantity: 3, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'irish coffee': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'whiskey', quantity: 30, unit: 'ml' },
-      { ingredientName: 'whipped cream', quantity: 20, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    
-    // Cold Coffee
-    'iced americano': [
-      { ingredientName: 'espresso', quantity: 60, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 200, unit: 'g' },
-      { ingredientName: 'cold water', quantity: 100, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'iced cappuccino': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 120, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'milk foam', quantity: 30, unit: 'ml' },
-      { ingredientName: 'cocoa powder', quantity: 2, unit: 'g' },
-    ],
-    'iced caramel macchiato': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'chocolate syrup', quantity: 15, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'iced flat white': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'iced latte': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 200, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'iced mocha': [
-      { ingredientName: 'espresso', quantity: 30, unit: 'ml' },
-      { ingredientName: 'chocolate syrup', quantity: 20, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'whipped cream', quantity: 20, unit: 'g' },
-    ],
-    'cold brew': [
-      { ingredientName: 'coffee beans', quantity: 20, unit: 'g' },
-      { ingredientName: 'cold water', quantity: 250, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    
-    // Tea
-    'chai latte': [
-      { ingredientName: 'black tea', quantity: 5, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 150, unit: 'ml' },
-      { ingredientName: 'milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-      { ingredientName: 'cinnamon', quantity: 2, unit: 'g' },
-    ],
-    'earl grey tea': [
-      { ingredientName: 'black tea', quantity: 3, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 250, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'iced chai latte': [
-      { ingredientName: 'black tea', quantity: 5, unit: 'g' },
-      { ingredientName: 'cold water', quantity: 150, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 150, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-    ],
-    'iced lemon tea': [
-      { ingredientName: 'black tea', quantity: 3, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 200, unit: 'ml' },
-      { ingredientName: 'lemon juice', quantity: 30, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-    ],
-    'iced peach tea': [
-      { ingredientName: 'black tea', quantity: 3, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 200, unit: 'ml' },
-      { ingredientName: 'peach syrup', quantity: 20, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'jasmine tea': [
-      { ingredientName: 'jasmine tea leaves', quantity: 3, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 250, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    
-    // Other Drinks
-    'thai milk tea': [
-      { ingredientName: 'black tea', quantity: 5, unit: 'g' },
-      { ingredientName: 'condensed milk', quantity: 30, unit: 'ml' },
-      { ingredientName: 'evaporated milk', quantity: 30, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'matcha latte': [
-      { ingredientName: 'matcha powder', quantity: 3, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 50, unit: 'ml' },
-      { ingredientName: 'milk', quantity: 200, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'iced matcha latte': [
-      { ingredientName: 'matcha powder', quantity: 3, unit: 'g' },
-      { ingredientName: 'cold water', quantity: 50, unit: 'ml' },
-      { ingredientName: 'cold milk', quantity: 200, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'hot chocolate': [
-      { ingredientName: 'cocoa powder', quantity: 20, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 150, unit: 'ml' },
-      { ingredientName: 'milk', quantity: 100, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-      { ingredientName: 'whipped cream', quantity: 10, unit: 'g' },
-    ],
-    'iced espresso tonic': [
-      { ingredientName: 'espresso', quantity: 60, unit: 'ml' },
-      { ingredientName: 'tonic water', quantity: 150, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'coconut water': [
-      { ingredientName: 'coconut water', quantity: 300, unit: 'ml' },
-      { ingredientName: 'ice', quantity: 100, unit: 'g' },
-    ],
-    'es teh manis': [
-      { ingredientName: 'black tea', quantity: 3, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 200, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 20, unit: 'g' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-    ],
-    'jus jeruk segar': [
-      { ingredientName: 'orange juice', quantity: 250, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-      { ingredientName: 'ice', quantity: 100, unit: 'g' },
-    ],
-    'lemonade': [
-      { ingredientName: 'lemon juice', quantity: 50, unit: 'ml' },
-      { ingredientName: 'water', quantity: 200, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 20, unit: 'g' },
-      { ingredientName: 'ice', quantity: 150, unit: 'g' },
-    ],
-    
-    // Main Dishes
-    'ayam bakar': [
-      { ingredientName: 'chicken breast', quantity: 200, unit: 'g' },
-      { ingredientName: 'soy sauce', quantity: 30, unit: 'ml' },
-      { ingredientName: 'garlic', quantity: 10, unit: 'g' },
-      { ingredientName: 'oil', quantity: 15, unit: 'ml' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    'nasi goreng spesial': [
-      { ingredientName: 'rice', quantity: 200, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'soy sauce', quantity: 20, unit: 'ml' },
-      { ingredientName: 'vegetable oil', quantity: 15, unit: 'ml' },
-      { ingredientName: 'onion', quantity: 30, unit: 'g' },
-      { ingredientName: 'garlic', quantity: 5, unit: 'g' },
-    ],
-    'nasi goreng': [
-      { ingredientName: 'rice', quantity: 200, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'soy sauce', quantity: 20, unit: 'ml' },
-      { ingredientName: 'vegetable oil', quantity: 15, unit: 'ml' },
-      { ingredientName: 'onion', quantity: 30, unit: 'g' },
-      { ingredientName: 'garlic', quantity: 5, unit: 'g' },
-    ],
-    'spaghetti carbonara': [
-      { ingredientName: 'spaghetti', quantity: 100, unit: 'g' },
-      { ingredientName: 'bacon', quantity: 50, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-      { ingredientName: 'parmesan cheese', quantity: 30, unit: 'g' },
-      { ingredientName: 'cream', quantity: 50, unit: 'ml' },
-      { ingredientName: 'garlic', quantity: 5, unit: 'g' },
-    ],
-    'beef lasagna': [
-      { ingredientName: 'lasagna pasta', quantity: 100, unit: 'g' },
-      { ingredientName: 'beef steak', quantity: 100, unit: 'g' },
-      { ingredientName: 'tomato sauce', quantity: 50, unit: 'ml' },
-      { ingredientName: 'parmesan cheese', quantity: 30, unit: 'g' },
-      { ingredientName: 'cream', quantity: 30, unit: 'ml' },
-      { ingredientName: 'onion', quantity: 20, unit: 'g' },
-    ],
-    'burger cheese': [
-      { ingredientName: 'beef patty', quantity: 150, unit: 'g' },
-      { ingredientName: 'cheese slice', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'bun', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'vegetable oil', quantity: 10, unit: 'ml' },
-      { ingredientName: 'onion', quantity: 20, unit: 'g' },
-    ],
-    'caesar salad': [
-      { ingredientName: 'lettuce', quantity: 100, unit: 'g' },
-      { ingredientName: 'chicken breast', quantity: 100, unit: 'g' },
-      { ingredientName: 'parmesan cheese', quantity: 20, unit: 'g' },
-      { ingredientName: 'cream', quantity: 30, unit: 'ml' },
-      { ingredientName: 'croutons', quantity: 30, unit: 'g' },
-    ],
-    'chicken sandwich': [
-      { ingredientName: 'chicken breast', quantity: 100, unit: 'g' },
-      { ingredientName: 'bread', quantity: 2, unit: 'pcs' },
-      { ingredientName: 'vegetable oil', quantity: 10, unit: 'ml' },
-      { ingredientName: 'lettuce', quantity: 30, unit: 'g' },
-      { ingredientName: 'tomato', quantity: 30, unit: 'g' },
-    ],
-    'fish and chips': [
-      { ingredientName: 'fish fillet', quantity: 150, unit: 'g' },
-      { ingredientName: 'flour', quantity: 50, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'oil', quantity: 100, unit: 'ml' },
-      { ingredientName: 'potato', quantity: 200, unit: 'g' },
-      { ingredientName: 'salt', quantity: 3, unit: 'g' },
-    ],
-    'mie goreng jawa': [
-      { ingredientName: 'noodles', quantity: 150, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'soy sauce', quantity: 20, unit: 'ml' },
-      { ingredientName: 'vegetable oil', quantity: 15, unit: 'ml' },
-      { ingredientName: 'onion', quantity: 30, unit: 'g' },
-      { ingredientName: 'garlic', quantity: 5, unit: 'g' },
-    ],
-    'sate ayam': [
-      { ingredientName: 'chicken', quantity: 200, unit: 'g' },
-      { ingredientName: 'soy sauce', quantity: 30, unit: 'ml' },
-      { ingredientName: 'peanut sauce', quantity: 30, unit: 'ml' },
-      { ingredientName: 'oil', quantity: 15, unit: 'ml' },
-      { ingredientName: 'garlic', quantity: 10, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 5, unit: 'g' },
-    ],
-    
-    // Desserts
-    'banana bread': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 60, unit: 'g' },
-      { ingredientName: 'butter', quantity: 50, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-      { ingredientName: 'banana', quantity: 100, unit: 'g' },
-    ],
-    'blueberry muffin': [
-      { ingredientName: 'flour', quantity: 80, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 50, unit: 'g' },
-      { ingredientName: 'butter', quantity: 40, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'blueberry', quantity: 30, unit: 'g' },
-    ],
-    'brownie': [
-      { ingredientName: 'flour', quantity: 60, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 70, unit: 'g' },
-      { ingredientName: 'cocoa powder', quantity: 40, unit: 'g' },
-      { ingredientName: 'butter', quantity: 50, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-    ],
-    'carrot cake': [
-      { ingredientName: 'flour', quantity: 80, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 60, unit: 'g' },
-      { ingredientName: 'carrot', quantity: 100, unit: 'g' },
-      { ingredientName: 'butter', quantity: 50, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-    ],
-    'cheesecake slice': [
-      { ingredientName: 'cream cheese', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 30, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-      { ingredientName: 'butter', quantity: 20, unit: 'g' },
-      { ingredientName: 'cracker', quantity: 30, unit: 'g' },
-    ],
-    'chocolate muffin': [
-      { ingredientName: 'flour', quantity: 80, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 50, unit: 'g' },
-      { ingredientName: 'cocoa powder', quantity: 20, unit: 'g' },
-      { ingredientName: 'butter', quantity: 40, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-    ],
-    'cinnamon roll': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 50, unit: 'g' },
-      { ingredientName: 'butter', quantity: 40, unit: 'g' },
-      { ingredientName: 'cinnamon', quantity: 5, unit: 'g' },
-      { ingredientName: 'egg', quantity: 1, unit: 'pcs' },
-    ],
-    'croissant almond': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'butter', quantity: 60, unit: 'g' },
-      { ingredientName: 'milk', quantity: 30, unit: 'ml' },
-      { ingredientName: 'yeast', quantity: 3, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-      { ingredientName: 'almond', quantity: 20, unit: 'g' },
-    ],
-    'croissant butter': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'butter', quantity: 60, unit: 'g' },
-      { ingredientName: 'milk', quantity: 30, unit: 'ml' },
-      { ingredientName: 'yeast', quantity: 3, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-      { ingredientName: 'salt', quantity: 2, unit: 'g' },
-    ],
-    'red velvet cake': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 80, unit: 'g' },
-      { ingredientName: 'cocoa powder', quantity: 10, unit: 'g' },
-      { ingredientName: 'butter', quantity: 60, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-      { ingredientName: 'cream cheese', quantity: 50, unit: 'g' },
-    ],
-    'chocolate cake': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 80, unit: 'g' },
-      { ingredientName: 'cocoa powder', quantity: 30, unit: 'g' },
-      { ingredientName: 'butter', quantity: 60, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-    ],
-    'cheesecake': [
-      { ingredientName: 'cream cheese', quantity: 150, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 50, unit: 'g' },
-      { ingredientName: 'egg', quantity: 2, unit: 'pcs' },
-      { ingredientName: 'butter', quantity: 30, unit: 'g' },
-      { ingredientName: 'cracker', quantity: 50, unit: 'g' },
-    ],
-    'tiramisu': [
-      { ingredientName: 'ladyfingers', quantity: 6, unit: 'pcs' },
-      { ingredientName: 'mascarpone', quantity: 100, unit: 'g' },
-      { ingredientName: 'espresso', quantity: 50, unit: 'ml' },
-      { ingredientName: 'cocoa powder', quantity: 10, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-    ],
-    
-    // Bakery
-    'croissant': [
-      { ingredientName: 'flour', quantity: 100, unit: 'g' },
-      { ingredientName: 'butter', quantity: 60, unit: 'g' },
-      { ingredientName: 'milk', quantity: 30, unit: 'ml' },
-      { ingredientName: 'yeast', quantity: 3, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-      { ingredientName: 'salt', quantity: 2, unit: 'g' },
-    ],
-    'bread': [
-      { ingredientName: 'flour', quantity: 250, unit: 'g' },
-      { ingredientName: 'hot water', quantity: 150, unit: 'ml' },
-      { ingredientName: 'yeast', quantity: 5, unit: 'g' },
-      { ingredientName: 'salt', quantity: 5, unit: 'g' },
-      { ingredientName: 'sugar', quantity: 10, unit: 'g' },
-    ],
-  };
 
-  const findMatchingStandardRecipe = (productName: string): Array<{ ingredientName: string; quantity: number; unit: string }> | null => {
-    const lowerName = productName.toLowerCase();
-    
-    // Direct match
-    if (STANDARD_RECIPES[lowerName]) {
-      return STANDARD_RECIPES[lowerName];
-    }
-    
-    // Partial match
-    for (const [key, recipe] of Object.entries(STANDARD_RECIPES)) {
-      if (lowerName.includes(key) || key.includes(lowerName)) {
-        return recipe;
-      }
-    }
-    
-    return null;
-  };
 
-  const generateSampleRecipe = (product: Product, availableIngredients: Ingredient[]): RecipeItem[] => {
-    const sampleRecipes: RecipeItem[] = [];
-    
-    // Try to find a standard recipe first
-    const standardRecipe = findMatchingStandardRecipe(product.name);
-    
-    if (standardRecipe) {
-      console.log('Found standard recipe for:', product.name, 'with', standardRecipe.length, 'ingredients');
-      
-      // Map standard recipe ingredients to available ingredients
-      for (const item of standardRecipe) {
-        const matchingIngredient = availableIngredients.find(
-          ing => ing.name.toLowerCase() === item.ingredientName.toLowerCase() ||
-                 ing.name.toLowerCase().includes(item.ingredientName.toLowerCase()) ||
-                 item.ingredientName.toLowerCase().includes(ing.name.toLowerCase())
-        );
-        
-        if (matchingIngredient) {
-          sampleRecipes.push({
-            ingredient_id: matchingIngredient.id,
-            ingredient_name: matchingIngredient.name,
-            quantity_required: item.quantity,
-            unit: item.unit,
-            unit_price: matchingIngredient.unit_price,
-          });
-          console.log(`Matched ingredient: ${item.ingredientName} -> ${matchingIngredient.name}`);
-        } else {
-          console.log(`No match found for: ${item.ingredientName}`);
-        }
-      }
-      
-      // If we found at least 2 ingredients from standard recipe, return it
-      if (sampleRecipes.length >= 2) {
-        console.log(`Successfully mapped ${sampleRecipes.length} ingredients for ${product.name}`);
-        return sampleRecipes;
-      }
-    }
-    
-    // Fallback to intelligent random generation if no standard recipe found or not enough matches
-    console.log('Using fallback recipe generation for:', product.name);
-    const commonIngredients = availableIngredients.filter(ing => ing.current_stock > 0);
-    
-    if (commonIngredients.length === 0) {
-      console.log('No ingredients available for fallback');
-      return sampleRecipes;
-    }
-    
-    // Ensure we have at least 3-5 ingredients
-    const targetHPP = product.price * 0.35;
-    const numIngredients = Math.min(Math.max(3, Math.floor(Math.random() * 3) + 3), Math.min(5, commonIngredients.length));
-    const selectedIngredients = commonIngredients
-      .sort(() => Math.random() - 0.5)
-      .slice(0, numIngredients);
-    
-    const costPerIngredient = targetHPP / numIngredients;
-    
-    selectedIngredients.forEach((ingredient) => {
-      const quantity = Math.max(0.1, costPerIngredient / ingredient.unit_price);
-      sampleRecipes.push({
-        ingredient_id: ingredient.id,
-        ingredient_name: ingredient.name,
-        quantity_required: Math.round(quantity * 100) / 100,
-        unit: ingredient.unit,
-        unit_price: ingredient.unit_price,
-      });
-    });
-    
-    console.log(`Generated fallback recipe with ${sampleRecipes.length} ingredients for ${product.name}`);
-    return sampleRecipes;
-  };
 
-  const assignSampleRecipesToProducts = async (products: Product[], availableIngredients: Ingredient[]) => {
-    const productsWithoutRecipes: Product[] = [];
-    
-    // Check which products don't have recipes
-    for (const product of products) {
-      try {
-        const recipes = await getRecipesForMenuItem(product.id);
-        if (recipes.length === 0) {
-          productsWithoutRecipes.push(product);
-        }
-      } catch (error) {
-        console.error('Failed to check recipe for product:', product.id, error);
-        productsWithoutRecipes.push(product);
-      }
-    }
-    
-    // Assign sample recipes to products without them
-    for (const product of productsWithoutRecipes) {
-      try {
-        const sampleRecipe = generateSampleRecipe(product, availableIngredients);
-        
-        if (sampleRecipe.length > 0) {
-          // Save the sample recipe
-          for (const item of sampleRecipe) {
-            await upsertRecipe({
-              menu_item_id: product.id,
-              ingredient_id: item.ingredient_id,
-              quantity_required: item.quantity_required,
-              unit: item.unit,
-            });
-          }
-          console.log(`Assigned sample recipe to product: ${product.name}`);
-        }
-      } catch (error) {
-        console.error('Failed to assign sample recipe to product:', product.id, error);
-      }
-    }
-  };
 
   const seedDefaultIngredients = async () => {
     const defaultIngredients = [
@@ -767,7 +179,7 @@ export default function MappingPage() {
     }
   };
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [productsData, ingredientsData] = await Promise.all([
@@ -787,9 +199,9 @@ export default function MappingPage() {
       }
       
       // Run sync audit only on first load, not on refresh
-      if (!hasRunInitialSync) {
+      if (!hasRunInitialSync.current) {
         await syncRecipeIngredientsToInventory();
-        setHasRunInitialSync(true);
+        hasRunInitialSync.current = true;
       }
     } catch (error) {
       console.error('Failed to load data:', error);
@@ -797,8 +209,16 @@ export default function MappingPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await loadData();
+    })();
+  }, [loadData]);
   const loadProductRecipes = async (productId: string) => {
     try {
       const recipes = await getRecipesForMenuItem(productId);
@@ -822,6 +242,12 @@ export default function MappingPage() {
     }
   };
 
+
+  useEffect(() => {
+    if (selectedProduct) {
+      void (async () => { await loadProductRecipes(selectedProduct.id); })();
+    }
+  }, [selectedProduct?.id, selectedProduct]);
   const handleOpenModal = () => {
     // Pre-populate with existing recipes if available
     if (productRecipes.length > 0) {

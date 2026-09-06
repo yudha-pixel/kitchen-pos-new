@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useProducts, useCategories } from '@/src/hooks/useProducts';
@@ -7,21 +8,20 @@ import { useSyncManager } from '@/src/hooks/useSyncManager';
 import { useAuth } from '@/src/context/AuthContext';
 import { useToast } from '@/src/components/ui/Toast';
 import { Button } from '@/src/components/ui/Button';
+import { Modal } from '@/src/components/ui/Modal';
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
 import { Badge } from '@/src/components/ui/Badge';
 import { EmptyState } from '@/src/components/ui/EmptyState';
-import { ConnectionIndicator } from '@/src/components/ui/ConnectionIndicator';
-import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, Clock, X, List, History, Printer } from 'lucide-react';
+import { ShoppingCart, Search, RefreshCw, AlertCircle, Plus, Minus, History, Printer, UtensilsCrossed } from 'lucide-react';
 import { useCartStore } from '@/src/store/useCartStore';
 import { ModifierOption, UIModifierGroup, ModifierModal } from '@/src/features/pos/components/ModifierModal';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
+import type { Product } from '@/src/types/database.types';
+import type { PosOrder } from '@/src/types/pos-order';
 
-interface CartItem {
-  productId: string;
-  name: string;
-  price: number;
-  quantity: number;
-  modifiers: ModifierOption[];
-}
+
+const cn = (...inputs: ClassValue[]) => twMerge(clsx(inputs));
 
 export default function WaiterPage() {
   const router = useRouter();
@@ -33,9 +33,9 @@ export default function WaiterPage() {
   const [guestCount, setGuestCount] = useState<number>(1);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
-  const [orderHistory, setOrderHistory] = useState<any[]>([]);
+  const [orderHistory, setOrderHistory] = useState<PosOrder[]>([]);
   const [modifierModalOpen, setModifierModalOpen] = useState(false);
-  const [selectedProductForModifier, setSelectedProductForModifier] = useState<any>(null);
+  const [selectedProductForModifier, setSelectedProductForModifier] = useState<Product | null>(null);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -52,17 +52,13 @@ export default function WaiterPage() {
   }, [user]);
 
   // Fetch data from the local API with offline support
-  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts, isFromCache: productsFromCache } = useProducts();
+  const { products, loading: productsLoading, error: productsError, refetch: refetchProducts } = useProducts();
   const { categories } = useCategories();
 
   // Sync manager for offline-first functionality
   const {
-    isOnline,
-    pendingTransactions,
     syncInProgress,
     syncError,
-    lastSyncTime,
-    triggerManualSync,
   } = useSyncManager();
 
   // Surface sync errors as a toast
@@ -143,23 +139,23 @@ export default function WaiterPage() {
   // Cart state from store
   const cartItems = useCartStore((state) => state.items);
   const addToCart = useCartStore((state) => state.addToCart);
-  const removeFromCart = useCartStore((state) => state.removeFromCart);
+  useCartStore((state) => state.removeFromCart);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
   const clearCart = useCartStore((state) => state.clearCart);
-  const processPayment = useCartStore((state) => state.processPayment);
+  useCartStore((state) => state.processPayment);
 
   // Transform API modifier groups to UI format
-  const getProductModifiers = (product: any): UIModifierGroup[] => {
+  const getProductModifiers = (product: Product): UIModifierGroup[] => {
     if (!product.modifier_groups || product.modifier_groups.length === 0) {
       return [];
     }
 
-    return product.modifier_groups.map((group: any) => ({
+    return product.modifier_groups.map((group) => ({
       id: group.id,
       name: group.name,
       required: group.is_required,
       multiSelect: group.max_selections > 1,
-      options: group.modifiers.map((mod: any) => ({
+      options: group.modifiers.map((mod) => ({
         id: mod.id,
         name: mod.name,
         price: mod.price_extra,
@@ -183,7 +179,7 @@ export default function WaiterPage() {
     toast('success', `${name} ditambahkan ke keranjang`);
   };
 
-  const handleProductClick = (product: any) => {
+  const handleProductClick = (product: Product) => {
     if (!selectedTable) {
       toast('error', 'Silakan pilih nomor meja terlebih dahulu');
       return;
@@ -220,7 +216,7 @@ export default function WaiterPage() {
     return sum + itemTotal + (modifiersTotal * item.quantity);
   }, 0);
 
-  const filteredProducts = products.filter((product: any) => {
+  const filteredProducts = products.filter((product) => {
     const matchesCategory = selectedCategory === 'Semua' || product.category_id === selectedCategory;
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -228,33 +224,34 @@ export default function WaiterPage() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-surface-alt">
+      <div className="min-h-dvh flex items-center justify-center bg-surface-alt">
         <div className="text-ink-secondary">Memuat...</div>
       </div>
     );
   }
 
   return (
-    <ResponsiveShell title="Waiter POS">
-    <div className="-m-4 min-h-[calc(100%+2rem)] bg-surface-alt pb-20 sm:-m-6 sm:min-h-[calc(100%+3rem)]">
+    <ResponsiveShell title="Pesanan Waiter">
+    <div className="flex h-full min-h-0 flex-col bg-background text-ink">
       {/* Toolbar */}
-      <header className="bg-surface shadow-sm sticky top-0 z-30">
+      <header className="shrink-0 border-b border-line bg-surface">
         <div className="px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
             <div className="flex items-center gap-3">
-              <h1 className="text-xl font-bold text-ink">Waiter POS</h1>
+              <h1 className="text-balance text-lg sm:text-xl font-bold text-ink">Pesanan Waiter</h1>
             </div>
-            <ConnectionIndicator />
+            <Button variant="secondary" onClick={() => setIsHistoryOpen(true)}><History className="size-4" aria-hidden="true" /> Riwayat</Button>
           </div>
 
           {/* Table Selection */}
-          <div className="flex gap-2 mb-3">
-            <div className="flex-1">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Nomor Meja</label>
+          <div className="flex flex-wrap items-end gap-3 mb-3">
+            <div className="w-48 max-w-full flex-auto sm:flex-none">
+              <label htmlFor="waiter-table" className="block text-xs font-medium text-ink-secondary mb-1">Nomor Meja</label>
               <select
+                id="waiter-table"
                 value={selectedTable}
                 onChange={(e) => setSelectedTable(e.target.value)}
-                className="w-full px-3 py-2 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 text-lg border border-line-strong bg-surface text-ink rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               >
                 <option value="">Pilih Meja</option>
                 {[...Array(20)].map((_, i) => (
@@ -265,53 +262,56 @@ export default function WaiterPage() {
               </select>
             </div>
             <div className="w-24">
-              <label className="block text-xs font-medium text-gray-700 mb-1">Tamu</label>
+              <label htmlFor="waiter-guests" className="block text-xs font-medium text-ink-secondary mb-1">Tamu</label>
               <input
+                id="waiter-guests"
                 type="number"
                 min="1"
                 value={guestCount}
-                onChange={(e) => setGuestCount(parseInt(e.target.value) || 1)}
-                className="w-full px-3 py-2 text-lg border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                onChange={(e) => setGuestCount(Math.max(1, parseInt(e.target.value) || 1))}
+                className="w-full px-3 py-2 text-lg border border-line-strong bg-surface text-ink rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
               />
             </div>
           </div>
 
           {/* Search */}
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-ink-muted" />
             <input
-              type="text"
+              type="search"
+              aria-label="Cari menu"
               placeholder="Cari menu..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full pl-10 pr-4 py-2 border border-line-strong bg-surface text-ink rounded-lg focus:ring-2 focus:ring-primary focus:border-primary"
             />
           </div>
         </div>
-      </header>
 
       {/* Category Tabs */}
-      <div className="bg-white border-b sticky top-[140px] z-20 overflow-x-auto">
+      <div className="bg-surface overflow-x-auto">
         <div className="flex px-4 py-2 gap-2">
           <button
+            aria-pressed={selectedCategory === 'Semua'}
             onClick={() => setSelectedCategory('Semua')}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+            className={cn("min-h-11 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-primary",
               selectedCategory === 'Semua'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-            }`}
+                ? 'bg-primary text-on-primary'
+                : 'bg-surface-alt text-ink-secondary hover:bg-surface-alt hover:text-ink'
+            )}
           >
             Semua
           </button>
-          {categories.map((cat: any) => (
+          {categories.map((cat) => (
             <button
               key={cat.id}
+              aria-pressed={selectedCategory === cat.id}
               onClick={() => setSelectedCategory(cat.id)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap ${
+              className={cn("min-h-11 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap focus-visible:outline-2 focus-visible:outline-primary",
                 selectedCategory === cat.id
-                  ? 'bg-indigo-600 text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-gray-900'
-              }`}
+                  ? 'bg-primary text-on-primary'
+                  : 'bg-surface-alt text-ink-secondary hover:bg-surface-alt hover:text-ink'
+              )}
             >
               {cat.name}
             </button>
@@ -319,10 +319,12 @@ export default function WaiterPage() {
         </div>
       </div>
 
+      </header>
+
       {/* Product Grid */}
-      <main className="p-4">
+      <section aria-label="Katalog menu" className="min-h-0 flex-1 overflow-y-auto p-4">
         {productsLoading ? (
-          <div className="text-center py-8 text-gray-600">Memuat menu...</div>
+          <div className="text-center py-8 text-ink-secondary">Memuat menu...</div>
         ) : productsError ? (
           <EmptyState
             icon={AlertCircle}
@@ -341,105 +343,79 @@ export default function WaiterPage() {
             message="Coba kata kunci atau kategori lain"
           />
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {filteredProducts.map((product: any) => (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {filteredProducts.map((product) => (
               <button
                 key={product.id}
                 onClick={() => handleProductClick(product)}
-                className="bg-white rounded-xl p-3 shadow-sm hover:shadow-md transition-shadow text-left active:scale-95"
+                className="bg-surface rounded-xl border border-line p-3 shadow-sm hover:border-primary focus-visible:outline-2 focus-visible:outline-primary text-left"
               >
-                <div className="aspect-square bg-gray-100 rounded-lg mb-2 flex items-center justify-center overflow-hidden">
+                <div className="relative h-28 sm:h-36 bg-surface-alt rounded-lg mb-2 flex items-center justify-center overflow-hidden">
                   {product.image_url ? (
-                    <img
+                    <Image
                       src={product.image_url}
                       alt={product.name}
-                      className="w-full h-full object-cover"
+                      fill
+                      sizes="(min-width: 1536px) 20vw, (min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
+                      className="object-cover"
                     />
                   ) : (
-                    <div className="text-gray-400 text-2xl">🍽️</div>
+                    <UtensilsCrossed className="size-8 text-ink-muted" aria-hidden="true" />
                   )}
                 </div>
-                <h3 className="font-semibold text-gray-900 text-sm mb-1 line-clamp-2">{product.name}</h3>
-                <p className="text-blue-600 font-bold text-sm">
-                  Rp {product.price.toLocaleString()}
+                <h2 className="text-balance font-semibold text-ink text-sm mb-1 line-clamp-2">{product.name}</h2>
+                <p className="text-primary font-bold text-sm">
+                  Rp {product.price.toLocaleString('id-ID')}
                 </p>
               </button>
             ))}
           </div>
         )}
-      </main>
-
-      {/* Cart Button */}
-      <button
-        onClick={() => setIsCartOpen(true)}
-        className="fixed bottom-4 right-4 z-40 bg-indigo-600 text-white rounded-full p-4 shadow-lg flex items-center gap-2"
-      >
-        <ShoppingCart className="h-6 w-6" />
-        {cartItems.length > 0 && (
-          <span className="bg-red-500 text-white text-xs font-bold rounded-full h-6 w-6 flex items-center justify-center">
-            {cartItems.length}
-          </span>
-        )}
-      </button>
-
-      {/* History Button */}
-      <button
-        onClick={() => setIsHistoryOpen(true)}
-        className="fixed bottom-20 left-4 z-40 bg-gray-600 text-white rounded-full p-4 shadow-lg"
-      >
-        <History className="h-6 w-6" />
-      </button>
+      </section>
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-t border-line bg-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+        <div className="min-w-0 tabular-nums">
+          <p className="text-sm text-ink-secondary">{cartItems.reduce((sum, item) => sum + item.quantity, 0)} item dalam pesanan</p>
+          <p className="font-bold text-primary">Rp {cartTotal.toLocaleString('id-ID')}</p>
+        </div>
+        <Button onClick={() => setIsCartOpen(true)}><ShoppingCart className="size-5" aria-hidden="true" /> Lihat Pesanan</Button>
+      </div>
 
       {/* Cart Modal */}
-      {isCartOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b">
-              <div className="flex items-center justify-between mb-2">
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-              {selectedTable && (
-                <div className="text-sm text-gray-600">
-                  Meja: <span className="font-semibold">{selectedTable}</span>
-                </div>
-              )}
-            </div>
-
+      <Modal isOpen={isCartOpen} onClose={() => setIsCartOpen(false)} title="Pesanan Meja">
+            {selectedTable && <p className="mb-3 text-sm text-ink-secondary">Meja: <span className="font-semibold">{selectedTable}</span> · {guestCount} tamu</p>}
             <div className="flex-1 overflow-y-auto p-4">
               {cartItems.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                <div className="text-center py-8 text-ink-muted">
+                  <ShoppingCart className="h-12 w-12 mx-auto mb-2 text-ink-muted" />
                   <p>Keranjang kosong</p>
+                  <Button variant="secondary" className="mt-3" onClick={() => setIsCartOpen(false)}>Pilih Menu</Button>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-lg p-3">
+                    <div key={item.id} className="flex items-center gap-3 bg-surface-alt rounded-lg p-3">
                       <div className="flex-1">
-                        <h4 className="font-medium text-sm">{item.name}</h4>
-                        <p className="text-xs text-gray-500">Rp {item.price.toLocaleString()}</p>
+                        <h3 className="font-medium text-sm">{item.name}</h3>
+                        <p className="text-xs text-ink-muted">Rp {item.price.toLocaleString('id-ID')}</p>
                         {item.modifiers.length > 0 && (
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-xs text-ink-muted mt-1">
                             {item.modifiers.map(m => m.name).join(', ')}
                           </p>
                         )}
                       </div>
                       <div className="flex items-center gap-2">
                         <button
+                          aria-label={`Kurangi ${item.name}`}
                           onClick={() => updateQuantity(item.id, Math.max(0, item.quantity - 1))}
-                          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 hover:text-gray-900"
+                          className="size-11 rounded-full bg-surface-alt flex items-center justify-center hover:bg-surface-alt hover:text-ink"
                         >
                           <Minus className="h-4 w-4" />
                         </button>
-                        <span className="w-8 text-center font-medium">{item.quantity}</span>
+                        <span className="w-8 text-center font-medium tabular-nums">{item.quantity}</span>
                         <button
+                          aria-label={`Tambah ${item.name}`}
                           onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center hover:bg-indigo-700 hover:text-white"
+                          className="size-11 rounded-full bg-primary text-on-primary flex items-center justify-center hover:bg-primary-hover hover:text-on-primary"
                         >
                           <Plus className="h-4 w-4" />
                         </button>
@@ -451,11 +427,11 @@ export default function WaiterPage() {
             </div>
 
             {cartItems.length > 0 && (
-              <div className="p-4 border-t bg-gray-50">
+              <div className="p-4 border-t border-line bg-surface-alt">
                 <div className="flex justify-between items-center mb-3">
                   <span className="font-medium">Total</span>
-                  <span className="text-xl font-bold text-blue-600">
-                    Rp {cartTotal.toLocaleString()}
+                  <span className="text-xl font-bold text-primary">
+                    Rp {cartTotal.toLocaleString('id-ID')}
                   </span>
                 </div>
                 <div className="flex gap-2">
@@ -474,7 +450,7 @@ export default function WaiterPage() {
                       }
                     }}
                     disabled={syncInProgress || cartItems.length === 0}
-                    className="flex-1 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 hover:text-white disabled:opacity-50 flex items-center justify-center gap-2"
+                    className="flex-1 py-3 bg-primary text-on-primary rounded-lg font-medium hover:bg-primary-hover hover:text-on-primary disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     <Printer className="h-5 w-5" />
                     Kirim
@@ -482,42 +458,28 @@ export default function WaiterPage() {
                 </div>
               </div>
             )}
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Order History Modal */}
-      {isHistoryOpen && (
-        <div className="fixed inset-0 z-50 bg-black bg-opacity-50 flex items-end sm:items-center justify-center p-4">
-          <div className="bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-md max-h-[80vh] overflow-hidden flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h2 className="text-lg font-bold">Riwayat Pesanan</h2>
-              <button
-                onClick={() => setIsHistoryOpen(false)}
-                className="p-2 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200 rounded-full border border-gray-200"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
+      <Modal isOpen={isHistoryOpen} onClose={() => setIsHistoryOpen(false)} title="Riwayat Pesanan" size="lg">
             <div className="flex-1 overflow-y-auto p-4">
               {orderHistory.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  <History className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                <div className="text-center py-8 text-ink-muted">
+                  <History className="h-12 w-12 mx-auto mb-2 text-ink-muted" />
                   <p>Tidak ada riwayat pesanan</p>
                 </div>
               ) : (
                 <div className="space-y-3">
                   {orderHistory.map((order) => (
-                    <div key={order.id} className="bg-gray-50 rounded-lg p-4">
+                    <div key={order.id} className="bg-surface-alt rounded-lg p-4">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <h4 className="font-bold text-gray-900">Meja {order.table_number || '-'}</h4>
+                          <h3 className="font-bold text-ink">Meja {order.table_number || '-'}</h3>
                           {order.customer_name && (
-                            <p className="text-sm font-medium text-gray-700">{order.customer_name}</p>
+                            <p className="text-sm font-medium text-ink-secondary">{order.customer_name}</p>
                           )}
-                          <p className="text-xs text-gray-500">
-                            {new Date(order.created_at).toLocaleString('id-ID')}
+                          <p className="text-xs text-ink-muted">
+                            {order.created_at ? new Date(order.created_at).toLocaleString('id-ID') : '—'}
                           </p>
                         </div>
                         <div className="flex items-center gap-2">
@@ -525,14 +487,18 @@ export default function WaiterPage() {
                           <Badge
                             tone={
                               order.status === 'done' || order.status === 'ready' || order.status === 'served' ? 'success' :
-                              order.status === 'preparing' || order.status === 'cooking' ? 'warning' :
+                              order.status === 'preparing' ? 'warning' :
                               'neutral'
                             }
                           >
                             {order.status === 'done' || order.status === 'ready' || order.status === 'served' ? 'Selesai Masak' :
-                             order.status === 'preparing' || order.status === 'cooking' ? 'Sedang Masak' :
-                             order.status === 'pending' || order.status === 'confirmed' ? 'Menunggu' :
-                             order.status || '-'}
+                             order.status === 'preparing' ? 'Sedang Masak' :
+                             order.status === 'pending' ? 'Menunggu' :
+                             order.status === 'completed' ? 'Selesai' :
+                             order.status === 'cancelled' ? 'Dibatalkan' :
+                             order.status === 'paid' ? 'Dibayar' :
+                             order.status === 'synced' ? 'Tersinkron' :
+                             'Status belum tersedia'}
                           </Badge>
                           {/* Payment Status Badge */}
                           <Badge
@@ -546,42 +512,42 @@ export default function WaiterPage() {
                       </div>
                       {/* Notes Section */}
                       {order.notes && (
-                        <div className="mb-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
-                          <p className="text-xs text-amber-800 font-medium">Catatan:</p>
-                          <p className="text-sm text-amber-900">{order.notes}</p>
+                        <div className="mb-2 p-2 bg-warning-soft border border-warning/30 rounded-lg">
+                          <p className="text-xs text-warning font-medium">Catatan:</p>
+                          <p className="text-sm text-warning">{order.notes}</p>
                         </div>
                       )}
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-ink-secondary">
                         {order.items && order.items.length > 0 ? (
                           <>
                             {console.log('Order Item Data:', order.items)}
-                            {order.items.map((item: any, i: number) => {
+                            {order.items.map((item, i: number) => {
                               const price = Number(item.price_at_time) || 0;
                               const name = item.product?.name || 'Unknown';
                               const modifiers = item.modifiers_applied && Array.isArray(item.modifiers_applied)
-                                ? item.modifiers_applied.map((m: any) => m.name || m).join(', ')
+                                ? item.modifiers_applied.map((m) => m.name || m).join(', ')
                                 : '';
 
                               return (
                                 <div key={i} className="flex justify-between py-1">
                                   <span>
                                     {item.quantity}x {name}
-                                    {modifiers && <span className="text-xs text-gray-400 ml-1">({modifiers})</span>}
+                                    {modifiers && <span className="text-xs text-ink-muted ml-1">({modifiers})</span>}
                                   </span>
-                                  <span>Rp {(price * item.quantity).toLocaleString()}</span>
+                                  <span>Rp {(price * item.quantity).toLocaleString('id-ID')}</span>
                                 </div>
                               );
                             })}
                           </>
                         ) : (
-                          <p className="text-gray-400">No items</p>
+                          <p className="text-ink-muted">No items</p>
                         )}
                       </div>
-                      <div className="mt-2 pt-2 border-t border-gray-200 flex justify-between font-medium">
+                      <div className="mt-2 pt-2 border-t border-line flex justify-between font-medium">
                         <span>Total</span>
-                        <span className="text-blue-600">
+                        <span className="text-primary">
                           {(() => {
-                            const calculatedTotal = order.items?.reduce((sum: number, item: any) => {
+                            const calculatedTotal = order.items?.reduce((sum: number, item) => {
                               const price = Number(item.price_at_time) || 0;
                               return sum + (price * item.quantity);
                             }, 0) || 0;
@@ -590,17 +556,17 @@ export default function WaiterPage() {
                         </span>
                       </div>
                       {order.payment_method && (
-                        <div className="mt-1 text-sm text-gray-500">
+                        <div className="mt-1 text-sm text-ink-muted">
                           Metode Pembayaran: {order.payment_method}
                         </div>
                       )}
                       <div className="mt-2 flex gap-2">
                         <Badge tone={
-                          order.status === 'completed' || order.status === 'paid' ? 'success' :
+                          order.status === 'completed' ? 'success' :
                           order.status === 'cancelled' ? 'danger' :
                           'warning'
                         }>
-                          {order.status === 'completed' || order.status === 'paid' ? 'Lunas' :
+                          {order.status === 'completed' ? 'Lunas' :
                            order.status === 'cancelled' ? 'Batal' :
                            'Belum Bayar'}
                         </Badge>
@@ -610,9 +576,7 @@ export default function WaiterPage() {
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
 
       {/* Modifier Modal */}
       {selectedProductForModifier && (

@@ -1,4 +1,5 @@
 import { prisma } from './prisma';
+import { Prisma } from '@prisma/client';
 
 export interface DocumentSequenceRule {
   prefix: string;
@@ -100,10 +101,11 @@ export function formatSequenceString(rule: DocumentSequenceRule, date: Date = ne
 export async function getSequenceSettings(): Promise<DocumentSequenceMap> {
   try {
     const settings = await prisma.appSettings.findFirst();
-    if (settings && (settings as any).document_sequences) {
-      const raw = typeof (settings as any).document_sequences === 'string'
-        ? JSON.parse((settings as any).document_sequences)
-        : (settings as any).document_sequences;
+    if (settings?.document_sequences) {
+      // Stored as Json; older rows may hold a JSON string rather than an object.
+      const raw = typeof settings.document_sequences === 'string'
+        ? JSON.parse(settings.document_sequences)
+        : (settings.document_sequences as Partial<DocumentSequenceMap>);
       return {
         ...DEFAULT_DOCUMENT_SEQUENCES,
         ...raw,
@@ -134,13 +136,17 @@ export async function updateSequenceSettings(newSequences: Partial<DocumentSeque
     await prisma.appSettings.update({
       where: { id: appSettings.id },
       data: {
-        document_sequences: merged as any,
+        // Prisma's Json input wants an index signature, which an interface
+        // does not provide; the shape itself is plain JSON-safe data.
+        document_sequences: merged as unknown as Prisma.InputJsonObject,
       },
     });
   } else {
     await prisma.appSettings.create({
       data: {
-        document_sequences: merged as any,
+        // Prisma's Json input wants an index signature, which an interface
+        // does not provide; the shape itself is plain JSON-safe data.
+        document_sequences: merged as unknown as Prisma.InputJsonObject,
       },
     });
   }
@@ -181,9 +187,7 @@ export async function generateNextSequenceNumber(docType: DocumentType): Promise
     last_reset_month: now.getMonth() + 1,
   };
 
-  await updateSequenceSettings({
-    [docType]: updatedRule,
-  } as any);
+  await updateSequenceSettings({ [docType]: updatedRule } as Partial<DocumentSequenceMap>);
 
   return generatedString;
 }

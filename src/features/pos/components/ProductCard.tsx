@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState } from 'react';
 import { Image as ImageIcon, Plus } from 'lucide-react';
 import { ModifierModal, ModifierOption, UIModifierGroup } from './ModifierModal';
@@ -51,11 +52,12 @@ export const ProductCard = ({ product, onAddToCart, modifiers = [], stockCount }
           {/* Product Image */}
           <div className="relative aspect-square overflow-hidden bg-surface-alt">
             {product.image_url && product.image_url.length > 0 && !imageError ? (
-              <img
+              <Image
                 src={product.image_url}
                 alt={product.name}
-                loading="lazy"
-                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                fill
+                sizes="(max-width: 768px) 50vw, 20vw"
+                className="object-cover transition-transform duration-300 group-hover:scale-105"
                 onError={() => setImageError(true)}
               />
             ) : (

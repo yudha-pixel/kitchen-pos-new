@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { OfflineErrorHandler, type OfflineErrorSuggestion } from '@/src/lib/offlineErrorHandler';
+import { OfflineErrorHandler } from '@/src/lib/offlineErrorHandler';
 
 interface OfflineErrorProps {
   error: unknown;

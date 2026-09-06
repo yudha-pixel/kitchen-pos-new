@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useState, useCallback } from 'react';
 import { Upload, X, FileImage, FileText, Loader2 } from 'lucide-react';
 
@@ -23,24 +24,6 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
       setDragActive(false);
     }
   }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      validateAndSetFile(file);
-    }
-  }, []);
-
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      validateAndSetFile(file);
-    }
-  };
 
   const validateAndSetFile = (file: File) => {
     const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
@@ -67,6 +50,25 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
       setPreviewUrl(null);
     }
   };
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      const file = e.dataTransfer.files[0];
+      validateAndSetFile(file);
+    }
+  }, []);
+
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      validateAndSetFile(file);
+    }
+  };
+
 
   const handleProcess = () => {
     if (selectedFile) {
@@ -154,11 +156,13 @@ export function OCRUploadDropzone({ onFileSelect, isProcessing = false }: OCRUpl
           </div>
 
           {previewUrl && (
-            <div className="mb-4 rounded-lg overflow-hidden bg-gray-100">
-              <img
+            <div className="relative mb-4 h-48 rounded-lg overflow-hidden bg-gray-100">
+              <Image
                 src={previewUrl}
                 alt="Preview"
-                className="w-full h-48 object-contain"
+                fill
+                sizes="100vw"
+                className="object-contain"
               />
             </div>
           )}

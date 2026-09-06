@@ -76,7 +76,11 @@ export default function FakturSupplierPage() {
   }, [toast]);
 
   useEffect(() => {
-    fetchInvoices();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchInvoices();
+    })();
   }, [fetchInvoices]);
 
   const formatDate = (dateStr?: string | null): string => {
@@ -139,7 +143,7 @@ export default function FakturSupplierPage() {
     }
   };
 
-  const toggleSelectOne = (id: string, e: React.MouseEvent) => {
+  const toggleSelectOne = (id: string, e: React.SyntheticEvent) => {
     e.stopPropagation();
     setSelectedIds(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
   };
@@ -277,7 +281,7 @@ export default function FakturSupplierPage() {
                             <input
                               type="checkbox"
                               checked={isSelected}
-                              onChange={(e) => toggleSelectOne(inv.id, e as any)}
+                              onChange={(e) => toggleSelectOne(inv.id, e)}
                               className="rounded border-line text-primary focus:ring-primary"
                             />
                           </td>

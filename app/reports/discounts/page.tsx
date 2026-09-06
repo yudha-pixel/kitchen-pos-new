@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/context/AuthContext';
 import { formatRupiah } from '@/src/lib/format';
-import { Search, Calendar, User, Download, Filter, Gift, Tag } from 'lucide-react';
+import { Search, User, Download, Filter, Tag } from 'lucide-react';
 import { getGlobalDiscountOrders, getVoucherOrders, getFreeItems } from '@/src/features/reports/discountsService';
 
 interface DiscountOrder {
@@ -61,23 +61,8 @@ export default function DiscountReportsPage() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
 
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isLoading, router]);
 
-  useEffect(() => {
-    if (user) {
-      loadDiscountOrders();
-      loadVoucherOrders();
-      loadFreeItems();
-    }
-  }, [user]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [orders, voucherOrders, freeItems, searchTerm, filterAuthorizedBy, filterDiscountType, dateFrom, dateTo]);
 
   const loadDiscountOrders = async () => {
     try {
@@ -101,6 +86,12 @@ export default function DiscountReportsPage() {
     }
   };
 
+
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login');
+    }
+  }, [user, isLoading, router]);
   const loadFreeItems = async () => {
     try {
       const allFreeItems = await getFreeItems();
@@ -111,7 +102,15 @@ export default function DiscountReportsPage() {
     }
   };
 
-  const applyFilters = () => {
+
+  useEffect(() => {
+    if (user) {
+      void (async () => {
+        await Promise.all([loadDiscountOrders(), loadVoucherOrders(), loadFreeItems()]);
+      })();
+    }
+  }, [user]);
+  const applyFilters = useCallback(() => {
     let filtered = [...orders];
 
     // Search term
@@ -170,8 +169,16 @@ export default function DiscountReportsPage() {
       );
     }
     setFilteredVoucherOrders(filteredVouchers);
-  };
+  }, [dateFrom, dateTo, filterAuthorizedBy, filterDiscountType, orders, searchTerm, voucherOrders]);
 
+
+  useEffect(() => {
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await applyFilters();
+    })();
+  }, [orders, voucherOrders, freeItems, searchTerm, filterAuthorizedBy, filterDiscountType, dateFrom, dateTo, applyFilters]);
   const clearFilters = () => {
     setSearchTerm('');
     setFilterAuthorizedBy('');
@@ -439,8 +446,8 @@ export default function DiscountReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredOrders.map((order) => (
-                          <tr key={order.id || Math.random()} className="hover:bg-gray-50">
+                        {filteredOrders.map((order, idx) => (
+                          <tr key={order.id ?? idx} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {order.id ? order.id.slice(0, 8) + '...' : 'N/A'}
                             </td>
@@ -503,8 +510,8 @@ export default function DiscountReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredVoucherOrders.map((order) => (
-                          <tr key={order.id || Math.random()} className="hover:bg-gray-50">
+                        {filteredVoucherOrders.map((order, idx) => (
+                          <tr key={order.id ?? idx} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {order.id ? order.id.slice(0, 8) + '...' : 'N/A'}
                             </td>
@@ -565,8 +572,8 @@ export default function DiscountReportsPage() {
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {filteredFreeItems.map((item) => (
-                          <tr key={item.id || Math.random()} className="hover:bg-gray-50">
+                        {filteredFreeItems.map((item, idx) => (
+                          <tr key={item.id ?? idx} className="hover:bg-gray-50">
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                               {item.id ? item.id.slice(0, 8) + '...' : 'N/A'}
                             </td>

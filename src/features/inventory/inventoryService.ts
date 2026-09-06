@@ -1,4 +1,4 @@
-import { db, Recipe, Ingredient, StockAdjustment, StockAdjustmentType } from '@/src/lib/db';
+import { Recipe, Ingredient, RecipeHistory, StockAdjustment, StockAdjustmentType, Supplier } from '@/src/lib/db';
 import { comprehensiveIngredients, createRecipesForProduct } from './recipeData';
 import { generateUUID } from '@/src/lib/utils';
 import { getToken } from '@/src/lib/api';
@@ -701,7 +701,7 @@ export async function forceReseedInventoryData() {
         continue;
       }
       
-      const productName = product.name.toLowerCase();
+      product.name.toLowerCase();
       console.log(`🔍 Creating recipes for product: ${product.name} (ID: ${product.id})`);
       
       // Use recipeData.ts function to create recipes based on product name
@@ -1185,7 +1185,7 @@ export async function saveRecipeHistory(
  * @param menuItemId - The product ID
  * @returns Array of history records sorted by date (newest first)
  */
-export async function getRecipeHistory(menuItemId: string): Promise<any[]> {
+export async function getRecipeHistory(menuItemId: string): Promise<RecipeHistory[]> {
   try {
     const { db } = await import('@/src/lib/db');
     
@@ -1291,7 +1291,7 @@ export async function restoreRecipeFromHistory(historyId: string): Promise<{ suc
  * @param menuItemId - The product ID
  * @returns The latest history record or null
  */
-export async function getLatestRecipeHistory(menuItemId: string): Promise<any | null> {
+export async function getLatestRecipeHistory(menuItemId: string): Promise<RecipeHistory | null> {
   try {
     const { db } = await import('@/src/lib/db');
     
@@ -1544,7 +1544,7 @@ export async function importInventoryData(
       const ingredientsStart = lines.findIndex(line => line === 'INGREDIENTS');
       if (ingredientsStart >= 0) {
         const headerLine = lines[ingredientsStart + 1];
-        const headers = headerLine.split(',');
+        headerLine.split(',');
         
         for (let i = ingredientsStart + 2; i < lines.length; i++) {
           const line = lines[i];
@@ -1552,7 +1552,7 @@ export async function importInventoryData(
           
           try {
             const values = line.split(',');
-            const ingredient: any = {
+            const ingredient: Ingredient = {
               id: generateUUID(),
               name: values[1]?.replace(/"/g, '') || '',
               sku: values[2]?.replace(/"/g, '') || '',
@@ -1561,13 +1561,13 @@ export async function importInventoryData(
               current_stock: parseFloat(values[5]) || 0,
               min_stock: parseFloat(values[6]) || 0,
               unit_price: parseFloat(values[7]) || 0,
-              supplier_id: values[8] || null,
+              supplier_id: values[8] || undefined,
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString(),
             };
             
             // Check if ingredient with same SKU exists
-            const existing = await db.ingredients.where('sku').equals(ingredient.sku).first();
+            const existing = await db.ingredients.where('sku').equals(ingredient.sku ?? '').first();
             if (existing) {
               // Update existing
               await db.ingredients.update(existing.id!, {
@@ -1605,7 +1605,6 @@ export async function importInventoryData(
       // Parse suppliers section
       const suppliersStart = lines.findIndex(line => line === 'SUPPLIERS');
       if (suppliersStart >= 0) {
-        const headerLine = lines[suppliersStart + 1];
         
         for (let i = suppliersStart + 2; i < lines.length; i++) {
           const line = lines[i];
@@ -1613,7 +1612,7 @@ export async function importInventoryData(
           
           try {
             const values = line.split(',');
-            const supplier: any = {
+            const supplier: Supplier = {
               id: generateUUID(),
               name: values[1]?.replace(/"/g, '') || '',
               contact_person: values[2]?.replace(/"/g, '') || '',

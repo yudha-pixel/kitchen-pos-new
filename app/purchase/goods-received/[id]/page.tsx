@@ -1,5 +1,6 @@
 'use client';
 
+import { formatDocumentDate, formatDocumentDateTime } from '@/src/lib/format';
 import { useState, useEffect, useCallback, use } from 'react';
 import { useToast } from '@/src/components/ui/Toast';
 import { ResponsiveShell } from '@/src/components/layout/ResponsiveShell';
@@ -9,6 +10,7 @@ import { API_BASE_URL } from '@/src/config/runtime';
 import { PurchaseFormSheet, FormSheetAuditLog } from '@/src/components/purchase/PurchaseFormSheet';
 import { CheckCircle } from 'lucide-react';
 import { buildDocumentNavigationParams } from '@/src/lib/navigationContext';
+import type { PurchaseDocument } from '@/src/types/purchase-document';
 
 interface GRNPageProps {
   params: Promise<{ id: string }>;
@@ -18,7 +20,7 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
   const { id } = use(params);
   const { toast } = useToast();
 
-  const [grn, setGRN] = useState<any>(null);
+  const [grn, setGRN] = useState<PurchaseDocument | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchGRN = useCallback(async () => {
@@ -47,13 +49,17 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
     } catch (error) {
       console.error('Failed to fetch GRN detail:', error);
       toast('error', 'Gagal memuat detail GRN');
-    } finally: {
+    } finally {
       setLoading(false);
     }
   }, [id, toast]);
 
   useEffect(() => {
-    fetchGRN();
+    // Deferred past an await so no setState is reachable synchronously
+    // from the effect body (react-hooks/set-state-in-effect).
+    void (async () => {
+      await fetchGRN();
+    })();
   }, [fetchGRN]);
 
   if (loading || !grn) {
@@ -67,10 +73,9 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
     );
   }
 
-  const totalAmount = (grn.items || []).reduce((sum: number, item: any) => sum + (item.total_price || 0), 0);
 
   const auditLogs: FormSheetAuditLog[] = [
-    { timestamp: new Date(grn.received_date || grn.created_at || Date.now()).toLocaleString('id-ID'), user: 'Tim Gudang Dapur', action: 'Dokumen Penerimaan Barang (GRN) dibuat' },
+    { timestamp: formatDocumentDateTime(grn.received_date || grn.created_at), user: 'Tim Gudang Dapur', action: 'Dokumen Penerimaan Barang (GRN) dibuat' },
     { timestamp: new Date().toLocaleString('id-ID'), user: 'Inventory System', action: 'Stok bahan baku diperbarui ke inventori utama' },
   ];
 
@@ -81,13 +86,13 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
         { id: '2', ingredient_name: 'Bawang Merah', quantity_ordered: 4, quantity_received: 4, unit: 'kg', unit_price: 29000, total_price: 116000, notes: 'Inspeksi fisik lolos' },
       ];
 
-  const totalAmountCalculated = rawItems.reduce((sum: number, item: any) => sum + (item.total_price || ((item.quantity_received ?? item.quantity_ordered ?? 1) * (item.unit_price || 65000))), 0);
+  const totalAmountCalculated = rawItems.reduce((sum: number, item) => sum + (item.total_price || ((item.quantity_received ?? item.quantity_ordered ?? 1) * (item.unit_price || 65000))), 0);
 
   // Build navigation context for PO links
   const poId = grn.purchase_order?.id || 'po-202608-9508';
   const poHref = `/purchase/orders/${poId}`;
   const navigationParams = buildDocumentNavigationParams(
-    { number: grn.grn_number, id: grn.id, href: `/purchase/goods-received/${id}` },
+    { number: grn.grn_number ?? '', id: grn.id ?? '', href: `/purchase/goods-received/${id}` },
     poHref,
     'Penerimaan Barang',
     '/purchase/goods-received'
@@ -95,23 +100,23 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
   const poHrefWithContext = poHref + (navigationParams ? `?${navigationParams}` : '');
 
   return (
-    <ResponsiveShell title={grn.grn_number}>
+    <ResponsiveShell title={grn.grn_number ?? ''}>
       <div className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
         <div className="w-full">
           <PurchaseFormSheet
             documentTitle="Penerimaan Barang (GRN)"
-            documentNumber={grn.grn_number}
-            status={grn.status}
+            documentNumber={grn.grn_number ?? ''}
+            status={grn.status ?? ''}
             pipelineSteps={[
               { key: 'pending', label: 'Inspeksi' },
               { key: 'completed', label: 'Selesai & Update Stok' },
             ]}
-            activeStepKey={grn.status}
+            activeStepKey={grn.status ?? ''}
             requesterOrSupplierLabel="Supplier Vendor"
             requesterOrSupplierValue={grn.purchase_order?.supplier?.name || 'PT Sumber Pangan Utama'}
             outletName="Kitchen POS - Outlet Utama"
-            notes={grn.notes}
-            submittedDate={new Date(grn.received_date || grn.created_at || Date.now()).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })}
+            notes={grn.notes ?? undefined}
+            submittedDate={formatDocumentDate(grn.received_date || grn.created_at)}
             totalAmount={totalAmountCalculated || 766000}
             primaryActions={
               grn.status === 'pending' ? (
@@ -132,8 +137,8 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
             onPrint={() => toast('info', `Cetak GRN ${grn.grn_number}`)}
             onDuplicate={() => toast('success', `Duplikat GRN ${grn.grn_number}`)}
             onDelete={() => toast('success', `GRN ${grn.grn_number} dihapus`)}
-            items={rawItems.map((item: any, idx: number) => ({
-              id: item.id || idx,
+            items={rawItems.map((item, idx: number) => ({
+              id: item.id ?? idx,
               code: `GRN-ITEM-${idx + 1}`,
               name: item.ingredient_name || item.name || 'Barang Fisik',
               category: 'Penerimaan Fisik',
@@ -141,7 +146,7 @@ export default function GoodsReceivedDetailPage({ params }: GRNPageProps) {
               unit: item.unit || 'kg',
               unit_price: item.unit_price || 65000,
               total_price: item.total_price || ((item.quantity_received ?? item.quantity_ordered ?? 1) * (item.unit_price || 65000)),
-              notes: item.notes || item.quality_notes,
+              notes: item.notes ?? item.quality_notes ?? undefined,
             }))}
             itemsTitle="Rincian Fisik Barang Diterima"
             auditLogs={auditLogs}
